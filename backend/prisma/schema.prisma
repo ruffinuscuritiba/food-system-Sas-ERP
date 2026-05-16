@@ -1,0 +1,695 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  CASHIER
+  KITCHEN
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum TableStatus {
+  FREE
+  OCCUPIED
+  RESERVED
+}
+
+enum CashMovementType {
+  ENTRY
+  EXIT
+  SUPPLY
+  WITHDRAW
+}
+
+enum StockMovementType {
+  ENTRY
+  EXIT
+  LOSS
+  INVENTORY
+  ADJUSTMENT
+  SALE
+  PURCHASE
+  PRODUCTION
+  TRANSFER
+  RETURN
+  CANCELLATION
+}
+
+enum FinancialType {
+  INCOME
+  EXPENSE
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  TRANSFER
+}
+
+enum OrderType {
+  DELIVERY
+  DINE_IN
+  PICKUP
+}
+
+model Company {
+  id String @id @default(cuid())
+
+  name String
+
+  description String?
+
+  phone String?
+
+  email String?
+
+  plan String @default("DELIVERY")
+
+  subscriptionStatus String @default("ACTIVE")
+
+  dueDate DateTime?
+
+  isBlocked Boolean @default(false)
+
+  users User[]
+
+  modules CompanyModule[]
+
+  products Product[]
+
+  categories Category[]
+
+  customers Customer[]
+
+  orderItems OrderItem[]
+
+  tableOrderItems TableOrderItem[]
+
+  orders Order[]
+
+  tableOrders TableOrder[]
+
+  tables Table[]
+
+  financials Financial[]
+
+  ingredients Ingredient[]
+
+  recipes Recipe[]
+
+  stockMovements StockMovement[]
+
+  companyTheme CompanyTheme?
+
+  cashes Cash[]
+
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model User {
+  id String @id @default(cuid())
+
+  name String
+
+  email String @unique
+
+  password String
+
+  role Role @default(ADMIN)
+
+  isActive Boolean @default(true)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([email])
+}
+
+model CompanyModule {
+  id String @id @default(cuid())
+
+  module String
+
+  active Boolean @default(false)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model Category {
+  id String @id @default(cuid())
+
+  name String
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([name])
+}
+
+model Product {
+  id String @id @default(cuid())
+
+  name String
+
+  description String?
+
+  sku String?
+
+  barcode String?
+
+  unit String?
+
+  deletedAt DateTime?
+
+  size String?
+
+  weight Float?
+
+  imageUrl String?
+
+  costPrice Decimal? @db.Decimal(10, 2)
+
+  salePrice Decimal? @db.Decimal(10, 2)
+
+  profitMargin Decimal? @db.Decimal(5, 2)
+
+  isActive Boolean @default(true)
+
+  trackStock Boolean @default(true)
+
+  allowNegativeStock Boolean @default(false)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  categoryId String?
+
+  category Category? @relation(fields: [categoryId], references: [id])
+
+  recipe Recipe?
+
+  orderItems OrderItem[]
+
+  tableOrderItems TableOrderItem[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([categoryId])
+
+  @@index([name])
+}
+
+model Customer {
+  id String @id @default(cuid())
+
+  name String
+
+  phone String
+
+  email String?
+
+  address String?
+
+  notes String?
+
+  orders Order[]
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([phone])
+}
+
+model Order {
+  id String @id @default(cuid())
+
+  customerId String?
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  paymentMethod PaymentMethod
+
+  subtotal Decimal @db.Decimal(10, 2)
+
+  deliveryFee Decimal @default(0) @db.Decimal(10, 2)
+
+  total Decimal @db.Decimal(10, 2)
+
+  notes String?
+
+  items OrderItem[]
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  startedAt DateTime?
+
+  finishedAt DateTime?
+
+  completedAt DateTime?
+
+  confirmedAt DateTime?
+
+  preparingAt DateTime?
+
+  readyAt DateTime?
+
+  outForDeliveryAt DateTime?
+
+  deliveredAt DateTime?
+
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([status])
+
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  orderId String
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  productId String
+
+  product Product @relation(fields: [productId], references: [id])
+
+  productName String
+
+  productSku String?
+
+  quantity Decimal @db.Decimal(10, 2)
+
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  subtotal Decimal @db.Decimal(10, 2)
+
+  productCost Decimal? @db.Decimal(10,2)
+
+  cmv Decimal? @db.Decimal(10,2)
+
+  profit Decimal? @db.Decimal(10,2)
+
+  notes String?
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+
+  @@index([orderId])
+
+  @@index([productId])
+}
+
+model Table {
+  id String @id @default(cuid())
+
+  number Int
+
+  status TableStatus @default(FREE)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  orders TableOrder[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model TableOrder {
+  id String @id @default(cuid())
+
+  tableId String
+
+  table Table @relation(fields: [tableId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  total Decimal @db.Decimal(10, 2)
+
+  items TableOrderItem[]
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model TableOrderItem {
+  id String @id @default(cuid())
+
+  tableOrderId String
+
+  tableOrder TableOrder @relation(fields: [tableOrderId], references: [id])
+
+  productId String
+
+  product Product @relation(fields: [productId], references: [id])
+
+  quantity Decimal @db.Decimal(10, 2)
+
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  subtotal Decimal @db.Decimal(10, 2)
+
+  notes String?
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model Financial {
+  id String @id @default(cuid())
+
+  type FinancialType
+
+  category String
+
+  description String?
+
+  amount Decimal @db.Decimal(10, 2)
+
+  paymentMethod PaymentMethod?
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([type])
+}
+
+model Ingredient {
+  id String @id @default(cuid())
+
+  name String
+
+  sku String?
+
+  barcode String?
+
+  stock Decimal @db.Decimal(10, 2)
+
+  minimumStock Decimal @default(0) @db.Decimal(10, 2)
+
+  unit String
+
+  cost Decimal @db.Decimal(10, 2)
+
+  averageCost Decimal @default(0) @db.Decimal(10, 2)
+
+  lastPurchaseCost Decimal @default(0) @db.Decimal(10, 2)
+
+  allowNegativeStock Boolean @default(false)
+
+  isActive Boolean @default(true)
+
+  deletedAt DateTime?
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  stockMovements StockMovement[]
+
+  recipeItems RecipeItem[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+
+  @@index([deletedAt])
+
+  @@index([name])
+}
+
+model Recipe {
+  id String @id @default(cuid())
+
+  productId String @unique
+
+  product Product @relation(fields: [productId], references: [id])
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  items RecipeItem[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model RecipeItem {
+  id String @id @default(cuid())
+
+  recipeId String
+
+  ingredientId String
+
+  quantity Decimal @db.Decimal(10, 2)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id])
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([recipeId])
+
+  @@index([ingredientId])
+}
+
+model StockMovement {
+  id String @id @default(cuid())
+
+  ingredientId String
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  type StockMovementType
+
+  quantity Decimal @db.Decimal(10, 2)
+
+  previousStock Decimal @db.Decimal(10, 2)
+
+  currentStock Decimal @db.Decimal(10, 2)
+
+  unitCost Decimal? @db.Decimal(10, 2)
+
+  totalCost Decimal? @db.Decimal(10, 2)
+
+  reason String?
+
+  referenceId String?
+
+  referenceType String?
+
+  performedById String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+
+  @@index([ingredientId])
+
+  @@index([type])
+
+  @@index([createdAt])
+}
+
+model CompanyTheme {
+  id String @id @default(cuid())
+
+  companyId String @unique
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  primaryColor String @default("#ef4444")
+
+  secondaryColor String @default("#0f172a")
+
+  backgroundColor String @default("#020617")
+
+  textColor String @default("#ffffff")
+
+  logoUrl String?
+
+  bannerUrl String?
+
+  darkMode Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model Cash {
+  id String @id @default(cuid())
+
+  openingValue Decimal @db.Decimal(10, 2)
+
+  balance Decimal @db.Decimal(10, 2)
+
+  entries Decimal @default(0) @db.Decimal(10, 2)
+
+  exits Decimal @default(0) @db.Decimal(10, 2)
+
+  isOpen Boolean @default(true)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  action String
+
+  entity String
+
+  entityId String?
+
+  description String?
+
+  metadata Json?
+
+  ipAddress String?
+
+  userAgent String?
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+
+  @@index([userId])
+
+  @@index([entity])
+
+  @@index([action])
+
+  @@index([createdAt])
+}

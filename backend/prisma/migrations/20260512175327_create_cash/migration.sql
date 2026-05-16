@@ -1,0 +1,12 @@
+-- CreateTable
+CREATE TABLE "Cash" (
+    "id" TEXT NOT NULL,
+    "openingValue" DOUBLE PRECISION NOT NULL,
+    "balance" DOUBLE PRECISION NOT NULL,
+    "entries" DOUBLE PRECISION NOT NULL,
+    "exits" DOUBLE PRECISION NOT NULL,
+    "isOpen" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Cash_pkey" PRIMARY KEY ("id")
+);

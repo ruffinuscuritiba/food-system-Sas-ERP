@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN     "cmv" DOUBLE PRECISION,
+ADD COLUMN     "profit" DOUBLE PRECISION;

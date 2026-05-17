@@ -1,0 +1,8 @@
+{
+  "name": "food-system-sas-erp",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}

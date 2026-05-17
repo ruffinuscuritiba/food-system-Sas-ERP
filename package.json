@@ -1,5 +1,6 @@
 {
   "name": "food-system-sas-erp",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
     "frontend",

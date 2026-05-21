@@ -1,7 +1,5 @@
 import axios from 'axios'
 
-import Cookies from 'js-cookie'
-
 export const api = axios.create({
 
   baseURL:
@@ -14,7 +12,7 @@ api.interceptors.request.use(
   (config) => {
 
     const token =
-      Cookies.get('token')
+      localStorage.getItem('token')
 
     if (token) {
 

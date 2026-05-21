@@ -3,7 +3,7 @@ import axios from "axios";
 const api = axios.create({
 
   baseURL:
-    "http://192.168.15.127:3001",
+  process.env.NEXT_PUBLIC_API_URL,
 });
 
 api.interceptors.request.use(

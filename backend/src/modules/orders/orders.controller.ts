@@ -156,26 +156,26 @@ export class OrdersController {
     );
   }
 
-@Get("dashboard")
+  @Get("dashboard")
 
-@UseGuards(
-  JwtAuthGuard,
-  RolesGuard,
-)
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
 
-@Roles(
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-)
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+  )
 
-dashboard(
-  @Request()
-  req: any,
-) {
+  dashboard(
+    @Request()
+    req: any,
+  ) {
 
-  return this.service.dashboard(
-    req.user.companyId,
-  );
-}
+    return this.service.dashboard(
+      req.user.companyId,
+    );
+  }
 }

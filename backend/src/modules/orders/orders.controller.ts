@@ -5,16 +5,15 @@ import {
   Patch,
   Param,
   Post,
-  Query,
   Request,
   UseGuards,
 } from "@nestjs/common";
 
-import {
-  OrdersService }
+import { OrdersService }
 from "./orders.service";
 
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus }
+from "@prisma/client";
 
 import { JwtAuthGuard }
 from "@/common/guards/jwt-auth.guard";
@@ -33,21 +32,18 @@ export class OrdersController {
   ) {}
 
   @Get()
-
   @UseGuards(
     JwtAuthGuard,
     RolesGuard,
   )
-
   @Roles(
-  "SUPER_ADMIN",
-  "ADMIN",
-  "MANAGER",
-  "CASHIER",
-  "WAITER",
-  "KITCHEN",
-)
-
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+    "CASHIER",
+    "WAITER",
+    "KITCHEN",
+  )
   findAll(
     @Request() req: any,
   ) {
@@ -58,12 +54,10 @@ export class OrdersController {
   }
 
   @Post()
-
   @UseGuards(
     JwtAuthGuard,
     RolesGuard,
   )
-
   @Roles(
     "SUPER_ADMIN",
     "ADMIN",
@@ -71,7 +65,6 @@ export class OrdersController {
     "CASHIER",
     "WAITER",
   )
-
   create(
     @Body()
     body: any,
@@ -90,12 +83,10 @@ export class OrdersController {
   }
 
   @Patch(":id/status")
-
   @UseGuards(
     JwtAuthGuard,
     RolesGuard,
   )
-
   @Roles(
     "SUPER_ADMIN",
     "ADMIN",
@@ -103,7 +94,6 @@ export class OrdersController {
     "KITCHEN",
     "CASHIER",
   )
-
   updateStatus(
 
     @Param("id")
@@ -123,22 +113,17 @@ export class OrdersController {
     );
   }
 
-  @Patch(
-    ":id/production-status",
-  )
-
+  @Patch(":id/production-status")
   @UseGuards(
     JwtAuthGuard,
     RolesGuard,
   )
-
   @Roles(
     "SUPER_ADMIN",
     "ADMIN",
     "MANAGER",
     "KITCHEN",
   )
-
   updateProductionStatus(
 
     @Param("id")
@@ -159,22 +144,27 @@ export class OrdersController {
   }
 
   @Get("dashboard")
-
   @UseGuards(
     JwtAuthGuard,
     RolesGuard,
   )
-
   @Roles(
     "SUPER_ADMIN",
     "ADMIN",
     "MANAGER",
+    "CASHIER",
+    "WAITER",
+    "KITCHEN",
   )
-
   dashboard(
     @Request()
     req: any,
   ) {
+
+    console.log(
+      "USER DASHBOARD:",
+      req.user,
+    );
 
     return this.service.dashboard(
       req.user.companyId,

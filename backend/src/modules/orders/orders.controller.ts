@@ -40,11 +40,13 @@ export class OrdersController {
   )
 
   @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-    "KITCHEN",
-  )
+  "SUPER_ADMIN",
+  "ADMIN",
+  "MANAGER",
+  "CASHIER",
+  "WAITER",
+  "KITCHEN",
+)
 
   findAll(
     @Request() req: any,

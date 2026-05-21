@@ -3,24 +3,16 @@ import { create } from "zustand";
 import Cookies from "js-cookie";
 
 type User = {
-
   id: string;
-
   name: string;
-
   email: string;
-
   role: string;
-
   companyId: string;
 };
 
 type AuthStore = {
-
   user: User | null;
-
   token: string | null;
-
   isAuthenticated: boolean;
 
   setAuth: (
@@ -76,6 +68,13 @@ export const useAuthStore =
     },
 
     loadAuth: () => {
+
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
+      }
 
       const token =
         localStorage.getItem(
@@ -160,3 +159,7 @@ export const useAuthStore =
       );
     },
   }));
+
+useAuthStore
+  .getState()
+  .loadAuth();

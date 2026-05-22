@@ -33,17 +33,27 @@ async function bootstrap() {
   })
 
   // CORS Configuration
-  const corsOrigins = [
-    'https://food-system-sas-erp.vercel.app',
-    'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
-    /^https:\/\/.*\.vercel\.app$/,
-    'http://localhost:3000',
-    'http://localhost:3001',
-    configService.get<string>('FRONTEND_URL'),
-  ].filter(Boolean)
-
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'https://food-system-sas-erp.vercel.app',
+        'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:3001',
+        configService.get<string>('FRONTEND_URL'),
+      ].filter(Boolean);
+
+      // Permitir se a origem estiver na lista, se for um subdomínio vercel.app, ou se não houver origem (ex: mobile apps ou curl)
+      const isVercel = origin && origin.endsWith('.vercel.app');
+      const isAllowed = !origin || allowedOrigins.includes(origin) || isVercel;
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS blocked for origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -71,7 +81,6 @@ async function bootstrap() {
       level: 'info',
       event: 'app_started',
       port,
-      corsOrigins: corsOrigins.map((o) => (typeof o === 'string' ? o : o.toString())),
       timestamp: new Date().toISOString(),
     }),
   )

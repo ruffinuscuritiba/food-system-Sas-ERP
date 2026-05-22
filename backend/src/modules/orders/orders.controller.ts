@@ -70,4 +70,19 @@ export class OrdersController {
     console.log("USER DASHBOARD:", req.user);
     return this.service.dashboard(req.user.companyId);
   }
+
+  // Public endpoint — no auth required (customer ordering from menu)
+  @Post("public")
+  createPublic(@Body() body: any) {
+    return this.service.create({
+      companyId: body.companyId,
+      customerName: body.customerName,
+      customerPhone: body.customerPhone,
+      deliveryAddress: body.deliveryAddress,
+      orderType: body.orderType || 'DELIVERY',
+      paymentMethod: body.paymentMethod || 'PIX',
+      items: body.items,
+      total: body.total,
+    });
+  }
 }

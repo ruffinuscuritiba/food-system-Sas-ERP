@@ -13,6 +13,8 @@ import { CashModule } from './modules/cash/cash.module'
 import { ThemesModule } from './modules/themes/themes.module'
 import { CompanyModule } from './modules/company/company.module'
 import { AuditModule } from './modules/audit/audit.module'
+import { NotificationsModule } from './modules/notifications/notifications.module'
+import { PaymentsModule } from './modules/payments/payments.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -33,6 +35,8 @@ import { AppService } from './app.service'
     CashModule,
     ThemesModule,
     CompanyModule,
+    NotificationsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

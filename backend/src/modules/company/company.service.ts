@@ -21,8 +21,27 @@ export class CompanyService {
     });
   }
 
+  findOne(id: string) {
+    return this.prisma.company.findUnique({
+      where: { id },
+      include: {
+        modules: true,
+        users: {
+          select: { id: true, name: true, email: true, role: true, isActive: true },
+        },
+      },
+    });
+  }
+
   create(data: any) {
     return this.prisma.company.create({
+      data,
+    });
+  }
+
+  update(id: string, data: any) {
+    return this.prisma.company.update({
+      where: { id },
       data,
     });
   }

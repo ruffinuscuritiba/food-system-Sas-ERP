@@ -32,9 +32,22 @@ async function bootstrap() {
     next()
   })
 
+  // CORS Configuration
+  const corsOrigins = [
+    'https://food-system-sas-erp.vercel.app',
+    'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
+    /^https:\/\/.*\.vercel\.app$/,
+    'http://localhost:3000',
+    'http://localhost:3001',
+    configService.get<string>('FRONTEND_URL'),
+  ].filter(Boolean)
+
   app.enableCors({
-    origin: configService.get<string>('FRONTEND_URL'),
+    origin: corsOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 3600,
   })
 
   app.useGlobalPipes(
@@ -58,6 +71,7 @@ async function bootstrap() {
       level: 'info',
       event: 'app_started',
       port,
+      corsOrigins: corsOrigins.map((o) => (typeof o === 'string' ? o : o.toString())),
       timestamp: new Date().toISOString(),
     }),
   )

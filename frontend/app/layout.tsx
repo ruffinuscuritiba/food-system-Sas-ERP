@@ -4,7 +4,8 @@ import "./globals.css";
 
 import Link from "next/link";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import {
   LayoutDashboard,
@@ -31,7 +32,7 @@ export default function RootLayout({
 
   const pathname =
     usePathname();
-
+  const router = useRouter();
   const isLoginPage =
     pathname === "/login";
 
@@ -39,7 +40,13 @@ export default function RootLayout({
     isAdmin,
     isKitchen,
     isCashier,
+    loadAuth,
   } = useAuthStore();
+
+  // Carregar autenticação ao montar o layout
+  useEffect(() => {
+    loadAuth();
+  }, [loadAuth]);
 
   function logout() {
 
@@ -58,8 +65,7 @@ export default function RootLayout({
       "Logout realizado",
     );
 
-    window.location.href =
-      "/login";
+    router.push("/login");
   }
 
   if (isLoginPage) {

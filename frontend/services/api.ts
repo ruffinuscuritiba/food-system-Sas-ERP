@@ -1,6 +1,11 @@
-﻿import axios from 'axios'
+import axios from 'axios'
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://food-system-backend-no7d.onrender.com/api'
+let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://food-system-backend-no7d.onrender.com/api'
+
+// Garantir que a URL termine com /api para evitar 404
+if (apiUrl && !apiUrl.endsWith('/api')) {
+  apiUrl = apiUrl.endsWith('/') ? `${apiUrl}api` : `${apiUrl}/api`;
+}
 
 export const api = axios.create({
   baseURL: apiUrl,

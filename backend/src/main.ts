@@ -16,6 +16,7 @@ async function bootstrap() {
     const origin = req.headers.origin;
     const allowedOrigins = [
       'https://food-system-sas-erp.vercel.app',
+      'https://food-system-sas-erp-frontend.vercel.app',
       'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
       'http://localhost:3000',
       'http://localhost:3001',

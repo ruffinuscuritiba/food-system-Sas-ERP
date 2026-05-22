@@ -1,9 +1,14 @@
 import axios from 'axios'
 
-let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://food-system-backend-no7d.onrender.com/api'
+// Novo backend padrão: 94zd
+const DEFAULT_BACKEND_URL = 'https://food-system-backend-94zd.onrender.com'
 
-// Garantir que a URL termine com /api para evitar 404
-if (apiUrl && !apiUrl.endsWith('/api')) {
+let apiUrl = process.env.NEXT_PUBLIC_API_URL || `${DEFAULT_BACKEND_URL}/api`
+
+// Corrigir a URL se ela já contiver /api ou se estiver faltando
+if (apiUrl.includes('/api/api')) {
+  apiUrl = apiUrl.replace('/api/api', '/api');
+} else if (!apiUrl.endsWith('/api')) {
   apiUrl = apiUrl.endsWith('/') ? `${apiUrl}api` : `${apiUrl}/api`;
 }
 

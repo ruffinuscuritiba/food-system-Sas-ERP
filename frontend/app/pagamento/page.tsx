@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { api } from "@/services/api";
@@ -23,7 +23,7 @@ const PLAN_INFO: Record<string, { label: string; price: string; features: string
   },
 };
 
-export default function PagamentoPage() {
+function PagamentoContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const plan = searchParams.get("plan") || "DELIVERY";
@@ -148,5 +148,13 @@ export default function PagamentoPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PagamentoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Carregando...</div>}>
+      <PagamentoContent />
+    </Suspense>
   );
 }

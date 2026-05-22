@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "@/services/api";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 
-export default function PagamentoSucessoPage() {
+function PagamentoSucessoContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const plan = searchParams.get("plan") || "";
@@ -69,5 +69,13 @@ export default function PagamentoSucessoPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PagamentoSucessoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Carregando...</div>}>
+      <PagamentoSucessoContent />
+    </Suspense>
   );
 }

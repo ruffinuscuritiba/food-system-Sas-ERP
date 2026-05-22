@@ -33,8 +33,17 @@ export default function RootLayout({
   const pathname =
     usePathname();
   const router = useRouter();
+  // Rotas públicas que não mostram o sidebar/navbar
+  const PUBLIC_ROUTES = [
+    '/login',
+    '/signup',
+    '/landing',
+    '/menu',
+    '/pagamento',
+    '/order-status',
+  ]
   const isLoginPage =
-    pathname === "/login";
+    PUBLIC_ROUTES.some((route) => pathname?.startsWith(route));
 
   const {
     isAdmin,

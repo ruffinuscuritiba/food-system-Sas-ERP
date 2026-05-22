@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "installCommand": "npm ci",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://food-system-backend-no7d.onrender.com/api"
-  }
-}

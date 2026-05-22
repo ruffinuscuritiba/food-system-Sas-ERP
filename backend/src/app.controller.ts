@@ -18,4 +18,13 @@ export class AppController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Get('version')
+  getVersion() {
+    return {
+      version: '1.0.6-aggressive-cors',
+      status: 'active',
+      cors_mode: 'manual-middleware'
+    };
+  }
 }

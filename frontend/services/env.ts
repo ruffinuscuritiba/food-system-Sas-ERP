@@ -1,5 +1,5 @@
 export const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_URL || "https://food-system-backend-no7d.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://food-system-backend-no7d.onrender.com/api";
 
 export const socketBaseUrl =
   process.env.NEXT_PUBLIC_SOCKET_URL || apiBaseUrl;

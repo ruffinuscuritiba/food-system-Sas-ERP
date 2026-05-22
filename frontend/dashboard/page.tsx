@@ -32,7 +32,7 @@ export default function DashboardPage() {
 
     const response =
       await fetch(
-        `http://localhost:3001/orders/dashboard`,
+        `${process.env.NEXT_PUBLIC_API_URL || "https://food-system-backend-no7d.onrender.com"}/orders/dashboard`,
       );
 
     const dashboard =

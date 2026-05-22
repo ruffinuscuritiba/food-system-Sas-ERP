@@ -15,7 +15,7 @@ from "socket.io";
 export class SocketGateway {
 
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   emitOrderCreated(
     order: any,

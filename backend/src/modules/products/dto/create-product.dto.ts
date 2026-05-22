@@ -8,21 +8,21 @@ import {
 
 export class CreateProductDto {
   @IsString()
-  name: string
+  name!: string
 
   @IsOptional()
   @IsString()
   description?: string
 
   @IsNumber()
-  price: number
+  price!: number
 
   @IsOptional()
   @IsString()
   image?: string
 
   @IsUUID()
-  categoryId: string
+  categoryId!: string
 
   @IsOptional()
   @IsBoolean()

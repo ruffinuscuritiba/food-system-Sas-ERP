@@ -32,7 +32,7 @@ export class JwtStrategy extends PassportStrategy(
       secretOrKey:
         configService.get<string>(
           'JWT_SECRET',
-        ),
+        ) || 'secret',
     })
   }
 

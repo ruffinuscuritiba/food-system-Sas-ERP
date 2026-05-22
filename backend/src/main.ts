@@ -13,8 +13,29 @@ async function bootstrap() {
   const configService = app.get(ConfigService)
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const startedAt = Date.now()
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://food-system-sas-erp.vercel.app',
+      'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      configService.get<string>('FRONTEND_URL'),
+    ].filter(Boolean);
 
+    const isVercel = origin && origin.endsWith('.vercel.app');
+    
+    if (origin && (allowedOrigins.includes(origin) || isVercel)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+
+    const startedAt = Date.now()
     res.on('finish', () => {
       console.log(
         JSON.stringify({

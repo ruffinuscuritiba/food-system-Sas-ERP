@@ -2,38 +2,36 @@ import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import type { Request, Response, NextFunction } from 'express'
-
 import { AppModule } from './app.module'
-
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
-
   const configService = app.get(ConfigService)
 
+  // Middleware agressivo para CORS - DEVE vir antes de qualquer outra coisa
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
-    const allowedOrigins = [
-      'https://food-system-sas-erp.vercel.app',
-      'https://food-system-sas-erp-frontend.vercel.app',
-      'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      configService.get<string>('FRONTEND_URL'),
-    ].filter(Boolean);
-
-    const isVercel = origin && origin.endsWith('.vercel.app');
     
-    if (origin && (allowedOrigins.includes(origin) || isVercel)) {
+    // Permitir qualquer origem da Vercel ou localhost
+    const isVercel = origin && origin.endsWith('.vercel.app');
+    const isLocal = origin && (origin.includes('localhost') || origin.includes('127.0.0.1'));
+    
+    if (origin && (isVercel || isLocal)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    } else if (!origin) {
+      // Para ferramentas como curl
+      res.setHeader('Access-Control-Allow-Origin', '*');
     }
 
+    // Cabeçalho de depuração para confirmar que este código está rodando
+    res.setHeader('X-App-Version', '1.0.5-fixed-cors');
+
     if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
+      return res.status(204).send();
     }
 
     const startedAt = Date.now()
@@ -54,33 +52,8 @@ async function bootstrap() {
     next()
   })
 
-  // CORS Configuration
-  app.enableCors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        'https://food-system-sas-erp.vercel.app',
-        'https://food-system-sas-qibvc3cet-ruffinuscuritiba.vercel.app',
-        'http://localhost:3000',
-        'http://localhost:3001',
-        configService.get<string>('FRONTEND_URL'),
-      ].filter(Boolean);
-
-      // Permitir se a origem estiver na lista, se for um subdomínio vercel.app, ou se não houver origem (ex: mobile apps ou curl)
-      const isVercel = origin && origin.endsWith('.vercel.app');
-      const isAllowed = !origin || allowedOrigins.includes(origin) || isVercel;
-
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        console.warn(`CORS blocked for origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    maxAge: 3600,
-  })
+  // Desativar o enableCors padrão do NestJS para não haver conflito
+  // app.enableCors() 
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -91,17 +64,16 @@ async function bootstrap() {
   )
 
   app.useGlobalFilters(new HttpExceptionFilter())
-
   app.setGlobalPrefix('api')
 
   const port = configService.get<number>('PORT') || 3001
-
   await app.listen(port)
 
   console.log(
     JSON.stringify({
       level: 'info',
       event: 'app_started',
+      version: '1.0.5-fixed-cors',
       port,
       timestamp: new Date().toISOString(),
     }),

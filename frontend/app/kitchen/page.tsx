@@ -213,6 +213,8 @@ export default function KitchenPage() {
 
     loadOrders();
 
+    socket.connect();
+
     socket.on(
       "orderCreated",
       (newOrder) => {
@@ -248,13 +250,11 @@ export default function KitchenPage() {
 
     return () => {
 
-      socket.off(
-        "orderCreated",
-      );
+      socket.off("orderCreated");
 
-      socket.off(
-        "kitchenUpdate",
-      );
+      socket.off("kitchenUpdate");
+
+      socket.disconnect();
     };
 
   }, []);

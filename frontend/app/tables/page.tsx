@@ -71,31 +71,19 @@ export default function TablesPage() {
 
     fetchTables();
 
-    socket.on(
-      "tableUpdate",
-      () => {
+    socket.connect();
 
-        fetchTables();
-      },
-    );
+    socket.on("tableUpdate", fetchTables);
 
-    socket.on(
-      "orderCreated",
-      () => {
-
-        fetchTables();
-      },
-    );
+    socket.on("orderCreated", fetchTables);
 
     return () => {
 
-      socket.off(
-        "tableUpdate",
-      );
+      socket.off("tableUpdate");
 
-      socket.off(
-        "orderCreated",
-      );
+      socket.off("orderCreated");
+
+      socket.disconnect();
     };
 
   }, []);

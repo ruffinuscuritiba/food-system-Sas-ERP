@@ -117,6 +117,8 @@ model Company {
 
   recipes Recipe[]
 
+  recipeItems RecipeItem[]
+
   stockMovements StockMovement[]
 
   companyTheme CompanyTheme?
@@ -156,7 +158,6 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([email])
 }
 
@@ -192,7 +193,6 @@ model Category {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([name])
 }
 
@@ -248,9 +248,7 @@ model Product {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([categoryId])
-
   @@index([name])
 }
 
@@ -278,7 +276,6 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([phone])
 }
 
@@ -330,9 +327,7 @@ model Order {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([status])
-
   @@index([createdAt])
 }
 
@@ -357,11 +352,11 @@ model OrderItem {
 
   subtotal Decimal @db.Decimal(10, 2)
 
-  productCost Decimal? @db.Decimal(10,2)
+  productCost Decimal? @db.Decimal(10, 2)
 
-  cmv Decimal? @db.Decimal(10,2)
+  cmv Decimal? @db.Decimal(10, 2)
 
-  profit Decimal? @db.Decimal(10,2)
+  profit Decimal? @db.Decimal(10, 2)
 
   notes String?
 
@@ -372,9 +367,7 @@ model OrderItem {
   createdAt DateTime @default(now())
 
   @@index([companyId])
-
   @@index([orderId])
-
   @@index([productId])
 }
 
@@ -472,7 +465,6 @@ model Financial {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([type])
 }
 
@@ -516,9 +508,7 @@ model Ingredient {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
   @@index([deletedAt])
-
   @@index([name])
 }
 
@@ -551,14 +541,18 @@ model RecipeItem {
 
   quantity Decimal @db.Decimal(10, 2)
 
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
   recipe Recipe @relation(fields: [recipeId], references: [id])
 
   ingredient Ingredient @relation(fields: [ingredientId], references: [id])
 
   createdAt DateTime @default(now())
 
+  @@index([companyId])
   @@index([recipeId])
-
   @@index([ingredientId])
 }
 
@@ -598,11 +592,8 @@ model StockMovement {
   createdAt DateTime @default(now())
 
   @@index([companyId])
-
   @@index([ingredientId])
-
   @@index([type])
-
   @@index([createdAt])
 }
 
@@ -684,12 +675,8 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([companyId])
-
   @@index([userId])
-
   @@index([entity])
-
   @@index([action])
-
   @@index([createdAt])
 }

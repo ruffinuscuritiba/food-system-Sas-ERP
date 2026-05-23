@@ -192,6 +192,7 @@ export class OrdersService {
 
     this.socketGateway
       .emitDashboardUpdate(
+        data.companyId,
         dashboard,
       );
 
@@ -272,6 +273,8 @@ export class OrdersService {
                   where: {
                     productId:
                       orderItem.productId,
+                    companyId:
+                      order.companyId,
                   },
 
                   include: {
@@ -402,6 +405,8 @@ export class OrdersService {
                   where: {
                     productId:
                       orderItem.productId,
+                    companyId:
+                      order.companyId,
                   },
 
                   include: {
@@ -564,6 +569,7 @@ export class OrdersService {
 
     this.socketGateway
       .emitDashboardUpdate(
+        order.companyId,
         dashboard,
       );
 

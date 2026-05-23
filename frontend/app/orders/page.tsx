@@ -222,25 +222,19 @@ export default function OrdersPage() {
 
     fetchOrders();
 
-    socket.on(
-      "orderCreated",
-      fetchOrders,
-    );
+    socket.connect();
 
-    socket.on(
-      "kitchenUpdate",
-      fetchOrders,
-    );
+    socket.on("orderCreated", fetchOrders);
+
+    socket.on("kitchenUpdate", fetchOrders);
 
     return () => {
 
-      socket.off(
-        "orderCreated",
-      );
+      socket.off("orderCreated");
 
-      socket.off(
-        "kitchenUpdate",
-      );
+      socket.off("kitchenUpdate");
+
+      socket.disconnect();
     };
 
   }, []);

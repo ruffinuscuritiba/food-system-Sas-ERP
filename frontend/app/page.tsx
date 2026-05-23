@@ -86,6 +86,8 @@ setSummary({
 
     loadDashboard();
 
+    socket.connect();
+
     socket.on(
       "tableUpdate",
       () => {

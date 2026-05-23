@@ -1,13 +1,12 @@
 "use client";
-import { apiBaseUrl, socketBaseUrl } from "@/services/env";
+import { apiBaseUrl } from "@/services/env";
+
+import { socket } from "@/services/socket";
 
 import {
   useEffect,
   useState,
 } from "react";
-
-import { io }
-from "socket.io-client";
 
 import {
   motion,
@@ -48,11 +47,6 @@ import {
   ChefHat,
 
 } from "lucide-react";
-
-const socket =
-  io(
-    socketBaseUrl,
-  );
 
 function MetricCard({
   title,
@@ -173,35 +167,21 @@ export default function DashboardPage() {
 
     loadDashboard();
 
-    socket.on(
-      "dashboard:update",
+    socket.connect();
 
-      (data) => {
+    socket.on("dashboard:update", (data) => {
+      setOrdersData(data);
+    });
 
-        setOrdersData(
-          data,
-        );
-      },
-    );
-
-    socket.on(
-      "tableUpdate",
-
-      () => {
-
-        loadDashboard();
-      },
-    );
+    socket.on("tableUpdate", loadDashboard);
 
     return () => {
 
-      socket.off(
-        "dashboard:update",
-      );
+      socket.off("dashboard:update");
 
-      socket.off(
-        "tableUpdate",
-      );
+      socket.off("tableUpdate");
+
+      socket.disconnect();
     };
   }, []);
 

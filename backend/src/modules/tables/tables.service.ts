@@ -74,6 +74,7 @@ export class TablesService {
       });
 
     this.socketGateway.emitTableUpdate(
+      table.companyId,
       table,
     );
 

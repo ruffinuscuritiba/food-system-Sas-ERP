@@ -95,7 +95,7 @@ export class PaymentsService {
       throw new BadRequestException('Erro ao criar checkout MercadoPago.');
     }
 
-    const data = await response.json();
+    const data: any = await response.json();
     return {
       checkoutUrl: data.init_point,
       paymentId: data.id,
@@ -164,7 +164,7 @@ export class PaymentsService {
       const res = await fetch(`https://api.mercadopago.com/v1/payments/${body.data.id}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const payment = await res.json();
+      const payment: any = await response.json();
 
       if (payment.status === 'approved') {
         const [companyId, plan] = (payment.external_reference || '').split('|');

@@ -68,6 +68,17 @@ async function main() {
 
   console.log(`✅ Usuário admin2 criado: ${adminUser2.email} (role: ${adminUser2.role})`)
 
+  // Ativar módulos para a empresa seed
+  const modules = ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY']
+  for (const mod of modules) {
+    await prisma.companyModule.upsert({
+      where: { id: `module-${mod.toLowerCase()}-seed` },
+      update: { active: true },
+      create: { id: `module-${mod.toLowerCase()}-seed`, module: mod, active: true, companyId: company.id },
+    })
+  }
+  console.log(`✅ Módulos ativados: ${modules.join(', ')}`)
+
   console.log('\n🎉 Seed concluído com sucesso!')
   console.log('\n📋 Credenciais de acesso:')
   console.log('   Email: admin@teste.com')

@@ -21,6 +21,7 @@ import {
   QrCode,
   LogOut,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -93,8 +94,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const { isAdmin, isKitchen, isCashier, loadAuth, user } = useAuthStore()
   const [companyName, setCompanyName] = useState("FoodSaaS ERP")
+  const [impersonating, setImpersonating] = useState<{ companyName: string } | null>(null)
 
-  useEffect(() => { loadAuth() }, [loadAuth])
+  useEffect(() => {
+    loadAuth()
+    const imp = localStorage.getItem("impersonating")
+    if (imp) { try { setImpersonating(JSON.parse(imp)) } catch {} }
+  }, [loadAuth])
 
   useEffect(() => {
     if (!user?.companyId) return
@@ -102,6 +108,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       .then((r) => { if (r.data?.name) setCompanyName(r.data.name) })
       .catch(() => {})
   }, [user?.companyId])
+
+  function stopImpersonating() {
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
+    localStorage.removeItem("impersonating")
+    document.cookie = "token=; Max-Age=0; path=/"
+    router.push("/super-admin/dashboard")
+  }
 
   function logout() {
     localStorage.removeItem("token")
@@ -131,7 +145,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR">
       <body className="bg-slate-950 text-white">
         <Toaster position="top-right" />
-        <div className="flex min-h-screen">
+        {impersonating && (
+          <div className="fixed top-0 inset-x-0 z-50 bg-amber-400 text-black px-5 py-2.5 flex items-center justify-between shadow-lg">
+            <span className="text-sm font-medium">
+              👁 Visualizando como: <strong>{impersonating.companyName}</strong>
+            </span>
+            <button
+              onClick={stopImpersonating}
+              className="flex items-center gap-1.5 bg-black/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-black transition"
+            >
+              <ArrowLeft size={14} /> Voltar ao Super Admin
+            </button>
+          </div>
+        )}
+        <div className={`flex min-h-screen ${impersonating ? "pt-10" : ""}`}>
 
           {/* ─── Sidebar ──────────────────────────────────────────────── */}
           <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">

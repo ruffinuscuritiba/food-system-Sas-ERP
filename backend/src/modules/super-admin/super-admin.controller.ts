@@ -53,6 +53,12 @@ export class SuperAdminController {
     return this.service.toggleBlock(id)
   }
 
+  @Post('companies/:id/impersonate')
+  @UseGuards(SuperAdminGuard)
+  impersonateCompany(@Param('id') id: string) {
+    return this.service.impersonateCompany(id)
+  }
+
   @Delete('companies/:id')
   @UseGuards(SuperAdminGuard)
   deleteCompany(@Param('id') id: string) {

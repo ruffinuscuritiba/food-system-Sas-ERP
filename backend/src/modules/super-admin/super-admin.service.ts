@@ -91,6 +91,34 @@ export class SuperAdminService {
     })
   }
 
+  async impersonateCompany(companyId: string) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } })
+    if (!company) throw new NotFoundException('Empresa não encontrada')
+
+    const adminUser = await this.prisma.user.findFirst({
+      where: { companyId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    if (!adminUser) throw new NotFoundException('Nenhum usuário ativo nesta empresa')
+
+    const accessToken = await this.jwtService.signAsync(
+      { sub: adminUser.id, email: adminUser.email, companyId: adminUser.companyId, role: adminUser.role },
+      { secret: this.configService.get<string>('JWT_SECRET') || 'secret', expiresIn: '4h' },
+    )
+
+    return {
+      accessToken,
+      companyName: company.name,
+      user: {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+        companyId: adminUser.companyId,
+      },
+    }
+  }
+
   async deleteCompany(id: string) {
     const company = await this.prisma.company.findUnique({ where: { id } })
     if (!company) throw new NotFoundException('Empresa não encontrada')

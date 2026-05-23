@@ -1,8 +1,8 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
 import { useEffect, useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
-import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight } from "lucide-react";
+import toast from "react-hot-toast";
+import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw } from "lucide-react";
 
 type Product = {
   id: string;
@@ -34,6 +34,7 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [companyName, setCompanyName] = useState("Cardápio");
   const [orderSent, setOrderSent] = useState(false);
@@ -41,29 +42,37 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [menuRes, companyRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
-          fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
-        ]);
-        const menuData = await menuRes.json();
-        const list: Product[] = Array.isArray(menuData) ? menuData : (menuData.products || []);
-        setProducts(list);
-        setCategories(["Todos", ...Array.from(new Set<string>(list.map((p) => p.category?.name || "Outros")))]);
-        if (companyRes?.ok) {
-          const cd = await companyRes.json();
-          if (cd?.name) setCompanyName(cd.name);
-        }
-      } catch {
-        toast.error("Erro ao carregar cardápio");
-      } finally {
-        setLoading(false);
+  async function loadMenu() {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [menuRes, companyRes] = await Promise.all([
+        fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
+        fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
+      ]);
+
+      if (!menuRes.ok) {
+        setLoadError(true);
+        return;
       }
+
+      const menuData = await menuRes.json();
+      const list: Product[] = Array.isArray(menuData) ? menuData : (menuData.products || []);
+      setProducts(list);
+      setCategories(["Todos", ...Array.from(new Set<string>(list.map((p) => p.category?.name || "Outros")))]);
+
+      if (companyRes?.ok) {
+        const cd = await companyRes.json().catch(() => null);
+        if (cd?.name) setCompanyName(cd.name);
+      }
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    load();
-  }, [companyId]);
+  }
+
+  useEffect(() => { loadMenu(); }, [companyId]);
 
   function addToCart(product: Product) {
     setCart((prev) => {
@@ -129,7 +138,6 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <Toaster position="top-center" />
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-4">
@@ -160,7 +168,18 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
       {/* Products */}
       <main className="max-w-3xl mx-auto px-4 py-6">
         {loading ? (
-          <p className="text-slate-400 text-center py-20 animate-pulse">Carregando cardápio...</p>
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-slate-400 animate-pulse">Carregando cardápio...</p>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-5 text-center">
+            <p className="text-slate-400 text-lg">Não foi possível carregar o cardápio.</p>
+            <p className="text-slate-500 text-sm">O servidor pode estar iniciando. Tente novamente em alguns segundos.</p>
+            <button onClick={loadMenu} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition">
+              <RefreshCw size={18} /> Tentar novamente
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <p className="text-slate-400 text-center py-20">Nenhum produto disponível</p>
         ) : (

@@ -43,6 +43,7 @@ export default function SuperAdminDashboard() {
   const [showModal, setShowModal] = useState(false)
   const [blocking, setBlocking] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [entering, setEntering] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -75,6 +76,22 @@ export default function SuperAdminDashboard() {
       router.push("/super-admin/login")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function enterStore(id: string) {
+    setEntering(id)
+    try {
+      const { data } = await saApi.post(`/super-admin/companies/${id}/impersonate`)
+      localStorage.setItem("token", data.accessToken)
+      localStorage.setItem("user", JSON.stringify(data.user))
+      localStorage.setItem("impersonating", JSON.stringify({ companyName: data.companyName, companyId: id }))
+      document.cookie = `token=${data.accessToken}; path=/`
+      window.location.href = "/"
+    } catch {
+      alert("Erro ao acessar a loja. Verifique se ela possui usuários ativos.")
+    } finally {
+      setEntering(null)
     }
   }
 
@@ -215,14 +232,21 @@ export default function SuperAdminDashboard() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => enterStore(c.id)}
+                        disabled={entering === c.id}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 text-white"
+                      >
+                        {entering === c.id ? "..." : "Entrar na Loja"}
+                      </button>
                       <button
                         onClick={() => toggleBlock(c.id)}
                         disabled={blocking === c.id}
                         className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
                           c.isBlocked
                             ? "bg-green-600 hover:bg-green-700 text-white"
-                            : "bg-red-600 hover:bg-red-700 text-white"
+                            : "bg-orange-600 hover:bg-orange-700 text-white"
                         }`}
                       >
                         {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}

@@ -234,7 +234,7 @@ async function seedDemoProducts(companyId: string) {
   for (const p of PRODUCTS) {
     await prisma.product.upsert({
       where: { id: p.id },
-      update: { salePrice: p.salePrice, imageUrl: p.imageUrl, description: p.description },
+      update: { salePrice: p.salePrice, imageUrl: p.imageUrl, description: p.description, isActive: true, deletedAt: null },
       create: {
         id: p.id,
         name: p.name,

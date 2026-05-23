@@ -1,4 +1,4 @@
-const DEFAULT_BACKEND_URL = "https://food-system-backend-94zd.onrender.com";
+const DEFAULT_BACKEND_URL = "https://food-system-backend-no7d.onrender.com";
 
 export const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_URL || `${DEFAULT_BACKEND_URL}/api`;

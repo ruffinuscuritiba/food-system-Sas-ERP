@@ -1,4 +1,5 @@
 "use client";
+import { api } from "@/services/api";
 import { apiBaseUrl } from "@/services/env";
 
 import { useEffect, useState } from "react";
@@ -6,6 +7,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 import { socket } from "@/services/socket";
+import { useAuthStore } from "@/stores/auth.store";
 
 type Order = {
   id: string;
@@ -35,19 +37,18 @@ export default function OrdersPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [companyName, setCompanyName] =
+    useState("Restaurante");
+
+  const { user } = useAuthStore();
+
   async function fetchOrders() {
 
     try {
 
-      const response =
-        await fetch(
-          `${apiBaseUrl}/orders`,
-        );
+      const response = await api.get("/orders");
 
-      const data =
-        await response.json();
-
-      setOrders(data);
+      setOrders(response.data);
 
     } catch {
 
@@ -61,6 +62,24 @@ export default function OrdersPage() {
     }
   }
 
+  async function fetchCompany() {
+
+    if (!user?.companyId) return;
+
+    try {
+
+      const response =
+        await fetch(
+          `${apiBaseUrl}/company/${user.companyId}`,
+        );
+
+      const data = await response.json();
+
+      if (data?.name) setCompanyName(data.name);
+
+    } catch {}
+  }
+
   async function updateStatus(
     id: string,
     status: string,
@@ -68,21 +87,7 @@ export default function OrdersPage() {
 
     try {
 
-      await fetch(
-        `${apiBaseUrl}/orders/${id}/status`,
-        {
-          method: "PATCH",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            status,
-          }),
-        },
-      );
+      await api.patch(`/orders/${id}/status`, { status });
 
       toast.success(
         "Status atualizado",
@@ -162,7 +167,7 @@ export default function OrdersPage() {
 
         <body>
 
-          <h1>Ruffinus Pizza</h1>
+          <h1>${companyName}</h1>
 
           <hr />
 
@@ -221,6 +226,8 @@ export default function OrdersPage() {
   useEffect(() => {
 
     fetchOrders();
+
+    fetchCompany();
 
     socket.connect();
 

@@ -5,7 +5,7 @@ import "./globals.css";
 import Link from "next/link";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import {
   LayoutDashboard,
@@ -23,6 +23,8 @@ import toast, {
 
 import { useAuthStore }
 from "@/stores/auth.store";
+
+import { apiBaseUrl } from "@/services/env";
 
 export default function RootLayout({
   children,
@@ -50,12 +52,26 @@ export default function RootLayout({
     isKitchen,
     isCashier,
     loadAuth,
+    user,
   } = useAuthStore();
+
+  const [companyName, setCompanyName] =
+    useState("FoodSaaS ERP");
 
   // Carregar autenticação ao montar o layout
   useEffect(() => {
     loadAuth();
   }, [loadAuth]);
+
+  useEffect(() => {
+    if (!user?.companyId) return;
+    fetch(`${apiBaseUrl}/company/${user.companyId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.name) setCompanyName(data.name);
+      })
+      .catch(() => {});
+  }, [user?.companyId]);
 
   function logout() {
 
@@ -109,11 +125,11 @@ export default function RootLayout({
 
             <div className="mb-10">
 
-              <h1 className="text-3xl font-bold">
-                Ruffinus ERP
+              <h1 className="text-2xl font-bold leading-tight">
+                {companyName}
               </h1>
 
-              <p className="text-slate-400 mt-2">
+              <p className="text-slate-400 mt-1 text-sm">
                 Gestão SaaS
               </p>
 

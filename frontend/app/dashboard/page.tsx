@@ -1,5 +1,5 @@
 "use client";
-import { apiBaseUrl } from "@/services/env";
+import { api } from "@/services/api";
 
 import { socket } from "@/services/socket";
 
@@ -134,28 +134,14 @@ export default function DashboardPage() {
         ordersResponse,
       ] = await Promise.all([
 
-        fetch(
-          `${apiBaseUrl}/tables/dashboard`,
-        ),
+        api.get("/tables/dashboard"),
 
-        fetch(
-          `${apiBaseUrl}/orders/dashboard`,
-        ),
+        api.get("/orders/dashboard"),
       ]);
 
-      const tables =
-        await tablesResponse.json();
+      setTablesData(tablesResponse.data);
 
-      const orders =
-        await ordersResponse.json();
-
-      setTablesData(
-        tables,
-      );
-
-      setOrdersData(
-        orders,
-      );
+      setOrdersData(ordersResponse.data);
 
     } catch (error) {
 

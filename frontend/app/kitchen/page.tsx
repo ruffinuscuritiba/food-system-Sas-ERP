@@ -298,7 +298,7 @@ export default function KitchenPage() {
   ) {
 
     await api.patch(
-      `/orders/${id}/production`,
+      `/orders/${id}/production-status`,
       {
         productionStatus,
       },

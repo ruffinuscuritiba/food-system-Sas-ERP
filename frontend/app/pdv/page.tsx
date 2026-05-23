@@ -1,10 +1,13 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
+import { api } from "@/services/api";
 
 import {
   useEffect,
   useState,
 } from "react";
+
+import toast from "react-hot-toast";
 
 export default function PDVPage() {
 
@@ -14,6 +17,9 @@ export default function PDVPage() {
   const [value, setValue] =
     useState("");
 
+  const [openingValue, setOpeningValue] =
+    useState("");
+
   const [type, setType] =
     useState("SUPPLY");
 
@@ -21,15 +27,9 @@ export default function PDVPage() {
 
     try {
 
-      const response =
-        await fetch(
-          `${apiBaseUrl}/cash/current`,
-        );
+      const response = await api.get("/cash/current");
 
-      const data =
-        await response.json();
-
-      setCash(data);
+      setCash(response.data);
 
     } catch (error) {
 
@@ -45,60 +45,50 @@ export default function PDVPage() {
 
   async function openCash() {
 
-    await fetch(
-      `${apiBaseUrl}/cash/open`,
-      {
-        method: "POST",
+    const amount = Number(openingValue);
 
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
+    if (!openingValue || isNaN(amount) || amount < 0) {
+      toast.error("Informe um valor de abertura válido");
+      return;
+    }
 
-        body: JSON.stringify({
-          openingValue: 100,
-        }),
-      },
-    );
-
-    loadCash();
+    try {
+      await api.post("/cash/open", { openingValue: amount });
+      setOpeningValue("");
+      loadCash();
+    } catch {
+      toast.error("Erro ao abrir caixa");
+    }
   }
 
   async function movement() {
 
-    await fetch(
-      `${apiBaseUrl}/cash/movement`,
-      {
-        method: "POST",
+    const amount = Number(value);
 
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
+    if (!value || isNaN(amount) || amount <= 0) {
+      toast.error("Informe um valor válido");
+      return;
+    }
 
-        body: JSON.stringify({
-          type,
-          value:
-            Number(value),
-        }),
-      },
-    );
-
-    setValue("");
-
-    loadCash();
+    try {
+      await api.post("/cash/movement", { type, value: amount });
+      setValue("");
+      toast.success("Movimentação registrada");
+      loadCash();
+    } catch {
+      toast.error("Erro ao registrar movimentação");
+    }
   }
 
   async function closeCash() {
 
-    await fetch(
-      `${apiBaseUrl}/cash/close`,
-      {
-        method: "PATCH",
-      },
-    );
-
-    loadCash();
+    try {
+      await api.patch("/cash/close");
+      toast.success("Caixa fechado");
+      loadCash();
+    } catch {
+      toast.error("Erro ao fechar caixa");
+    }
   }
 
   return (
@@ -115,12 +105,24 @@ export default function PDVPage() {
 
           {!cash?.isOpen ? (
 
-            <button
-              onClick={openCash}
-              className="bg-green-500 px-6 py-3 rounded-2xl font-bold"
-            >
-              Abrir Caixa
-            </button>
+            <div className="flex items-center gap-3">
+
+              <input
+                type="number"
+                placeholder="Valor inicial (R$)"
+                value={openingValue}
+                onChange={(e) => setOpeningValue(e.target.value)}
+                className="bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl w-44 outline-none"
+              />
+
+              <button
+                onClick={openCash}
+                className="bg-green-500 hover:bg-green-600 transition px-6 py-3 rounded-2xl font-bold"
+              >
+                Abrir Caixa
+              </button>
+
+            </div>
 
           ) : (
 

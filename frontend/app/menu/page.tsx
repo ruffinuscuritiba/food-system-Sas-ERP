@@ -40,4 +40,4 @@ function MenuContent() {
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [submitting,
+  const [submitting, setSubmitting] = useState(false);

@@ -43,6 +43,7 @@ export default function RootLayout({
     '/menu',
     '/pagamento',
     '/order-status',
+    '/super-admin',
   ]
   const isLoginPage =
     PUBLIC_ROUTES.some((route) => pathname?.startsWith(route));

@@ -2,88 +2,85 @@ import { PrismaClient } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
 
 const prisma = new PrismaClient()
+const DEFAULT_MODULES = ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY']
+
+async function seedCompanyWithModules(
+  id: string,
+  name: string,
+  email: string,
+  plan: string,
+  password: string,
+  role: 'SUPER_ADMIN' | 'ADMIN',
+) {
+  const company = await prisma.company.upsert({
+    where: { id },
+    update: {},
+    create: { id, name, email, plan, subscriptionStatus: 'ACTIVE', isBlocked: false },
+  })
+
+  const hashedPassword = await bcrypt.hash(password, 10)
+  await prisma.user.upsert({
+    where: { email },
+    update: { password: hashedPassword, role, isActive: true },
+    create: { name: `Admin ${name}`, email, password: hashedPassword, role, isActive: true, companyId: company.id },
+  })
+
+  for (const mod of DEFAULT_MODULES) {
+    await prisma.companyModule.upsert({
+      where: { id: `module-${mod.toLowerCase()}-${id}` },
+      update: { active: true },
+      create: { id: `module-${mod.toLowerCase()}-${id}`, module: mod, active: true, companyId: company.id },
+    })
+  }
+
+  return company
+}
 
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados...')
 
-  // Criar empresa padrão
-  const company = await prisma.company.upsert({
-    where: { id: 'company-seed-001' },
-    update: {},
-    create: {
-      id: 'company-seed-001',
-      name: 'Ruffinus Food System',
-      description: 'Empresa padrão criada pelo seed',
-      email: 'contato@ruffinus.com',
-      phone: '(41) 99999-9999',
-      plan: 'ENTERPRISE',
-      subscriptionStatus: 'ACTIVE',
-      isBlocked: false,
-    },
-  })
+  // Empresa 1 — seed principal (SUPER_ADMIN)
+  const c1 = await seedCompanyWithModules(
+    'company-seed-001',
+    'Ruffinus Food System',
+    'admin@teste.com',
+    'ENTERPRISE',
+    '123456',
+    'SUPER_ADMIN',
+  )
+  console.log(`✅ ${c1.name} — admin@teste.com / 123456`)
 
-  console.log(`✅ Empresa criada: ${company.name} (${company.id})`)
+  // Empresa 2 — restaurante de teste A
+  const c2 = await seedCompanyWithModules(
+    'company-seed-002',
+    'Pizzaria Bella Napoli',
+    'admin@bellanapoli.com',
+    'PROFESSIONAL',
+    '123456',
+    'ADMIN',
+  )
+  console.log(`✅ ${c2.name} — admin@bellanapoli.com / 123456`)
 
-  // Hash da senha padrão
-  const hashedPassword = await bcrypt.hash('123456', 10)
+  // Empresa 3 — restaurante de teste B
+  const c3 = await seedCompanyWithModules(
+    'company-seed-003',
+    'Burger Fusion',
+    'admin@burgerfusion.com',
+    'BASIC',
+    '123456',
+    'ADMIN',
+  )
+  console.log(`✅ ${c3.name} — admin@burgerfusion.com / 123456`)
 
-  // Criar usuário admin padrão
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@teste.com' },
-    update: {
-      password: hashedPassword,
-      role: 'SUPER_ADMIN',
-      isActive: true,
-    },
-    create: {
-      name: 'Admin Padrão',
-      email: 'admin@teste.com',
-      password: hashedPassword,
-      role: 'SUPER_ADMIN',
-      isActive: true,
-      companyId: company.id,
-    },
-  })
-
-  console.log(`✅ Usuário admin criado: ${adminUser.email} (role: ${adminUser.role})`)
-  console.log(`   Senha em texto plano: 123456`)
-
-  // Criar segundo usuário admin como fallback
-  const adminUser2 = await prisma.user.upsert({
-    where: { email: 'admin@food.com' },
-    update: {
-      password: hashedPassword,
-      role: 'ADMIN',
-      isActive: true,
-    },
-    create: {
-      name: 'Admin Food',
-      email: 'admin@food.com',
-      password: hashedPassword,
-      role: 'ADMIN',
-      isActive: true,
-      companyId: company.id,
-    },
-  })
-
-  console.log(`✅ Usuário admin2 criado: ${adminUser2.email} (role: ${adminUser2.role})`)
-
-  // Ativar módulos para a empresa seed
-  const modules = ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY']
-  for (const mod of modules) {
-    await prisma.companyModule.upsert({
-      where: { id: `module-${mod.toLowerCase()}-seed` },
-      update: { active: true },
-      create: { id: `module-${mod.toLowerCase()}-seed`, module: mod, active: true, companyId: company.id },
-    })
-  }
-  console.log(`✅ Módulos ativados: ${modules.join(', ')}`)
-
-  console.log('\n🎉 Seed concluído com sucesso!')
-  console.log('\n📋 Credenciais de acesso:')
-  console.log('   Email: admin@teste.com')
-  console.log('   Senha: 123456')
-  console.log('   Role:  SUPER_ADMIN')
+  console.log('\n🎉 Seed concluído!')
+  console.log('\n📋 Super Admin do sistema:')
+  console.log('   URL:   /super-admin/login')
+  console.log('   Email: superadmin@system.com')
+  console.log('   Senha: SuperAdmin@123')
+  console.log('\n📋 Restaurantes de teste — senha: 123456')
+  console.log('   admin@teste.com        (SUPER_ADMIN — Ruffinus)')
+  console.log('   admin@bellanapoli.com  (ADMIN — Bella Napoli)')
+  console.log('   admin@burgerfusion.com (ADMIN — Burger Fusion)')
 }
 
 main()

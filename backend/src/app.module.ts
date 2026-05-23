@@ -16,6 +16,7 @@ import { AuditModule } from './modules/audit/audit.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
 import { PaymentsModule } from './modules/payments/payments.module'
 import { CompanyModuleModule } from './company-module/company-module.module'
+import { SuperAdminModule } from './modules/super-admin/super-admin.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -37,6 +38,7 @@ import { AppService } from './app.service'
     ThemesModule,
     CompanyModule,
     CompanyModuleModule,
+    SuperAdminModule,
     NotificationsModule,
     PaymentsModule,
   ],

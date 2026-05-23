@@ -16,11 +16,12 @@ export class ProductsService {
     private auditService: AuditService,
   ) {}
 
-  findAll() {
+  findAll(companyId: string) {
 
     return this.prisma.product.findMany({
 
       where: {
+        companyId,
         deletedAt: null,
       },
 

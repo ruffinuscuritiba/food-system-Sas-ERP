@@ -20,7 +20,7 @@ import {
   Palette,
   QrCode,
   LogOut,
-  ChevronDown,
+  ExternalLink,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -174,6 +174,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 )
               })}
             </nav>
+
+            {/* Ver Loja */}
+            {user?.companyId && (
+              <div className="px-3 pb-2">
+                <a
+                  href={`/menu/${user.companyId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-emerald-400 hover:bg-emerald-500/10 transition font-medium text-sm border border-emerald-500/30"
+                >
+                  <ExternalLink size={16} />
+                  Ver Loja
+                </a>
+              </div>
+            )}
 
             {/* Logout */}
             <div className="px-3 py-4 border-t border-slate-800">

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Param,
@@ -50,5 +51,11 @@ export class SuperAdminController {
   @UseGuards(SuperAdminGuard)
   toggleBlock(@Param('id') id: string) {
     return this.service.toggleBlock(id)
+  }
+
+  @Delete('companies/:id')
+  @UseGuards(SuperAdminGuard)
+  deleteCompany(@Param('id') id: string) {
+    return this.service.deleteCompany(id)
   }
 }

@@ -91,6 +91,14 @@ export class SuperAdminService {
     })
   }
 
+  async deleteCompany(id: string) {
+    const company = await this.prisma.company.findUnique({ where: { id } })
+    if (!company) throw new NotFoundException('Empresa não encontrada')
+    await this.prisma.companyModule.deleteMany({ where: { companyId: id } })
+    await this.prisma.user.deleteMany({ where: { companyId: id } })
+    return this.prisma.company.delete({ where: { id } })
+  }
+
   async getStats() {
     const [total, active, blocked] = await Promise.all([
       this.prisma.company.count(),

@@ -6,6 +6,7 @@ import {
   Post,
 Delete,
 Patch,
+  Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -60,9 +61,11 @@ export class ProductsController {
     "MANAGER",
   )
 
-  findAll() {
+  findAll(
+    @Request() req: any,
+  ) {
 
-    return this.service.findAll();
+    return this.service.findAll(req.user.companyId);
   }
 
   @Post()

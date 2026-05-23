@@ -42,6 +42,7 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [blocking, setBlocking] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -74,6 +75,17 @@ export default function SuperAdminDashboard() {
       router.push("/super-admin/login")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function deleteCompany(id: string, name: string) {
+    if (!window.confirm(`Excluir "${name}" permanentemente? Esta ação não pode ser desfeita.`)) return
+    setDeleting(id)
+    try {
+      await saApi.delete(`/super-admin/companies/${id}`)
+      await load()
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -203,17 +215,26 @@ export default function SuperAdminDashboard() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <button
-                      onClick={() => toggleBlock(c.id)}
-                      disabled={blocking === c.id}
-                      className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
-                        c.isBlocked
-                          ? "bg-green-600 hover:bg-green-700 text-white"
-                          : "bg-red-600 hover:bg-red-700 text-white"
-                      }`}
-                    >
-                      {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleBlock(c.id)}
+                        disabled={blocking === c.id}
+                        className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
+                          c.isBlocked
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-red-600 hover:bg-red-700 text-white"
+                        }`}
+                      >
+                        {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}
+                      </button>
+                      <button
+                        onClick={() => deleteCompany(c.id, c.name)}
+                        disabled={deleting === c.id}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
+                      >
+                        {deleting === c.id ? "..." : "Excluir"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

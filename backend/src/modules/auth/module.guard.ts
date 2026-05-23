@@ -29,11 +29,10 @@ constructor(
       request.user.companyId;
 
     const requiredModule =
-  this.reflector.get<string>(
-    'requiredModule',
-
-    context.getHandler(),
-  );
+      this.reflector.getAllAndOverride<string>('requiredModule', [
+        context.getHandler(),
+        context.getClass(),
+      ]);
 
     const module =
       await this.prisma.companyModule.findFirst({

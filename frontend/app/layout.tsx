@@ -3,302 +3,214 @@
 import "./globals.css";
 
 import Link from "next/link";
-
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
   LayoutDashboard,
+  ShoppingCart,
+  CookingPot,
+  Store,
+  DollarSign,
   Package,
   FolderKanban,
-  CookingPot,
-  ShoppingCart,
-  Store,
+  FlaskConical,
+  BookOpen,
+  Layers,
+  Palette,
+  QrCode,
   LogOut,
+  ChevronDown,
 } from "lucide-react";
 
-import toast, {
-  Toaster,
-} from "react-hot-toast";
-
-import { useAuthStore }
-from "@/stores/auth.store";
-
+import toast, { Toaster } from "react-hot-toast";
+import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// ─── Rotas sem sidebar ──────────────────────────────────────────────────────
+const PUBLIC_ROUTES = [
+  "/login",
+  "/signup",
+  "/landing",
+  "/menu",
+  "/pagamento",
+  "/order-status",
+  "/super-admin",
+]
 
-  const pathname =
-    usePathname();
-  const router = useRouter();
-  // Rotas públicas que não mostram o sidebar/navbar
-  const PUBLIC_ROUTES = [
-    '/login',
-    '/signup',
-    '/landing',
-    '/menu',
-    '/pagamento',
-    '/order-status',
-    '/super-admin',
-  ]
-  const isLoginPage =
-    PUBLIC_ROUTES.some((route) => pathname?.startsWith(route));
+// ─── Seções do menu por perfil ───────────────────────────────────────────────
+// Cada item define quais roles podem ver; [] significa todos os autenticados.
+type NavItem = {
+  href: string
+  label: string
+  icon: React.ReactNode
+  roles: string[]  // SUPER_ADMIN | ADMIN | MANAGER | CASHIER | KITCHEN | DELIVERY | [] (all)
+}
 
-  const {
-    isAdmin,
-    isKitchen,
-    isCashier,
-    loadAuth,
-    user,
-  } = useAuthStore();
+const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
+  {
+    items: [
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={18} />, roles: [] },
+    ],
+  },
+  {
+    title: "Operação",
+    items: [
+      { href: "/orders",  label: "Pedidos",   icon: <ShoppingCart size={18} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
+      { href: "/kitchen", label: "Cozinha",   icon: <CookingPot size={18} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
+      { href: "/tables",  label: "Mesas",     icon: <Store size={18} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
+      { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={18} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
+    ],
+  },
+  {
+    title: "Cardápio",
+    items: [
+      { href: "/products",    label: "Produtos",     icon: <Package size={18} />,      roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/categories",  label: "Categorias",   icon: <FolderKanban size={18} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+    ],
+  },
+  {
+    title: "Estoque",
+    items: [
+      { href: "/stock",       label: "Movimentações", icon: <Layers size={18} />,       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/ingredients", label: "Ingredientes",  icon: <FlaskConical size={18} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/recipes",     label: "Receitas",      icon: <BookOpen size={18} />,     roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+    ],
+  },
+  {
+    title: "Configurações",
+    items: [
+      { href: "/theme",         label: "Tema / Visual",  icon: <Palette size={18} />, roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/tables/qrcode", label: "QR Code Mesas",  icon: <QrCode size={18} />,  roles: ["SUPER_ADMIN","ADMIN"] },
+    ],
+  },
+]
 
-  const [companyName, setCompanyName] =
-    useState("FoodSaaS ERP");
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const isPublicPage = PUBLIC_ROUTES.some((r) => pathname?.startsWith(r))
 
-  // Carregar autenticação ao montar o layout
+  const { isAdmin, isKitchen, isCashier, loadAuth, user } = useAuthStore()
+  const [companyName, setCompanyName] = useState("FoodSaaS ERP")
+
+  useEffect(() => { loadAuth() }, [loadAuth])
+
   useEffect(() => {
-    loadAuth();
-  }, [loadAuth]);
-
-  useEffect(() => {
-    if (!user?.companyId) return;
+    if (!user?.companyId) return
     api.get(`/company/${user.companyId}`)
-      .then((r) => { if (r.data?.name) setCompanyName(r.data.name); })
-      .catch(() => {});
-  }, [user?.companyId]);
+      .then((r) => { if (r.data?.name) setCompanyName(r.data.name) })
+      .catch(() => {})
+  }, [user?.companyId])
 
   function logout() {
-
-    localStorage.removeItem(
-      "token",
-    );
-
-    localStorage.removeItem(
-      "user",
-    );
-
-    document.cookie =
-      "token=; Max-Age=0; path=/";
-
-    toast.success(
-      "Logout realizado",
-    );
-
-    router.push("/login");
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
+    document.cookie = "token=; Max-Age=0; path=/"
+    toast.success("Logout realizado")
+    router.push("/login")
   }
 
-  if (isLoginPage) {
+  function canSee(roles: string[]) {
+    if (roles.length === 0) return true
+    return roles.includes(user?.role || "")
+  }
 
+  if (isPublicPage) {
     return (
-
       <html lang="pt-BR">
-
         <body>
-
           <Toaster position="top-right" />
-
           {children}
-
         </body>
-
       </html>
-    );
+    )
   }
 
   return (
-
     <html lang="pt-BR">
-
       <body className="bg-slate-950 text-white">
-
         <Toaster position="top-right" />
-
         <div className="flex min-h-screen">
 
-          <aside className="w-72 bg-slate-900 border-r border-slate-800 p-6 flex flex-col">
+          {/* ─── Sidebar ──────────────────────────────────────────────── */}
+          <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
 
-            <div className="mb-10">
-
-              <h1 className="text-2xl font-bold leading-tight">
-                {companyName}
-              </h1>
-
-              <p className="text-slate-400 mt-1 text-sm">
-                Gestão SaaS
+            {/* Logo / nome empresa */}
+            <div className="px-5 py-6 border-b border-slate-800">
+              <h1 className="text-lg font-bold leading-tight truncate">{companyName}</h1>
+              <p className="text-slate-400 text-xs mt-0.5">
+                {user?.role === "SUPER_ADMIN" ? "Super Admin" :
+                 user?.role === "ADMIN"       ? "Administrador" :
+                 user?.role === "MANAGER"     ? "Gerente" :
+                 user?.role === "CASHIER"     ? "Caixa" :
+                 user?.role === "KITCHEN"     ? "Cozinha" :
+                 user?.role === "DELIVERY"    ? "Entregador" : "Gestão SaaS"}
               </p>
-
             </div>
 
-            <nav className="flex-1 space-y-2">
-
-              <MenuItem
-                href="/"
-                icon={
-                  <LayoutDashboard
-                    size={20}
-                  />
-                }
-                label="Dashboard"
-                active={
-                  pathname === "/"
-                }
-              />
-
-              {isAdmin() && (
-
-                <MenuItem
-                  href="/products"
-                  icon={
-                    <Package
-                      size={20}
-                    />
-                  }
-                  label="Produtos"
-                  active={
-                    pathname ===
-                    "/products"
-                  }
-                />
-
-              )}
-
-              {isAdmin() && (
-
-                <MenuItem
-                  href="/categories"
-                  icon={
-                    <FolderKanban
-                      size={20}
-                    />
-                  }
-                  label="Categorias"
-                  active={
-                    pathname ===
-                    "/categories"
-                  }
-                />
-
-              )}
-
-              {isAdmin() && (
-
-                <MenuItem
-                  href="/orders"
-                  icon={
-                    <ShoppingCart
-                      size={20}
-                    />
-                  }
-                  label="Pedidos"
-                  active={
-                    pathname ===
-                    "/orders"
-                  }
-                />
-
-              )}
-
-              {(isKitchen() ||
-                isAdmin()) && (
-
-                <MenuItem
-                  href="/kitchen"
-                  icon={
-                    <CookingPot
-                      size={20}
-                    />
-                  }
-                  label="Cozinha"
-                  active={
-                    pathname ===
-                    "/kitchen"
-                  }
-                />
-
-              )}
-
-              {(isCashier() ||
-                isAdmin()) ? (
-
-                <MenuItem
-                  href="/tables"
-                  icon={
-                    <Store
-                      size={20}
-                    />
-                  }
-                  label="Mesas"
-                  active={
-                    pathname ===
-                    "/tables"
-                  }
-                />
-
-              ) : null}
-
+            {/* Nav */}
+            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+              {NAV_SECTIONS.map((section, si) => {
+                const visible = section.items.filter((item) => canSee(item.roles))
+                if (visible.length === 0) return null
+                return (
+                  <div key={si} className={si > 0 ? "pt-3" : ""}>
+                    {section.title && (
+                      <p className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {section.title}
+                      </p>
+                    )}
+                    {visible.map((item) => (
+                      <MenuItem
+                        key={item.href}
+                        href={item.href}
+                        icon={item.icon}
+                        label={item.label}
+                        active={pathname === item.href}
+                      />
+                    ))}
+                  </div>
+                )
+              })}
             </nav>
 
-            <button
-              onClick={logout}
-              className="mt-10 flex items-center gap-3 bg-red-500 hover:bg-red-600 transition rounded-2xl px-4 py-4 font-bold"
-            >
-
-              <LogOut size={20} />
-
-              Sair
-
-            </button>
+            {/* Logout */}
+            <div className="px-3 py-4 border-t border-slate-800">
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition font-medium text-sm"
+              >
+                <LogOut size={18} />
+                Sair
+              </button>
+            </div>
 
           </aside>
 
-          <main className="flex-1 overflow-auto">
-
+          {/* ─── Content ──────────────────────────────────────────────── */}
+          <main className="flex-1 overflow-auto min-w-0">
             {children}
-
           </main>
 
         </div>
-
       </body>
-
     </html>
-  );
+  )
 }
 
-function MenuItem({
-  href,
-  icon,
-  label,
-  active,
-}: any) {
-
+function MenuItem({ href, icon, label, active }: { href: string; icon: React.ReactNode; label: string; active: boolean }) {
   return (
-
     <Link
       href={href}
-      className={`
-
-        flex items-center gap-3
-        px-4 py-4 rounded-2xl
-        transition font-medium
-
-        ${
-          active
-            ? "bg-green-500 text-white"
-            : "hover:bg-slate-800 text-slate-300"
-        }
-
-      `}
+      className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition text-sm font-medium ${
+        active
+          ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
+          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+      }`}
     >
-
       {icon}
-
       {label}
-
     </Link>
-  );
+  )
 }

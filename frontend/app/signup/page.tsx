@@ -3,118 +3,102 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import toast, { Toaster } from "react-hot-toast";
-
-const PLANS = [
-  { value: "BASIC", label: "Básico — R$ 97/mês" },
-  { value: "DELIVERY", label: "Profissional — R$ 197/mês" },
-  { value: "ENTERPRISE", label: "Enterprise — R$ 397/mês" },
-];
 
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const defaultPlan = searchParams.get("plan") || "DELIVERY";
+  const plan = searchParams.get("plan") || "DELIVERY";
 
   const [loading, setLoading] = useState(false);
 
-  const [form, setForm] = useState({
-    companyName: "",
-    email: "",
-    password: "",
-    phone: "",
-    plan: defaultPlan,
-  });
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     try {
       setLoading(true);
 
-      toast.success("Cadastro realizado!");
+      alert(`Plano selecionado: ${plan}`);
 
-      setTimeout(() => {
-        router.push("/login");
-      }, 1000);
+      router.push("/login");
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao cadastrar");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-black text-white p-6">
-      <Toaster />
-
-      <div className="w-full max-w-md bg-zinc-900 p-6 rounded-xl">
-        <h1 className="text-3xl font-bold mb-6">
-          Criar Conta
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        background: "#000",
+        color: "#fff",
+      }}
+    >
+      <div
+        style={{
+          width: 400,
+          padding: 24,
+          background: "#111",
+          borderRadius: 12,
+        }}
+      >
+        <h1 style={{ fontSize: 32, marginBottom: 24 }}>
+          Signup
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit}>
           <input
-            type="text"
             placeholder="Empresa"
-            className="w-full p-3 rounded bg-zinc-800"
-            value={form.companyName}
-            onChange={(e) =>
-              setForm({ ...form, companyName: e.target.value })
-            }
+            style={{
+              width: "100%",
+              padding: 12,
+              marginBottom: 12,
+            }}
           />
 
           <input
-            type="email"
             placeholder="Email"
-            className="w-full p-3 rounded bg-zinc-800"
-            value={form.email}
-            onChange={(e) =>
-              setForm({ ...form, email: e.target.value })
-            }
+            style={{
+              width: "100%",
+              padding: 12,
+              marginBottom: 12,
+            }}
           />
 
           <input
-            type="password"
             placeholder="Senha"
-            className="w-full p-3 rounded bg-zinc-800"
-            value={form.password}
-            onChange={(e) =>
-              setForm({ ...form, password: e.target.value })
-            }
+            type="password"
+            style={{
+              width: "100%",
+              padding: 12,
+              marginBottom: 12,
+            }}
           />
-
-          <select
-            className="w-full p-3 rounded bg-zinc-800"
-            value={form.plan}
-            onChange={(e) =>
-              setForm({ ...form, plan: e.target.value })
-            }
-          >
-            {PLANS.map((plan) => (
-              <option key={plan.value} value={plan.value}>
-                {plan.label}
-              </option>
-            ))}
-          </select>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 p-3 rounded"
+            style={{
+              width: "100%",
+              padding: 12,
+            }}
           >
-            {loading ? "Criando..." : "Criar Conta"}
+            {loading ? "Carregando..." : "Criar conta"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm">
-          Já possui conta?{" "}
-          <Link href="/login" className="text-green-400">
-            Entrar
+        <div style={{ marginTop: 20 }}>
+          <Link href="/login">
+            Ir para login
           </Link>
-        </p>
+        </div>
       </div>
     </main>
   );
@@ -122,7 +106,7 @@ function SignupContent() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
+    <Suspense fallback={<div>Loading...</div>}>
       <SignupContent />
     </Suspense>
   );

@@ -24,7 +24,7 @@ import toast, {
 import { useAuthStore }
 from "@/stores/auth.store";
 
-import { apiBaseUrl } from "@/services/env";
+import { api } from "@/services/api";
 
 export default function RootLayout({
   children,
@@ -65,11 +65,8 @@ export default function RootLayout({
 
   useEffect(() => {
     if (!user?.companyId) return;
-    fetch(`${apiBaseUrl}/company/${user.companyId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.name) setCompanyName(data.name);
-      })
+    api.get(`/company/${user.companyId}`)
+      .then((r) => { if (r.data?.name) setCompanyName(r.data.name); })
       .catch(() => {});
   }, [user?.companyId]);
 

@@ -99,24 +99,11 @@ export default function TablesPage() {
           ) || "{}",
         );
 
-      await api.post(
-        "/tables",
-        {
-
-          number:
-            tables.length + 1,
-
-          companyId:
-            user.companyId,
-
-          status:
-            "FREE",
-
-          items: [],
-
-          total: 0,
-        },
-      );
+      await api.post("/tables", {
+        number: tables.length + 1,
+        companyId: user.companyId,
+        status: "FREE",
+      });
 
       toast.success(
         "Mesa criada",
@@ -339,18 +326,9 @@ export default function TablesPage() {
         },
       );
 
-      await api.patch(
-        `/tables/${selectedTable.id}/status`,
-        {
-
-          status:
-            "FREE",
-
-          items: [],
-
-          total: 0,
-        },
-      );
+      await api.patch(`/tables/${selectedTable.id}/status`, {
+        status: "FREE",
+      });
 
       setTableItems([]);
 

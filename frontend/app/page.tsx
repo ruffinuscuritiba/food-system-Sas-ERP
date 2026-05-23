@@ -8,9 +8,7 @@ import { socket } from "@/services/socket";
 
 import { api } from "@/services/api";
 
-import toast, {
-  Toaster,
-} from "react-hot-toast";
+import toast from "react-hot-toast";
 
 import { KpiCard }
 from "@/components/dashboard/kpi-card";
@@ -148,8 +146,6 @@ setSummary({
   return (
 
     <main className="min-h-screen bg-slate-950 text-white">
-
-      <Toaster position="top-right" />
 
       <section className="p-8">
 

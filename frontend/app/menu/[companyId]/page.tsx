@@ -33,6 +33,7 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [tableNumber, setTableNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +42,12 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("table");
+    if (t) setTableNumber(t);
+  }, []);
 
   async function loadMenu() {
     setLoading(true);
@@ -105,10 +112,11 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
           customerName: form.name,
           customerPhone: form.phone,
           deliveryAddress: form.address,
-          orderType: form.orderType,
+          orderType: tableNumber ? "DINE_IN" : form.orderType,
           paymentMethod: form.paymentMethod,
           items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity, notes: i.notes })),
           total: cartTotal,
+          notes: tableNumber ? `Mesa ${tableNumber}` : undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -142,7 +150,14 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-black text-red-400 truncate max-w-[200px]">{companyName}</h1>
+          <div>
+            <h1 className="text-2xl font-black text-red-400 truncate max-w-[200px]">{companyName}</h1>
+            {tableNumber && (
+              <span className="text-xs font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded-full">
+                Mesa {tableNumber}
+              </span>
+            )}
+          </div>
           <button onClick={() => setShowCart(true)} className="relative bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition">
             <ShoppingCart size={18} />
             <span>R$ {cartTotal.toFixed(2)}</span>
@@ -254,16 +269,23 @@ export default function MenuPage({ params }: { params: { companyId: string } }) 
             </div>
             <input placeholder="Seu nome *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
             <input placeholder="Telefone / WhatsApp *" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
-            <div className="grid grid-cols-2 gap-3">
-              {(["DELIVERY", "PICKUP"] as const).map((type) => (
-                <button key={type} onClick={() => setForm((f) => ({ ...f, orderType: type }))}
-                  className={`py-3 rounded-xl font-bold transition ${form.orderType === type ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
-                  {type === "DELIVERY" ? "Entrega" : "Retirada"}
-                </button>
-              ))}
-            </div>
-            {form.orderType === "DELIVERY" && (
+            {!tableNumber && (
+              <div className="grid grid-cols-2 gap-3">
+                {(["DELIVERY", "PICKUP"] as const).map((type) => (
+                  <button key={type} onClick={() => setForm((f) => ({ ...f, orderType: type }))}
+                    className={`py-3 rounded-xl font-bold transition ${form.orderType === type ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
+                    {type === "DELIVERY" ? "Entrega" : "Retirada"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!tableNumber && form.orderType === "DELIVERY" && (
               <input placeholder="Endereço de entrega *" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
+            )}
+            {tableNumber && (
+              <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-400 text-sm">
+                Pedido para Mesa {tableNumber}
+              </div>
             )}
             <select value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as CustomerForm["paymentMethod"] }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500">
               <option value="PIX">PIX</option>

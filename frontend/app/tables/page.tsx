@@ -30,7 +30,10 @@ export default function TablesPage() {
   const [tableItems, setTableItems] =
     useState<any[]>([]);
 
-  const [newItemName, setNewItemName] =
+  const [products, setProducts] =
+    useState<any[]>([]);
+
+  const [selectedProductId, setSelectedProductId] =
     useState("");
 
   const [newItemPrice, setNewItemPrice] =
@@ -41,6 +44,13 @@ export default function TablesPage() {
 
   const [paymentMethod, setPaymentMethod] =
     useState("PIX");
+
+  async function fetchProducts() {
+    try {
+      const r = await api.get("/products");
+      setProducts(Array.isArray(r.data) ? r.data : []);
+    } catch {}
+  }
 
   async function fetchTables() {
 
@@ -70,6 +80,7 @@ export default function TablesPage() {
   useEffect(() => {
 
     fetchTables();
+    fetchProducts();
 
     socket.connect();
 
@@ -123,53 +134,32 @@ export default function TablesPage() {
 
   function addItemToTable() {
 
-    if (
-      !newItemName ||
-      !newItemPrice
-    ) {
-
-      toast.error(
-        "Preencha produto e valor",
-      );
-
+    if (!selectedProductId) {
+      toast.error("Selecione um produto");
       return;
     }
 
+    const product = products.find((p) => p.id === selectedProductId);
+    if (!product) return;
+
     const item = {
-
       id: Date.now(),
-
-      name:
-        newItemName,
-
-      quantity:
-        newItemQuantity,
-
-      price:
-        Number(newItemPrice),
+      productId: selectedProductId,
+      name: product.name,
+      quantity: newItemQuantity,
+      price: Number(product.salePrice),
     };
 
-    const updatedItems = [
-      ...tableItems,
-      item,
-    ];
+    const updatedItems = [...tableItems, item];
+    setTableItems(updatedItems);
+    sendOrderToKitchen(item);
 
-    setTableItems(
-      updatedItems,
-    );
+    if (tableItems.length === 0 && selectedTable?.status === "FREE") {
+      api.patch(`/tables/${selectedTable.id}/status`, { status: "OCCUPIED" }).catch(() => {});
+    }
 
-    saveTableOrder(
-      updatedItems,
-    );
-
-    sendOrderToKitchen(
-      item,
-    );
-
-    setNewItemName("");
-
+    setSelectedProductId("");
     setNewItemPrice("");
-
     setNewItemQuantity(1);
   }
 
@@ -221,56 +211,24 @@ export default function TablesPage() {
     item: any,
   ) {
 
-    if (!selectedTable) {
-      return;
-    }
+    if (!selectedTable) return;
 
     try {
 
-      await api.post(
-        "/orders",
-        {
-
-          customerName:
-            `Mesa ${selectedTable.number}`,
-
-          customerPhone:
-            "SALÃO",
-
-          address:
-            "INTERNO",
-
-          paymentMethod,
-
-          items: JSON.stringify([
-            item,
-          ]),
-
-          total:
-            item.price *
-            item.quantity,
-
-          subtotal:
-            item.price *
-            item.quantity,
-
-          deliveryFee: 0,
-
-          status:
-            "PENDING",
-
-          productionStatus:
-            "PENDING",
-        },
-      );
+      await api.post("/orders", {
+        customerName: `Mesa ${selectedTable.number}`,
+        customerPhone: "SALÃO",
+        deliveryAddress: "INTERNO",
+        paymentMethod,
+        items: [{ productId: item.productId, quantity: item.quantity }],
+        deliveryFee: 0,
+      });
 
     } catch (error) {
 
       console.log(error);
 
-      toast.error(
-        "Erro ao enviar cozinha",
-      );
+      toast.error("Erro ao enviar para cozinha");
     }
   }
 
@@ -585,83 +543,57 @@ export default function TablesPage() {
             <div className="bg-slate-800 rounded-2xl p-6">
 
               <h3 className="text-2xl font-bold mb-6">
-                Novo Pedido
+                Adicionar Item
               </h3>
 
               <div className="space-y-4">
 
-                <input
-                  placeholder="Produto"
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => {
+                    setSelectedProductId(e.target.value);
+                    const p = products.find((x) => x.id === e.target.value);
+                    setNewItemPrice(p ? String(p.salePrice) : "");
+                  }}
+                  className="w-full bg-slate-700 p-4 rounded-2xl text-white"
+                >
+                  <option value="">
+                    {products.length === 0 ? "Carregando produtos..." : "Selecione um produto..."}
+                  </option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
 
-                  value={newItemName}
-
-                  onChange={(e) =>
-                    setNewItemName(
-                      e.target.value,
-                    )
-                  }
-
-                  className="w-full bg-slate-700 p-4 rounded-2xl"
-                />
-
-                <input
-                  placeholder="Preço"
-
-                  type="number"
-
-                  value={newItemPrice}
-
-                  onChange={(e) =>
-                    setNewItemPrice(
-                      e.target.value,
-                    )
-                  }
-
-                  className="w-full bg-slate-700 p-4 rounded-2xl"
-                />
+                {newItemPrice && (
+                  <div className="flex items-center justify-between bg-slate-700 px-4 py-3 rounded-2xl">
+                    <span className="text-slate-400 text-sm">Preço unitário</span>
+                    <span className="font-bold text-green-400 text-lg">
+                      R$ {Number(newItemPrice).toFixed(2)}
+                    </span>
+                  </div>
+                )}
 
                 <input
                   placeholder="Quantidade"
-
                   type="number"
-
+                  min="1"
                   value={newItemQuantity}
-
-                  onChange={(e) =>
-                    setNewItemQuantity(
-                      Number(
-                        e.target.value,
-                      ),
-                    )
-                  }
-
+                  onChange={(e) => setNewItemQuantity(Number(e.target.value))}
                   className="w-full bg-slate-700 p-4 rounded-2xl"
                 />
 
                 <select
                   value={paymentMethod}
-
-                  onChange={(e) =>
-                    setPaymentMethod(
-                      e.target.value,
-                    )
-                  }
-
-                  className="w-full bg-slate-700 p-4 rounded-2xl"
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full bg-slate-700 p-4 rounded-2xl text-white"
                 >
-
-                  <option value="PIX">
-                    PIX
-                  </option>
-
-                  <option value="CASH">
-                    DINHEIRO
-                  </option>
-
-                  <option value="CARD">
-                    CARTÃO
-                  </option>
-
+                  <option value="PIX">PIX</option>
+                  <option value="CASH">Dinheiro</option>
+                  <option value="CREDIT_CARD">Cartão de Crédito</option>
+                  <option value="DEBIT_CARD">Cartão de Débito</option>
                 </select>
 
               </div>

@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   '/pagamento',
   '/pagamento/sucesso',
   '/pagamento/cancelado',
+  '/pedido',
 ]
 
 export function middleware(request: NextRequest) {

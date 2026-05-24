@@ -71,7 +71,7 @@ export default function ProductsPage() {
 
       const response =
         await api.get(
-          `/categories/${user.companyId}`,
+          `/categories`,
         );
 
       setCategories(

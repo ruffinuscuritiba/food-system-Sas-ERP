@@ -226,6 +226,7 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
     userId: string,
+    companyId?: string,
   ) {
 
     const order =
@@ -233,6 +234,8 @@ export class OrdersService {
 
         where: {
           id,
+          // Se companyId fornecido (não SUPER_ADMIN), valida ownership
+          ...(companyId ? { companyId } : {}),
         },
 
         include: {

@@ -25,8 +25,8 @@ export default function StockPage() {
     if (!companyId) { setLoading(false); return; }
     try {
       const [mvRes, lowRes] = await Promise.all([
-        api.get(`/stock/${companyId}/movements`),
-        api.get(`/stock/${companyId}/low-stock`),
+        api.get(`/stock/movements`),
+        api.get(`/stock/low-stock`),
       ]);
       setMovements(Array.isArray(mvRes.data) ? mvRes.data : []);
       setLowStock(Array.isArray(lowRes.data) ? lowRes.data : []);

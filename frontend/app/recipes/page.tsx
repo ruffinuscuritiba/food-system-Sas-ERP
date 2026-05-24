@@ -21,7 +21,7 @@ export default function RecipesPage() {
     try {
       const [prodRes, ingRes] = await Promise.all([
         api.get("/products"),
-        companyId ? api.get(`/ingredients/${companyId}`) : Promise.resolve({ data: [] }),
+        api.get(`/ingredients`),
       ]);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
       setIngredients(Array.isArray(ingRes.data) ? ingRes.data : []);

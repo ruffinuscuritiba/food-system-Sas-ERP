@@ -20,7 +20,7 @@ export default function IngredientsPage() {
     const companyId = getCompanyId();
     if (!companyId) { setLoading(false); return; }
     try {
-      const { data } = await api.get(`/ingredients/${companyId}`);
+      const { data } = await api.get(`/ingredients`);
       setIngredients(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Erro ao carregar ingredientes");

@@ -1,39 +1,29 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-} from '@nestjs/common';
-
+import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
 import { FinancialService } from './financial.service';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 
 @Controller('financial')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class FinancialController {
-
-  constructor(
-    private service: FinancialService,
-  ) {}
+  constructor(private service: FinancialService) {}
 
   @Get()
-  findAll() {
-
-    return this.service.findAll();
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  findAll(@Request() req: any) {
+    return this.service.findAll(req.user.companyId);
   }
 
   @Get('summary')
-  summary() {
-
-    return this.service.summary();
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  summary(@Request() req: any) {
+    return this.service.summary(req.user.companyId);
   }
 
   @Post()
-  create(@Body() body: any) {
-
-    return this.service.create({
-      ...body,
-
-      companyId:
-        '1f2254bd-3ed2-4ebb-9e93-43b046bb5d7a',
-    });
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  create(@Body() body: any, @Request() req: any) {
+    return this.service.create({ ...body, companyId: req.user.companyId });
   }
 }

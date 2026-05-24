@@ -53,7 +53,8 @@ export class OrdersController {
     @Body("status") status: OrderStatus,
     @Request() req: any
   ) {
-    return this.service.updateStatus(id, status, req.user.id);
+    const companyId = req.user.role === 'SUPER_ADMIN' ? undefined : req.user.companyId;
+    return this.service.updateStatus(id, status, req.user.id, companyId);
   }
 
   @Patch(":id/production-status")
@@ -64,7 +65,8 @@ export class OrdersController {
     @Body("productionStatus") productionStatus: OrderStatus,
     @Request() req: any
   ) {
-    return this.service.updateStatus(id, productionStatus, req.user.id);
+    const companyId = req.user.role === 'SUPER_ADMIN' ? undefined : req.user.companyId;
+    return this.service.updateStatus(id, productionStatus, req.user.id, companyId);
   }
 
   @Get("dashboard")

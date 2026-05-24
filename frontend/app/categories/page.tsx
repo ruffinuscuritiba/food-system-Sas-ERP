@@ -27,7 +27,7 @@ export default function CategoriesPage() {
 
       const response =
         await api.get(
-          `/categories/${user.companyId}`,
+          `/categories`,
         );
 
       setCategories(

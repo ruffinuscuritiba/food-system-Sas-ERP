@@ -18,7 +18,7 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Olá! 👋 Sou o assistente virtual de ${companyName}. Posso te ajudar com dúvidas sobre o cardápio, preços e pedidos. Como posso ajudar?`,
+      content: `Oi, tudo bem? 😊 Sou a Bia, atendente virtual aqui do ${companyName}! Conheço o cardápio de cor e salteado. Me conta — tá com fome de quê hoje?`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -84,8 +84,8 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
               <Bot size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-white font-bold text-sm">{companyName}</p>
-              <p className="text-red-100 text-xs">Assistente virtual</p>
+              <p className="text-white font-bold text-sm">Bia • {companyName}</p>
+              <p className="text-red-100 text-xs">Atendente virtual · online agora</p>
             </div>
           </div>
 

@@ -3,9 +3,17 @@ import { ValidationPipe } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter'
+import { NestExpressApplication } from '@nestjs/platform-express'
+import { join } from 'path'
+import { mkdirSync } from 'fs'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+
+  // Serve uploaded files (fallback when Cloudinary is not configured)
+  const uploadsDir = join(process.cwd(), 'uploads')
+  try { mkdirSync(uploadsDir, { recursive: true }) } catch { /* ok */ }
+  app.useStaticAssets(uploadsDir, { prefix: '/uploads' })
   const configService = app.get(ConfigService)
 
   // Configuração de CORS nativa do NestJS (recomendado)

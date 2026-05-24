@@ -68,7 +68,7 @@ export default function MenuPage() {
     if (t) setTableNumber(t);
   }, []);
 
-  async function loadMenu() {
+  async function loadMenu(attempt = 1) {
     setLoading(true);
     setLoadError(false);
     try {
@@ -79,14 +79,25 @@ export default function MenuPage() {
       ]);
 
       if (!menuRes.ok) {
+        // Render free-tier cold start: auto-retry once after 6s
+        if (attempt < 3) {
+          setTimeout(() => loadMenu(attempt + 1), 6000);
+          return;
+        }
         setLoadError(true);
+        setLoading(false);
         return;
       }
 
       const menuData = await menuRes.json();
       const list: Product[] = Array.isArray(menuData) ? menuData : (menuData.products || []);
       setProducts(list);
-      setCategories(["Todos", ...Array.from(new Set<string>(list.map((p) => p.category?.name || "Outros")))]);
+
+      // Build category list: only categories that have at least 1 product
+      const catNames = Array.from(new Set<string>(
+        list.map((p) => p.category?.name?.trim() || "Outros")
+      ));
+      setCategories(["Todos", ...catNames.sort((a, b) => a === "Outros" ? 1 : b === "Outros" ? -1 : a.localeCompare(b, "pt-BR"))]);
 
       if (companyRes?.ok) {
         const cd = await companyRes.json().catch(() => null);
@@ -99,9 +110,15 @@ export default function MenuPage() {
         if (td?.gaId) setGaId(td.gaId);
       }
     } catch {
+      if (attempt < 3) {
+        setTimeout(() => loadMenu(attempt + 1), 6000);
+        return;
+      }
       setLoadError(true);
     } finally {
-      setLoading(false);
+      // Don't stop loading spinner if we're auto-retrying
+      if (attempt >= 3) setLoading(false);
+      else setLoading(false);
     }
   }
 
@@ -167,7 +184,9 @@ export default function MenuPage() {
   const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount;
   const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
-  const filtered = activeCategory === "Todos" ? products : products.filter((p) => (p.category?.name || "Outros") === activeCategory);
+  const filtered = activeCategory === "Todos"
+    ? products
+    : products.filter((p) => (p.category?.name?.trim() || "Outros") === activeCategory);
 
   async function submitOrder() {
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
@@ -358,12 +377,14 @@ export default function MenuPage() {
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-slate-400 animate-pulse">Carregando cardápio...</p>
+            <p className="text-slate-500 text-xs">Se demorar, o servidor pode estar acordando 🔄</p>
           </div>
         ) : loadError ? (
           <div className="flex flex-col items-center justify-center py-24 gap-5 text-center">
-            <p className="text-slate-400 text-lg">Não foi possível carregar o cardápio.</p>
-            <p className="text-slate-500 text-sm">O servidor pode estar iniciando. Tente novamente em alguns segundos.</p>
-            <button onClick={loadMenu} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition">
+            <div className="text-4xl">😔</div>
+            <p className="text-slate-300 text-lg font-semibold">Cardápio indisponível no momento</p>
+            <p className="text-slate-500 text-sm max-w-xs">O servidor pode estar iniciando. Aguarde alguns segundos e tente novamente.</p>
+            <button onClick={() => loadMenu(1)} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition">
               <RefreshCw size={18} /> Tentar novamente
             </button>
           </div>
@@ -373,7 +394,26 @@ export default function MenuPage() {
           <div className="grid gap-4">
             {filtered.map((product) => (
               <div key={product.id} className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex">
-                {product.imageUrl && <img src={product.imageUrl} alt={product.name} className="w-28 h-28 object-cover flex-shrink-0" />}
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-28 h-28 object-cover flex-shrink-0"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.onerror = null;
+                      target.style.display = "none";
+                      const placeholder = target.nextElementSibling as HTMLElement;
+                      if (placeholder) placeholder.style.display = "flex";
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="w-28 h-28 flex-shrink-0 bg-slate-800 flex items-center justify-center text-3xl"
+                  style={{ display: product.imageUrl ? "none" : "flex" }}
+                >
+                  🍽️
+                </div>
                 <div className="flex-1 p-4 flex flex-col justify-between">
                   <div>
                     <h3 className="font-bold text-lg">{product.name}</h3>

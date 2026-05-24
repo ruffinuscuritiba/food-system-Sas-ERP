@@ -18,11 +18,14 @@ from "@nestjs/config";
 import { FileInterceptor }
 from "@nestjs/platform-express";
 
-import { diskStorage }
+import { memoryStorage }
 from "multer";
 
-import { extname }
+import { extname, join }
 from "path";
+
+import { writeFileSync, mkdirSync }
+from "fs";
 
 import { ProductsService }
 from "./products.service";
@@ -82,57 +85,58 @@ export class ProductsController {
   )
 
   @UseInterceptors(
-    FileInterceptor(
-      "image",
-      {
-        storage:
-          diskStorage({
-            destination:
-              "./uploads",
-
-            filename: (
-              req,
-              file,
-              callback,
-            ) => {
-
-              const uniqueName =
-                Date.now() +
-                extname(
-                  file.originalname,
-                );
-
-              callback(
-                null,
-                uniqueName,
-              );
-            },
-          }),
-      },
-    ),
+    FileInterceptor("image", { storage: memoryStorage() }),
   )
 
-  create(
+  async create(
     @UploadedFile()
     file: Express.Multer.File,
 
     @Body()
     body: CreateProductDto,
   ) {
+    let imageUrl: string | null = body.imageUrl || null;
 
-    const backendUrl =
-      this.configService.get<string>(
-        "BACKEND_URL",
-      );
+    if (file) {
+      const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
 
-    return this.service.create({
+      if (cloudinaryUrl) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const cloudinary = require("cloudinary").v2;
+          cloudinary.config({ cloudinary_url: cloudinaryUrl });
 
-      ...body,
+          const result = await new Promise<any>((resolve, reject) => {
+            const { Readable } = require("stream");
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "food-system", resource_type: "image" },
+              (error: any, result: any) => {
+                if (error) reject(error);
+                else resolve(result);
+              },
+            );
+            Readable.from(file.buffer).pipe(stream);
+          });
 
-      imageUrl: file
-        ? `${backendUrl}/uploads/${file.filename}`
-        : null,
-    });
+          imageUrl = result.secure_url;
+        } catch {
+          // fallback to local
+        }
+      }
+
+      if (!imageUrl) {
+        const uploadsDir = join(process.cwd(), "uploads");
+        try { mkdirSync(uploadsDir, { recursive: true }); } catch { /* ok */ }
+        const filename = `${Date.now()}${extname(file.originalname)}`;
+        writeFileSync(join(uploadsDir, filename), file.buffer);
+        const backendUrl =
+          this.configService.get<string>("BACKEND_URL") ||
+          `http://localhost:${process.env.PORT || 3001}`;
+        imageUrl = `${backendUrl}/uploads/${filename}`;
+      }
+    }
+
+    return this.service.create({ ...body, imageUrl });
   }
 
   @Get(

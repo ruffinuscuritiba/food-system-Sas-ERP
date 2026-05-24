@@ -78,7 +78,7 @@ export class ProductsService {
 
           salePrice:
             parseFloat(
-              data.salePrice || 0,
+              data.salePrice ?? data.price ?? 0,
             ),
 
           isActive:

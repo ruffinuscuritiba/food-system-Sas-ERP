@@ -36,6 +36,9 @@ export default function TablesPage() {
   const [selectedProductId, setSelectedProductId] =
     useState("");
 
+  const [productSearch, setProductSearch] =
+    useState("");
+
   const [newItemPrice, setNewItemPrice] =
     useState("");
 
@@ -416,12 +419,12 @@ export default function TablesPage() {
               <select
                 value={table.status}
 
-                onChange={(e) =>
-                  updateStatus(
-                    table.id,
-                    e.target.value,
-                  )
-                }
+                onClick={(e) => e.stopPropagation()}
+
+                onChange={(e) => {
+                  e.stopPropagation();
+                  updateStatus(table.id, e.target.value);
+                }}
 
                 className="w-full bg-slate-800 p-3 rounded-2xl"
               >
@@ -469,9 +472,12 @@ export default function TablesPage() {
               </div>
 
               <button
-                onClick={() =>
-                  setSelectedTable(null)
-                }
+                onClick={() => {
+                  setSelectedTable(null);
+                  setProductSearch("");
+                  setSelectedProductId("");
+                  setNewItemPrice("");
+                }}
                 className="bg-slate-800 hover:bg-slate-700 transition px-5 py-3 rounded-2xl"
               >
                 Fechar
@@ -548,24 +554,67 @@ export default function TablesPage() {
 
               <div className="space-y-4">
 
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => {
-                    setSelectedProductId(e.target.value);
-                    const p = products.find((x) => x.id === e.target.value);
-                    setNewItemPrice(p ? String(p.salePrice) : "");
-                  }}
-                  className="w-full bg-slate-700 p-4 rounded-2xl text-white"
-                >
-                  <option value="">
-                    {products.length === 0 ? "Carregando produtos..." : "Selecione um produto..."}
-                  </option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                {/* Campo de busca */}
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                  <input
+                    placeholder="Buscar produto..."
+                    value={productSearch}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setSelectedProductId("");
+                      setNewItemPrice("");
+                    }}
+                    className="w-full bg-slate-700 pl-9 pr-4 py-3 rounded-2xl text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                {/* Lista filtrada de produtos */}
+                {productSearch && (
+                  <div className="bg-slate-700 rounded-2xl overflow-hidden max-h-48 overflow-y-auto">
+                    {products
+                      .filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
+                      .map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedProductId(p.id);
+                            setNewItemPrice(String(p.salePrice));
+                            setProductSearch(p.name);
+                          }}
+                          className={`w-full text-left px-4 py-3 hover:bg-slate-600 transition flex justify-between items-center ${selectedProductId === p.id ? "bg-slate-600" : ""}`}
+                        >
+                          <span className="text-sm font-medium">{p.name}</span>
+                          <span className="text-green-400 text-sm font-bold">R$ {Number(p.salePrice).toFixed(2)}</span>
+                        </button>
+                      ))}
+                    {products.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                      <p className="px-4 py-3 text-slate-500 text-sm">Nenhum produto encontrado</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Select clássico como fallback quando não há busca */}
+                {!productSearch && (
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => {
+                      setSelectedProductId(e.target.value);
+                      const p = products.find((x) => x.id === e.target.value);
+                      setNewItemPrice(p ? String(p.salePrice) : "");
+                    }}
+                    className="w-full bg-slate-700 p-4 rounded-2xl text-white"
+                  >
+                    <option value="">
+                      {products.length === 0 ? "Carregando produtos..." : "Selecione um produto..."}
                     </option>
-                  ))}
-                </select>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 {newItemPrice && (
                   <div className="flex items-center justify-between bg-slate-700 px-4 py-3 rounded-2xl">

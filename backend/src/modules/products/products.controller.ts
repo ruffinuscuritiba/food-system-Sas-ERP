@@ -62,6 +62,9 @@ export class ProductsController {
     "SUPER_ADMIN",
     "ADMIN",
     "MANAGER",
+    "CASHIER",
+    "WAITER",
+    "KITCHEN",
   )
 
   findAll(
@@ -137,6 +140,72 @@ export class ProductsController {
     }
 
     return this.service.create({ ...body, imageUrl });
+  }
+
+  @Patch(":id")
+
+  @UseGuards(
+    JwtAuthGuard,
+    RolesGuard,
+  )
+
+  @Roles(
+    "SUPER_ADMIN",
+    "ADMIN",
+    "MANAGER",
+  )
+
+  @UseInterceptors(
+    FileInterceptor("image", { storage: memoryStorage() }),
+  )
+
+  async update(
+    @Param("id") id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: any,
+  ) {
+    let imageUrl: string | undefined = body.imageUrl;
+
+    if (file) {
+      const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
+
+      if (cloudinaryUrl) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const cloudinary = require("cloudinary").v2;
+          cloudinary.config({ cloudinary_url: cloudinaryUrl });
+
+          const result = await new Promise<any>((resolve, reject) => {
+            const { Readable } = require("stream");
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "food-system", resource_type: "image" },
+              (error: any, result: any) => {
+                if (error) reject(error);
+                else resolve(result);
+              },
+            );
+            Readable.from(file.buffer).pipe(stream);
+          });
+
+          imageUrl = result.secure_url;
+        } catch {
+          // fallback to local
+        }
+      }
+
+      if (!imageUrl) {
+        const uploadsDir = join(process.cwd(), "uploads");
+        try { mkdirSync(uploadsDir, { recursive: true }); } catch { /* ok */ }
+        const filename = `${Date.now()}${extname(file.originalname)}`;
+        writeFileSync(join(uploadsDir, filename), file.buffer);
+        const backendUrl =
+          this.configService.get<string>("BACKEND_URL") ||
+          `http://localhost:${process.env.PORT || 3001}`;
+        imageUrl = `${backendUrl}/uploads/${filename}`;
+      }
+    }
+
+    return this.service.update(id, { ...body, ...(imageUrl !== undefined ? { imageUrl } : {}) });
   }
 
   @Get(

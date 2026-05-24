@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -10,7 +10,7 @@ export class CategoriesController {
   constructor(private service: CategoriesService) {}
 
   @Get()
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER', 'KITCHEN')
   findAll(@Request() req: any) {
     return this.service.findAll(req.user.companyId);
   }
@@ -19,5 +19,17 @@ export class CategoriesController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   create(@Body() body: any, @Request() req: any) {
     return this.service.create({ ...body, companyId: req.user.companyId });
+  }
+
+  @Patch(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  update(@Param('id') id: string, @Body('name') name: string) {
+    return this.service.update(id, name);
+  }
+
+  @Delete(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
   }
 }

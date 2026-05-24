@@ -141,6 +141,23 @@ export class ProductsService {
     return product;
   }
 
+  async update(id: string, data: any) {
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.salePrice !== undefined && { salePrice: parseFloat(data.salePrice) }),
+        ...(data.costPrice !== undefined && { costPrice: parseFloat(data.costPrice) }),
+        ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
+        ...(data.categoryId !== undefined && data.categoryId !== '' && {
+          category: { connect: { id: data.categoryId } },
+        }),
+      },
+      include: { category: true },
+    });
+  }
+
   async publicMenu(
     companyId: string,
   ) {

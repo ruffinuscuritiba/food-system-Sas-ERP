@@ -33,4 +33,17 @@ export class CategoriesService {
       },
     })
   }
+
+  update(id: string, name: string) {
+    return this.prisma.category.update({
+      where: { id },
+      data: { name },
+    })
+  }
+
+  remove(id: string) {
+    return this.prisma.category.delete({
+      where: { id },
+    })
+  }
 }

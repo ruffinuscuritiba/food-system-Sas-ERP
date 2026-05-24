@@ -1,9 +1,9 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2 } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2, Star } from "lucide-react";
 
 type Product = {
   id: string;
@@ -44,6 +44,10 @@ export default function MenuPage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [loadingPayment, setLoadingPayment] = useState(false);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+  const [loyaltyPointsEarned, setLoyaltyPointsEarned] = useState(0);
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
@@ -86,6 +90,20 @@ export default function MenuPage() {
 
   useEffect(() => { loadMenu(); }, [companyId]);
 
+  const fetchLoyaltyBalance = useCallback(async (phone: string) => {
+    if (!phone || phone.length < 8 || !companyId) return;
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/loyalty/balance?phone=${encodeURIComponent(phone)}&companyId=${companyId}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setLoyaltyPoints(data.points || 0);
+        setLoyaltyDiscount(data.discountValue || 0);
+      }
+    } catch { /* silent */ }
+  }, [companyId]);
+
   function addToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
@@ -109,6 +127,7 @@ export default function MenuPage() {
     if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
     setSubmitting(true);
     try {
+      const pointsToRedeem = usePoints ? loyaltyPoints : 0;
       const res = await fetch(`${apiBaseUrl}/orders/public`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,6 +140,7 @@ export default function MenuPage() {
           paymentMethod: form.paymentMethod,
           items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity, notes: i.notes })),
           total: cartTotal,
+          redeemPoints: pointsToRedeem,
           notes: tableNumber ? `Mesa ${tableNumber}` : undefined,
         }),
       });
@@ -131,6 +151,10 @@ export default function MenuPage() {
       setShowCheckout(false);
       setShowCart(false);
       setOrderId(createdOrderId);
+      setLoyaltyPointsEarned(orderData?.loyaltyPointsEarned ?? 0);
+      setUsePoints(false);
+      setLoyaltyPoints(0);
+      setLoyaltyDiscount(0);
       setOrderSent(true);
 
       // For online payments (PIX / card), auto-trigger gateway checkout
@@ -174,6 +198,12 @@ export default function MenuPage() {
         <p className="text-slate-400 text-lg max-w-sm">
           Seu pedido foi enviado para {companyName}. Você será notificado em breve.
         </p>
+        {loyaltyPointsEarned > 0 && (
+          <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl px-6 py-3 text-yellow-400 font-bold">
+            <Star size={18} fill="currentColor" />
+            +{loyaltyPointsEarned} pontos de fidelidade ganhos!
+          </div>
+        )}
 
         {/* Payment button for PIX / card orders */}
         {loadingPayment && (
@@ -330,7 +360,38 @@ export default function MenuPage() {
               <button onClick={() => setShowCheckout(false)}><X size={24} /></button>
             </div>
             <input placeholder="Seu nome *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
-            <input placeholder="Telefone / WhatsApp *" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
+            <input
+              placeholder="Telefone / WhatsApp *"
+              value={form.phone}
+              onChange={(e) => {
+                const phone = e.target.value;
+                setForm((f) => ({ ...f, phone }));
+                setUsePoints(false);
+                setLoyaltyPoints(0);
+                setLoyaltyDiscount(0);
+                if (phone.length >= 8) fetchLoyaltyBalance(phone);
+              }}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500"
+            />
+            {loyaltyPoints > 0 && (
+              <label className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usePoints}
+                  onChange={(e) => setUsePoints(e.target.checked)}
+                  className="w-4 h-4 accent-yellow-400"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-1 text-yellow-400 font-bold text-sm">
+                    <Star size={14} fill="currentColor" />
+                    {loyaltyPoints} pontos disponíveis
+                  </div>
+                  <div className="text-slate-400 text-xs">
+                    Usar agora = R$ {loyaltyDiscount},00 de desconto
+                  </div>
+                </div>
+              </label>
+            )}
             {!tableNumber && (
               <div className="grid grid-cols-2 gap-3">
                 {(["DELIVERY", "PICKUP"] as const).map((type) => (
@@ -355,8 +416,19 @@ export default function MenuPage() {
               <option value="CREDIT_CARD">Cartão de Crédito</option>
               <option value="DEBIT_CARD">Cartão de Débito</option>
             </select>
-            <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-800">
-              <span>Total</span><span className="text-green-400">R$ {cartTotal.toFixed(2)}</span>
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              {usePoints && loyaltyDiscount > 0 && (
+                <div className="flex justify-between text-sm text-yellow-400">
+                  <span>Desconto fidelidade</span>
+                  <span>- R$ {loyaltyDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total</span>
+                <span className="text-green-400">
+                  R$ {Math.max(0, cartTotal - (usePoints ? loyaltyDiscount : 0)).toFixed(2)}
+                </span>
+              </div>
             </div>
             <button onClick={submitOrder} disabled={submitting} className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white py-4 rounded-xl font-black text-lg transition">
               {submitting ? "Enviando..." : "Confirmar pedido"}

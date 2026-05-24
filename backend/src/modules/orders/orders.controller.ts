@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 
 import { OrdersService } from "./orders.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 
 // Definição manual do OrderStatus para evitar erro do Prisma
 export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED' | any;
@@ -22,7 +23,10 @@ import { Roles } from "../../common/decorators/roles.decorator";
 
 @Controller("orders")
 export class OrdersController {
-  constructor(private readonly service: OrdersService) {}
+  constructor(
+    private readonly service: OrdersService,
+    private readonly loyaltyService: LoyaltyService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -73,16 +77,46 @@ export class OrdersController {
 
   // Public endpoint — no auth required (customer ordering from menu)
   @Post("public")
-  createPublic(@Body() body: any) {
-    return this.service.create({
-      companyId: body.companyId,
-      customerName: body.customerName,
-      customerPhone: body.customerPhone,
-      deliveryAddress: body.deliveryAddress,
-      orderType: body.orderType || 'DELIVERY',
-      paymentMethod: body.paymentMethod || 'PIX',
-      items: body.items,
-      total: body.total,
+  async createPublic(@Body() body: any) {
+    const {
+      redeemPoints = 0,
+      customerPhone,
+      companyId,
+      ...rest
+    } = body;
+
+    // Apply loyalty redemption if requested
+    let loyaltyDiscount = 0;
+    if (redeemPoints > 0 && customerPhone && companyId) {
+      loyaltyDiscount = await this.loyaltyService.validateAndRedeem(
+        customerPhone,
+        companyId,
+        redeemPoints,
+      );
+    }
+
+    const rawTotal = Number(rest.total || 0);
+    const finalTotal = Math.max(0, rawTotal - loyaltyDiscount);
+
+    const order = await this.service.create({
+      companyId,
+      customerName: rest.customerName,
+      customerPhone,
+      deliveryAddress: rest.deliveryAddress,
+      orderType: rest.orderType || 'DELIVERY',
+      paymentMethod: rest.paymentMethod || 'PIX',
+      items: rest.items,
+      total: finalTotal,
+      notes: rest.notes,
     });
+
+    // Award points (fire-and-forget — never blocks the response)
+    if (customerPhone && companyId) {
+      this.loyaltyService
+        .awardPoints(customerPhone, companyId, order.id, finalTotal)
+        .catch(() => {});
+    }
+
+    return { ...order, loyaltyDiscount, loyaltyPointsEarned: Math.floor(finalTotal) };
   }
 }

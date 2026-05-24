@@ -73,6 +73,11 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum PointTransactionType {
+  EARN
+  REDEEM
+}
+
 enum OrderType {
   DELIVERY
   DINE_IN
@@ -135,6 +140,8 @@ model Company {
   auditLogs AuditLog[]
 
   payments Payment[]
+
+  loyaltyAccounts LoyaltyAccount[]
 
   createdAt DateTime @default(now())
 
@@ -690,6 +697,55 @@ model AuditLog {
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+}
+
+model LoyaltyAccount {
+  id String @id @default(cuid())
+
+  phone String
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  points Int @default(0)
+
+  totalOrders Int @default(0)
+
+  totalSpent Decimal @default(0) @db.Decimal(10, 2)
+
+  transactions PointTransaction[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([phone, companyId])
+  @@index([companyId])
+  @@index([phone])
+}
+
+model PointTransaction {
+  id String @id @default(cuid())
+
+  loyaltyAccountId String
+
+  loyaltyAccount LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id])
+
+  companyId String
+
+  type PointTransactionType
+
+  points Int
+
+  orderId String?
+
+  description String?
+
+  createdAt DateTime @default(now())
+
+  @@index([loyaltyAccountId])
+  @@index([companyId])
 }
 
 model Payment {

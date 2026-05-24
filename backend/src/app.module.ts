@@ -17,6 +17,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module'
 import { CompanyModuleModule } from './company-module/company-module.module'
 import { SuperAdminModule } from './modules/super-admin/super-admin.module'
+import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -41,6 +42,7 @@ import { AppService } from './app.service'
     SuperAdminModule,
     NotificationsModule,
     PaymentsModule,
+    LoyaltyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

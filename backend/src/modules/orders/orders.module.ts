@@ -8,15 +8,17 @@ import { PrismaModule } from 'src/database/prisma.module';
 
 import { StockModule } from '../stock/stock.module';
 
-import { SocketModule } from '../../socket/socket.module'; 
+import { SocketModule } from '../../socket/socket.module';
+import { LoyaltyModule } from '../loyalty/loyalty.module';
 
 @Module({
-  
+
   imports: [
-  PrismaModule,
-  StockModule,
-  SocketModule,
-],
+    PrismaModule,
+    StockModule,
+    SocketModule,
+    LoyaltyModule,
+  ],
 
   controllers: [OrdersController],
 

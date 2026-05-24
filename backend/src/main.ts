@@ -10,11 +10,16 @@ async function bootstrap() {
 
   // Configuração de CORS nativa do NestJS (recomendado)
   app.enableCors({
-    origin: [
-      'https://food-system-sas-erp-frontend.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ],
+    origin: (origin, callback) => {
+      // Permitir requests sem origin (curl, Render health checks, etc.)
+      if (!origin) return callback(null, true);
+      // Vercel (qualquer subdomínio) + localhost
+      const allowed =
+        /\.vercel\.app$/.test(origin) ||
+        /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+        origin === 'https://food-system-sas-erp-frontend.vercel.app';
+      return callback(null, allowed ? origin : false);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,

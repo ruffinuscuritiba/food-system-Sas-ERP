@@ -59,63 +59,67 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
-      const res = await fetch(`${apiBaseUrl}/chat/stream`, {
+      let accum = "";
+
+      // Tenta streaming primeiro
+      const streamRes = await fetch(`${apiBaseUrl}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyId, messages: updated, sessionId }),
-      });
+      }).catch(() => null);
 
-      if (!res.body) throw new Error("no body");
+      const canStream = streamRes?.ok && streamRes.body;
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let accum = "";
-      let buffer = "";
+      if (canStream) {
+        const reader = streamRes!.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        // Keep the last incomplete line in the buffer
-        buffer = lines.pop() ?? "";
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6).trim();
-          if (!raw) continue;
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.text) {
-              accum += parsed.text;
-              setMessages((prev) => {
-                const copy = [...prev];
-                copy[copy.length - 1] = { role: "assistant", content: accum };
-                return copy;
-              });
-            }
-          } catch {
-            /* skip malformed chunks */
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const raw = line.slice(6).trim();
+            if (!raw) continue;
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed.text) {
+                accum += parsed.text;
+                setMessages((prev) => {
+                  const copy = [...prev];
+                  copy[copy.length - 1] = { role: "assistant", content: accum };
+                  return copy;
+                });
+              }
+            } catch { /* skip malformed */ }
           }
         }
       }
 
-      // Ensure something is shown even if streaming was empty
+      // Fallback para endpoint padrão se streaming falhou ou retornou vazio
       if (!accum) {
+        const fallRes = await fetch(`${apiBaseUrl}/chat/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId, messages: updated, sessionId }),
+        });
+        const data = await fallRes.json().catch(() => ({}));
+        accum = data.reply || "Não consegui responder agora. Pode tentar novamente?";
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = {
-            role: "assistant",
-            content: "Não consegui responder agora. Tenta de novo?",
-          };
+          copy[copy.length - 1] = { role: "assistant", content: accum };
           return copy;
         });
       }
     } catch {
       setMessages((prev) => {
         const copy = [...prev];
-        // Replace the empty assistant bubble with error
         copy[copy.length - 1] = {
           role: "assistant",
           content: "Erro de conexão. Tenta de novo! 🙏",

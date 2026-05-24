@@ -161,6 +161,10 @@ export default function MenuPage() {
       if (!res.ok) throw new Error();
       const orderData = await res.json().catch(() => null);
       const createdOrderId: string | null = orderData?.id ?? null;
+      const finalTotal = Math.max(0, cartTotal - (usePoints ? loyaltyDiscount : 0));
+      // Capture cart snapshot before clearing for tracking events
+      const cartSnapshot = cart.slice();
+
       setCart([]);
       setShowCheckout(false);
       setShowCart(false);
@@ -172,12 +176,11 @@ export default function MenuPage() {
       setOrderSent(true);
 
       // Fire tracking events on purchase
-      const finalTotal = Math.max(0, cartTotal - (usePoints ? loyaltyDiscount : 0));
       trackPixelPurchase(finalTotal);
       trackGAPurchase(
         createdOrderId || "unknown",
         finalTotal,
-        cart.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })),
+        cartSnapshot.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })),
       );
 
       // For online payments (PIX / card), auto-trigger gateway checkout

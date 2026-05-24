@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2, Star } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
 
 type Product = {
@@ -264,6 +265,9 @@ export default function MenuPage() {
       {/* Tracking */}
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
       {gaId && <GoogleAnalytics gaId={gaId} />}
+
+      {/* Chatbot */}
+      <ChatWidget companyId={companyId} companyName={companyName} />
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-4">

@@ -19,6 +19,7 @@ import { CompanyModuleModule } from './company-module/company-module.module'
 import { SuperAdminModule } from './modules/super-admin/super-admin.module'
 import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { ChatModule } from './modules/chat/chat.module'
+import { CouponsModule } from './modules/coupons/coupons.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -45,6 +46,7 @@ import { AppService } from './app.service'
     PaymentsModule,
     LoyaltyModule,
     ChatModule,
+    CouponsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

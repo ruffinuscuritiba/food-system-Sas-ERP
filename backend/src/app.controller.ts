@@ -22,7 +22,7 @@ export class AppController {
   @Get('version')
   getVersion() {
     return {
-      version: '2.1.0-humanized-chat',
+      version: '3.0.0-complete',
       status: 'active',
       features: ['gateway', 'loyalty', 'chatbot', 'meta-pixel', 'ga4']
     };

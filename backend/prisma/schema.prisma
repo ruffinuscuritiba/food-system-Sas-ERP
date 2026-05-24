@@ -143,6 +143,10 @@ model Company {
 
   loyaltyAccounts LoyaltyAccount[]
 
+  chatSessions ChatSession[]
+
+  coupons Coupon[]
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -749,6 +753,46 @@ model PointTransaction {
   createdAt DateTime @default(now())
 
   @@index([loyaltyAccountId])
+  @@index([companyId])
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  companyId String
+  company   Company       @relation(fields: [companyId], references: [id])
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([companyId])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id])
+  role      String
+  content   String      @db.Text
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+}
+
+model Coupon {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  code      String
+  discount  Decimal   @db.Decimal(10, 2)
+  isPercent Boolean   @default(false)
+  maxUses   Int?
+  usedCount Int       @default(0)
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([code, companyId])
   @@index([companyId])
 }
 

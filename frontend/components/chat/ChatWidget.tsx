@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
 import { apiBaseUrl } from "@/services/env";
 
@@ -11,6 +11,17 @@ interface Message {
 interface ChatWidgetProps {
   companyId: string;
   companyName?: string;
+}
+
+function getOrCreateSessionId(companyId: string): string {
+  if (typeof window === "undefined") return crypto.randomUUID();
+  const key = `chat_session_${companyId}`;
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(key, id);
+  }
+  return id;
 }
 
 export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidgetProps) {
@@ -28,40 +39,93 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
 
   useEffect(() => {
     if (open) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       inputRef.current?.focus();
     }
   }, [open, messages]);
 
-  async function sendMessage() {
+  const sendMessage = useCallback(async () => {
     const text = input.trim();
     if (!text || loading) return;
 
+    const sessionId = getOrCreateSessionId(companyId);
     const userMsg: Message = { role: "user", content: text };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setInput("");
     setLoading(true);
 
+    // Add empty assistant bubble (will be filled by streaming)
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
     try {
-      const res = await fetch(`${apiBaseUrl}/chat/message`, {
+      const res = await fetch(`${apiBaseUrl}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId, messages: updated }),
+        body: JSON.stringify({ companyId, messages: updated, sessionId }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      const reply = data.reply || "Desculpe, não consegui processar sua mensagem.";
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      if (!res.body) throw new Error("no body");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accum = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.text) {
+              accum += parsed.text;
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { role: "assistant", content: accum };
+                return copy;
+              });
+            }
+          } catch {
+            /* skip malformed chunks */
+          }
+        }
+      }
+
+      // Ensure something is shown even if streaming was empty
+      if (!accum) {
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Não consegui responder agora. Tenta de novo?",
+          };
+          return copy;
+        });
+      }
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Erro de conexão. Tente novamente." },
-      ]);
+      setMessages((prev) => {
+        const copy = [...prev];
+        // Replace the empty assistant bubble with error
+        copy[copy.length - 1] = {
+          role: "assistant",
+          content: "Erro de conexão. Tenta de novo! 🙏",
+        };
+        return copy;
+      });
     } finally {
       setLoading(false);
     }
-  }
+  }, [input, loading, messages, companyId]);
 
   return (
     <>
@@ -76,8 +140,10 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
 
       {/* Chat window */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ maxHeight: "70vh" }}>
+        <div
+          className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ maxHeight: "70vh" }}
+        >
           {/* Header */}
           <div className="bg-red-500 px-4 py-3 flex items-center gap-3">
             <div className="bg-white/20 rounded-full p-1.5">
@@ -90,7 +156,10 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: "calc(70vh - 130px)" }}>
+          <div
+            className="flex-1 overflow-y-auto p-4 space-y-3"
+            style={{ maxHeight: "calc(70vh - 130px)" }}
+          >
             {messages.map((msg, i) => (
               <div
                 key={i}
@@ -103,18 +172,16 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
                       : "bg-slate-800 text-slate-100 rounded-bl-sm"
                   }`}
                 >
-                  {msg.content}
+                  {msg.content || (
+                    <span className="flex items-center gap-1.5 text-slate-400">
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-slate-800 px-4 py-2 rounded-2xl rounded-bl-sm flex items-center gap-2">
-                  <Loader2 size={14} className="animate-spin text-slate-400" />
-                  <span className="text-slate-400 text-xs">Digitando...</span>
-                </div>
-              </div>
-            )}
             <div ref={bottomRef} />
           </div>
 
@@ -134,7 +201,7 @@ export function ChatWidget({ companyId, companyName = "Assistente" }: ChatWidget
               disabled={!input.trim() || loading}
               className="bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white p-2.5 rounded-xl transition flex-shrink-0"
             >
-              <Send size={16} />
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>
           </div>
         </div>

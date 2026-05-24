@@ -3,7 +3,7 @@ import { apiBaseUrl } from "@/services/env";
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2, Star } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
@@ -53,6 +53,11 @@ export default function MenuPage() {
   const [loyaltyPointsEarned, setLoyaltyPointsEarned] = useState(0);
   const [metaPixelId, setMetaPixelId] = useState<string | null>(null);
   const [gaId, setGaId] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponId, setCouponId] = useState<string | null>(null);
+  const [couponMsg, setCouponMsg] = useState<{ text: string; valid: boolean } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
@@ -116,6 +121,33 @@ export default function MenuPage() {
     } catch { /* silent */ }
   }, [companyId]);
 
+  async function validateCoupon(code: string) {
+    if (!code.trim()) { setCouponMsg(null); setCouponDiscount(0); setCouponId(null); return; }
+    setCouponLoading(true);
+    setCouponMsg(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim(), companyId, orderTotal: cartTotal }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setCouponDiscount(data.discount);
+        setCouponId(data.couponId);
+        setCouponMsg({ text: data.message, valid: true });
+      } else {
+        setCouponDiscount(0);
+        setCouponId(null);
+        setCouponMsg({ text: data.message, valid: false });
+      }
+    } catch {
+      setCouponMsg({ text: "Erro ao validar cupom.", valid: false });
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
   function addToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
@@ -132,6 +164,8 @@ export default function MenuPage() {
   }
 
   const cartTotal = cart.reduce((acc, i) => acc + Number(i.product.salePrice) * i.quantity, 0);
+  const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount;
+  const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const filtered = activeCategory === "Todos" ? products : products.filter((p) => (p.category?.name || "Outros") === activeCategory);
 
@@ -153,7 +187,7 @@ export default function MenuPage() {
           orderType: tableNumber ? "DINE_IN" : form.orderType,
           paymentMethod: form.paymentMethod,
           items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity, notes: i.notes })),
-          total: cartTotal,
+          total: finalCartTotal,
           redeemPoints: pointsToRedeem,
           notes: tableNumber ? `Mesa ${tableNumber}` : undefined,
         }),
@@ -161,9 +195,18 @@ export default function MenuPage() {
       if (!res.ok) throw new Error();
       const orderData = await res.json().catch(() => null);
       const createdOrderId: string | null = orderData?.id ?? null;
-      const finalTotal = Math.max(0, cartTotal - (usePoints ? loyaltyDiscount : 0));
       // Capture cart snapshot before clearing for tracking events
       const cartSnapshot = cart.slice();
+      const capturedFinalTotal = finalCartTotal;
+
+      // Redeem coupon (fire-and-forget)
+      if (couponId) {
+        fetch(`${apiBaseUrl}/coupons/redeem`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ couponId }),
+        }).catch(() => {});
+      }
 
       setCart([]);
       setShowCheckout(false);
@@ -173,13 +216,17 @@ export default function MenuPage() {
       setUsePoints(false);
       setLoyaltyPoints(0);
       setLoyaltyDiscount(0);
+      setCouponCode("");
+      setCouponDiscount(0);
+      setCouponId(null);
+      setCouponMsg(null);
       setOrderSent(true);
 
       // Fire tracking events on purchase
-      trackPixelPurchase(finalTotal);
+      trackPixelPurchase(capturedFinalTotal);
       trackGAPurchase(
         createdOrderId || "unknown",
-        finalTotal,
+        capturedFinalTotal,
         cartSnapshot.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })),
       );
 
@@ -425,6 +472,38 @@ export default function MenuPage() {
                 </div>
               </label>
             )}
+            {/* Coupon field */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    setCouponMsg(null);
+                    setCouponDiscount(0);
+                    setCouponId(null);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && validateCoupon(couponCode)}
+                  placeholder="CUPOM DE DESCONTO"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-4 py-3 text-white text-sm outline-none focus:border-red-500 placeholder-slate-500 font-mono uppercase tracking-wider"
+                />
+              </div>
+              <button
+                onClick={() => validateCoupon(couponCode)}
+                disabled={!couponCode.trim() || couponLoading}
+                className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white px-4 rounded-xl font-bold text-sm transition flex-shrink-0"
+              >
+                {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Aplicar"}
+              </button>
+            </div>
+            {couponMsg && (
+              <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${couponMsg.valid ? "bg-green-500/10 border border-green-500/30 text-green-400" : "bg-red-500/10 border border-red-500/30 text-red-400"}`}>
+                {couponMsg.valid ? <CheckCircle size={14} /> : <X size={14} />}
+                {couponMsg.text}
+              </div>
+            )}
+
             {!tableNumber && (
               <div className="grid grid-cols-2 gap-3">
                 {(["DELIVERY", "PICKUP"] as const).map((type) => (
@@ -449,18 +528,26 @@ export default function MenuPage() {
               <option value="CREDIT_CARD">Cartão de Crédito</option>
               <option value="DEBIT_CARD">Cartão de Débito</option>
             </select>
-            <div className="pt-2 border-t border-slate-800 space-y-1">
+            <div className="pt-2 border-t border-slate-800 space-y-1.5">
+              <div className="flex justify-between text-sm text-slate-400">
+                <span>Subtotal</span>
+                <span>R$ {cartTotal.toFixed(2)}</span>
+              </div>
               {usePoints && loyaltyDiscount > 0 && (
                 <div className="flex justify-between text-sm text-yellow-400">
-                  <span>Desconto fidelidade</span>
+                  <span className="flex items-center gap-1"><Star size={12} fill="currentColor" /> Fidelidade</span>
                   <span>- R$ {loyaltyDiscount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-lg font-bold">
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-400">
+                  <span className="flex items-center gap-1"><Tag size={12} /> Cupom</span>
+                  <span>- R$ {couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-lg font-bold pt-1 border-t border-slate-700">
                 <span>Total</span>
-                <span className="text-green-400">
-                  R$ {Math.max(0, cartTotal - (usePoints ? loyaltyDiscount : 0)).toFixed(2)}
-                </span>
+                <span className="text-green-400">R$ {finalCartTotal.toFixed(2)}</span>
               </div>
             </div>
             <button onClick={submitOrder} disabled={submitting} className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white py-4 rounded-xl font-black text-lg transition">

@@ -37,6 +37,7 @@ const PUBLIC_ROUTES = [
   "/landing",
   "/menu",
   "/pagamento",
+  "/pedido",
   "/order-status",
   "/super-admin",
 ]

@@ -82,6 +82,20 @@ export class SuperAdminService {
     return company
   }
 
+  async fixModules(companyId: string) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } })
+    if (!company) throw new NotFoundException('Empresa não encontrada')
+    for (const mod of DEFAULT_MODULES) {
+      const existing = await this.prisma.companyModule.findFirst({ where: { companyId, module: mod } })
+      if (!existing) {
+        await this.prisma.companyModule.create({ data: { module: mod, active: true, companyId } })
+      } else if (!existing.active) {
+        await this.prisma.companyModule.update({ where: { id: existing.id }, data: { active: true } })
+      }
+    }
+    return { ok: true, modules: DEFAULT_MODULES, companyId }
+  }
+
   async toggleBlock(id: string) {
     const company = await this.prisma.company.findUnique({ where: { id } })
     if (!company) throw new NotFoundException('Empresa não encontrada')
@@ -171,11 +185,10 @@ export class SuperAdminService {
         },
       })
       for (const mod of DEFAULT_MODULES) {
-        await this.prisma.companyModule.upsert({
-          where: { companyId_module: { companyId: COMPANY_ID, module: mod } },
-          update: { active: true },
-          create: { module: mod, active: true, companyId: COMPANY_ID },
-        })
+        const existing = await this.prisma.companyModule.findFirst({ where: { companyId: COMPANY_ID, module: mod } })
+        if (!existing) {
+          await this.prisma.companyModule.create({ data: { module: mod, active: true, companyId: COMPANY_ID } })
+        }
       }
     }
 

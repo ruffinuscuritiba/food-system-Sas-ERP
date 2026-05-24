@@ -70,4 +70,10 @@ export class SuperAdminController {
   runSeed() {
     return this.service.runDemoSeed()
   }
+
+  @Post('companies/:id/fix-modules')
+  @UseGuards(SuperAdminGuard)
+  fixModules(@Param('id') id: string) {
+    return this.service.fixModules(id)
+  }
 }

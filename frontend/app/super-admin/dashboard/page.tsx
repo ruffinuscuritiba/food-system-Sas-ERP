@@ -54,6 +54,7 @@ export default function SuperAdminDashboard() {
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState("")
   const [seeding, setSeeding] = useState(false)
+  const [fixingModules, setFixingModules] = useState<string | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("sa_token")
@@ -134,6 +135,18 @@ export default function SuperAdminDashboard() {
       setFormError(err?.response?.data?.message || "Erro ao criar restaurante")
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function fixModules(id: string) {
+    setFixingModules(id)
+    try {
+      await saApi.post(`/super-admin/companies/${id}/fix-modules`)
+      await load()
+    } catch {
+      alert("Erro ao corrigir módulos")
+    } finally {
+      setFixingModules(null)
     }
   }
 
@@ -274,6 +287,13 @@ export default function SuperAdminDashboard() {
                         }`}
                       >
                         {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}
+                      </button>
+                      <button
+                        onClick={() => fixModules(c.id)}
+                        disabled={fixingModules === c.id}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-teal-700 hover:bg-teal-600 text-white"
+                      >
+                        {fixingModules === c.id ? "..." : "Fix Módulos"}
                       </button>
                       <button
                         onClick={() => deleteCompany(c.id, c.name)}

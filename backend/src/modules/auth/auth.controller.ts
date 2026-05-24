@@ -16,6 +16,11 @@ export class AuthController {
     private readonly service: AuthService,
   ) {}
 
+  @Post('signup')
+  signup(@Body() body: { companyName: string; name: string; email: string; password: string }) {
+    return this.service.signup(body)
+  }
+
   @Post('register')
   register(
     @Body()

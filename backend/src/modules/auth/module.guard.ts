@@ -34,6 +34,8 @@ constructor(
         context.getClass(),
       ]);
 
+    if (!requiredModule) return true;
+
     const module =
       await this.prisma.companyModule.findFirst({
         where: {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 import toast from 'react-hot-toast'
 
@@ -172,6 +173,13 @@ export default function LoginPage() {
           </button>
 
         </div>
+
+        <p className="text-center text-slate-500 text-sm mt-6">
+          Não tem conta?{' '}
+          <Link href="/signup" className="text-green-400 hover:text-green-300 font-medium">
+            Criar conta
+          </Link>
+        </p>
 
       </div>
 

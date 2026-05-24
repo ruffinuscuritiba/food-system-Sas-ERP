@@ -22,6 +22,8 @@ import {
   LogOut,
   ExternalLink,
   ArrowLeft,
+  Menu,
+  X,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -95,6 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const { isAdmin, isKitchen, isCashier, loadAuth, user } = useAuthStore()
   const [companyName, setCompanyName] = useState("FoodSaaS ERP")
   const [impersonating, setImpersonating] = useState<{ companyName: string } | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     loadAuth()
@@ -158,13 +161,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </button>
           </div>
         )}
-        <div className={`flex min-h-screen ${impersonating ? "pt-10" : ""}`}>
+        {/* Mobile top bar */}
+        <div className={`md:hidden fixed inset-x-0 z-40 bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between ${impersonating ? "top-10" : "top-0"}`}>
+          <span className="font-bold text-sm truncate max-w-[200px]">{companyName}</span>
+          <button onClick={() => setSidebarOpen(true)} className="text-slate-300 hover:text-white p-1">
+            <Menu size={24} />
+          </button>
+        </div>
+
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div className="md:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setSidebarOpen(false)} />
+        )}
+
+        <div className={`flex min-h-screen ${impersonating ? "pt-10" : ""} md:pt-0 pt-14`}>
 
           {/* ─── Sidebar ──────────────────────────────────────────────── */}
-          <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+          <aside className={`
+            fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0
+            transition-transform duration-300
+            md:relative md:translate-x-0 md:z-auto
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+            ${impersonating ? "top-10 md:top-0" : "top-0"}
+          `}>
 
             {/* Logo / nome empresa */}
-            <div className="px-5 py-6 border-b border-slate-800">
+            <div className="px-5 py-6 border-b border-slate-800 flex items-start justify-between">
+              <div>
               <h1 className="text-lg font-bold leading-tight truncate">{companyName}</h1>
               <p className="text-slate-400 text-xs mt-0.5">
                 {user?.role === "SUPER_ADMIN" ? "Super Admin" :
@@ -174,6 +197,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                  user?.role === "KITCHEN"     ? "Cozinha" :
                  user?.role === "DELIVERY"    ? "Entregador" : "Gestão SaaS"}
               </p>
+              </div>
+              <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-500 hover:text-white p-1 mt-1">
+                <X size={18} />
+              </button>
             </div>
 
             {/* Nav */}
@@ -195,6 +222,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         icon={item.icon}
                         label={item.label}
                         active={pathname === item.href}
+                        onClick={() => setSidebarOpen(false)}
                       />
                     ))}
                   </div>
@@ -241,10 +269,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   )
 }
 
-function MenuItem({ href, icon, label, active }: { href: string; icon: React.ReactNode; label: string; active: boolean }) {
+function MenuItem({ href, icon, label, active, onClick }: { href: string; icon: React.ReactNode; label: string; active: boolean; onClick?: () => void }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition text-sm font-medium ${
         active
           ? "bg-green-500 text-white shadow-lg shadow-green-500/20"

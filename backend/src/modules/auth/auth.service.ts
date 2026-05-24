@@ -33,6 +33,44 @@ export class AuthService {
     private readonly auditService: AuditService,
   ) {}
 
+  async signup(dto: { companyName: string; name: string; email: string; password: string }) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } })
+    if (existing) throw new BadRequestException('Email já cadastrado')
+
+    const company = await this.prisma.company.create({
+      data: {
+        name: dto.companyName,
+        email: dto.email,
+        plan: 'BASIC',
+        subscriptionStatus: 'ACTIVE',
+        isBlocked: false,
+      },
+    })
+
+    const hashed = await bcrypt.hash(dto.password, 10)
+    const user = await this.prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email,
+        password: hashed,
+        role: 'ADMIN',
+        isActive: true,
+        companyId: company.id,
+      },
+    })
+
+    for (const mod of ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY']) {
+      await this.prisma.companyModule.create({ data: { module: mod, active: true, companyId: company.id } })
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id, email: user.email, companyId: user.companyId, role: user.role,
+    })
+
+    const { password: _, ...userWithoutPassword } = user
+    return { accessToken, user: { ...userWithoutPassword, company } }
+  }
+
   async register(
     dto: RegisterDto,
   ) {

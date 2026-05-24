@@ -64,4 +64,10 @@ export class SuperAdminController {
   deleteCompany(@Param('id') id: string) {
     return this.service.deleteCompany(id)
   }
+
+  @Post('seed')
+  @UseGuards(SuperAdminGuard)
+  runSeed() {
+    return this.service.runDemoSeed()
+  }
 }

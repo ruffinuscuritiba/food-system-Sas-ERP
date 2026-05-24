@@ -53,6 +53,7 @@ export default function SuperAdminDashboard() {
   })
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState("")
+  const [seeding, setSeeding] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("sa_token")
@@ -136,6 +137,20 @@ export default function SuperAdminDashboard() {
     }
   }
 
+  async function runSeed() {
+    if (!window.confirm("Criar/restaurar empresa demo com 15 categorias e 45 produtos?")) return
+    setSeeding(true)
+    try {
+      const { data } = await saApi.post("/super-admin/seed")
+      alert(`Seed concluído: ${data.categories} categorias, ${data.products} produtos (ID: ${data.companyId})`)
+      await load()
+    } catch {
+      alert("Erro ao executar seed")
+    } finally {
+      setSeeding(false)
+    }
+  }
+
   function logout() {
     localStorage.removeItem("sa_token")
     router.push("/super-admin/login")
@@ -188,12 +203,21 @@ export default function SuperAdminDashboard() {
         {/* Actions bar */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold">Restaurantes</h2>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
-          >
-            + Novo Restaurante
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={runSeed}
+              disabled={seeding}
+              className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+            >
+              {seeding ? "Gerando..." : "🌱 Seed Demo"}
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+            >
+              + Novo Restaurante
+            </button>
+          </div>
         </div>
 
         {/* Table */}

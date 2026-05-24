@@ -3,7 +3,7 @@ import { apiBaseUrl } from "@/services/env";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2 } from "lucide-react";
 
 type Product = {
   id: string;
@@ -41,6 +41,9 @@ export default function MenuPage() {
   const [submitting, setSubmitting] = useState(false);
   const [companyName, setCompanyName] = useState("Cardápio");
   const [orderSent, setOrderSent] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [loadingPayment, setLoadingPayment] = useState(false);
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
@@ -122,10 +125,40 @@ export default function MenuPage() {
         }),
       });
       if (!res.ok) throw new Error();
+      const orderData = await res.json().catch(() => null);
+      const createdOrderId: string | null = orderData?.id ?? null;
       setCart([]);
       setShowCheckout(false);
       setShowCart(false);
+      setOrderId(createdOrderId);
       setOrderSent(true);
+
+      // For online payments (PIX / card), auto-trigger gateway checkout
+      const isOnlinePayment =
+        form.paymentMethod === "PIX" ||
+        form.paymentMethod === "CREDIT_CARD" ||
+        form.paymentMethod === "DEBIT_CARD";
+
+      if (isOnlinePayment && createdOrderId) {
+        setLoadingPayment(true);
+        try {
+          const payRes = await fetch(`${apiBaseUrl}/payments/order-checkout`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: createdOrderId, companyId }),
+          });
+          if (payRes.ok) {
+            const payData = await payRes.json();
+            if (payData?.checkoutUrl) {
+              setPaymentUrl(payData.checkoutUrl);
+            }
+          }
+        } catch {
+          // Payment link failed — still show order received, customer can retry
+        } finally {
+          setLoadingPayment(false);
+        }
+      }
     } catch {
       toast.error("Erro ao enviar pedido. Tente novamente.");
     } finally {
@@ -138,8 +171,35 @@ export default function MenuPage() {
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-6 px-4 text-center">
         <div className="text-6xl">🎉</div>
         <h1 className="text-4xl font-black text-green-400">Pedido recebido!</h1>
-        <p className="text-slate-400 text-lg max-w-sm">Seu pedido foi enviado para {companyName}. Você será notificado em breve.</p>
-        <button onClick={() => setOrderSent(false)} className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl font-bold text-lg transition">
+        <p className="text-slate-400 text-lg max-w-sm">
+          Seu pedido foi enviado para {companyName}. Você será notificado em breve.
+        </p>
+
+        {/* Payment button for PIX / card orders */}
+        {loadingPayment && (
+          <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
+            <Loader2 size={18} className="animate-spin" />
+            Gerando link de pagamento...
+          </div>
+        )}
+        {paymentUrl && !loadingPayment && (
+          <a
+            href={paymentUrl}
+            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-2xl font-black text-lg transition"
+          >
+            <CreditCard size={22} />
+            Pagar agora
+          </a>
+        )}
+
+        <button
+          onClick={() => {
+            setOrderSent(false);
+            setOrderId(null);
+            setPaymentUrl(null);
+          }}
+          className="bg-slate-700 hover:bg-slate-600 text-white px-8 py-4 rounded-2xl font-bold text-lg transition"
+        >
           Fazer novo pedido
         </button>
       </div>

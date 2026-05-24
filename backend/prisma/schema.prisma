@@ -66,6 +66,13 @@ enum PaymentMethod {
   TRANSFER
 }
 
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum OrderType {
   DELIVERY
   DINE_IN
@@ -126,6 +133,8 @@ model Company {
   cashes Cash[]
 
   auditLogs AuditLog[]
+
+  payments Payment[]
 
   createdAt DateTime @default(now())
 
@@ -299,6 +308,8 @@ model Order {
   notes String?
 
   items OrderItem[]
+
+  payments Payment[]
 
   companyId String
 
@@ -679,4 +690,32 @@ model AuditLog {
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+}
+
+model Payment {
+  id String @id @default(cuid())
+
+  orderId String
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  externalId String?
+
+  status PaymentStatus @default(PENDING)
+
+  provider String @default("MERCADOPAGO")
+
+  amount Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([companyId])
+  @@index([status])
 }

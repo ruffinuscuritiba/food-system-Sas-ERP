@@ -35,9 +35,22 @@ export class PaymentsController {
     return this.service.activateSubscription(body.companyId, body.plan);
   }
 
+  // Public — customer-facing order checkout (no auth required)
+  @Post('order-checkout')
+  createOrderCheckout(
+    @Body() body: { orderId: string; companyId: string },
+  ) {
+    return this.service.createOrderCheckout(body);
+  }
+
   @Post('webhook/mercadopago')
   webhookMercadoPago(@Body() body: any) {
     return this.service.handleWebhookMercadoPago(body);
+  }
+
+  @Post('webhook/order')
+  webhookOrder(@Body() body: any) {
+    return this.service.handleOrderWebhook(body);
   }
 
   @Post('webhook/stripe')

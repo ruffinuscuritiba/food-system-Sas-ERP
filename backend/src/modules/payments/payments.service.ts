@@ -423,6 +423,128 @@ export class PaymentsService {
     }
   }
 
+  // ─── Order-level payment ────────────────────────────────────────────
+
+  async createOrderCheckout(dto: {
+    orderId: string;
+    companyId: string;
+  }): Promise<{ checkoutUrl: string; paymentId: string }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: dto.orderId },
+      include: { items: true },
+    });
+
+    if (!order || order.companyId !== dto.companyId) {
+      throw new BadRequestException('Pedido não encontrado.');
+    }
+
+    const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const backendUrl =
+      this.config.get<string>('BACKEND_URL') || 'http://localhost:3001';
+
+    let checkoutUrl: string;
+    let externalId: string;
+
+    if (!accessToken) {
+      this.logger.warn('MERCADOPAGO_ACCESS_TOKEN not configured — mock order checkout.');
+      externalId = `mock_order_${Date.now()}`;
+      checkoutUrl = `${frontendUrl}/pedido/confirmado?orderId=${dto.orderId}&mock=1`;
+    } else {
+      const body = {
+        items: order.items.map((item) => ({
+          title: item.productName,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unitPrice),
+          currency_id: 'BRL',
+        })),
+        back_urls: {
+          success: `${frontendUrl}/pedido/confirmado?orderId=${dto.orderId}`,
+          failure: `${frontendUrl}/pedido/erro?orderId=${dto.orderId}`,
+          pending: `${frontendUrl}/pedido/pendente?orderId=${dto.orderId}`,
+        },
+        auto_return: 'approved',
+        notification_url: `${backendUrl}/api/payments/webhook/order`,
+        external_reference: `ORDER|${dto.orderId}|${dto.companyId}`,
+      };
+
+      const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        this.logger.error(`MercadoPago order checkout error: ${err}`);
+        throw new BadRequestException('Erro ao criar checkout do pedido.');
+      }
+
+      const data: any = await res.json();
+      checkoutUrl = data.init_point;
+      externalId = data.id;
+    }
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        orderId: dto.orderId,
+        companyId: dto.companyId,
+        externalId,
+        status: 'PENDING',
+        provider: 'MERCADOPAGO',
+        amount: order.total,
+      },
+    });
+
+    return { checkoutUrl, paymentId: payment.id };
+  }
+
+  async handleOrderWebhook(body: any): Promise<void> {
+    this.logger.log(`Order payment webhook: ${JSON.stringify(body)}`);
+
+    if (body.type !== 'payment' || !body.data?.id) return;
+
+    const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+    if (!accessToken) return;
+
+    const res = await fetch(
+      `https://api.mercadopago.com/v1/payments/${body.data.id}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+
+    const mpPayment: any = await res.json();
+    const parts = (mpPayment.external_reference || '').split('|');
+
+    if (parts[0] !== 'ORDER' || !parts[1]) return;
+
+    const [, orderId, companyId] = parts;
+    const status: 'APPROVED' | 'REJECTED' | 'PENDING' =
+      mpPayment.status === 'approved'
+        ? 'APPROVED'
+        : mpPayment.status === 'rejected'
+          ? 'REJECTED'
+          : 'PENDING';
+
+    await this.prisma.payment.updateMany({
+      where: { orderId, companyId },
+      data: { status, externalId: String(body.data.id) },
+    });
+
+    if (status === 'APPROVED') {
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'CONFIRMED' },
+      });
+      this.logger.log(`Order ${orderId} confirmed via payment webhook.`);
+    }
+  }
+
+  // ─── Subscription ────────────────────────────────────────────────────
+
   async activateSubscription(
     companyId: string,
 

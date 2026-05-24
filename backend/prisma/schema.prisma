@@ -636,6 +636,10 @@ model CompanyTheme {
 
   darkMode Boolean @default(true)
 
+  metaPixelId String?
+
+  gaId String?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt

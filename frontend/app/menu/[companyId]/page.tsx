@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2, Star } from "lucide-react";
+import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
+import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
 
 type Product = {
   id: string;
@@ -48,6 +50,8 @@ export default function MenuPage() {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
   const [loyaltyPointsEarned, setLoyaltyPointsEarned] = useState(0);
+  const [metaPixelId, setMetaPixelId] = useState<string | null>(null);
+  const [gaId, setGaId] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
@@ -62,9 +66,10 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
       ]);
 
       if (!menuRes.ok) {
@@ -80,6 +85,12 @@ export default function MenuPage() {
       if (companyRes?.ok) {
         const cd = await companyRes.json().catch(() => null);
         if (cd?.name) setCompanyName(cd.name);
+      }
+
+      if (themeRes?.ok) {
+        const td = await themeRes.json().catch(() => null);
+        if (td?.metaPixelId) setMetaPixelId(td.metaPixelId);
+        if (td?.gaId) setGaId(td.gaId);
       }
     } catch {
       setLoadError(true);
@@ -111,6 +122,8 @@ export default function MenuPage() {
       return [...prev, { product, quantity: 1, notes: "" }];
     });
     toast.success(`${product.name} adicionado!`);
+    trackPixelAddToCart(Number(product.salePrice), product.name);
+    trackGAAddToCart(product.name, Number(product.salePrice));
   }
 
   function updateQuantity(productId: string, delta: number) {
@@ -156,6 +169,15 @@ export default function MenuPage() {
       setLoyaltyPoints(0);
       setLoyaltyDiscount(0);
       setOrderSent(true);
+
+      // Fire tracking events on purchase
+      const finalTotal = Math.max(0, cartTotal - (usePoints ? loyaltyDiscount : 0));
+      trackPixelPurchase(finalTotal);
+      trackGAPurchase(
+        createdOrderId || "unknown",
+        finalTotal,
+        cart.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })),
+      );
 
       // For online payments (PIX / card), auto-trigger gateway checkout
       const isOnlinePayment =
@@ -238,6 +260,10 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+
+      {/* Tracking */}
+      {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
+      {gaId && <GoogleAnalytics gaId={gaId} />}
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-4">

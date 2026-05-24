@@ -22,9 +22,9 @@ export class AppController {
   @Get('version')
   getVersion() {
     return {
-      version: '1.0.6-aggressive-cors',
+      version: '2.0.0-payment-loyalty-chat',
       status: 'active',
-      cors_mode: 'manual-middleware'
+      features: ['gateway', 'loyalty', 'chatbot', 'meta-pixel', 'ga4']
     };
   }
 

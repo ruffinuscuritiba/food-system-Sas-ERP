@@ -1,6 +1,7 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw } from "lucide-react";
 
@@ -24,8 +25,9 @@ type CustomerForm = {
   paymentMethod: "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD";
 };
 
-export default function MenuPage({ params }: { params: Promise<{ companyId: string }> }) {
-  const { companyId } = use(params);
+export default function MenuPage() {
+  const params = useParams<{ companyId: string }>();
+  const companyId = params.companyId as string;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);

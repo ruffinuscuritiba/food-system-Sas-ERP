@@ -160,6 +160,3 @@ export const useAuthStore =
     },
   }));
 
-useAuthStore
-  .getState()
-  .loadAuth();

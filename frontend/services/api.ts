@@ -22,7 +22,7 @@ api.interceptors.response.use(undefined, async (error) => {
   if (!config) throw error
 
   const retryCount: number = config._retryCount ?? 0
-  if (retryCount >= 3) throw error
+  if (retryCount >= 5) throw error
 
   const status = error.response?.status
   const isNetworkError = !error.response
@@ -33,8 +33,8 @@ api.interceptors.response.use(undefined, async (error) => {
   if (!isNetworkError && !is5xx && !isRenderColdStart404) throw error
 
   config._retryCount = retryCount + 1
-  // Progressive delay: 5s, 8s, 12s — backend usually up by 2nd retry
-  const delay = [5000, 8000, 12000][retryCount] ?? 10000
+  // Progressive delay: 5s, 10s, 15s, 20s, 25s — Render cold start can take up to 60s
+  const delay = [5000, 10000, 15000, 20000, 25000][retryCount] ?? 15000
   await new Promise<void>((r) => setTimeout(r, delay))
   return api(config)
 })

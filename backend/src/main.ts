@@ -4,8 +4,10 @@ import { ConfigService } from '@nestjs/config'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter'
 import { NestExpressApplication } from '@nestjs/platform-express'
+import { PrismaService } from '@/database/prisma.service'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
+import type { Request, Response, NextFunction } from 'express'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
@@ -34,6 +36,15 @@ async function bootstrap() {
     preflightContinue: false,
     optionsSuccessStatus: 204,
   });
+
+  // Readiness gate: hold requests until Prisma is connected.
+  // Returns 503 immediately if not ready (frontend interceptor retries 5xx).
+  const prismaService = app.get(PrismaService)
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/api/health') return next()
+    if (prismaService.isReady) return next()
+    res.status(503).json({ message: 'Service starting, please retry in a few seconds' })
+  })
 
   app.useGlobalPipes(
     new ValidationPipe({

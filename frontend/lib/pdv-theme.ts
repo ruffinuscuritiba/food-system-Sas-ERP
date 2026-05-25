@@ -19,6 +19,7 @@ export type PdvThemeConfig = {
   animations:    boolean;
   glassmorphism: boolean;
   compactMode:   boolean;
+  darkProducts:  boolean;
 };
 
 export const PDV_THEME_KEY = "pdv-admin-theme-v1";
@@ -41,30 +42,119 @@ export const PDV_THEME_DEFAULT: PdvThemeConfig = {
   animations:    true,
   glassmorphism: false,
   compactMode:   false,
+  darkProducts:  false,
 };
 
-export const PDV_THEME_PRESETS: { name: string; config: Partial<PdvThemeConfig> }[] = [
-  { name: "Dark Blue",   config: {} },
-  { name: "Purple Night", config: {
-    sidebarBg: "#110A24", categoriesBg: "#0E0820", productsBg: "#170F2E",
-    cartBg: "#110A24",    headerBg: "#0B0618",     cardBg: "#251640",
-    primary: "#7C3AED",   accent: "#EC4899",
-  }},
-  { name: "Dark Green",  config: {
-    sidebarBg: "#0A1A0F", categoriesBg: "#081510", productsBg: "#0E1F14",
-    cartBg: "#0A1A0F",    headerBg: "#071210",     cardBg: "#152E1D",
-    primary: "#059669",   accent: "#F59E0B",
-  }},
-  { name: "Midnight",    config: {
-    sidebarBg: "#000000", categoriesBg: "#050505", productsBg: "#0A0A0A",
-    cartBg: "#000000",    headerBg: "#000000",     cardBg: "#0F0F0F",
-    primary: "#3B82F6",   accent: "#F97316",
-  }},
-  { name: "Crimson",     config: {
-    sidebarBg: "#1A0A0A", categoriesBg: "#150808", productsBg: "#1F0E0E",
-    cartBg: "#1A0A0A",    headerBg: "#120606",     cardBg: "#2E1515",
-    primary: "#DC2626",   accent: "#F97316",
-  }},
+export type PdvPreset = {
+  name:        string;
+  description: string;
+  emoji:       string;
+  config:      Partial<PdvThemeConfig>;
+};
+
+export const PDV_THEME_PRESETS: PdvPreset[] = [
+  {
+    name:        "Goomer Dark",
+    description: "Padrão operacional premium — fundo claro + nav escuro",
+    emoji:       "🎯",
+    config: {
+      sidebarBg:    "#0A0E1A",
+      categoriesBg: "#0C1020",
+      productsBg:   "#F5F3EF",
+      cartBg:       "#0A0E1A",
+      headerBg:     "#070B15",
+      cardBg:       "#FFFFFF",
+      primary:      "#2563EB",
+      accent:       "#F97316",
+      border:       "rgba(255,255,255,0.07)",
+      shadows:      true,
+      animations:   true,
+      glassmorphism: false,
+      darkProducts: false,
+    },
+  },
+  {
+    name:        "Orange Premium",
+    description: "Energia e foco com laranja premium — tom quente",
+    emoji:       "🔥",
+    config: {
+      sidebarBg:    "#180D00",
+      categoriesBg: "#120900",
+      productsBg:   "#FFF8F2",
+      cartBg:       "#180D00",
+      headerBg:     "#100600",
+      cardBg:       "#FFFFFF",
+      primary:      "#EA580C",
+      accent:       "#F59E0B",
+      border:       "rgba(255,255,255,0.08)",
+      shadows:      true,
+      animations:   true,
+      glassmorphism: false,
+      darkProducts: false,
+    },
+  },
+  {
+    name:        "Black Glass",
+    description: "Total black com glassmorphism cinematográfico",
+    emoji:       "🌑",
+    config: {
+      sidebarBg:    "#000000",
+      categoriesBg: "#050508",
+      productsBg:   "#08080C",
+      cartBg:       "#000000",
+      headerBg:     "#000000",
+      cardBg:       "rgba(255,255,255,0.05)",
+      primary:      "#818CF8",
+      accent:       "#06B6D4",
+      border:       "rgba(255,255,255,0.09)",
+      hoverBg:      "rgba(255,255,255,0.06)",
+      shadows:      true,
+      animations:   true,
+      glassmorphism: true,
+      darkProducts: true,
+    },
+  },
+  {
+    name:        "Midnight POS",
+    description: "Roxo profundo para operações noturnas premium",
+    emoji:       "🌙",
+    config: {
+      sidebarBg:    "#0D0018",
+      categoriesBg: "#09000F",
+      productsBg:   "#0C000F",
+      cartBg:       "#0D0018",
+      headerBg:     "#07000C",
+      cardBg:       "rgba(139,92,246,0.09)",
+      primary:      "#A855F7",
+      accent:       "#EC4899",
+      border:       "rgba(139,92,246,0.18)",
+      hoverBg:      "rgba(139,92,246,0.12)",
+      shadows:      true,
+      animations:   true,
+      glassmorphism: false,
+      darkProducts: true,
+    },
+  },
+  {
+    name:        "Minimal Clean",
+    description: "Elegante e discreto — ideal para ambientes sofisticados",
+    emoji:       "🤍",
+    config: {
+      sidebarBg:    "#111827",
+      categoriesBg: "#0F172A",
+      productsBg:   "#F8FAFC",
+      cartBg:       "#111827",
+      headerBg:     "#0F172A",
+      cardBg:       "#FFFFFF",
+      primary:      "#0EA5E9",
+      accent:       "#10B981",
+      border:       "rgba(255,255,255,0.06)",
+      shadows:      true,
+      animations:   true,
+      glassmorphism: false,
+      darkProducts: false,
+    },
+  },
 ];
 
 export function loadPdvTheme(): PdvThemeConfig {

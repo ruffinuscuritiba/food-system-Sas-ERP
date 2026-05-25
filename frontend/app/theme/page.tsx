@@ -234,21 +234,45 @@ export default function ThemePage() {
           <div className="space-y-8">
 
             {/* Presets */}
-            <section className="rounded-3xl p-6 border border-gray-200 bg-gray-50">
-              <h3 className="text-base font-bold text-gray-800 mb-4">Presets</h3>
-              <div className="flex flex-wrap gap-2">
-                {PDV_THEME_PRESETS.map((p) => (
-                  <button key={p.name}
-                    onClick={() => updatePdvTheme({ ...PDV_THEME_DEFAULT, ...p.config })}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold border transition hover:border-blue-400"
-                    style={{
-                      background: p.config.cardBg || PDV_THEME_DEFAULT.cardBg,
-                      color: "#fff",
-                      borderColor: "rgba(255,255,255,0.1)",
-                    }}>
-                    {p.name}
-                  </button>
-                ))}
+            <section className="rounded-3xl overflow-hidden border border-gray-200 shadow-sm">
+              <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+                <h3 className="text-base font-bold text-gray-800">Presets Premium</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Temas profissionais prontos para usar — aplica instantaneamente</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {PDV_THEME_PRESETS.map((p) => {
+                  const cfg = { ...PDV_THEME_DEFAULT, ...p.config };
+                  const isActive =
+                    pdvTheme.primary === cfg.primary &&
+                    pdvTheme.sidebarBg === cfg.sidebarBg &&
+                    pdvTheme.productsBg === cfg.productsBg;
+                  return (
+                    <button key={p.name}
+                      onClick={() => updatePdvTheme({ ...PDV_THEME_DEFAULT, ...p.config })}
+                      className={`w-full flex items-center gap-4 px-5 py-4 text-left transition ${isActive ? "bg-blue-50" : "hover:bg-gray-50"}`}>
+                      {/* Color swatch preview */}
+                      <div className="flex shrink-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ width: 88, height: 48 }}>
+                        <div className="h-full" style={{ width: "25%", background: cfg.sidebarBg }} />
+                        <div className="h-full" style={{ width: "20%", background: cfg.categoriesBg }} />
+                        <div className="h-full border-x border-gray-100" style={{ width: "30%", background: cfg.productsBg }} />
+                        <div className="h-full" style={{ width: "25%", background: cfg.primary }} />
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-bold text-gray-800">{p.emoji} {p.name}</span>
+                          {isActive && (
+                            <span className="text-[9px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full tracking-widest uppercase">Ativo</span>
+                          )}
+                          {p.config.glassmorphism && (
+                            <span className="text-[9px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">Glass</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 leading-snug truncate">{p.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -354,6 +378,7 @@ export default function ThemePage() {
                   { key: "animations",     label: "Animações",       desc: "Transições e hover premium" },
                   { key: "glassmorphism",  label: "Glassmorphism",   desc: "Blur e transparência suave" },
                   { key: "compactMode",    label: "Modo Compacto",   desc: "Categorias menores (64px)" },
+                  { key: "darkProducts",  label: "Texto Claro",     desc: "Texto branco para área de produtos escura" },
                 ] as { key: keyof PdvThemeConfig; label: string; desc: string }[]).map(({ key, label, desc }) => (
                   <button key={key}
                     onClick={() => updatePdvTheme({ [key]: !pdvTheme[key] })}
@@ -371,9 +396,9 @@ export default function ThemePage() {
             </section>
 
             <button
-              onClick={() => { updatePdvTheme(PDV_THEME_DEFAULT); toast.success("Tema PDV redefinido!"); }}
+              onClick={() => { updatePdvTheme(PDV_THEME_DEFAULT); toast.success("Tema PDV restaurado!"); }}
               className="w-full py-3 rounded-2xl border border-gray-300 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
-              Redefinir Padrões do PDV
+              ↺ Restaurar Padrão
             </button>
           </div>
 

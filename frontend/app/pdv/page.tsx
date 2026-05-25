@@ -405,12 +405,14 @@ export default function PDVPage() {
           <button onClick={() => setActiveCat("ALL")}
             className="w-full flex items-center justify-center text-center px-2 font-bold text-[13px] border-b"
             style={{
-              height: pdvTheme.compactMode ? 64 : 80,
-              background: activeCat === "ALL" ? "var(--pdv-primary)" : "transparent",
+              height: pdvTheme.compactMode ? 60 : 78,
+              background: activeCat === "ALL" ? pdvTheme.primary : "transparent",
               color: activeCat === "ALL" ? "#fff" : "rgba(255,255,255,0.45)",
-              borderColor: "var(--pdv-border)",
+              borderColor: pdvTheme.border,
               transition: "var(--pdv-transition)",
-              boxShadow: activeCat === "ALL" && pdvTheme.shadows ? "inset 0 -2px 0 rgba(255,255,255,0.15)" : "none",
+              boxShadow: activeCat === "ALL" && pdvTheme.shadows
+                ? `inset 0 -2px 0 rgba(255,255,255,0.15), 0 0 20px ${pdvTheme.primary}60`
+                : "none",
             }}>
             Todos
           </button>
@@ -419,12 +421,14 @@ export default function PDVPage() {
             <button key={cat.id} onClick={() => setActiveCat(cat.id)}
               className="w-full flex flex-col items-center justify-center text-center px-2 font-bold text-[12px] border-b leading-tight gap-0.5"
               style={{
-                height: pdvTheme.compactMode ? 64 : 80,
-                background: activeCat === cat.id ? "var(--pdv-primary)" : "transparent",
+                height: pdvTheme.compactMode ? 60 : 78,
+                background: activeCat === cat.id ? pdvTheme.primary : "transparent",
                 color: activeCat === cat.id ? "#fff" : "rgba(255,255,255,0.45)",
-                borderColor: "var(--pdv-border)",
+                borderColor: pdvTheme.border,
                 transition: "var(--pdv-transition)",
-                boxShadow: activeCat === cat.id && pdvTheme.shadows ? "inset 0 -2px 0 rgba(255,255,255,0.15)" : "none",
+                boxShadow: activeCat === cat.id && pdvTheme.shadows
+                  ? `inset 0 -2px 0 rgba(255,255,255,0.15), 0 0 20px ${pdvTheme.primary}60`
+                  : "none",
               }}>
               <span className="line-clamp-2 text-center">{cat.name}</span>
             </button>
@@ -447,31 +451,38 @@ export default function PDVPage() {
             {loading ? (
               <div className="space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-[140px] animate-pulse rounded-2xl bg-white/60" />
+                  <div key={i} className="h-[140px] animate-pulse"
+                    style={{
+                      background: pdvTheme.darkProducts ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.6)",
+                      borderRadius: "var(--pdv-radius)",
+                      backdropFilter: pdvTheme.glassmorphism ? "blur(16px)" : undefined,
+                    }} />
                 ))}
               </div>
             ) : loadError ? (
-              <div className="flex items-center gap-3 px-1 pt-2 pb-4 border-b border-gray-200 mb-3">
+              <div className="flex items-center gap-3 px-1 pt-2 pb-4 mb-3"
+                style={{ borderBottom: `1px solid ${pdvTheme.darkProducts ? "rgba(255,255,255,0.07)" : "#E5E7EB"}` }}>
                 <AlertCircle size={18} className="text-red-400 shrink-0" />
-                <p className="text-gray-500 text-sm">Erro ao carregar</p>
-                <button onClick={loadCatalog} className="flex items-center gap-1 text-sm font-bold text-blue-500 hover:text-blue-600 transition ml-auto">
+                <p className="text-sm" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.4)" : "#6B7280" }}>Erro ao carregar</p>
+                <button onClick={loadCatalog} className="flex items-center gap-1 text-sm font-bold transition ml-auto"
+                  style={{ color: pdvTheme.primary }}>
                   <RefreshCw size={12} /> Tentar
                 </button>
               </div>
             ) : (
               <>
-                {/* Category label strip — compact, top-aligned */}
+                {/* Category label strip */}
                 {activeCat !== "ALL" && activeCatObj && (
                   <div className="flex items-center justify-between mb-2 px-1">
-                    <span className="text-[13px] font-black text-gray-700">{activeCatObj.name}</span>
-                    <span className="text-[11px] text-gray-400">{filtered.length} {filtered.length === 1 ? "item" : "itens"}</span>
+                    <span className="text-[13px] font-black" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.8)" : "#111827" }}>{activeCatObj.name}</span>
+                    <span className="text-[11px]" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.3)" : "#9CA3AF" }}>{filtered.length} {filtered.length === 1 ? "item" : "itens"}</span>
                   </div>
                 )}
 
                 {filtered.length === 0 ? (
                   <div className="flex items-center gap-3 pt-3 px-1">
                     <span className="text-2xl opacity-30">🍽️</span>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-sm" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.3)" : "#9CA3AF" }}>
                       {products.length === 0 ? "Nenhum produto cadastrado" : "Nenhum resultado"}
                     </p>
                   </div>
@@ -480,32 +491,47 @@ export default function PDVPage() {
                     {filtered.map((product) => {
                       const inCart   = cart.find((i) => i.cartKey === product.id);
                       const hasSizes = !!(product.sizes?.length);
+                      const dp = pdvTheme.darkProducts;
+                      const gl = pdvTheme.glassmorphism;
                       return (
                         <div key={product.id}
                           className="flex overflow-hidden group"
                           style={{
-                            background: inCart ? "#EFF6FF" : "#FFFFFF",
-                            border: inCart ? "1px solid #BFDBFE" : "1px solid #E5E7EB",
+                            background: inCart
+                              ? (dp ? `${pdvTheme.primary}22` : "#EFF6FF")
+                              : pdvTheme.cardBg,
+                            border: gl
+                              ? `1px solid rgba(255,255,255,0.1)`
+                              : inCart
+                                ? (dp ? `1px solid ${pdvTheme.primary}50` : "1px solid #BFDBFE")
+                                : (dp ? `1px solid ${pdvTheme.border}` : "1px solid #E5E7EB"),
                             borderRadius: "var(--pdv-radius)",
                             minHeight: 140,
                             transition: "var(--pdv-transition)",
-                            boxShadow: pdvTheme.shadows ? "0 1px 4px rgba(0,0,0,0.06)" : "none",
+                            backdropFilter: gl ? "blur(16px)" : undefined,
+                            boxShadow: pdvTheme.shadows
+                              ? gl
+                                ? `0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)`
+                                : dp
+                                  ? `0 2px 16px rgba(0,0,0,0.35)`
+                                  : "0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)"
+                              : undefined,
                           }}>
 
                           {/* IMAGE — LEFT */}
-                          <div className="w-[180px] shrink-0 relative overflow-hidden bg-gray-100"
-                            style={{ minHeight: 140 }}>
+                          <div className="w-[180px] shrink-0 relative overflow-hidden"
+                            style={{ minHeight: 140, background: dp ? "rgba(255,255,255,0.06)" : "#F3F4F6" }}>
                             {product.imageUrl ? (
                               <img src={product.imageUrl} alt={product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                                 style={{ minHeight: 140 }} />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-5xl opacity-20"
-                                style={{ minHeight: 140 }}>🍽️</div>
+                              <div className="w-full h-full flex items-center justify-center text-5xl"
+                                style={{ minHeight: 140, opacity: dp ? 0.12 : 0.18 }}>🍽️</div>
                             )}
                             {inCart && (
                               <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
-                                style={{ background: "var(--pdv-primary)" }}>
+                                style={{ background: pdvTheme.primary, boxShadow: `0 0 8px ${pdvTheme.primary}80` }}>
                                 ×{inCart.quantity}
                               </div>
                             )}
@@ -516,12 +542,14 @@ export default function PDVPage() {
                             <div>
                               {/* Name + price row */}
                               <div className="flex items-start justify-between gap-3 mb-1.5">
-                                <p className="font-bold text-[15px] text-gray-900 leading-snug line-clamp-2 flex-1">
+                                <p className="font-bold text-[15px] leading-snug line-clamp-2 flex-1"
+                                  style={{ color: dp ? "#FFFFFF" : "#111827" }}>
                                   {product.name}
                                 </p>
                                 {!hasSizes && (
                                   <div className="text-right shrink-0">
-                                    <p className="text-[17px] font-black text-gray-900">
+                                    <p className="text-[17px] font-black"
+                                      style={{ color: dp ? "#FFFFFF" : "#111827" }}>
                                       {fmt(Number(product.salePrice))}
                                     </p>
                                   </div>
@@ -530,12 +558,14 @@ export default function PDVPage() {
 
                               {/* Description */}
                               {product.description && (
-                                <p className="text-[12px] leading-relaxed line-clamp-2 text-gray-500">
+                                <p className="text-[12px] leading-relaxed line-clamp-2"
+                                  style={{ color: dp ? "rgba(255,255,255,0.5)" : "#6B7280" }}>
                                   {product.description}
                                 </p>
                               )}
                               {hasSizes && (
-                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                <p className="text-[11px] mt-0.5"
+                                  style={{ color: dp ? "rgba(255,255,255,0.35)" : "#9CA3AF" }}>
                                   Preço varia por tamanho
                                 </p>
                               )}
@@ -551,22 +581,33 @@ export default function PDVPage() {
                               {/* ADICIONAR / qty stepper */}
                               {!hasSizes && (
                                 inCart ? (
-                                  <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-blue-200">
+                                  <div className="flex items-center gap-0 overflow-hidden border"
+                                    style={{
+                                      borderRadius: "calc(var(--pdv-radius) * 0.6)",
+                                      borderColor: dp ? `${pdvTheme.primary}55` : "#BFDBFE",
+                                    }}>
                                     <button onClick={() => updateQty(product.id, -1)}
-                                      className="w-9 h-9 flex items-center justify-center transition font-bold bg-blue-50 text-blue-600 hover:bg-blue-100">
+                                      className="w-9 h-9 flex items-center justify-center transition font-bold"
+                                      style={{ background: dp ? `${pdvTheme.primary}20` : "#EFF6FF", color: dp ? "#93C5FD" : "#2563EB" }}>
                                       <Minus size={13} />
                                     </button>
-                                    <span className="w-9 text-center text-[13px] font-black text-blue-700">{inCart.quantity}</span>
+                                    <span className="w-9 text-center text-[13px] font-black"
+                                      style={{ color: dp ? "#93C5FD" : "#1D4ED8" }}>{inCart.quantity}</span>
                                     <button onClick={() => updateQty(product.id, 1)}
                                       className="w-9 h-9 flex items-center justify-center transition font-bold text-white"
-                                      style={{ background: "var(--pdv-primary)" }}>
+                                      style={{ background: pdvTheme.primary }}>
                                       <Plus size={13} />
                                     </button>
                                   </div>
                                 ) : (
                                   <button onClick={() => addToCart(product)}
-                                    className="flex items-center gap-1.5 px-5 py-2 text-white font-bold text-[13px] active:scale-95"
-                                    style={{ background: "var(--pdv-primary)", borderRadius: "calc(var(--pdv-radius) * 0.7)", transition: "var(--pdv-transition)" }}>
+                                    className="flex items-center gap-1.5 px-5 py-2 text-white font-bold text-[13px] active:scale-[0.96]"
+                                    style={{
+                                      background: pdvTheme.primary,
+                                      borderRadius: "calc(var(--pdv-radius) * 0.7)",
+                                      transition: "var(--pdv-transition)",
+                                      boxShadow: pdvTheme.shadows ? `0 2px 12px ${pdvTheme.primary}60` : "none",
+                                    }}>
                                     <Plus size={13} /> ADICIONAR
                                   </button>
                                 )

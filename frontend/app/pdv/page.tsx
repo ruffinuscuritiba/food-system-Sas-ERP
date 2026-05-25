@@ -4,6 +4,10 @@ import Link from "next/link";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
+  type PdvThemeConfig, PDV_THEME_DEFAULT, PDV_THEME_KEY,
+  loadPdvTheme, broadcastPdvTheme,
+} from "@/lib/pdv-theme";
+import {
   Plus, Minus, Trash2, Phone, Users, Bike,
   DollarSign, CreditCard, Smartphone, Banknote, X,
   Search, Package, ChevronRight, AlertCircle,
@@ -94,6 +98,9 @@ export default function PDVPage() {
     { method: "PIX", amount: "" }, { method: "CASH", amount: "" },
   ]);
 
+  /* theme */
+  const [pdvTheme, setPdvTheme] = useState<PdvThemeConfig>(PDV_THEME_DEFAULT);
+
   // ── load ──────────────────────────────────────────────────────────────────
   const loadCash = useCallback(async () => {
     try { setCash((await api.get("/cash/current")).data); } catch {}
@@ -109,6 +116,14 @@ export default function PDVPage() {
     try { const bR = await api.get("/pizza-borders"); setBorders(Array.isArray(bR.data) ? bR.data : []); } catch {}
   }, []);
   useEffect(() => { loadCash(); loadCatalog(); }, []);
+
+  useEffect(() => {
+    setPdvTheme(loadPdvTheme());
+    if (typeof BroadcastChannel === "undefined") return;
+    const bc = new BroadcastChannel("pdv-theme");
+    bc.onmessage = (e: MessageEvent<PdvThemeConfig>) => setPdvTheme(e.data);
+    return () => bc.close();
+  }, []);
 
   // ── cash ──────────────────────────────────────────────────────────────────
   async function openCash() {
@@ -242,16 +257,31 @@ export default function PDVPage() {
   // ══════════════════════════════════════════════════════════════════════════
   return (
     <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden text-white"
-      style={{ background: "#15172A", fontFamily: "Inter, sans-serif" }}>
+      style={{
+        background: pdvTheme.productsBg,
+        fontFamily: `'${pdvTheme.font}', Inter, sans-serif`,
+        "--pdv-sidebar":    pdvTheme.sidebarBg,
+        "--pdv-categories": pdvTheme.categoriesBg,
+        "--pdv-bg":         pdvTheme.productsBg,
+        "--pdv-cart":       pdvTheme.cartBg,
+        "--pdv-header":     pdvTheme.headerBg,
+        "--pdv-card":       pdvTheme.cardBg,
+        "--pdv-primary":    pdvTheme.primary,
+        "--pdv-accent":     pdvTheme.accent,
+        "--pdv-border":     pdvTheme.border,
+        "--pdv-hover":      pdvTheme.hoverBg,
+        "--pdv-radius":     `${pdvTheme.radius}px`,
+        "--pdv-transition": pdvTheme.animations ? "all 0.18s ease" : "none",
+      } as React.CSSProperties}>
 
       {/* ───────────────────────────────────────────────────────────────────
           TOP BAR
       ─────────────────────────────────────────────────────────────────── */}
-      <header className="h-[60px] flex items-center shrink-0" style={{ background: "#0F1120" }}>
+      <header className="h-[60px] flex items-center shrink-0" style={{ background: "var(--pdv-header)", boxShadow: pdvTheme.shadows ? "0 1px 0 var(--pdv-border), 0 4px 20px rgba(0,0,0,0.4)" : "none" }}>
 
         {/* Blue logo block — exact Goomer style */}
         <div className="w-14 h-full flex flex-col items-center justify-center shrink-0 gap-1"
-          style={{ background: "#2563EB" }}>
+          style={{ background: "var(--pdv-primary)" }}>
           <UtensilsCrossed size={18} className="text-white" />
           <span className="text-white font-black text-[10px] tracking-widest">PDV</span>
         </div>
@@ -262,7 +292,7 @@ export default function PDVPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar produto…"
             className="w-full h-9 rounded-lg pl-8 pr-3 text-[12px] text-white placeholder-white/30 focus:outline-none border"
-            style={{ background: "#1E2138", borderColor: "rgba(255,255,255,0.08)" }} />
+            style={{ background: "var(--pdv-card)", borderColor: "var(--pdv-border)" }} />
         </div>
 
         {/* Table number field when DINE_IN */}
@@ -319,7 +349,7 @@ export default function PDVPage() {
 
         {/* ── COL 1: Left nav ────────────────────────────────────────────── */}
         <aside className="w-14 flex flex-col overflow-y-auto overflow-x-hidden shrink-0 border-r"
-          style={{ background: "#0F1120", borderColor: "rgba(255,255,255,0.06)" }}>
+          style={{ background: "var(--pdv-sidebar)", borderColor: "var(--pdv-border)" }}>
 
           {/* Cash status icon */}
           <button onClick={() => setShowCashModal(true)}
@@ -369,28 +399,32 @@ export default function PDVPage() {
 
         {/* ── COL 2: Category cards ──────────────────────────────────────── */}
         <div className="w-[18%] overflow-y-auto shrink-0 border-r"
-          style={{ background: "#0D0F22", borderColor: "rgba(255,255,255,0.06)" }}>
+          style={{ background: "var(--pdv-categories)", borderColor: "var(--pdv-border)" }}>
 
           {/* "Todos" */}
           <button onClick={() => setActiveCat("ALL")}
-            className="w-full flex items-center justify-center text-center px-2 font-bold text-[13px] transition-all border-b"
+            className="w-full flex items-center justify-center text-center px-2 font-bold text-[13px] border-b"
             style={{
-              height: 80,
-              background: activeCat === "ALL" ? "#2563EB" : "transparent",
+              height: pdvTheme.compactMode ? 64 : 80,
+              background: activeCat === "ALL" ? "var(--pdv-primary)" : "transparent",
               color: activeCat === "ALL" ? "#fff" : "rgba(255,255,255,0.45)",
-              borderColor: "rgba(255,255,255,0.07)",
+              borderColor: "var(--pdv-border)",
+              transition: "var(--pdv-transition)",
+              boxShadow: activeCat === "ALL" && pdvTheme.shadows ? "inset 0 -2px 0 rgba(255,255,255,0.15)" : "none",
             }}>
             Todos
           </button>
 
           {categories.map((cat) => (
             <button key={cat.id} onClick={() => setActiveCat(cat.id)}
-              className="w-full flex flex-col items-center justify-center text-center px-2 font-bold text-[12px] transition-all border-b leading-tight gap-0.5"
+              className="w-full flex flex-col items-center justify-center text-center px-2 font-bold text-[12px] border-b leading-tight gap-0.5"
               style={{
-                height: 80,
-                background: activeCat === cat.id ? "#2563EB" : "transparent",
+                height: pdvTheme.compactMode ? 64 : 80,
+                background: activeCat === cat.id ? "var(--pdv-primary)" : "transparent",
                 color: activeCat === cat.id ? "#fff" : "rgba(255,255,255,0.45)",
-                borderColor: "rgba(255,255,255,0.07)",
+                borderColor: "var(--pdv-border)",
+                transition: "var(--pdv-transition)",
+                boxShadow: activeCat === cat.id && pdvTheme.shadows ? "inset 0 -2px 0 rgba(255,255,255,0.15)" : "none",
               }}>
               <span className="line-clamp-2 text-center">{cat.name}</span>
             </button>
@@ -399,21 +433,21 @@ export default function PDVPage() {
           <div className="p-3">
             <button onClick={() => openPizzaModal()}
               className="w-full py-3 rounded-xl text-[12px] font-black text-white"
-              style={{ background: "#F97316" }}>
+              style={{ background: "var(--pdv-accent)", borderRadius: "var(--pdv-radius)" }}>
               🍕 Montar Pizza
             </button>
           </div>
         </div>
 
         {/* ── COL 3: Product area ────────────────────────────────────────── */}
-        <main className="flex-1 flex flex-col overflow-hidden" style={{ background: "#15172A" }}>
+        <main className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--pdv-bg)" }}>
 
           {/* Product list */}
           <div className="flex-1 overflow-y-auto px-4 py-4">
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-[170px] rounded-2xl animate-pulse" style={{ background: "#1E2138" }} />
+                  <div key={i} className="h-[170px] animate-pulse" style={{ background: "var(--pdv-card)", borderRadius: "var(--pdv-radius)" }} />
                 ))}
               </div>
             ) : loadError ? (
@@ -428,8 +462,8 @@ export default function PDVPage() {
               <>
                 {/* Category banner */}
                 {activeCat !== "ALL" && activeCatObj && (
-                  <div className="relative rounded-2xl overflow-hidden mb-4 flex items-end"
-                    style={{ height: 160, background: "#1E2138" }}>
+                  <div className="relative overflow-hidden mb-4 flex items-end"
+                    style={{ height: 160, background: "var(--pdv-card)", borderRadius: "var(--pdv-radius)" }}>
                     {activeCatObj.imageUrl && (
                       <img src={activeCatObj.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
                     )}
@@ -461,16 +495,19 @@ export default function PDVPage() {
                       const hasSizes = !!(product.sizes?.length);
                       return (
                         <div key={product.id}
-                          className="flex rounded-2xl overflow-hidden transition-all group"
+                          className="flex overflow-hidden group"
                           style={{
-                            background: inCart ? "rgba(37,99,235,0.1)" : "#1E2138",
-                            border: inCart ? "1px solid rgba(37,99,235,0.35)" : "1px solid rgba(255,255,255,0.05)",
+                            background: inCart ? "rgba(37,99,235,0.1)" : "var(--pdv-card)",
+                            border: inCart ? "1px solid rgba(37,99,235,0.35)" : "1px solid var(--pdv-border)",
+                            borderRadius: "var(--pdv-radius)",
                             minHeight: 160,
+                            transition: "var(--pdv-transition)",
+                            boxShadow: pdvTheme.shadows ? "0 2px 16px rgba(0,0,0,0.3)" : "none",
                           }}>
 
                           {/* IMAGE — LEFT (~35%) */}
                           <div className="w-[200px] shrink-0 relative overflow-hidden"
-                            style={{ minHeight: 160, background: "#252844" }}>
+                            style={{ minHeight: 160, background: "color-mix(in srgb, var(--pdv-card) 70%, #000 30%)" }}>
                             {product.imageUrl ? (
                               <img src={product.imageUrl} alt={product.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
@@ -546,8 +583,8 @@ export default function PDVPage() {
                                   </div>
                                 ) : (
                                   <button onClick={() => addToCart(product)}
-                                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold text-[13px] transition-all active:scale-95"
-                                    style={{ background: "#2563EB" }}>
+                                    className="flex items-center gap-2 px-6 py-2.5 text-white font-bold text-[13px] active:scale-95"
+                                    style={{ background: "var(--pdv-primary)", borderRadius: "var(--pdv-radius)", transition: "var(--pdv-transition)" }}>
                                     ADICIONAR
                                   </button>
                                 )
@@ -565,7 +602,12 @@ export default function PDVPage() {
         </main>
 
         {/* ── Cart drawer (desliza da direita) ──────────────────────────── */}
-        <div className="w-[20%] flex flex-col border-l shrink-0" style={{ background: "#0F1120", borderColor: "rgba(255,255,255,0.08)" }}>
+        <div className="w-[20%] flex flex-col border-l shrink-0"
+          style={{
+            background: "var(--pdv-cart)",
+            borderColor: "var(--pdv-border)",
+            boxShadow: pdvTheme.shadows ? "-4px 0 24px rgba(0,0,0,0.25)" : "none",
+          }}>
 
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4 py-3.5 border-b shrink-0"
@@ -671,8 +713,8 @@ export default function PDVPage() {
                   <button key={p.key} onClick={() => setPayMethod(p.key)}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all border"
                     style={payMethod === p.key
-                      ? { background: "#2563EB", color: "#fff", borderColor: "#2563EB" }
-                      : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", borderColor: "rgba(255,255,255,0.07)" }}>
+                      ? { background: "var(--pdv-primary)", color: "#fff", borderColor: "var(--pdv-primary)", borderRadius: "calc(var(--pdv-radius) * 0.7)", transition: "var(--pdv-transition)" }
+                      : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", borderColor: "var(--pdv-border)", borderRadius: "calc(var(--pdv-radius) * 0.7)", transition: "var(--pdv-transition)" }}>
                     {p.icon} {p.label}
                   </button>
                 ))}
@@ -731,8 +773,8 @@ export default function PDVPage() {
                 </button>
               )}
               <button onClick={submitOrder} disabled={submitting || cart.length === 0}
-                className="flex-1 h-11 rounded-xl font-black text-[13px] text-white flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
-                style={{ background: "#2563EB" }}>
+                className="flex-1 h-11 font-black text-[13px] text-white flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-20 disabled:cursor-not-allowed"
+                style={{ background: "var(--pdv-primary)", borderRadius: "var(--pdv-radius)", transition: "var(--pdv-transition)" }}>
                 {submitting ? <span className="animate-pulse text-xs">Processando…</span> : <><ChevronRight size={15} /> Finalizar Pedido</>}
               </button>
             </div>

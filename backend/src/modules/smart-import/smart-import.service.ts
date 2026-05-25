@@ -319,39 +319,47 @@ export class SmartImportService {
     const results: string[] = [];
 
     for (const item of items) {
-      // Find or create product
-      let product = await this.prisma.product.findFirst({
+      // Find or create ingredient
+      let ingredient = await this.prisma.ingredient.findFirst({
         where: { companyId, name: { contains: item.name, mode: 'insensitive' } },
       });
 
-      if (!product && item.createProduct) {
-        product = await this.prisma.product.create({
+      if (!ingredient && item.createProduct) {
+        ingredient = await this.prisma.ingredient.create({
           data: {
             name: item.name,
-            salePrice: item.unitCost * 1.3,
-            costPrice: item.unitCost,
-            profitMargin: 30,
-            companyId,
-            isActive: true,
-            trackStock: true,
+            stock: 0,
             unit: item.unit ?? 'un',
+            cost: item.unitCost,
+            companyId,
           },
         });
       }
 
-      if (product) {
-        // Create stock movement
+      if (ingredient) {
+        const previousStock = Number(ingredient.stock);
+        const newStock = previousStock + item.quantity;
+
         const movement = await this.prisma.stockMovement.create({
           data: {
-            productId: product.id,
-            companyId,
+            ingredient: { connect: { id: ingredient.id } },
+            company: { connect: { id: companyId } },
             type: 'ENTRY',
             quantity: item.quantity,
+            previousStock,
+            currentStock: newStock,
             unitCost: item.unitCost,
             totalCost: item.quantity * item.unitCost,
             reason: `Entrada via importação (sessão ${sessionId})`,
           },
         });
+
+        // Update ingredient stock
+        await this.prisma.ingredient.update({
+          where: { id: ingredient.id },
+          data: { stock: newStock, lastPurchaseCost: item.unitCost },
+        });
+
         await this.prisma.importItem.update({
           where: { id: item.itemId },
           data: { confirmed: true, savedId: movement.id },

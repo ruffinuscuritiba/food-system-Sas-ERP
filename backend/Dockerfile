@@ -1,6 +1,8 @@
 # ── Stage 1: Build ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Copia manifests primeiro (aproveita cache de camadas)
@@ -22,6 +24,8 @@ RUN npm prune --omit=dev
 
 # ── Stage 2: Produção ───────────────────────────────────────────────────────
 FROM node:22-alpine AS production
+
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 

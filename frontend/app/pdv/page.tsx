@@ -4,8 +4,8 @@ import Link from "next/link";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
-  type PdvThemeConfig, PDV_THEME_DEFAULT, PDV_THEME_KEY,
-  loadPdvTheme, broadcastPdvTheme,
+  type PdvThemeConfig, PDV_THEME_DEFAULT,
+  loadPdvTheme, savePdvTheme, broadcastPdvTheme,
 } from "@/lib/pdv-theme";
 import {
   Plus, Minus, Trash2, Phone, Users, Bike,
@@ -380,7 +380,7 @@ export default function PDVPage() {
             <SideNavItem href="/tables/qrcode" icon={<QrCode size={16} />}  label="QR Code Mesas"  iconOnly />
           </nav>
 
-          {/* Pizza CTA + Cardápio */}
+          {/* Pizza CTA + Cardápio + Reset tema */}
           <div className="p-2 flex flex-col items-center gap-1.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
             <button onClick={() => openPizzaModal()} title="Montar Pizza"
               className="w-10 h-10 flex items-center justify-center rounded-xl text-lg transition active:scale-90"
@@ -394,6 +394,20 @@ export default function PDVPage() {
               onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}>
               <ExternalLink size={15} />
             </a>
+            <button
+              title="Restaurar tema padrão"
+              onClick={() => {
+                const t = PDV_THEME_DEFAULT;
+                setPdvTheme(t);
+                savePdvTheme(t);
+                broadcastPdvTheme(t);
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-xl transition"
+              style={{ color: "rgba(255,255,255,0.2)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}>
+              <RefreshCw size={13} />
+            </button>
           </div>
         </aside>
 

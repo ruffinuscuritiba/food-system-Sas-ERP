@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Necessário para rodar Next.js dentro de Docker (docker-compose local)
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   compiler: {
     removeConsole: process.env.NODE_ENV === "production"
       ? { exclude: ["error"] }

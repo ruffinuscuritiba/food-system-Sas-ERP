@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  # ── Banco de Dados ────────────────────────────────────────────────────────
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       foodsystem
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend NestJS ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL:  postgresql://postgres:postgres@db:5432/foodsystem
+      JWT_SECRET:    dev-secret-troque-em-producao
+      BACKEND_URL:   http://localhost:3000
+      FRONTEND_URL:  http://localhost:3001
+      # CLOUDINARY_URL: coloque aqui se quiser usar Cloudinary no local
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+
+  # ── Frontend Next.js ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL:     http://localhost:3000/api
+      NEXT_PUBLIC_SOCKET_URL:  http://localhost:3000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  uploads_data:

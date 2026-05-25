@@ -65,6 +65,15 @@ export class SuperAdminController {
     return this.service.deleteCompany(id)
   }
 
+  @Post('companies/:id/clone-menu')
+  @UseGuards(SuperAdminGuard)
+  cloneMenu(
+    @Param('id') targetId: string,
+    @Body() body: { sourceId: string },
+  ) {
+    return this.service.cloneMenu(body.sourceId, targetId)
+  }
+
   @Post('seed')
   @UseGuards(SuperAdminGuard)
   runSeed() {

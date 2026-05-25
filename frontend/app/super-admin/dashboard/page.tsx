@@ -55,6 +55,11 @@ export default function SuperAdminDashboard() {
   const [formError, setFormError] = useState("")
   const [seeding, setSeeding] = useState(false)
   const [fixingModules, setFixingModules] = useState<string | null>(null)
+  const [showCloneModal, setShowCloneModal] = useState(false)
+  const [cloneTarget, setCloneTarget] = useState<Company | null>(null)
+  const [cloneSourceId, setCloneSourceId] = useState("")
+  const [cloning, setCloning] = useState(false)
+  const [cloneResult, setCloneResult] = useState<{ categories: number; products: number } | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("sa_token")
@@ -147,6 +152,22 @@ export default function SuperAdminDashboard() {
       alert("Erro ao corrigir módulos")
     } finally {
       setFixingModules(null)
+    }
+  }
+
+  async function cloneMenu(e: React.FormEvent) {
+    e.preventDefault()
+    if (!cloneTarget || !cloneSourceId) return
+    if (cloneSourceId === cloneTarget.id) { alert("Selecione uma empresa diferente como origem."); return }
+    setCloning(true)
+    setCloneResult(null)
+    try {
+      const { data } = await saApi.post(`/super-admin/companies/${cloneTarget.id}/clone-menu`, { sourceId: cloneSourceId })
+      setCloneResult(data)
+    } catch {
+      alert("Erro ao clonar cardápio. Verifique se a empresa de origem possui produtos cadastrados.")
+    } finally {
+      setCloning(false)
     }
   }
 
@@ -296,6 +317,12 @@ export default function SuperAdminDashboard() {
                         {fixingModules === c.id ? "..." : "Fix Módulos"}
                       </button>
                       <button
+                        onClick={() => { setCloneTarget(c); setCloneSourceId(""); setCloneResult(null); setShowCloneModal(true) }}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition bg-amber-700 hover:bg-amber-600 text-white"
+                      >
+                        📋 Clonar Cardápio
+                      </button>
+                      <button
                         onClick={() => deleteCompany(c.id, c.name)}
                         disabled={deleting === c.id}
                         className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
@@ -317,6 +344,77 @@ export default function SuperAdminDashboard() {
           </table>
         </div>
       </main>
+
+      {/* Modal — Clonar Cardápio */}
+      {showCloneModal && cloneTarget && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-2">Clonar Cardápio</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Copiar categorias e produtos para <strong className="text-white">{cloneTarget.name}</strong>
+            </p>
+
+            {cloneResult ? (
+              <div className="bg-green-900/40 border border-green-600 rounded-xl p-5 text-center mb-6">
+                <p className="text-green-300 text-lg font-bold">✅ Cardápio clonado com sucesso!</p>
+                <p className="text-green-400 text-sm mt-2">
+                  {cloneResult.categories} categorias e {cloneResult.products} produtos copiados.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={cloneMenu} className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Copiar cardápio de qual restaurante?</label>
+                  <select
+                    value={cloneSourceId}
+                    onChange={(e) => setCloneSourceId(e.target.value)}
+                    required
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">Selecione a empresa de origem...</option>
+                    {companies
+                      .filter((c) => c.id !== cloneTarget.id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c._count.orders} pedidos)
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-gray-500 text-xs mt-1">
+                    ⚠️ Isso adicionará produtos/categorias sem apagar os existentes.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCloneModal(false)}
+                    className="flex-1 bg-gray-800 hover:bg-gray-700 transition rounded-xl py-3 font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={cloning || !cloneSourceId}
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition rounded-xl py-3 font-semibold"
+                  >
+                    {cloning ? "Clonando..." : "Clonar"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {cloneResult && (
+              <button
+                onClick={() => setShowCloneModal(false)}
+                className="w-full bg-gray-800 hover:bg-gray-700 transition rounded-xl py-3 font-medium"
+              >
+                Fechar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal — Criar Restaurante */}
       {showModal && (

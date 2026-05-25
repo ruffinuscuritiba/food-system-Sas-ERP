@@ -48,11 +48,23 @@ export default function TablesPage() {
   const [paymentMethod, setPaymentMethod] =
     useState("PIX");
 
+  const [productsError, setProductsError] =
+    useState(false);
+
+  const [loadingProducts, setLoadingProducts] =
+    useState(false);
+
   async function fetchProducts() {
+    setLoadingProducts(true);
+    setProductsError(false);
     try {
       const r = await api.get("/products");
       setProducts(Array.isArray(r.data) ? r.data : []);
-    } catch {}
+    } catch {
+      setProductsError(true);
+    } finally {
+      setLoadingProducts(false);
+    }
   }
 
   async function fetchTables() {
@@ -596,24 +608,36 @@ export default function TablesPage() {
 
                 {/* Select clássico como fallback quando não há busca */}
                 {!productSearch && (
-                  <select
-                    value={selectedProductId}
-                    onChange={(e) => {
-                      setSelectedProductId(e.target.value);
-                      const p = products.find((x) => x.id === e.target.value);
-                      setNewItemPrice(p ? String(p.salePrice) : "");
-                    }}
-                    className="w-full bg-slate-700 p-4 rounded-2xl text-white"
-                  >
-                    <option value="">
-                      {products.length === 0 ? "Carregando produtos..." : "Selecione um produto..."}
-                    </option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                  productsError ? (
+                    <div className="bg-slate-700 rounded-2xl p-4 flex items-center justify-between">
+                      <span className="text-red-400 text-sm">Erro ao carregar produtos</span>
+                      <button
+                        onClick={fetchProducts}
+                        className="text-sm bg-slate-600 hover:bg-slate-500 transition px-3 py-1.5 rounded-xl"
+                      >
+                        {loadingProducts ? "Carregando..." : "Tentar novamente"}
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => {
+                        setSelectedProductId(e.target.value);
+                        const p = products.find((x) => x.id === e.target.value);
+                        setNewItemPrice(p ? String(p.salePrice) : "");
+                      }}
+                      className="w-full bg-slate-700 p-4 rounded-2xl text-white"
+                    >
+                      <option value="">
+                        {loadingProducts ? "Carregando produtos..." : products.length === 0 ? "Nenhum produto cadastrado" : "Selecione um produto..."}
                       </option>
-                    ))}
-                  </select>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                  )
                 )}
 
                 {newItemPrice && (

@@ -146,6 +146,38 @@ export class SuperAdminService {
     return this.prisma.company.delete({ where: { id } })
   }
 
+  async cloneMenu(sourceId: string, targetId: string) {
+    const [sourceCats, sourceProds] = await Promise.all([
+      this.prisma.category.findMany({ where: { companyId: sourceId } }),
+      this.prisma.product.findMany({ where: { companyId: sourceId } }),
+    ])
+
+    // Map old categoryId → new categoryId
+    const catMap: Record<string, string> = {}
+    for (const cat of sourceCats) {
+      const newCat = await this.prisma.category.create({
+        data: { name: cat.name, companyId: targetId },
+      })
+      catMap[cat.id] = newCat.id
+    }
+
+    for (const prod of sourceProds) {
+      await this.prisma.product.create({
+        data: {
+          name: prod.name,
+          description: prod.description,
+          salePrice: prod.salePrice,
+          costPrice: prod.costPrice,
+          imageUrl: prod.imageUrl,
+          categoryId: prod.categoryId ? (catMap[prod.categoryId] ?? null) : null,
+          companyId: targetId,
+        },
+      })
+    }
+
+    return { categories: sourceCats.length, products: sourceProds.length }
+  }
+
   async getStats() {
     const [total, active, blocked] = await Promise.all([
       this.prisma.company.count(),

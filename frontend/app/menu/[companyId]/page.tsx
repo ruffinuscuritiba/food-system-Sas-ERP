@@ -57,6 +57,9 @@ export default function MenuPage() {
   const [loyaltyPointsEarned, setLoyaltyPointsEarned] = useState(0);
   const [metaPixelId, setMetaPixelId] = useState<string | null>(null);
   const [gaId, setGaId] = useState<string | null>(null);
+  const [theme, setTheme] = useState<{
+    primaryColor: string; logoUrl?: string | null; bannerUrl?: string | null;
+  }>({ primaryColor: "#f97316" });
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponId, setCouponId] = useState<string | null>(null);
@@ -118,6 +121,11 @@ export default function MenuPage() {
         const td = await themeRes.json().catch(() => null);
         if (td?.metaPixelId) setMetaPixelId(td.metaPixelId);
         if (td?.gaId) setGaId(td.gaId);
+        if (td) setTheme({
+          primaryColor: td.primaryColor || "#f97316",
+          logoUrl: td.logoUrl || null,
+          bannerUrl: td.bannerUrl || null,
+        });
       }
 
       setLoading(false);
@@ -407,15 +415,41 @@ export default function MenuPage() {
       <ChatWidget companyId={companyId} companyName={companyName} />
 
       {/* ─── Header ────────────────────────────────────────────────────────────── */}
-      <header className="bg-orange-500 text-white px-4 pt-8 pb-16">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-black tracking-tight">{companyName}</h1>
-          {tableNumber && (
-            <span className="inline-block mt-1 bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">
-              Mesa {tableNumber}
-            </span>
-          )}
-          <div className="flex items-center gap-4 mt-3 text-orange-100 text-xs">
+      <header className="relative text-white pb-16 overflow-hidden" style={{ minHeight: 160 }}>
+        {/* Banner image or solid color */}
+        {theme.bannerUrl ? (
+          <>
+            <img
+              src={theme.bannerUrl}
+              alt="banner"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%)" }} />
+          </>
+        ) : (
+          <div className="absolute inset-0" style={{ background: theme.primaryColor }} />
+        )}
+
+        {/* Content */}
+        <div className="relative z-10 max-w-2xl mx-auto px-4 pt-8">
+          <div className="flex items-center gap-4">
+            {theme.logoUrl && (
+              <img
+                src={theme.logoUrl}
+                alt="logo"
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0"
+              />
+            )}
+            <div>
+              <h1 className="text-3xl font-black tracking-tight drop-shadow">{companyName}</h1>
+              {tableNumber && (
+                <span className="inline-block mt-1 bg-white/25 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Mesa {tableNumber}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4 mt-3 text-white/80 text-xs">
             <span className="flex items-center gap-1"><Clock size={12} /> Aberto agora</span>
             <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
           </div>
@@ -431,7 +465,8 @@ export default function MenuPage() {
           </div>
           <button
             onClick={() => setShowCart(true)}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition"
+            className="flex items-center gap-2 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition"
+            style={{ background: theme.primaryColor }}
           >
             <ShoppingCart size={16} />
             {cartCount > 0 ? `R$ ${cartTotal.toFixed(2)}` : "Ver cardápio"}
@@ -447,11 +482,10 @@ export default function MenuPage() {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition ${
-                  activeCategory === cat
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                className="px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition"
+                style={activeCategory === cat
+                  ? { background: theme.primaryColor, color: "#fff" }
+                  : { background: "#f3f4f6", color: "#4b5563" }}
               >
                 {cat}
               </button>

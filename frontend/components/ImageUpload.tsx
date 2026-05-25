@@ -1,6 +1,6 @@
 "use client";
 
-import { api } from "@/services/api";
+import { apiBaseUrl } from "@/services/env";
 import { useState } from "react";
 
 type Props = {
@@ -24,9 +24,19 @@ export default function ImageUpload({ value, onChange }: Props) {
     formData.append("file", file);
 
     try {
-      // Não setar Content-Type manualmente — axios gera o boundary correto automaticamente
-      const response = await api.post("/upload", formData);
-      onChange(response.data.url);
+      // fetch nativo: não seta Content-Type — browser gera o boundary correto no multipart
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const response = await fetch(`${apiBaseUrl}/upload`, {
+        method: "POST",
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as any).message || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      onChange(data.url);
     } catch {
       setError("Falha no upload. Verifique sua conexão e tente novamente.");
     } finally {

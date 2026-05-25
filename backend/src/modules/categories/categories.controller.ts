@@ -17,8 +17,10 @@ export class CategoriesController {
 
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  create(@Body() body: any, @Request() req: any) {
-    return this.service.create({ ...body, companyId: req.user.companyId });
+  create(@Body('name') name: string, @Request() req: any) {
+    // Extrai 'name' diretamente — evita que whitelist:true do ValidationPipe
+    // drope todos os campos quando o tipo é 'any' sem DTO decorado
+    return this.service.create({ name, companyId: req.user.companyId });
   }
 
   @Patch(':id')

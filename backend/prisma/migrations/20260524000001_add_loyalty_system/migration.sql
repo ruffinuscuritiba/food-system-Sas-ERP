@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS "LoyaltyAccount" (
     CONSTRAINT "LoyaltyAccount_pkey" PRIMARY KEY ("id")
 );
 
+-- Recovery: table may exist from a partial run without the phone column
+DO $$ BEGIN
+  ALTER TABLE "LoyaltyAccount" ADD COLUMN "phone" TEXT NOT NULL DEFAULT '';
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
 CREATE TABLE IF NOT EXISTS "PointTransaction" (
     "id" TEXT NOT NULL,
     "loyaltyAccountId" TEXT NOT NULL,

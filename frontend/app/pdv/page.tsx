@@ -9,8 +9,7 @@ import {
   Search, Package, ChevronRight, AlertCircle,
   ShoppingCart, UtensilsCrossed, RefreshCw,
   LayoutDashboard, CookingPot, Store,
-  FolderKanban, FlaskConical, BookOpen, Layers, Palette,
-  QrCode, ExternalLink, Sparkles,
+  Palette, QrCode, ExternalLink, Puzzle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -251,10 +250,10 @@ export default function PDVPage() {
       <header className="h-[60px] flex items-center shrink-0" style={{ background: "#0F1120" }}>
 
         {/* Blue logo block — exact Goomer style */}
-        <div className="w-[160px] h-full flex items-center justify-center shrink-0"
+        <div className="w-14 h-full flex flex-col items-center justify-center shrink-0 gap-1"
           style={{ background: "#2563EB" }}>
-          <UtensilsCrossed size={22} className="text-white" />
-          <span className="text-white font-black text-lg ml-2">PDV</span>
+          <UtensilsCrossed size={18} className="text-white" />
+          <span className="text-white font-black text-[10px] tracking-widest">PDV</span>
         </div>
 
         {/* Search */}
@@ -316,105 +315,84 @@ export default function PDVPage() {
       {/* ───────────────────────────────────────────────────────────────────
           BODY  [left-nav 150px] [category-cards 210px] [products flex-1]
       ─────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden">
 
         {/* ── COL 1: Left nav ────────────────────────────────────────────── */}
-        <aside className="w-[160px] flex flex-col overflow-y-auto overflow-x-hidden shrink-0 border-r"
+        <aside className="w-14 flex flex-col overflow-y-auto overflow-x-hidden shrink-0 border-r"
           style={{ background: "#0F1120", borderColor: "rgba(255,255,255,0.06)" }}>
 
-          {/* Cash status */}
+          {/* Cash status icon */}
           <button onClick={() => setShowCashModal(true)}
-            className="mx-2 mt-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-md text-[11px] font-bold border transition"
+            title={cash?.isOpen ? `Caixa: ${fmt(Number(cash.balance))}` : "Caixa Fechado"}
+            className="mt-3 mb-1 mx-auto w-10 h-10 flex items-center justify-center rounded-xl border transition"
             style={{
               background: cash?.isOpen ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
               borderColor: cash?.isOpen ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)",
               color: cash?.isOpen ? "#34D399" : "#F87171",
             }}>
-            <DollarSign size={12} />
-            <span className="truncate">{cash?.isOpen ? fmt(Number(cash.balance)) : "Fechado"}</span>
+            <DollarSign size={16} />
           </button>
 
-          {/* Separator */}
-          <div className="mx-2 mb-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }} />
+          <div className="w-8 mx-auto border-t mb-1" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
 
-          {/* Navigation links */}
-          <nav className="flex-1 px-2 space-y-0.5">
-
-            <SideNavItem href="/" icon={<LayoutDashboard size={13} />} label="Dashboard" />
-
-            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Operação</p>
-            <SideNavItem href="/orders"  icon={<ShoppingCart size={13} />} label="Pedidos" />
-            <SideNavItem href="/kitchen" icon={<CookingPot size={13} />}   label="Cozinha" />
-            <SideNavItem href="/tables"  icon={<Store size={13} />}        label="Mesas" />
-            <SideNavItem href="/pdv"     icon={<DollarSign size={13} />}   label="PDV / Caixa" active />
-
-            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Cardápio</p>
-            <SideNavItem href="/products"      icon={<Package size={13} />}         label="Produtos" />
-            <SideNavItem href="/categories"    icon={<FolderKanban size={13} />}    label="Categorias" />
-            <SideNavItem href="/pizza-borders" icon={<UtensilsCrossed size={13} />} label="Bordas" />
-
-            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Estoque</p>
-            <SideNavItem href="/stock"       icon={<Layers size={13} />}       label="Movimentações" />
-            <SideNavItem href="/ingredients" icon={<FlaskConical size={13} />} label="Ingredientes" />
-            <SideNavItem href="/recipes"     icon={<BookOpen size={13} />}     label="Receitas" />
-
-            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>IA</p>
-            <SideNavItem href="/cadastro-inteligente" icon={<Sparkles size={13} />} label="Cadastro Img" />
-
-            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Config</p>
-            <SideNavItem href="/theme"         icon={<Palette size={13} />} label="Tema / Visual" />
-            <SideNavItem href="/tables/qrcode" icon={<QrCode size={13} />}  label="QR Code Mesas" />
+          {/* Navigation — icon only */}
+          <nav className="flex-1 flex flex-col items-center gap-0.5 py-1">
+            <SideNavItem href="/" icon={<LayoutDashboard size={16} />} label="Dashboard" iconOnly />
+            <div className="w-8 border-t my-1" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
+            <SideNavItem href="/orders"  icon={<ShoppingCart size={16} />} label="Pedidos"     iconOnly />
+            <SideNavItem href="/kitchen" icon={<CookingPot size={16} />}   label="Cozinha"     iconOnly />
+            <SideNavItem href="/tables"  icon={<Store size={16} />}        label="Mesas"       iconOnly />
+            <SideNavItem href="/pdv"     icon={<DollarSign size={16} />}   label="PDV / Caixa" iconOnly active />
+            <div className="w-8 border-t my-1" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
+            <SideNavItem href="/modulos" icon={<Puzzle size={16} />}       label="Módulos"     iconOnly />
+            <div className="w-8 border-t my-1" style={{ borderColor: "rgba(255,255,255,0.07)" }} />
+            <SideNavItem href="/theme"         icon={<Palette size={16} />} label="Tema / Visual"  iconOnly />
+            <SideNavItem href="/tables/qrcode" icon={<QrCode size={16} />}  label="QR Code Mesas"  iconOnly />
           </nav>
 
-          {/* Pizza CTA + Logout */}
-          <div className="p-2 space-y-1.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-            <button onClick={() => openPizzaModal()}
-              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-[11px] font-black transition"
+          {/* Pizza CTA + Cardápio */}
+          <div className="p-2 flex flex-col items-center gap-1.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <button onClick={() => openPizzaModal()} title="Montar Pizza"
+              className="w-10 h-10 flex items-center justify-center rounded-xl text-lg transition active:scale-90"
               style={{ background: "#F97316" }}>
-              🍕 Montar Pizza
+              🍕
             </button>
-            <a
-              href="/menu"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center gap-1.5 px-2.5 py-2 rounded-md text-[11px] font-semibold transition"
-              style={{ color: "rgba(255,255,255,0.45)", background: "transparent" }}
+            <a href="/menu" target="_blank" rel="noopener noreferrer" title="Ver Cardápio"
+              className="w-10 h-10 flex items-center justify-center rounded-xl transition"
+              style={{ color: "rgba(255,255,255,0.35)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}>
-              <ExternalLink size={11} />
-              <span className="truncate">Ver Cardápio</span>
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}>
+              <ExternalLink size={15} />
             </a>
           </div>
         </aside>
 
         {/* ── COL 2: Category cards ──────────────────────────────────────── */}
-        <div className="w-[210px] overflow-y-auto shrink-0 border-r"
-          style={{ background: "#12142A", borderColor: "rgba(255,255,255,0.06)" }}>
+        <div className="w-[18%] overflow-y-auto shrink-0 border-r"
+          style={{ background: "#0D0F22", borderColor: "rgba(255,255,255,0.06)" }}>
 
           {/* "Todos" */}
           <button onClick={() => setActiveCat("ALL")}
-            className="w-full flex items-center justify-center text-center px-3 font-semibold text-[13px] transition-all border-b"
+            className="w-full flex items-center justify-center text-center px-2 font-bold text-[13px] transition-all border-b"
             style={{
-              height: 72,
-              background: activeCat === "ALL" ? "rgba(37,99,235,0.2)" : "transparent",
-              color: activeCat === "ALL" ? "#93C5FD" : "rgba(255,255,255,0.55)",
+              height: 80,
+              background: activeCat === "ALL" ? "#2563EB" : "transparent",
+              color: activeCat === "ALL" ? "#fff" : "rgba(255,255,255,0.45)",
               borderColor: "rgba(255,255,255,0.07)",
-              borderLeft: activeCat === "ALL" ? "3px solid #2563EB" : "3px solid transparent",
             }}>
-            Todos os Itens
+            Todos
           </button>
 
           {categories.map((cat) => (
             <button key={cat.id} onClick={() => setActiveCat(cat.id)}
-              className="w-full flex items-center justify-center text-center px-3 font-semibold text-[13px] transition-all border-b leading-tight"
+              className="w-full flex flex-col items-center justify-center text-center px-2 font-bold text-[12px] transition-all border-b leading-tight gap-0.5"
               style={{
-                height: 72,
-                background: activeCat === cat.id ? "rgba(37,99,235,0.2)" : "transparent",
-                color: activeCat === cat.id ? "#93C5FD" : "rgba(255,255,255,0.55)",
+                height: 80,
+                background: activeCat === cat.id ? "#2563EB" : "transparent",
+                color: activeCat === cat.id ? "#fff" : "rgba(255,255,255,0.45)",
                 borderColor: "rgba(255,255,255,0.07)",
-                borderLeft: activeCat === cat.id ? "3px solid #2563EB" : "3px solid transparent",
               }}>
-              {cat.name}
+              <span className="line-clamp-2 text-center">{cat.name}</span>
             </button>
           ))}
 
@@ -587,9 +565,7 @@ export default function PDVPage() {
         </main>
 
         {/* ── Cart drawer (desliza da direita) ──────────────────────────── */}
-        <div className={`absolute right-0 top-0 bottom-0 w-[300px] flex flex-col shadow-2xl transition-transform duration-300 ease-out border-l z-10 ${
-          cartOpen ? "translate-x-0" : "translate-x-full"
-        }`} style={{ background: "#0F1120", borderColor: "rgba(255,255,255,0.08)" }}>
+        <div className="w-[20%] flex flex-col border-l shrink-0" style={{ background: "#0F1120", borderColor: "rgba(255,255,255,0.08)" }}>
 
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4 py-3.5 border-b shrink-0"
@@ -602,11 +578,6 @@ export default function PDVPage() {
                   style={{ background: "#2563EB" }}>{cartCount}</span>
               )}
             </div>
-            <button onClick={() => setCartOpen(false)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center transition"
-              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
-              <X size={13} />
-            </button>
           </div>
 
           {/* Customer fields */}
@@ -1019,22 +990,27 @@ export default function PDVPage() {
   );
 }
 
-function SideNavItem({ href, icon, label, active }: {
-  href: string; icon: React.ReactNode; label: string; active?: boolean;
+function SideNavItem({ href, icon, label, active, iconOnly }: {
+  href: string; icon: React.ReactNode; label: string; active?: boolean; iconOnly?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all"
+      title={iconOnly ? label : undefined}
+      className={`flex items-center transition-all font-semibold ${
+        iconOnly
+          ? "justify-center w-10 h-10 rounded-xl"
+          : "gap-2 px-2.5 py-1.5 rounded-md text-[11px]"
+      }`}
       style={{
         background: active ? "#2563EB" : "transparent",
         color: active ? "#fff" : "rgba(255,255,255,0.5)",
       }}
-      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff"; } }}
+      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#fff"; } }}
       onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; } }}
     >
       <span className="shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      {!iconOnly && <span className="truncate">{label}</span>}
     </Link>
   );
 }

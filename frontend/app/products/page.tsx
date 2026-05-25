@@ -115,8 +115,10 @@ export default function ProductsPage() {
   }, []);
 
   function calculateSalePrice() {
-    const cost = Number(form.costPrice);
-    const margin = Number(form.profitMargin);
+    const cost = parseFloat(String(form.costPrice).replace(",", "."));
+    const margin = parseFloat(String(form.profitMargin).replace(",", "."));
+    if (isNaN(cost) || cost <= 0) { toast.error("Informe o preço de custo"); return; }
+    if (isNaN(margin) || margin < 0) { toast.error("Informe a margem de lucro (%)"); return; }
     const result = cost + (cost * margin) / 100;
     setForm({ ...form, salePrice: result.toFixed(2) });
   }

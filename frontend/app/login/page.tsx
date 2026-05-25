@@ -181,6 +181,15 @@ export default function LoginPage() {
           </Link>
         </p>
 
+        <div className="border-t border-slate-800 mt-6 pt-4 text-center">
+          <Link
+            href="/super-admin/login"
+            className="text-xs text-slate-600 hover:text-slate-400 transition"
+          >
+            ⚡ Acesso Super Admin
+          </Link>
+        </div>
+
       </div>
 
     </main>

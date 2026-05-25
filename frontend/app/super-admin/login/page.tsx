@@ -19,8 +19,15 @@ export default function SuperAdminLogin() {
       const { data } = await saApi.post("/super-admin/auth/login", { email, password })
       localStorage.setItem("sa_token", data.accessToken)
       router.push("/super-admin/dashboard")
-    } catch {
-      setError("Credenciais inválidas")
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 401) {
+        setError("Credenciais inválidas. Verifique email e senha.")
+      } else if (!err?.response) {
+        setError("Servidor offline ou reiniciando. Aguarde e tente novamente (pode levar até 60s na 1ª vez).")
+      } else {
+        setError("Erro ao conectar. Tente novamente.")
+      }
     } finally {
       setLoading(false)
     }
@@ -45,6 +52,7 @@ export default function SuperAdminLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="username"
               placeholder="superadmin@system.com"
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
             />
@@ -57,23 +65,38 @@ export default function SuperAdminLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               placeholder="••••••••"
               className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
+            <p className="text-red-400 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              {error}
+            </p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition rounded-xl py-3 font-semibold text-white"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 transition rounded-xl py-3 font-semibold text-white flex items-center justify-center gap-2"
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {loading ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Conectando... (aguarde o servidor)
+              </>
+            ) : "Entrar"}
           </button>
         </form>
+
+        <p className="text-center text-gray-600 text-xs mt-6">
+          Login de restaurante?{" "}
+          <a href="/login" className="text-gray-400 hover:text-white transition underline">
+            Entrar como cliente
+          </a>
+        </p>
       </div>
     </div>
   )

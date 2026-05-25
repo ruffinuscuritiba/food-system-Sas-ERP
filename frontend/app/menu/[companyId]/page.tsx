@@ -6,7 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
-  MapPin, Clock, Phone,
+  MapPin, Clock, Phone, Search,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -62,6 +62,8 @@ export default function MenuPage() {
   const [couponId, setCouponId] = useState<string | null>(null);
   const [couponMsg, setCouponMsg] = useState<{ text: string; valid: boolean } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+
+  const [search, setSearch] = useState("");
 
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [flavorParts, setFlavorParts] = useState(2);
@@ -230,9 +232,11 @@ export default function MenuPage() {
   const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount;
   const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
-  const filtered = activeCategory === "Todos"
-    ? products
-    : products.filter((p) => (p.category?.name?.trim() || "Outros") === activeCategory);
+  const filtered = products.filter((p) => {
+    const matchCat = activeCategory === "Todos" || (p.category?.name?.trim() || "Outros") === activeCategory;
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.description?.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
 
   async function submitOrder() {
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
@@ -435,22 +439,40 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {/* ─── Categorias ─────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm mt-4 px-4 py-3 overflow-x-auto">
-        <div className="flex gap-2 max-w-2xl mx-auto">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition ${
-                activeCategory === cat
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+      {/* ─── Categorias + Busca ─────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm mt-4">
+        <div className="px-4 py-3 overflow-x-auto">
+          <div className="flex gap-2 max-w-2xl mx-auto">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition ${
+                  activeCategory === cat
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-3 max-w-2xl mx-auto">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar no cardápio..."
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -32,8 +32,16 @@ export class CompanyModuleService {
   }
 
   async startTrial(companyId: string, moduleSlug: string) {
+    const existing = await this.prisma.companyModule.findUnique({
+      where: { id: `cm-${moduleSlug}-${companyId}` },
+    });
+
+    if (existing?.trialEndsAt) {
+      throw new Error('Você já utilizou o teste grátis para este módulo.');
+    }
+
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 5);
 
     return this.prisma.companyModule.upsert({
       where: { id: `cm-${moduleSlug}-${companyId}` },

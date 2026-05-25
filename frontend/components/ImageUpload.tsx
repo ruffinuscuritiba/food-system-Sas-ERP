@@ -24,9 +24,8 @@ export default function ImageUpload({ value, onChange }: Props) {
     formData.append("file", file);
 
     try {
-      const response = await api.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // Não setar Content-Type manualmente — axios gera o boundary correto automaticamente
+      const response = await api.post("/upload", formData);
       onChange(response.data.url);
     } catch {
       setError("Falha no upload. Verifique sua conexão e tente novamente.");

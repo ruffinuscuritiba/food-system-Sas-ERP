@@ -2,8 +2,12 @@
 import { apiBaseUrl } from "@/services/env";
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import toast from "react-hot-toast";
-import { ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
+import {
+  ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
+  RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
+  MapPin, Clock, Phone,
+} from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
@@ -59,7 +63,6 @@ export default function MenuPage() {
   const [couponMsg, setCouponMsg] = useState<{ text: string; valid: boolean } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
 
-  // Pizza meio a meio
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [flavorParts, setFlavorParts] = useState(2);
   const [flavorSlots, setFlavorSlots] = useState<(Product | null)[]>([null, null]);
@@ -70,8 +73,8 @@ export default function MenuPage() {
   });
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get("table");
+    const p = new URLSearchParams(window.location.search);
+    const t = p.get("table");
     if (t) setTableNumber(t);
   }, []);
 
@@ -86,7 +89,6 @@ export default function MenuPage() {
       ]);
 
       if (!menuRes.ok) {
-        // Render free-tier cold start: auto-retry once after 6s
         if (attempt < 3) {
           setTimeout(() => loadMenu(attempt + 1), 6000);
           return;
@@ -100,7 +102,6 @@ export default function MenuPage() {
       const list: Product[] = Array.isArray(menuData) ? menuData : (menuData.products || []);
       setProducts(list);
 
-      // Build category list: only categories that have at least 1 product
       const catNames = Array.from(new Set<string>(
         list.map((p) => p.category?.name?.trim() || "Outros")
       ));
@@ -116,16 +117,15 @@ export default function MenuPage() {
         if (td?.metaPixelId) setMetaPixelId(td.metaPixelId);
         if (td?.gaId) setGaId(td.gaId);
       }
+
+      setLoading(false);
     } catch {
       if (attempt < 3) {
         setTimeout(() => loadMenu(attempt + 1), 6000);
         return;
       }
       setLoadError(true);
-    } finally {
-      // Don't stop loading spinner if we're auto-retrying
-      if (attempt >= 3) setLoading(false);
-      else setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -187,7 +187,6 @@ export default function MenuPage() {
     setCart((prev) => prev.map((i) => i.cartKey !== cartKey ? i : { ...i, quantity: i.quantity + delta }).filter((i) => i.quantity > 0));
   }
 
-  // Pizza meio a meio — funções
   function openFlavorModal(product?: Product) {
     setFlavorParts(2);
     setFlavorSlots(product ? [product, null] : [null, null]);
@@ -224,7 +223,7 @@ export default function MenuPage() {
       flavors: chosen,
     }]);
     setShowFlavorModal(false);
-    toast.success("Pizza montada adicionada! 🍕");
+    toast.success("Pizza montada adicionada!");
   }
 
   const cartTotal = cart.reduce((acc, i) => acc + Number(i.product.salePrice) * i.quantity, 0);
@@ -265,11 +264,9 @@ export default function MenuPage() {
       if (!res.ok) throw new Error();
       const orderData = await res.json().catch(() => null);
       const createdOrderId: string | null = orderData?.id ?? null;
-      // Capture cart snapshot before clearing for tracking events
       const cartSnapshot = cart.slice();
       const capturedFinalTotal = finalCartTotal;
 
-      // Redeem coupon (fire-and-forget)
       if (couponId) {
         fetch(`${apiBaseUrl}/coupons/redeem`, {
           method: "POST",
@@ -292,7 +289,6 @@ export default function MenuPage() {
       setCouponMsg(null);
       setOrderSent(true);
 
-      // Fire tracking events on purchase
       trackPixelPurchase(capturedFinalTotal);
       trackGAPurchase(
         createdOrderId || "unknown",
@@ -300,7 +296,6 @@ export default function MenuPage() {
         cartSnapshot.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })),
       );
 
-      // For online payments (PIX / card), auto-trigger gateway checkout
       const isOnlinePayment =
         form.paymentMethod === "PIX" ||
         form.paymentMethod === "CREDIT_CARD" ||
@@ -316,13 +311,9 @@ export default function MenuPage() {
           });
           if (payRes.ok) {
             const payData = await payRes.json();
-            if (payData?.checkoutUrl) {
-              setPaymentUrl(payData.checkoutUrl);
-            }
+            if (payData?.checkoutUrl) setPaymentUrl(payData.checkoutUrl);
           }
-        } catch {
-          // Payment link failed — still show order received, customer can retry
-        } finally {
+        } catch { /* silent */ } finally {
           setLoadingPayment(false);
         }
       }
@@ -333,157 +324,195 @@ export default function MenuPage() {
     }
   }
 
+  // ─── Pedido enviado ──────────────────────────────────────────────────────────
   if (orderSent) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center gap-6 px-4 text-center">
-        <div className="text-6xl">🎉</div>
-        <h1 className="text-4xl font-black text-green-400">Pedido recebido!</h1>
-        <p className="text-slate-400 text-lg max-w-sm">
-          Seu pedido foi enviado para {companyName}. Você será notificado em breve.
-        </p>
-        {loyaltyPointsEarned > 0 && (
-          <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl px-6 py-3 text-yellow-400 font-bold">
-            <Star size={18} fill="currentColor" />
-            +{loyaltyPointsEarned} pontos de fidelidade ganhos!
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
+        <div className="bg-white rounded-3xl shadow-lg p-10 max-w-sm w-full flex flex-col items-center gap-5">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+            <CheckCircle size={40} className="text-green-500" />
           </div>
-        )}
-
-        {/* Payment button for PIX / card orders */}
-        {loadingPayment && (
-          <div className="flex items-center gap-2 text-slate-400 text-sm animate-pulse">
-            <Loader2 size={18} className="animate-spin" />
-            Gerando link de pagamento...
-          </div>
-        )}
-        {paymentUrl && !loadingPayment && (
-          <a
-            href={paymentUrl}
-            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-2xl font-black text-lg transition"
+          <h1 className="text-2xl font-black text-gray-900">Pedido recebido!</h1>
+          <p className="text-gray-500 text-sm">
+            Seu pedido foi enviado para <strong>{companyName}</strong>. Aguarde a confirmação.
+          </p>
+          {loyaltyPointsEarned > 0 && (
+            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-2xl px-5 py-3 text-yellow-700 font-bold text-sm">
+              <Star size={16} fill="currentColor" />
+              +{loyaltyPointsEarned} pontos de fidelidade!
+            </div>
+          )}
+          {loadingPayment && (
+            <div className="flex items-center gap-2 text-gray-400 text-sm animate-pulse">
+              <Loader2 size={16} className="animate-spin" />
+              Gerando link de pagamento...
+            </div>
+          )}
+          {paymentUrl && !loadingPayment && (
+            <a
+              href={paymentUrl}
+              className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-2xl font-bold text-sm transition w-full justify-center"
+            >
+              <CreditCard size={18} />
+              Pagar agora
+            </a>
+          )}
+          <button
+            onClick={() => { setOrderSent(false); setOrderId(null); setPaymentUrl(null); }}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-2xl font-bold text-sm transition"
           >
-            <CreditCard size={22} />
-            Pagar agora
-          </a>
-        )}
+            Fazer novo pedido
+          </button>
+        </div>
+      </div>
+    );
+  }
 
+  // ─── Loading / Error ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 font-medium">Carregando cardápio...</p>
+        <p className="text-gray-400 text-xs">Se demorar, o servidor pode estar acordando</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5 px-4 text-center">
+        <p className="text-gray-700 text-lg font-semibold">Cardápio indisponível no momento</p>
+        <p className="text-gray-400 text-sm max-w-xs">O servidor pode estar iniciando. Aguarde alguns segundos.</p>
         <button
-          onClick={() => {
-            setOrderSent(false);
-            setOrderId(null);
-            setPaymentUrl(null);
-          }}
-          className="bg-slate-700 hover:bg-slate-600 text-white px-8 py-4 rounded-2xl font-bold text-lg transition"
+          onClick={() => loadMenu(1)}
+          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold transition"
         >
-          Fazer novo pedido
+          <RefreshCw size={16} /> Tentar novamente
         </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-gray-50">
+      <Toaster position="top-center" toastOptions={{ style: { borderRadius: "12px", fontWeight: 600 } }} />
 
-      {/* Tracking */}
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
       {gaId && <GoogleAnalytics gaId={gaId} />}
-
-      {/* Chatbot */}
       <ChatWidget companyId={companyId} companyName={companyName} />
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-red-400 truncate max-w-[200px]">{companyName}</h1>
-            {tableNumber && (
-              <span className="text-xs font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded-full">
-                Mesa {tableNumber}
-              </span>
-            )}
+      {/* ─── Header ────────────────────────────────────────────────────────────── */}
+      <header className="bg-orange-500 text-white px-4 pt-8 pb-16">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-3xl font-black tracking-tight">{companyName}</h1>
+          {tableNumber && (
+            <span className="inline-block mt-1 bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full">
+              Mesa {tableNumber}
+            </span>
+          )}
+          <div className="flex items-center gap-4 mt-3 text-orange-100 text-xs">
+            <span className="flex items-center gap-1"><Clock size={12} /> Aberto agora</span>
+            <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
           </div>
-          <button onClick={() => setShowCart(true)} className="relative bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition">
-            <ShoppingCart size={18} />
-            <span>R$ {cartTotal.toFixed(2)}</span>
-            {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-black w-5 h-5 rounded-full flex items-center justify-center">{cartCount}</span>
-            )}
-          </button>
         </div>
       </header>
 
-      {/* Categories */}
-      <div className="sticky top-[65px] z-30 bg-slate-950 border-b border-slate-800 px-4 py-3 overflow-x-auto">
-        <div className="flex gap-2 max-w-3xl mx-auto">
+      {/* ─── Painel flutuante sobre o header ───────────────────────────────────── */}
+      <div className="max-w-2xl mx-auto px-4 -mt-8">
+        <div className="bg-white rounded-2xl shadow-md px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Seu pedido</p>
+            <p className="text-gray-800 font-bold">{cartCount > 0 ? `${cartCount} ite${cartCount > 1 ? "ns" : "m"}` : "Nenhum item"}</p>
+          </div>
+          <button
+            onClick={() => setShowCart(true)}
+            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition"
+          >
+            <ShoppingCart size={16} />
+            {cartCount > 0 ? `R$ ${cartTotal.toFixed(2)}` : "Ver cardápio"}
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Categorias ─────────────────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm mt-4 px-4 py-3 overflow-x-auto">
+        <div className="flex gap-2 max-w-2xl mx-auto">
           {categories.map((cat) => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition ${activeCategory === cat ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition ${
+                activeCategory === cat
+                  ? "bg-orange-500 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
               {cat}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Products */}
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-slate-400 animate-pulse">Carregando cardápio...</p>
-            <p className="text-slate-500 text-xs">Se demorar, o servidor pode estar acordando 🔄</p>
-          </div>
-        ) : loadError ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-5 text-center">
-            <div className="text-4xl">😔</div>
-            <p className="text-slate-300 text-lg font-semibold">Cardápio indisponível no momento</p>
-            <p className="text-slate-500 text-sm max-w-xs">O servidor pode estar iniciando. Aguarde alguns segundos e tente novamente.</p>
-            <button onClick={() => loadMenu(1)} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition">
-              <RefreshCw size={18} /> Tentar novamente
-            </button>
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="text-slate-400 text-center py-20">Nenhum produto disponível</p>
+      {/* ─── Produtos ───────────────────────────────────────────────────────────── */}
+      <main className="max-w-2xl mx-auto px-4 py-6 pb-32">
+        {filtered.length === 0 ? (
+          <p className="text-gray-400 text-center py-20">Nenhum produto disponível</p>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-3">
             {filtered.map((product) => (
-              <div key={product.id} className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden flex">
-                {product.imageUrl ? (
-                  <img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    className="w-28 h-28 object-cover flex-shrink-0"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.onerror = null;
-                      target.style.display = "none";
-                      const placeholder = target.nextElementSibling as HTMLElement;
-                      if (placeholder) placeholder.style.display = "flex";
-                    }}
-                  />
-                ) : null}
-                <div
-                  className="w-28 h-28 flex-shrink-0 bg-slate-800 flex items-center justify-center text-3xl"
-                  style={{ display: product.imageUrl ? "none" : "flex" }}
-                >
-                  🍽️
-                </div>
+              <div
+                key={product.id}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex"
+              >
                 <div className="flex-1 p-4 flex flex-col justify-between">
                   <div>
-                    <h3 className="font-bold text-lg">{product.name}</h3>
-                    {product.description && <p className="text-slate-400 text-sm mt-1 line-clamp-2">{product.description}</p>}
+                    <h3 className="font-bold text-gray-900 text-base leading-snug">{product.name}</h3>
+                    {product.description && (
+                      <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
-                    <span className="text-green-400 font-black text-xl">R$ {Number(product.salePrice).toFixed(2)}</span>
+                    <span className="text-orange-500 font-black text-lg">
+                      R$ {Number(product.salePrice).toFixed(2)}
+                    </span>
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => openFlavorModal(product)}
-                        className="bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 px-3 py-2 rounded-xl font-bold text-xs transition"
-                        title="Montar meio a meio"
+                        className="border border-orange-200 text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-xl font-bold text-xs transition"
+                        title="Meio a meio"
                       >
                         🍕 Meio a meio
                       </button>
-                      <button onClick={() => addToCart(product)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-bold flex items-center gap-1 transition text-sm">
-                        <Plus size={14} /> Add
+                      <button
+                        onClick={() => addToCart(product)}
+                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                      >
+                        <Plus size={14} /> Adicionar
                       </button>
                     </div>
+                  </div>
+                </div>
+                <div className="w-28 h-28 flex-shrink-0 relative">
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const t = e.currentTarget;
+                        t.onerror = null;
+                        t.style.display = "none";
+                        const ph = t.nextElementSibling as HTMLElement;
+                        if (ph) ph.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="w-full h-full bg-orange-50 flex items-center justify-center text-3xl"
+                    style={{ display: product.imageUrl ? "none" : "flex" }}
+                  >
+                    🍽️
                   </div>
                 </div>
               </div>
@@ -492,40 +521,70 @@ export default function MenuPage() {
         )}
       </main>
 
-      {/* Cart Drawer */}
+      {/* ─── Botão flutuante de carrinho (mobile) ─────────────────────────────── */}
+      {cartCount > 0 && (
+        <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4">
+          <button
+            onClick={() => setShowCart(true)}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-black text-base shadow-xl shadow-orange-500/40 flex items-center gap-3 transition max-w-sm w-full justify-between"
+          >
+            <span className="bg-white/20 rounded-xl px-2.5 py-0.5 text-sm font-black">{cartCount}</span>
+            <span>Ver pedido</span>
+            <span className="font-black">R$ {cartTotal.toFixed(2)}</span>
+          </button>
+        </div>
+      )}
+
+      {/* ─── Carrinho Drawer ─────────────────────────────────────────────────────── */}
       {showCart && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCart(false)} />
-          <div className="relative bg-slate-900 w-full max-w-md flex flex-col h-full">
-            <div className="flex items-center justify-between p-6 border-b border-slate-800">
-              <h2 className="text-2xl font-bold">Seu pedido</h2>
-              <button onClick={() => setShowCart(false)}><X size={24} /></button>
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowCart(false)} />
+          <div className="relative bg-white w-full max-w-md flex flex-col h-full shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+              <h2 className="text-xl font-black text-gray-900">Seu pedido</h2>
+              <button onClick={() => setShowCart(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <X size={22} />
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {cart.length === 0 ? <p className="text-slate-400 text-center py-10">Carrinho vazio</p> : cart.map((item) => (
-                <div key={item.cartKey} className="flex items-center gap-4 bg-slate-800 rounded-xl p-4">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+              {cart.length === 0 ? (
+                <p className="text-gray-400 text-center py-10">Carrinho vazio</p>
+              ) : cart.map((item) => (
+                <div key={item.cartKey} className="flex items-center gap-4 bg-gray-50 rounded-xl p-4 border border-gray-100">
                   <div className="flex-1">
-                    <p className="font-bold">{item.product.name}</p>
+                    <p className="font-bold text-gray-900 text-sm">{item.product.name}</p>
                     {item.notes && item.flavors && (
-                      <p className="text-orange-400 text-xs mt-0.5">{item.notes}</p>
+                      <p className="text-orange-500 text-xs mt-0.5">{item.notes}</p>
                     )}
-                    <p className="text-green-400 font-bold">R$ {(Number(item.product.salePrice) * item.quantity).toFixed(2)}</p>
+                    <p className="text-orange-500 font-bold text-sm mt-1">
+                      R$ {(Number(item.product.salePrice) * item.quantity).toFixed(2)}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => updateQuantity(item.cartKey, -1)} className="bg-slate-700 hover:bg-slate-600 p-1 rounded-lg transition"><Minus size={16} /></button>
-                    <span className="font-bold w-6 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.cartKey, 1)} className="bg-slate-700 hover:bg-slate-600 p-1 rounded-lg transition"><Plus size={16} /></button>
-                    <button onClick={() => setCart((p) => p.filter((i) => i.cartKey !== item.cartKey))} className="ml-2 text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
+                    <button onClick={() => updateQuantity(item.cartKey, -1)} className="bg-gray-200 hover:bg-gray-300 p-1.5 rounded-lg transition">
+                      <Minus size={14} />
+                    </button>
+                    <span className="font-black w-5 text-center text-gray-900">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.cartKey, 1)} className="bg-gray-200 hover:bg-gray-300 p-1.5 rounded-lg transition">
+                      <Plus size={14} />
+                    </button>
+                    <button onClick={() => setCart((p) => p.filter((i) => i.cartKey !== item.cartKey))} className="ml-1 text-red-400 hover:text-red-500">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="p-6 border-t border-slate-800">
-              <div className="flex justify-between text-xl font-bold mb-4">
-                <span>Total</span><span className="text-green-400">R$ {cartTotal.toFixed(2)}</span>
+            <div className="px-6 py-5 border-t border-gray-100">
+              <div className="flex justify-between text-lg font-black text-gray-900 mb-4">
+                <span>Total</span>
+                <span className="text-orange-500">R$ {cartTotal.toFixed(2)}</span>
               </div>
-              <button onClick={() => { setShowCart(false); setShowCheckout(true); }} disabled={cart.length === 0}
-                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition">
+              <button
+                onClick={() => { setShowCart(false); setShowCheckout(true); }}
+                disabled={cart.length === 0}
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition"
+              >
                 Finalizar pedido <ChevronRight size={20} />
               </button>
             </div>
@@ -533,49 +592,45 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* Pizza / Meio a meio Modal */}
+      {/* ─── Modal Pizza meio a meio ─────────────────────────────────────────────── */}
       {showFlavorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setShowFlavorModal(false)} />
-          <div className="relative bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowFlavorModal(false)} />
+          <div className="relative bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h2 className="text-xl font-bold">🍕 Montar Pizza</h2>
-                <p className="text-slate-400 text-xs mt-0.5">Preço = maior valor entre os sabores</p>
+                <h2 className="text-xl font-black text-gray-900">Montar Pizza</h2>
+                <p className="text-gray-400 text-xs mt-0.5">Preço = maior valor entre os sabores</p>
               </div>
-              <button onClick={() => setShowFlavorModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+              <button onClick={() => setShowFlavorModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
             </div>
-
-            {/* Partes */}
             <div className="flex items-center gap-2 mb-5">
-              <span className="text-sm text-slate-400 shrink-0">Dividir em:</span>
+              <span className="text-sm text-gray-500 shrink-0">Dividir em:</span>
               {[2, 3, 4].map((n) => (
                 <button key={n} onClick={() => changeFlavorParts(n)}
-                  className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
-                  {n === 2 ? "Meio a meio" : n === 3 ? "3 sabores" : "4 sabores"}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  {n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
                 </button>
               ))}
             </div>
-
-            {/* Filtro */}
             <input
               value={flavorFilter}
               onChange={(e) => setFlavorFilter(e.target.value)}
-              placeholder="🔍 Filtrar sabores..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white mb-4 focus:outline-none focus:border-red-500"
+              placeholder="Filtrar sabores..."
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 mb-4 focus:outline-none focus:border-orange-400"
             />
-
-            {/* Slots */}
             <div className="space-y-3 mb-5">
               {Array.from({ length: flavorParts }).map((_, i) => {
                 const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
                 return (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs font-black text-slate-400 w-10 text-center bg-slate-800 rounded-lg py-1.5 shrink-0">{fraction}</span>
+                    <span className="text-xs font-black text-gray-400 w-8 text-center bg-gray-100 rounded-lg py-1 shrink-0">{fraction}</span>
                     <select
                       value={flavorSlots[i]?.id || ""}
                       onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
-                      className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                      className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-orange-400"
                     >
                       <option value="">— Sabor {i + 1} —</option>
                       {products.filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase())).map((p) => (
@@ -586,41 +641,48 @@ export default function MenuPage() {
                 );
               })}
             </div>
-
-            {/* Preview */}
             {flavorSlots.some(Boolean) && (
-              <div className="bg-slate-800 rounded-xl px-4 py-3 mb-5 flex justify-between items-center">
+              <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 mb-5 flex justify-between items-center">
                 <div>
-                  <p className="text-xs text-slate-400">Composição</p>
-                  <p className="text-sm font-semibold mt-0.5">{flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}</p>
+                  <p className="text-xs text-gray-400">Composição</p>
+                  <p className="text-sm font-semibold text-gray-800 mt-0.5">
+                    {flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-slate-400">Total</p>
-                  <p className="text-xl font-black text-green-400">
+                  <p className="text-xs text-gray-400">Total</p>
+                  <p className="text-xl font-black text-orange-500">
                     R$ {Math.max(...flavorSlots.filter(Boolean).map((f) => Number(f!.salePrice))).toFixed(2)}
                   </p>
                 </div>
               </div>
             )}
-
             <div className="flex gap-3">
-              <button onClick={() => setShowFlavorModal(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 transition py-3 rounded-xl font-semibold text-sm">Cancelar</button>
-              <button onClick={confirmFlavors} className="flex-1 bg-red-500 hover:bg-red-600 transition py-3 rounded-xl font-bold text-sm">Adicionar ao Pedido</button>
+              <button onClick={() => setShowFlavorModal(false)} className="flex-1 border border-gray-200 hover:bg-gray-50 transition py-3 rounded-xl font-semibold text-sm text-gray-600">Cancelar</button>
+              <button onClick={confirmFlavors} className="flex-1 bg-orange-500 hover:bg-orange-600 transition py-3 rounded-xl font-bold text-sm text-white">Adicionar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Checkout Modal */}
+      {/* ─── Checkout Modal ──────────────────────────────────────────────────────── */}
       {showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCheckout(false)} />
-          <div className="relative bg-slate-900 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowCheckout(false)} />
+          <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-2xl font-bold">Seus dados</h2>
-              <button onClick={() => setShowCheckout(false)}><X size={24} /></button>
+              <h2 className="text-xl font-black text-gray-900">Seus dados</h2>
+              <button onClick={() => setShowCheckout(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={22} />
+              </button>
             </div>
-            <input placeholder="Seu nome *" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
+
+            <input
+              placeholder="Seu nome *"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+            />
             <input
               placeholder="Telefone / WhatsApp *"
               value={form.phone}
@@ -632,54 +694,42 @@ export default function MenuPage() {
                 setLoyaltyDiscount(0);
                 if (phone.length >= 8) fetchLoyaltyBalance(phone);
               }}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             />
+
             {loyaltyPoints > 0 && (
-              <label className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={usePoints}
-                  onChange={(e) => setUsePoints(e.target.checked)}
-                  className="w-4 h-4 accent-yellow-400"
-                />
+              <label className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 cursor-pointer">
+                <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} className="w-4 h-4 accent-yellow-500" />
                 <div className="flex-1">
-                  <div className="flex items-center gap-1 text-yellow-400 font-bold text-sm">
-                    <Star size={14} fill="currentColor" />
-                    {loyaltyPoints} pontos disponíveis
+                  <div className="flex items-center gap-1 text-yellow-700 font-bold text-sm">
+                    <Star size={13} fill="currentColor" /> {loyaltyPoints} pontos disponíveis
                   </div>
-                  <div className="text-slate-400 text-xs">
-                    Usar agora = R$ {loyaltyDiscount},00 de desconto
-                  </div>
+                  <div className="text-gray-400 text-xs">= R$ {loyaltyDiscount},00 de desconto</div>
                 </div>
               </label>
             )}
-            {/* Coupon field */}
+
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   value={couponCode}
-                  onChange={(e) => {
-                    setCouponCode(e.target.value.toUpperCase());
-                    setCouponMsg(null);
-                    setCouponDiscount(0);
-                    setCouponId(null);
-                  }}
+                  onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponMsg(null); setCouponDiscount(0); setCouponId(null); }}
                   onKeyDown={(e) => e.key === "Enter" && validateCoupon(couponCode)}
                   placeholder="CUPOM DE DESCONTO"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-4 py-3 text-white text-sm outline-none focus:border-red-500 placeholder-slate-500 font-mono uppercase tracking-wider"
+                  className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 text-sm outline-none focus:border-orange-400 font-mono uppercase tracking-wider placeholder-gray-300"
                 />
               </div>
               <button
                 onClick={() => validateCoupon(couponCode)}
                 disabled={!couponCode.trim() || couponLoading}
-                className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white px-4 rounded-xl font-bold text-sm transition flex-shrink-0"
+                className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 px-4 rounded-xl font-bold text-sm transition flex-shrink-0"
               >
                 {couponLoading ? <Loader2 size={14} className="animate-spin" /> : "Aplicar"}
               </button>
             </div>
             {couponMsg && (
-              <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${couponMsg.valid ? "bg-green-500/10 border border-green-500/30 text-green-400" : "bg-red-500/10 border border-red-500/30 text-red-400"}`}>
+              <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${couponMsg.valid ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-600"}`}>
                 {couponMsg.valid ? <CheckCircle size={14} /> : <X size={14} />}
                 {couponMsg.text}
               </div>
@@ -689,49 +739,68 @@ export default function MenuPage() {
               <div className="grid grid-cols-2 gap-3">
                 {(["DELIVERY", "PICKUP"] as const).map((type) => (
                   <button key={type} onClick={() => setForm((f) => ({ ...f, orderType: type }))}
-                    className={`py-3 rounded-xl font-bold transition ${form.orderType === type ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
+                    className={`py-3 rounded-xl font-bold transition text-sm ${form.orderType === type ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                     {type === "DELIVERY" ? "Entrega" : "Retirada"}
                   </button>
                 ))}
               </div>
             )}
             {!tableNumber && form.orderType === "DELIVERY" && (
-              <input placeholder="Endereço de entrega *" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500" />
+              <div className="relative">
+                <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  placeholder="Endereço de entrega *"
+                  value={form.address}
+                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+                />
+              </div>
             )}
             {tableNumber && (
-              <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-400 text-sm">
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-500 text-sm">
                 Pedido para Mesa {tableNumber}
               </div>
             )}
-            <select value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as CustomerForm["paymentMethod"] }))} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-red-500">
+
+            <select
+              value={form.paymentMethod}
+              onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as CustomerForm["paymentMethod"] }))}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+            >
               <option value="PIX">PIX</option>
               <option value="CASH">Dinheiro</option>
               <option value="CREDIT_CARD">Cartão de Crédito</option>
               <option value="DEBIT_CARD">Cartão de Débito</option>
             </select>
-            <div className="pt-2 border-t border-slate-800 space-y-1.5">
-              <div className="flex justify-between text-sm text-slate-400">
+
+            <div className="pt-2 border-t border-gray-100 space-y-1.5">
+              <div className="flex justify-between text-sm text-gray-400">
                 <span>Subtotal</span>
                 <span>R$ {cartTotal.toFixed(2)}</span>
               </div>
               {usePoints && loyaltyDiscount > 0 && (
-                <div className="flex justify-between text-sm text-yellow-400">
-                  <span className="flex items-center gap-1"><Star size={12} fill="currentColor" /> Fidelidade</span>
+                <div className="flex justify-between text-sm text-yellow-600">
+                  <span className="flex items-center gap-1"><Star size={11} fill="currentColor" /> Fidelidade</span>
                   <span>- R$ {loyaltyDiscount.toFixed(2)}</span>
                 </div>
               )}
               {couponDiscount > 0 && (
-                <div className="flex justify-between text-sm text-green-400">
-                  <span className="flex items-center gap-1"><Tag size={12} /> Cupom</span>
+                <div className="flex justify-between text-sm text-green-600">
+                  <span className="flex items-center gap-1"><Tag size={11} /> Cupom</span>
                   <span>- R$ {couponDiscount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-lg font-bold pt-1 border-t border-slate-700">
+              <div className="flex justify-between text-base font-black text-gray-900 pt-1 border-t border-gray-100">
                 <span>Total</span>
-                <span className="text-green-400">R$ {finalCartTotal.toFixed(2)}</span>
+                <span className="text-orange-500">R$ {finalCartTotal.toFixed(2)}</span>
               </div>
             </div>
-            <button onClick={submitOrder} disabled={submitting} className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white py-4 rounded-xl font-black text-lg transition">
+
+            <button
+              onClick={submitOrder}
+              disabled={submitting}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base transition"
+            >
               {submitting ? "Enviando..." : "Confirmar pedido"}
             </button>
           </div>

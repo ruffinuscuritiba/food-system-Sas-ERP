@@ -38,16 +38,13 @@ export default function KitchenPage() {
     const printWindow = window.open("", "_blank", "width=400,height=600");
     if (!printWindow) return;
 
-    const items = JSON.parse(order.items || "[]");
+    // items já vem como array de objetos do backend
+    const items: any[] = Array.isArray(order.items) ? order.items : [];
     const itemsHtml = items.map((item: any) => `
       <div style="margin-bottom:15px;">
-        <b style="font-size:22px;">${item.name}</b><br/>
-        ${item.size || ""}<br/>
-        ${item.border || ""}<br/>
-        ${item.flavorType || ""}<br/>
-        ${item.secondFlavor || ""}<br/>
-        <b>Qtd: ${item.quantity}</b><br/>
-        ${item.notes || ""}
+        <b style="font-size:22px;">${item.quantity}x ${item.productName || item.name || ""}</b><br/>
+        ${item.notes ? `<i>Obs: ${item.notes}</i><br/>` : ""}
+        R$ ${Number(item.subtotal || 0).toFixed(2)}
       </div>
     `).join("");
 

@@ -12,7 +12,17 @@ export class PrismaService
   implements OnModuleInit
 {
   async onModuleInit() {
-    await this.$connect()
+    let retries = 5;
+    while (retries > 0) {
+      try {
+        await this.$connect();
+        return;
+      } catch (err) {
+        retries--;
+        if (retries === 0) throw err;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
   }
 
   async enableShutdownHooks(

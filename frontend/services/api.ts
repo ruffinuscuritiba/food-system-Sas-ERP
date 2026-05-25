@@ -16,7 +16,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Auto-retry on network errors and 5xx (handles Render cold start)
+// Auto-retry on network errors, 5xx and 404 (Render free-tier returns 404 during cold start)
 api.interceptors.response.use(undefined, async (error) => {
   const config = error.config
   if (!config) throw error
@@ -24,9 +24,13 @@ api.interceptors.response.use(undefined, async (error) => {
   const retryCount: number = config._retryCount ?? 0
   if (retryCount >= 3) throw error
 
+  const status = error.response?.status
   const isNetworkError = !error.response
-  const is5xx = error.response?.status >= 500
-  if (!isNetworkError && !is5xx) throw error
+  const is5xx = status >= 500
+  // Render returns 404 while spinning up the sleeping service
+  const isRenderColdStart404 = status === 404 && config.baseURL?.includes('onrender.com')
+
+  if (!isNetworkError && !is5xx && !isRenderColdStart404) throw error
 
   config._retryCount = retryCount + 1
   // Progressive delay: 5s, 8s, 12s — backend usually up by 2nd retry

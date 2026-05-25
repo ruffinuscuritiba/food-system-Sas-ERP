@@ -61,7 +61,7 @@ export default function ProductsPage() {
       Object.keys(form).forEach((key) => { formData.append(key, form[key]); });
       formData.append("companyId", user.companyId);
       if (image) formData.append("image", image);
-      await api.post("/products", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      await api.post("/products", formData);
       toast.success("Produto criado");
       setForm(emptyForm);
       setImage(null);
@@ -97,7 +97,7 @@ export default function ProductsPage() {
       formData.append("costPrice", editForm.costPrice);
       if (editForm.categoryId) formData.append("categoryId", editForm.categoryId);
       if (editImage) formData.append("image", editImage);
-      await api.patch(`/products/${editProduct.id}`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      await api.patch(`/products/${editProduct.id}`, formData);
       toast.success("Produto atualizado");
       setEditProduct(null);
       fetchProducts();

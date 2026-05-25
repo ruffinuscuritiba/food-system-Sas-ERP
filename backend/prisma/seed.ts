@@ -255,6 +255,49 @@ async function seedDemoProducts(companyId: string) {
   console.log(`✅ ${count} produtos com imagens criados`)
 }
 
+const MODULE_CATALOG = [
+  // ── OPERACAO ────────────────────────────────────────────────────────────────
+  { id: 'mod-pdv', slug: 'pdv', name: 'PDV Completo', description: 'Frente de caixa com emissão de pedidos, gestão de mesas e atendimento rápido.', icon: '🖥️', category: 'OPERACAO' as const, isFree: true, badge: 'Incluso', badgeColor: 'green', benefits: ['Pedidos ilimitados', 'Gestão de mesas', 'Impressão de comanda'], isHighlighted: false, sortOrder: 1 },
+  { id: 'mod-delivery', slug: 'delivery', name: 'Delivery Inteligente', description: 'Sistema completo de delivery com rastreio de pedidos e gestão de entregadores.', icon: '🛵', category: 'OPERACAO' as const, price: 49.00, badge: 'Popular', badgeColor: 'orange', benefits: ['Rastreio em tempo real', 'App do entregador', 'Gestão de rotas'], isHighlighted: true, sortOrder: 2 },
+  { id: 'mod-nfce', slug: 'nfce', name: 'Emissor Fiscal NFC-e', description: 'Nunca mais tenha problemas fiscais. Emita NFC-e automaticamente integrada a cada pedido.', icon: '🧾', category: 'OPERACAO' as const, price: 79.00, badge: 'Essencial', badgeColor: 'red', benefits: ['Emissão automática', 'Contingência offline', 'Certificado digital'], isHighlighted: true, sortOrder: 3 },
+  { id: 'mod-estoque', slug: 'estoque', name: 'Controle de Estoque', description: 'Gestão completa de ingredientes, receitas e movimentação de estoque em tempo real.', icon: '📦', category: 'OPERACAO' as const, price: 39.00, badge: 'Muito usado', badgeColor: 'blue', benefits: ['Alertas de estoque baixo', 'CMV automático', 'Fichas técnicas'], isHighlighted: false, sortOrder: 4 },
+  { id: 'mod-cozinha', slug: 'cozinha', name: 'Display de Cozinha', description: 'Tela digital para cozinha com pedidos em tempo real, temporizador e prioridades.', icon: '👨‍🍳', category: 'OPERACAO' as const, price: 29.00, benefits: ['Pedidos em tempo real', 'Temporizador por item', 'Prioridade de preparo'], isHighlighted: false, sortOrder: 5 },
+  { id: 'mod-multi-loja', slug: 'multi-loja', name: 'Gestão Multi Loja', description: 'Gerencie múltiplas unidades em um único painel com relatórios consolidados.', icon: '🏢', category: 'OPERACAO' as const, price: 149.00, badge: 'Enterprise', badgeColor: 'purple', benefits: ['Painel unificado', 'Relatórios consolidados', 'Controle por unidade'], isHighlighted: true, sortOrder: 6 },
+
+  // ── MARKETING ───────────────────────────────────────────────────────────────
+  { id: 'mod-pixel', slug: 'meta-pixel', name: 'Facebook & Meta Pixel', description: 'Rastreie conversões e crie campanhas de remarketing automático para quem visitou seu cardápio.', icon: '📊', category: 'MARKETING' as const, isFree: true, badge: 'Grátis', badgeColor: 'green', benefits: ['Remarketing automático', 'Conversões rastreadas', 'Audiências personalizadas'], isHighlighted: false, sortOrder: 1 },
+  { id: 'mod-ga', slug: 'google-analytics', name: 'Google Analytics', description: 'Métricas completas do seu cardápio digital: visitantes, conversões e comportamento.', icon: '📈', category: 'MARKETING' as const, isFree: true, badge: 'Grátis', badgeColor: 'green', benefits: ['Tráfego em tempo real', 'Taxa de conversão', 'Origem dos pedidos'], isHighlighted: false, sortOrder: 2 },
+  { id: 'mod-fidelidade', slug: 'fidelidade', name: 'Programa de Fidelidade', description: 'Sistema de pontos e recompensas que faz o cliente sempre querer voltar.', icon: '⭐', category: 'MARKETING' as const, price: 39.00, badge: 'Aumenta retenção', badgeColor: 'yellow', benefits: ['Pontos por pedido', 'Resgates automáticos', 'Ranking de clientes'], isHighlighted: true, sortOrder: 3 },
+  { id: 'mod-cupons', slug: 'cupons', name: 'Cupons Automáticos', description: 'Crie campanhas de cupom segmentadas por perfil de cliente com disparo automático.', icon: '🎟️', category: 'MARKETING' as const, price: 29.00, benefits: ['Cupons por segmento', 'Disparo automático', 'Relatório de uso'], isHighlighted: false, sortOrder: 4 },
+  { id: 'mod-crm', slug: 'crm-whatsapp', name: 'CRM WhatsApp', description: 'Atenda, fidelize e venda mais pelo WhatsApp com automação e histórico completo.', icon: '💬', category: 'MARKETING' as const, price: 59.00, badge: 'Alta demanda', badgeColor: 'green', benefits: ['Atendimento automatizado', 'Histórico do cliente', 'Campanhas em massa'], isHighlighted: true, sortOrder: 5 },
+  { id: 'mod-recuperacao', slug: 'recuperacao-clientes', name: 'Recuperação de Clientes', description: 'Reengaje clientes inativos automaticamente com ofertas personalizadas no momento certo.', icon: '🔄', category: 'MARKETING' as const, price: 49.00, benefits: ['Identificação de inativos', 'Ofertas automáticas', 'Aumento do LTV'], isHighlighted: false, sortOrder: 6 },
+
+  // ── FINANCEIRO ──────────────────────────────────────────────────────────────
+  { id: 'mod-caixa', slug: 'fluxo-caixa', name: 'Fluxo de Caixa', description: 'Controle total de entradas, saídas e saldo do caixa com fechamento automático.', icon: '💰', category: 'FINANCEIRO' as const, isFree: true, badge: 'Incluso', badgeColor: 'green', benefits: ['Abertura e fechamento', 'Sangrias e suprimentos', 'Relatório diário'], isHighlighted: false, sortOrder: 1 },
+  { id: 'mod-dash-fin', slug: 'dashboard-financeiro', name: 'Dashboard Financeiro', description: 'Visão 360° da saúde financeira: faturamento, ticket médio, lucro e tendências.', icon: '💹', category: 'FINANCEIRO' as const, price: 39.00, badge: 'Recomendado', badgeColor: 'blue', benefits: ['KPIs em tempo real', 'Gráficos de tendência', 'Comparativo mensal'], isHighlighted: true, sortOrder: 2 },
+  { id: 'mod-dre', slug: 'dre', name: 'DRE Automático', description: 'Demonstrativo de Resultados gerado automaticamente. Saiba exatamente seu lucro real.', icon: '📑', category: 'FINANCEIRO' as const, price: 59.00, badge: 'Contador aprova', badgeColor: 'purple', benefits: ['DRE mensal automático', 'CMV integrado', 'Exportação para Excel'], isHighlighted: true, sortOrder: 3 },
+  { id: 'mod-pix', slug: 'pix-automatico', name: 'PIX Automático', description: 'Receba pagamentos via PIX com confirmação automática e reconciliação instantânea.', icon: '⚡', category: 'FINANCEIRO' as const, price: 29.00, benefits: ['QR Code dinâmico', 'Confirmação automática', 'Sem taxa por transação'], isHighlighted: false, sortOrder: 4 },
+  { id: 'mod-relatorios', slug: 'relatorios-avancados', name: 'Relatórios Avançados', description: 'Relatórios personalizados de vendas, produtos mais lucrativos, horário de pico e mais.', icon: '📋', category: 'FINANCEIRO' as const, price: 49.00, benefits: ['Relatórios customizáveis', 'Exportação PDF/Excel', 'Agendamento automático'], isHighlighted: false, sortOrder: 5 },
+
+  // ── AUTOMACAO ───────────────────────────────────────────────────────────────
+  { id: 'mod-ia', slug: 'cardapio-ia', name: 'Cardápio com IA', description: 'Gere descrições irresistíveis, sugira preços e otimize seu cardápio com Inteligência Artificial.', icon: '🤖', category: 'AUTOMACAO' as const, price: 39.00, badge: 'Novo', badgeColor: 'blue', benefits: ['Descrições geradas por IA', 'Sugestão de preços', 'Otimização de cardápio'], isHighlighted: true, sortOrder: 1 },
+  { id: 'mod-ifood', slug: 'ifood', name: 'Integração iFood', description: 'Receba pedidos do iFood diretamente no sistema. Zero redigitação, zero erro.', icon: '🍔', category: 'AUTOMACAO' as const, price: 99.00, badge: 'Mais solicitado', badgeColor: 'red', benefits: ['Pedidos automáticos', 'Cardápio sincronizado', 'Relatórios unificados'], isHighlighted: true, sortOrder: 2 },
+  { id: 'mod-99food', slug: '99food', name: 'Integração 99Food', description: 'Integração completa com a plataforma 99Food para receber mais pedidos.', icon: '🛺', category: 'AUTOMACAO' as const, price: 79.00, benefits: ['Pedidos automáticos', 'Cardápio sincronizado', 'Suporte dedicado'], isHighlighted: false, sortOrder: 3 },
+  { id: 'mod-automacao-mkt', slug: 'automacao-marketing', name: 'Automação de Marketing', description: 'Dispare campanhas automáticas baseadas no comportamento: aniversário, inatividade, volume.', icon: '🚀', category: 'AUTOMACAO' as const, price: 69.00, badge: 'Aumenta faturamento', badgeColor: 'orange', benefits: ['Gatilhos comportamentais', 'E-mail + WhatsApp', 'A/B testing'], isHighlighted: true, sortOrder: 4 },
+  { id: 'mod-webhooks', slug: 'webhooks', name: 'Webhooks & API', description: 'Conecte seu sistema a qualquer ferramenta externa via webhooks e API REST documentada.', icon: '🔗', category: 'AUTOMACAO' as const, price: 49.00, benefits: ['API REST completa', 'Webhooks em tempo real', 'Documentação Swagger'], isHighlighted: false, sortOrder: 5 },
+]
+
+async function seedModuleCatalog() {
+  for (const mod of MODULE_CATALOG) {
+    await (prisma as any).module.upsert({
+      where: { id: mod.id },
+      update: { name: mod.name, description: mod.description, badge: mod.badge ?? null, badgeColor: mod.badgeColor ?? null, isHighlighted: mod.isHighlighted, sortOrder: mod.sortOrder },
+      create: { ...mod, price: mod.price ? mod.price : null, isFree: mod.isFree ?? false },
+    })
+  }
+  console.log(`✅ ${MODULE_CATALOG.length} módulos do catálogo criados`)
+}
+
 async function main() {
   console.log('🌱 Iniciando seed...')
 
@@ -269,6 +312,9 @@ async function main() {
 
   // Produtos demo para empresa principal
   await seedDemoProducts('company-seed-001')
+
+  // Catálogo de módulos
+  await seedModuleCatalog()
 
   console.log('\n🎉 Seed concluído!')
   console.log('\n📋 Super Admin: superadmin@system.com / SuperAdmin@123')

@@ -18,7 +18,7 @@ export default function DashboardCharts({ chartData }: { chartData: ChartEntry[]
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-10">
 
-      <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800">
+      <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
         <h2 className="text-3xl font-bold mb-8">Faturamento Semanal</h2>
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -39,7 +39,7 @@ export default function DashboardCharts({ chartData }: { chartData: ChartEntry[]
         </div>
       </div>
 
-      <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800">
+      <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
         <h2 className="text-3xl font-bold mb-8">Lucro Semanal</h2>
         <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">

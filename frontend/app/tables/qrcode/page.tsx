@@ -31,25 +31,25 @@ export default function TablesQrPage() {
 
   if (loading || !companyId) {
     return (
-      <main className="min-h-screen bg-slate-950 text-white p-8 flex items-center justify-center">
-        <p className="text-slate-400 animate-pulse">Carregando QR Codes...</p>
+      <main className="min-h-screen bg-gray-50 text-gray-900 p-8 flex items-center justify-center">
+        <p className="text-gray-500 animate-pulse">Carregando QR Codes...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-10">
           <div>
             <h1 className="text-3xl font-bold">QR Code das Mesas</h1>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-gray-500 text-sm mt-1">
               Escaneie para abrir o cardápio e realizar pedidos
             </p>
           </div>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 transition px-5 py-3 rounded-xl font-semibold text-sm"
+            className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 transition px-5 py-3 rounded-xl font-semibold text-sm text-gray-900"
           >
             <Printer size={18} /> Imprimir
           </button>

@@ -203,7 +203,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside className={`
-          fixed inset-y-0 left-0 z-50 w-60 bg-white border-r border-gray-100/80 flex flex-col shrink-0
+          fixed inset-y-0 left-0 z-50 w-60 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0
           transition-transform duration-300 ease-in-out
           md:relative md:translate-x-0 md:z-auto
           ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:shadow-sm"}
@@ -211,19 +211,19 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         `}>
 
           {/* Brand */}
-          <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-primary/30">
                 <UtensilsCrossed size={16} className="text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-[13px] font-black text-gray-900 leading-tight truncate">{companyName}</h1>
+                <h1 className="text-[13px] font-black text-white leading-tight truncate">{companyName}</h1>
                 <p className="text-gray-400 text-[11px] mt-0.5 font-medium">
                   {ROLE_LABELS[user?.role || ""] || "Gestão"}
                 </p>
               </div>
             </div>
-            <button onClick={() => setSidebarOpen(false)} className="md:hidden w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition">
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-slate-700 transition">
               <X size={15} />
             </button>
           </div>
@@ -236,7 +236,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
               return (
                 <div key={si} className={si > 0 ? "pt-3" : ""}>
                   {section.title && (
-                    <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
                       {section.title}
                     </p>
                   )}
@@ -274,10 +274,10 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           )}
 
           {/* Logout */}
-          <div className="px-3 py-3 border-t border-gray-100">
+          <div className="px-3 py-3 border-t border-slate-800">
             <button
               onClick={logout}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 transition font-medium text-[12px] group"
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition font-medium text-[12px] group"
             >
               <LogOut size={14} className="group-hover:scale-110 transition-transform" />
               Sair
@@ -310,10 +310,10 @@ function MenuItem({
       className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all text-[13px] font-semibold group ${
         active
           ? "bg-primary text-white shadow-md shadow-primary/30"
-          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          : "text-slate-300 hover:bg-slate-800 hover:text-white"
       }`}
     >
-      <span className={`shrink-0 transition-transform group-hover:scale-110 ${active ? "" : "text-gray-400 group-hover:text-gray-700"}`}>
+      <span className={`shrink-0 transition-transform group-hover:scale-110 ${active ? "" : "text-slate-500 group-hover:text-slate-200"}`}>
         {icon}
       </span>
       {label}

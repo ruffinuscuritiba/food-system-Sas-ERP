@@ -69,9 +69,9 @@ export function SalesChart() {
 
   return (
 
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full">
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 w-full shadow-sm">
 
-      <h3 className="text-2xl font-bold mb-6 text-white">
+      <h3 className="text-2xl font-bold mb-6 text-gray-900">
         Fluxo de Caixa
       </h3>
 

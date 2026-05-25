@@ -339,7 +339,7 @@ export default function TablesPage() {
 
   return (
 
-    <main className="min-h-screen bg-slate-950 text-white p-8">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
 
       <div className="max-w-7xl mx-auto">
 
@@ -385,7 +385,7 @@ export default function TablesPage() {
                 );
               }}
 
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 cursor-pointer"
+              className="bg-white border border-gray-200 rounded-3xl p-6 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
             >
 
               <h2 className="text-3xl font-bold mb-4">
@@ -438,7 +438,7 @@ export default function TablesPage() {
                   updateStatus(table.id, e.target.value);
                 }}
 
-                className="w-full bg-slate-800 p-3 rounded-2xl"
+                className="w-full bg-white border border-gray-300 p-3 rounded-2xl text-gray-900"
               >
 
                 <option value="FREE">
@@ -467,7 +467,7 @@ export default function TablesPage() {
 
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
 
-          <div className="bg-slate-900 rounded-3xl w-full max-w-2xl p-8 border border-slate-800 overflow-y-auto max-h-[95vh]">
+          <div className="bg-white rounded-3xl w-full max-w-2xl p-8 border border-gray-200 shadow-2xl overflow-y-auto max-h-[95vh]">
 
             <div className="flex items-center justify-between mb-8">
 
@@ -477,7 +477,7 @@ export default function TablesPage() {
                   Mesa {selectedTable.number}
                 </h2>
 
-                <p className="text-slate-400 mt-2">
+                <p className="text-gray-500 mt-2">
                   Comanda aberta
                 </p>
 
@@ -490,16 +490,16 @@ export default function TablesPage() {
                   setSelectedProductId("");
                   setNewItemPrice("");
                 }}
-                className="bg-slate-800 hover:bg-slate-700 transition px-5 py-3 rounded-2xl"
+                className="bg-gray-100 hover:bg-gray-200 transition px-5 py-3 rounded-2xl text-gray-900"
               >
                 Fechar
               </button>
 
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 mb-8">
+            <div className="bg-gray-100 rounded-2xl p-6 mb-8">
 
-              <p className="text-slate-400 text-sm">
+              <p className="text-gray-500 text-sm">
                 Total da Mesa
               </p>
 
@@ -509,7 +509,7 @@ export default function TablesPage() {
 
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6 mb-8">
+            <div className="bg-gray-100 rounded-2xl p-6 mb-8">
 
               <h3 className="text-2xl font-bold mb-4">
                 Pedidos
@@ -517,7 +517,7 @@ export default function TablesPage() {
 
               {tableItems.length === 0 ? (
 
-                <p className="text-slate-400">
+                <p className="text-gray-500">
                   Nenhum pedido
                 </p>
 
@@ -529,7 +529,7 @@ export default function TablesPage() {
 
                     <div
                       key={item.id}
-                      className="bg-slate-700 rounded-2xl p-4 flex justify-between"
+                      className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex justify-between"
                     >
 
                       <div>
@@ -538,7 +538,7 @@ export default function TablesPage() {
                           {item.name}
                         </h4>
 
-                        <p className="text-slate-400 text-sm">
+                        <p className="text-gray-500 text-sm">
                           Qtd: {item.quantity}
                         </p>
 
@@ -558,7 +558,7 @@ export default function TablesPage() {
 
             </div>
 
-            <div className="bg-slate-800 rounded-2xl p-6">
+            <div className="bg-gray-100 rounded-2xl p-6">
 
               <h3 className="text-2xl font-bold mb-6">
                 Adicionar Item
@@ -568,7 +568,7 @@ export default function TablesPage() {
 
                 {/* Campo de busca */}
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                   <input
                     placeholder="Buscar produto..."
                     value={productSearch}
@@ -577,13 +577,13 @@ export default function TablesPage() {
                       setSelectedProductId("");
                       setNewItemPrice("");
                     }}
-                    className="w-full bg-slate-700 pl-9 pr-4 py-3 rounded-2xl text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full bg-white border border-gray-300 pl-9 pr-4 py-3 rounded-2xl text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
 
                 {/* Lista filtrada de produtos */}
                 {productSearch && (
-                  <div className="bg-slate-700 rounded-2xl overflow-hidden max-h-48 overflow-y-auto">
+                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden max-h-48 overflow-y-auto">
                     {products
                       .filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
                       .map((p) => (
@@ -594,14 +594,14 @@ export default function TablesPage() {
                             setNewItemPrice(String(p.salePrice));
                             setProductSearch(p.name);
                           }}
-                          className={`w-full text-left px-4 py-3 hover:bg-slate-600 transition flex justify-between items-center ${selectedProductId === p.id ? "bg-slate-600" : ""}`}
+                          className={`w-full text-left px-4 py-3 hover:bg-gray-100 transition flex justify-between items-center ${selectedProductId === p.id ? "bg-gray-100" : ""}`}
                         >
                           <span className="text-sm font-medium">{p.name}</span>
                           <span className="text-green-400 text-sm font-bold">R$ {Number(p.salePrice).toFixed(2)}</span>
                         </button>
                       ))}
                     {products.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                      <p className="px-4 py-3 text-slate-500 text-sm">Nenhum produto encontrado</p>
+                      <p className="px-4 py-3 text-gray-400 text-sm">Nenhum produto encontrado</p>
                     )}
                   </div>
                 )}
@@ -609,11 +609,11 @@ export default function TablesPage() {
                 {/* Select clássico como fallback quando não há busca */}
                 {!productSearch && (
                   productsError ? (
-                    <div className="bg-slate-700 rounded-2xl p-4 flex items-center justify-between">
+                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-center justify-between">
                       <span className="text-red-400 text-sm">Erro ao carregar produtos</span>
                       <button
                         onClick={fetchProducts}
-                        className="text-sm bg-slate-600 hover:bg-slate-500 transition px-3 py-1.5 rounded-xl"
+                        className="text-sm bg-gray-200 hover:bg-gray-300 transition px-3 py-1.5 rounded-xl text-gray-900"
                       >
                         {loadingProducts ? "Carregando..." : "Tentar novamente"}
                       </button>
@@ -626,7 +626,7 @@ export default function TablesPage() {
                         const p = products.find((x) => x.id === e.target.value);
                         setNewItemPrice(p ? String(p.salePrice) : "");
                       }}
-                      className="w-full bg-slate-700 p-4 rounded-2xl text-white"
+                      className="w-full bg-white border border-gray-300 p-4 rounded-2xl text-gray-900"
                     >
                       <option value="">
                         {loadingProducts ? "Carregando produtos..." : products.length === 0 ? "Nenhum produto cadastrado" : "Selecione um produto..."}
@@ -641,8 +641,8 @@ export default function TablesPage() {
                 )}
 
                 {newItemPrice && (
-                  <div className="flex items-center justify-between bg-slate-700 px-4 py-3 rounded-2xl">
-                    <span className="text-slate-400 text-sm">Preço unitário</span>
+                  <div className="flex items-center justify-between bg-gray-50 border border-gray-200 px-4 py-3 rounded-2xl">
+                    <span className="text-gray-500 text-sm">Preço unitário</span>
                     <span className="font-bold text-green-400 text-lg">
                       R$ {Number(newItemPrice).toFixed(2)}
                     </span>
@@ -655,13 +655,13 @@ export default function TablesPage() {
                   min="1"
                   value={newItemQuantity}
                   onChange={(e) => setNewItemQuantity(Number(e.target.value))}
-                  className="w-full bg-slate-700 p-4 rounded-2xl"
+                  className="w-full bg-white border border-gray-300 p-4 rounded-2xl"
                 />
 
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-700 p-4 rounded-2xl text-white"
+                  className="w-full bg-white border border-gray-300 p-4 rounded-2xl text-gray-900"
                 >
                   <option value="PIX">PIX</option>
                   <option value="CASH">Dinheiro</option>

@@ -42,13 +42,13 @@ export default function StockPage() {
   useEffect(() => { load(); }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <Layers size={28} className="text-blue-400" />
           <div>
             <h1 className="text-3xl font-bold">Movimentações de Estoque</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Entradas, saídas e perdas</p>
+            <p className="text-gray-500 text-sm mt-0.5">Entradas, saídas e perdas</p>
           </div>
         </div>
 
@@ -59,17 +59,17 @@ export default function StockPage() {
             { key: "low",       label: `Estoque baixo (${lowStock.length})`, warn: lowStock.length > 0 },
           ].map((t) => (
             <button key={t.key} onClick={() => setTab(t.key as any)}
-              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition ${tab === t.key ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:text-white"} ${t.warn ? "ring-1 ring-red-500" : ""}`}>
+              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition ${tab === t.key ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-300"} ${t.warn ? "ring-1 ring-red-500" : ""}`}>
               {t.label}
             </button>
           ))}
         </div>
 
         {tab === "movements" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400">
+                <tr className="border-b border-gray-200 text-gray-500 bg-gray-50">
                   {["Ingrediente", "Tipo", "Qtd", "Estoque antes", "Estoque após", "Custo unit.", "Data"].map((h) => (
                     <th key={h} className="text-left px-5 py-4">{h}</th>
                   ))}
@@ -77,13 +77,13 @@ export default function StockPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-500">Carregando...</td></tr>
+                  <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Carregando...</td></tr>
                 ) : movements.length === 0 ? (
-                  <tr><td colSpan={7} className="px-5 py-10 text-center text-slate-500">Nenhuma movimentação registrada</td></tr>
+                  <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Nenhuma movimentação registrada</td></tr>
                 ) : movements.map((m) => {
                   const isEntry = ["ENTRY","PURCHASE","INVENTORY","ADJUSTMENT"].includes(m.type);
                   return (
-                    <tr key={m.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition">
+                    <tr key={m.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
                       <td className="px-5 py-4 font-medium">{m.ingredient?.name || "—"}</td>
                       <td className="px-5 py-4">
                         <span className={`flex items-center gap-1 ${isEntry ? "text-green-400" : "text-red-400"}`}>
@@ -92,10 +92,10 @@ export default function StockPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">{Number(m.quantity).toFixed(2)}</td>
-                      <td className="px-5 py-4 text-slate-400">{Number(m.previousStock).toFixed(2)}</td>
+                      <td className="px-5 py-4 text-gray-500">{Number(m.previousStock).toFixed(2)}</td>
                       <td className="px-5 py-4">{Number(m.currentStock).toFixed(2)}</td>
                       <td className="px-5 py-4">{m.unitCost ? `R$ ${Number(m.unitCost).toFixed(2)}` : "—"}</td>
-                      <td className="px-5 py-4 text-slate-400">{new Date(m.createdAt).toLocaleDateString("pt-BR")}</td>
+                      <td className="px-5 py-4 text-gray-500">{new Date(m.createdAt).toLocaleDateString("pt-BR")}</td>
                     </tr>
                   );
                 })}
@@ -105,10 +105,10 @@ export default function StockPage() {
         )}
 
         {tab === "low" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400">
+                <tr className="border-b border-gray-200 text-gray-500 bg-gray-50">
                   {["Ingrediente", "Estoque atual", "Estoque mínimo", "Unidade", "Diferença"].map((h) => (
                     <th key={h} className="text-left px-5 py-4">{h}</th>
                   ))}
@@ -118,11 +118,11 @@ export default function StockPage() {
                 {lowStock.length === 0 ? (
                   <tr><td colSpan={5} className="px-5 py-10 text-center text-green-400">Estoque em dia!</td></tr>
                 ) : lowStock.map((i) => (
-                  <tr key={i.id} className="border-b border-slate-800">
+                  <tr key={i.id} className="border-b border-gray-100">
                     <td className="px-5 py-4 font-medium text-red-300">{i.name}</td>
                     <td className="px-5 py-4 text-red-400 font-bold">{Number(i.stock).toFixed(2)}</td>
                     <td className="px-5 py-4">{Number(i.minimumStock).toFixed(2)}</td>
-                    <td className="px-5 py-4 text-slate-400">{i.unit}</td>
+                    <td className="px-5 py-4 text-gray-500">{i.unit}</td>
                     <td className="px-5 py-4 text-red-400">{(Number(i.stock) - Number(i.minimumStock)).toFixed(2)}</td>
                   </tr>
                 ))}

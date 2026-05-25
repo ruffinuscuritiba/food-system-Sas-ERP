@@ -9,13 +9,13 @@ import { api } from "@/services/api";
 const KitchenBoard = dynamic(() => import("./KitchenBoard"), {
   ssr: false,
   loading: () => (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="flex items-center justify-between mb-10">
         <h1 className="text-5xl font-bold">KDS Cozinha</h1>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-3xl p-6 border border-slate-800 bg-slate-900 min-h-[500px] animate-pulse" />
+          <div key={i} className="rounded-3xl p-6 border border-gray-200 bg-white min-h-[500px] animate-pulse" />
         ))}
       </div>
     </main>

@@ -72,22 +72,22 @@ export default function RecipesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-8">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <BookOpen size={28} className="text-purple-400" />
           <div>
             <h1 className="text-3xl font-bold">Ficha Técnica / Receitas</h1>
-            <p className="text-slate-400 text-sm mt-0.5">Engenharia de cardápio e controle de CMV</p>
+            <p className="text-gray-500 text-sm mt-0.5">Engenharia de cardápio e controle de CMV</p>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           {/* Produto */}
           <div className="mb-6">
-            <label className="block text-sm text-slate-400 mb-2">Produto *</label>
+            <label className="block text-sm text-gray-600 mb-2">Produto *</label>
             <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+              className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-purple-500">
               <option value="">Selecione um produto...</option>
               {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -96,28 +96,28 @@ export default function RecipesPage() {
           {/* Ingredientes da receita */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-sm text-slate-400">Ingredientes</label>
+              <label className="text-sm text-gray-600">Ingredientes</label>
               <button onClick={addItem} className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300 transition">
                 <Plus size={16} /> Adicionar ingrediente
               </button>
             </div>
             <div className="space-y-3">
               {items.length === 0 && (
-                <p className="text-slate-500 text-sm text-center py-6 border border-dashed border-slate-700 rounded-xl">
+                <p className="text-gray-400 text-sm text-center py-6 border border-dashed border-gray-300 rounded-xl">
                   Clique em "Adicionar ingrediente" para montar a receita
                 </p>
               )}
               {items.map((item, index) => (
                 <div key={index} className="grid grid-cols-[1fr_150px_40px] gap-3 items-center">
                   <select value={item.ingredientId} onChange={(e) => updateItem(index, "ingredientId", e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500">
+                    className="bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-purple-500">
                     <option value="">Selecionar ingrediente...</option>
                     {ingredients.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
                   </select>
                   <input type="number" placeholder="Quantidade" value={item.quantity}
                     onChange={(e) => updateItem(index, "quantity", e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500" />
-                  <button onClick={() => removeItem(index)} className="text-slate-500 hover:text-red-400 transition flex items-center justify-center">
+                    className="bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-purple-500" />
+                  <button onClick={() => removeItem(index)} className="text-gray-400 hover:text-red-500 transition flex items-center justify-center">
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -127,9 +127,9 @@ export default function RecipesPage() {
 
           {/* CMV */}
           {items.length > 0 && (
-            <div className="bg-slate-800 rounded-xl p-4 mb-6">
+            <div className="bg-gray-100 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">CMV da Receita</span>
+                <span className="text-gray-600">CMV da Receita</span>
                 <span className="text-2xl font-black text-green-400">R$ {totalCost.toFixed(2)}</span>
               </div>
             </div>

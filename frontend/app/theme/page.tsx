@@ -48,7 +48,7 @@ export default function ThemePage() {
 
   if (!theme) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -117,34 +117,34 @@ export default function ThemePage() {
             </section>
 
             {/* Rastreamento */}
-            <section className="rounded-3xl p-8 border border-slate-700 bg-slate-900/50">
+            <section className="rounded-3xl p-8 border border-gray-200 bg-gray-50">
               <h2 className="text-2xl font-bold mb-2">Rastreamento & Analytics</h2>
-              <p className="text-slate-400 text-sm mb-6">
+              <p className="text-gray-500 text-sm mb-6">
                 Configure as integrações de rastreamento para seu cardápio público.
               </p>
               <div className="space-y-5">
                 <div>
                   <label className="block mb-1 text-sm font-medium">Meta Pixel ID</label>
-                  <p className="text-slate-500 text-xs mb-2">
+                  <p className="text-gray-500 text-xs mb-2">
                     Ex: <span className="font-mono">1234567890123456</span> — encontre no Gerenciador de Eventos do Facebook
                   </p>
                   <input
                     value={theme.metaPixelId || ""}
                     onChange={(e) => setTheme({ ...theme, metaPixelId: e.target.value || null })}
                     placeholder="Cole aqui o Pixel ID do Meta"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500 placeholder-slate-500 font-mono"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
                   />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">Google Analytics ID (GA4)</label>
-                  <p className="text-slate-500 text-xs mb-2">
+                  <p className="text-gray-500 text-xs mb-2">
                     Ex: <span className="font-mono">G-XXXXXXXXXX</span> — encontre em Admin → Fluxo de dados
                   </p>
                   <input
                     value={theme.gaId || ""}
                     onChange={(e) => setTheme({ ...theme, gaId: e.target.value || null })}
                     placeholder="G-XXXXXXXXXX"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500 placeholder-slate-500 font-mono"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
                   />
                 </div>
               </div>
@@ -189,13 +189,13 @@ export default function ThemePage() {
               {(theme.metaPixelId || theme.gaId) && (
                 <div className="mt-4 space-y-1.5">
                   {theme.metaPixelId && (
-                    <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
                       <span className="w-2 h-2 bg-blue-500 rounded-full" />
                       Meta Pixel: <span className="font-mono text-blue-400">{theme.metaPixelId}</span>
                     </div>
                   )}
                   {theme.gaId && (
-                    <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
                       <span className="w-2 h-2 bg-primary rounded-full" />
                       GA4: <span className="font-mono text-primary">{theme.gaId}</span>
                     </div>

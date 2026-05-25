@@ -15,9 +15,9 @@ export function KpiCard({
 
   return (
 
-    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800">
+    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
 
-      <p className="text-slate-400">
+      <p className="text-gray-500">
         {title}
       </p>
 

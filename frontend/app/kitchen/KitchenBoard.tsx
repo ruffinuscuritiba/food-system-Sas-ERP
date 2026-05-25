@@ -51,12 +51,12 @@ function Column({
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className="bg-slate-900 rounded-2xl p-6 border border-slate-800"
+                    className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm"
                   >
                     <h3 className="text-2xl font-bold mb-3">
                       {order.productName || "Pedido"}
                     </h3>
-                    <p className="text-slate-400 mb-2">
+                    <p className="text-gray-500 mb-2">
                       Cliente: {order.customerName}
                     </p>
                     <div className="mb-4">
@@ -72,7 +72,7 @@ function Column({
                         {getOrderTime(order.createdAt)}min
                       </span>
                     </div>
-                    <p className="text-slate-400 mb-6">
+                    <p className="text-gray-500 mb-6">
                       Total: R$ {order.total}
                     </p>
                     <button
@@ -112,7 +112,7 @@ export default function KitchenBoard({
     <DragDropContext onDragEnd={handleDragEnd}>
       <main
         ref={containerRef}
-        className="min-h-screen bg-slate-950 text-white p-8"
+        className="min-h-screen bg-gray-50 text-gray-900 p-8"
       >
         <div className="flex items-center justify-between mb-10">
           <h1 className="text-5xl font-bold">KDS Cozinha</h1>

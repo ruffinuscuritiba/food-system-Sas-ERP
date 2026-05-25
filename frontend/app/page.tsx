@@ -145,7 +145,7 @@ setSummary({
 
   return (
 
-    <main className="min-h-screen bg-slate-950 text-white">
+    <main className="min-h-screen bg-gray-50 text-gray-900">
 
       <section className="p-8">
 
@@ -157,7 +157,7 @@ setSummary({
               Dashboard
             </h2>
 
-            <p className="text-slate-400">
+            <p className="text-gray-500">
               Gestão SaaS em tempo real
             </p>
 

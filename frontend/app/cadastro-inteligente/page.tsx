@@ -5,7 +5,7 @@ import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
   Sparkles, Upload, FileText, Image as ImageIcon, Loader2,
-  CheckCircle2, XCircle, Trash2, ChevronDown,
+  CheckCircle2, XCircle, Trash2, ChevronDown, RefreshCw, Zap,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -39,6 +39,30 @@ interface InvoiceItem {
   enabled: boolean;
 }
 
+// ── Progress stages ───────────────────────────────────────────────────────────
+
+const STAGES = [
+  { id: "upload",      label: "Upload",               match: /enviando|arquivo recebido/i },
+  { id: "analyzing",   label: "Analisando imagem",    match: /analisando|conectando/i },
+  { id: "extracting",  label: "Extraindo produtos",   match: /extraindo|tentando|ia respondeu/i },
+  { id: "organizing",  label: "Organizando dados",    match: /organizando|produto.*identificado/i },
+  { id: "done",        label: "Finalizado",           match: /concluída|concluído/i },
+];
+
+function getStageIndex(logs: SessionLog[]): number {
+  if (logs.length === 0) return 0;
+  let maxIdx = 0;
+  for (const log of logs) {
+    for (let i = STAGES.length - 1; i >= 0; i--) {
+      if (STAGES[i].match.test(log.message)) {
+        if (i > maxIdx) maxIdx = i;
+        break;
+      }
+    }
+  }
+  return maxIdx;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function ConfidenceBadge({ v }: { v?: number }) {
@@ -48,20 +72,71 @@ function ConfidenceBadge({ v }: { v?: number }) {
   return <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${color}`}>{pct}%</span>;
 }
 
+function ProgressBar({ logs }: { logs: SessionLog[] }) {
+  const idx = getStageIndex(logs);
+  const pct = Math.round(((idx + 1) / STAGES.length) * 100);
+
+  return (
+    <div className="space-y-3">
+      {/* Step pills */}
+      <div className="flex items-center gap-1">
+        {STAGES.map((s, i) => {
+          const done = i < idx;
+          const active = i === idx;
+          return (
+            <div key={s.id} className="flex items-center flex-1 min-w-0">
+              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-500 ${
+                done    ? "bg-green-100 text-green-700" :
+                active  ? "bg-primary/10 text-primary ring-1 ring-primary/30" :
+                          "bg-gray-100 text-gray-400"
+              }`}>
+                {done
+                  ? <CheckCircle2 size={11} />
+                  : active
+                    ? <Loader2 size={11} className="animate-spin" />
+                    : <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                }
+                <span className="hidden sm:inline">{s.label}</span>
+              </div>
+              {i < STAGES.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-1 transition-all duration-700 ${i < idx ? "bg-green-300" : "bg-gray-200"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-primary to-orange-400 rounded-full transition-all duration-700"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      {/* Current step label */}
+      <p className="text-xs text-gray-500 text-center font-medium">
+        {STAGES[idx].label}…
+      </p>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CadastroInteligentePage() {
-  const [tab, setTab] = useState<TabType>("menu");
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [logs, setLogs] = useState<SessionLog[]>([]);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-  const [doneMsg, setDoneMsg] = useState("");
-  const [dragOver, setDragOver] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [tab, setTab]                       = useState<TabType>("menu");
+  const [phase, setPhase]                   = useState<Phase>("idle");
+  const [sessionId, setSessionId]           = useState<string | null>(null);
+  const [logs, setLogs]                     = useState<SessionLog[]>([]);
+  const [menuItems, setMenuItems]           = useState<MenuItem[]>([]);
+  const [invoiceItems, setInvoiceItems]     = useState<InvoiceItem[]>([]);
+  const [categories, setCategories]         = useState<{ id: string; name: string }[]>([]);
+  const [doneMsg, setDoneMsg]               = useState("");
+  const [errorMsg, setErrorMsg]             = useState("");
+  const [dragOver, setDragOver]             = useState(false);
+  const [preview, setPreview]               = useState<string | null>(null);
+  const [fileName, setFileName]             = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -69,7 +144,6 @@ export default function CadastroInteligentePage() {
     api.get("/categories").then(r => setCategories(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
-  // cleanup poll on unmount
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   function reset() {
@@ -80,6 +154,7 @@ export default function CadastroInteligentePage() {
     setMenuItems([]);
     setInvoiceItems([]);
     setDoneMsg("");
+    setErrorMsg("");
     setPreview(null);
     setFileName(null);
   }
@@ -100,8 +175,6 @@ export default function CadastroInteligentePage() {
 
   async function handleFile(file: File) {
     setFileName(file.name);
-
-    // preview for images
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => setPreview(e.target?.result as string);
@@ -121,7 +194,7 @@ export default function CadastroInteligentePage() {
       setPhase("processing");
       startPolling(data.sessionId);
     } catch {
-      toast.error("Erro ao enviar arquivo");
+      setErrorMsg("Não foi possível enviar o arquivo. Verifique sua conexão e tente novamente.");
       setPhase("error");
     }
   }
@@ -144,11 +217,11 @@ export default function CadastroInteligentePage() {
         setPhase("review");
       } else if (data.status === "ERROR") {
         if (pollRef.current) clearInterval(pollRef.current);
-        toast.error(data.errorMsg || "Erro no processamento");
+        setErrorMsg(data.errorMsg || "Não foi possível processar a imagem agora.");
         setPhase("error");
       }
     } catch {
-      // keep polling
+      // keep polling — transient network issue
     }
   }
 
@@ -230,12 +303,16 @@ export default function CadastroInteligentePage() {
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-2.5 rounded-xl shadow-md">
+        <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-2.5 rounded-xl shadow-md shadow-orange-200">
           <Sparkles size={22} className="text-white" />
         </div>
         <div>
           <h1 className="text-xl font-black text-gray-900">Cadastro Inteligente por Imagem</h1>
           <p className="text-sm text-gray-500">Envie uma foto do cardápio ou nota fiscal e a IA extrai os dados automaticamente.</p>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full">
+          <Zap size={11} />
+          Gemini Flash
         </div>
       </div>
 
@@ -258,7 +335,7 @@ export default function CadastroInteligentePage() {
       {(phase === "idle" || phase === "uploading") && (
         <div
           className={`relative border-2 border-dashed rounded-2xl transition cursor-pointer
-            ${dragOver ? "border-primary bg-primary/5" : "border-gray-200 bg-white hover:border-orange-300 hover:bg-primary/5/40"}
+            ${dragOver ? "border-primary bg-primary/5" : "border-gray-200 bg-white hover:border-orange-300"}
           `}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -272,7 +349,6 @@ export default function CadastroInteligentePage() {
             accept={tab === "menu" ? "image/*" : "image/*,application/xml,text/xml,application/pdf"}
             onChange={onFileInput}
           />
-
           <div className="py-16 flex flex-col items-center gap-4">
             {phase === "uploading" ? (
               <>
@@ -300,29 +376,53 @@ export default function CadastroInteligentePage() {
 
       {/* ── PROCESSING ── */}
       {phase === "processing" && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <Loader2 size={20} className="text-primary animate-spin" />
-            <span className="font-semibold text-gray-700">Processando com IA…</span>
-          </div>
-
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-5">
+          {/* Image/file preview */}
           {preview && (
-            <img src={preview} alt="preview" className="max-h-48 rounded-xl object-contain mb-4 border border-gray-100" />
+            <div className="relative">
+              <img src={preview} alt="preview" className="max-h-44 rounded-xl object-contain border border-gray-100 w-full" />
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+            </div>
           )}
           {!preview && fileName && (
-            <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
-              <FileText size={16} /> {fileName}
+            <div className="flex items-center gap-2.5 bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-600">
+              <FileText size={16} className="text-primary shrink-0" />
+              <span className="truncate font-medium">{fileName}</span>
             </div>
           )}
 
-          <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 space-y-1 max-h-48 overflow-y-auto">
-            {logs.length === 0 && <span className="text-gray-500">Aguardando logs…</span>}
-            {logs.map((l, i) => (
-              <div key={i} className={l.level === "ERROR" ? "text-red-400" : "text-green-400"}>
-                <span className="text-gray-500 mr-2">[{l.level}]</span>{l.message}
+          {/* Progress */}
+          <ProgressBar logs={logs} />
+
+          {/* Skeleton product cards */}
+          <div className="space-y-2 pt-1">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 animate-pulse">
+                <div className="w-10 h-10 rounded-lg bg-gray-200 shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 bg-gray-200 rounded w-2/3" style={{ width: `${50 + i * 12}%` }} />
+                  <div className="h-2.5 bg-gray-100 rounded w-1/3" />
+                </div>
+                <div className="w-12 h-6 rounded-lg bg-gray-200" />
               </div>
             ))}
           </div>
+
+          {/* Log terminal — collapsible */}
+          <details className="group">
+            <summary className="text-xs text-gray-400 cursor-pointer select-none hover:text-gray-600 transition flex items-center gap-1.5">
+              <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
+              Ver log detalhado
+            </summary>
+            <div className="mt-2 bg-gray-900 rounded-xl p-4 font-mono text-xs text-green-400 space-y-0.5 max-h-40 overflow-y-auto">
+              {logs.length === 0 && <span className="text-gray-500">Aguardando…</span>}
+              {logs.map((l, i) => (
+                <div key={i} className={l.level === "ERROR" ? "text-red-400" : "text-green-400"}>
+                  <span className="text-gray-500 mr-2">[{l.level}]</span>{l.message}
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       )}
 
@@ -350,7 +450,7 @@ export default function CadastroInteligentePage() {
           <div className="flex justify-end">
             <button
               onClick={tab === "menu" ? confirmMenu : confirmInvoice}
-              className="bg-primary hover:bg-primary text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 transition"
+              className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 transition"
             >
               <CheckCircle2 size={18} />
               {tab === "menu" ? "Salvar produtos no cardápio" : "Registrar entradas de estoque"}
@@ -376,11 +476,21 @@ export default function CadastroInteligentePage() {
 
       {/* ── ERROR ── */}
       {phase === "error" && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
-          <XCircle size={40} className="text-red-400 mx-auto mb-3" />
-          <p className="text-red-600 font-semibold mb-4">Erro ao processar o arquivo.</p>
-          <button onClick={reset} className="bg-red-500 hover:bg-red-600 text-white font-bold px-5 py-2 rounded-xl transition">
-            Tentar novamente
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center space-y-4">
+          <XCircle size={40} className="text-red-400 mx-auto" />
+          <div>
+            <p className="text-red-700 font-semibold text-sm">
+              {errorMsg || "Não foi possível processar a imagem agora."}
+            </p>
+            <p className="text-red-400 text-xs mt-1">
+              Tente novamente ou use uma imagem com melhor resolução.
+            </p>
+          </div>
+          <button
+            onClick={reset}
+            className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-bold px-5 py-2 rounded-xl transition"
+          >
+            <RefreshCw size={15} /> Tentar novamente
           </button>
         </div>
       )}
@@ -411,7 +521,7 @@ function MenuReviewTable({
             <th className="text-left px-3 py-3 font-semibold text-gray-600 hidden md:table-cell">Descrição</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600">Preço</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600 hidden md:table-cell">Categoria</th>
-            <th className="text-center px-3 py-3 font-semibold text-gray-600">Confiança</th>
+            <th className="text-center px-3 py-3 font-semibold text-gray-600">Conf.</th>
             <th className="w-8 px-2 py-3"></th>
           </tr>
         </thead>
@@ -423,38 +533,25 @@ function MenuReviewTable({
                   className="accent-orange-500 w-4 h-4" />
               </td>
               <td className="px-3 py-2">
-                <input
-                  value={item.name}
-                  onChange={e => update(idx, { name: e.target.value })}
+                <input value={item.name} onChange={e => update(idx, { name: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  placeholder="Nome do produto"
-                />
+                  placeholder="Nome do produto" />
               </td>
               <td className="px-3 py-2 hidden md:table-cell">
-                <input
-                  value={item.description ?? ""}
-                  onChange={e => update(idx, { description: e.target.value })}
+                <input value={item.description ?? ""} onChange={e => update(idx, { description: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  placeholder="Descrição"
-                />
+                  placeholder="Descrição" />
               </td>
               <td className="px-3 py-2">
-                <input
-                  type="number"
-                  value={item.price ?? ""}
+                <input type="number" value={item.price ?? ""}
                   onChange={e => update(idx, { price: e.target.value === "" ? undefined : Number(e.target.value) })}
                   className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  placeholder="0.00"
-                  step="0.01"
-                />
+                  placeholder="0.00" step="0.01" />
               </td>
               <td className="px-3 py-2 hidden md:table-cell">
                 <div className="relative">
-                  <select
-                    value={item.categoryId ?? ""}
-                    onChange={e => update(idx, { categoryId: e.target.value })}
-                    className="w-full appearance-none border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary pr-7"
-                  >
+                  <select value={item.categoryId ?? ""} onChange={e => update(idx, { categoryId: e.target.value })}
+                    className="w-full appearance-none border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary pr-7">
                     <option value="">— sem categoria —</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -512,46 +609,25 @@ function InvoiceReviewTable({
                   className="accent-orange-500 w-4 h-4" />
               </td>
               <td className="px-3 py-2">
-                <input
-                  value={item.name}
-                  onChange={e => update(idx, { name: e.target.value })}
+                <input value={item.name} onChange={e => update(idx, { name: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  placeholder="Nome do produto"
-                />
+                  placeholder="Nome do produto" />
               </td>
               <td className="px-3 py-2">
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={e => update(idx, { quantity: Number(e.target.value) })}
-                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  step="0.001"
-                />
+                <input type="number" value={item.quantity} onChange={e => update(idx, { quantity: Number(e.target.value) })}
+                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary" step="0.001" />
               </td>
               <td className="px-3 py-2">
-                <input
-                  value={item.unit ?? "UN"}
-                  onChange={e => update(idx, { unit: e.target.value })}
-                  className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary uppercase"
-                />
+                <input value={item.unit ?? "UN"} onChange={e => update(idx, { unit: e.target.value })}
+                  className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary uppercase" />
               </td>
               <td className="px-3 py-2">
-                <input
-                  type="number"
-                  value={item.unitCost}
-                  onChange={e => update(idx, { unitCost: Number(e.target.value) })}
-                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  step="0.01"
-                />
+                <input type="number" value={item.unitCost} onChange={e => update(idx, { unitCost: Number(e.target.value) })}
+                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary" step="0.01" />
               </td>
               <td className="px-3 py-2 text-center hidden md:table-cell">
-                <input
-                  type="checkbox"
-                  checked={item.createProduct}
-                  onChange={e => update(idx, { createProduct: e.target.checked })}
-                  className="accent-orange-500 w-4 h-4"
-                  title="Criar produto no catálogo se não existir"
-                />
+                <input type="checkbox" checked={item.createProduct} onChange={e => update(idx, { createProduct: e.target.checked })}
+                  className="accent-orange-500 w-4 h-4" title="Criar produto no catálogo se não existir" />
               </td>
               <td className="px-3 py-2 text-center">
                 <ConfidenceBadge v={item.confidence} />

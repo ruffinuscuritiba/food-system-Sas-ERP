@@ -1,10 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 import { XMLParser } from 'fast-xml-parser';
 import { PrismaService } from 'src/database/prisma.service';
+import { AIProvider } from 'src/services/ai/ai-provider.interface';
+import { AIProviderFactory } from 'src/services/ai/ai-provider.factory';
+
+// ── Prompts ────────────────────────────────────────────────────────────────────
 
 const MENU_PROMPT = `Você é especialista em análise de cardápios de restaurantes brasileiros.
-Analise esta imagem e extraia TODOS os itens do cardápio. Retorne SOMENTE JSON válido, sem texto extra:
+Analise esta imagem e extraia TODOS os itens do cardápio visíveis. Retorne SOMENTE JSON válido, sem texto extra:
 
 {
   "items": [
@@ -21,10 +24,11 @@ Analise esta imagem e extraia TODOS os itens do cardápio. Retorne SOMENTE JSON 
 }
 
 Regras:
+- Extraia TODOS os produtos visíveis, sem omitir nenhum
 - price: número float em reais, null se não encontrado
 - category: Lanches, Pizzas, Bebidas, Combos, Adicionais, Sobremesas, Massas, Porções, Pratos, Outros
-- confidence: 0 a 1
-- Retorne APENAS o JSON puro`;
+- confidence: 0 a 1 indicando certeza da leitura
+- Retorne APENAS o JSON puro, sem markdown, sem explicações`;
 
 const INVOICE_PROMPT = `Você é especialista em documentos fiscais brasileiros (NF-e, NFC-e, cupom fiscal).
 Analise este documento e extraia os dados. Retorne SOMENTE JSON válido:
@@ -45,16 +49,19 @@ Analise este documento e extraia os dados. Retorne SOMENTE JSON válido:
   ]
 }
 
-Retorne APENAS o JSON puro`;
+Retorne APENAS o JSON puro, sem markdown, sem explicações`;
 
 @Injectable()
 export class SmartImportService {
-  private claude: Anthropic;
+  private aiProviders: AIProvider[];
   private xmlParser: XMLParser;
 
   constructor(private prisma: PrismaService) {
-    this.claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    this.aiProviders = AIProviderFactory.buildChain();
     this.xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+
+    const names = this.aiProviders.map(p => p.name).join(', ') || 'nenhum';
+    console.log(`[SmartImport] AI providers disponíveis: ${names}`);
   }
 
   // ── Session helpers ────────────────────────────────────────────────────────
@@ -83,56 +90,51 @@ export class SmartImportService {
 
   // ── Menu image processing ──────────────────────────────────────────────────
 
-  async processMenuImage(
-    buffer: Buffer,
-    mimeType: string,
-    companyId: string,
-    fileUrl?: string,
-  ) {
+  async processMenuImage(buffer: Buffer, mimeType: string, companyId: string, fileUrl?: string) {
     const session = await this.prisma.importSession.create({
       data: { companyId, type: 'MENU', status: 'PROCESSING', fileUrl },
     });
-
     setImmediate(() => this.runMenuExtraction(session.id, buffer, mimeType, companyId));
     return { sessionId: session.id, status: 'PROCESSING' };
   }
 
   private async runMenuExtraction(sessionId: string, buffer: Buffer, mimeType: string, companyId: string) {
     try {
-      await this.log(sessionId, 'INFO', 'Enviando imagem para análise IA...');
+      await this.log(sessionId, 'INFO', 'Analisando imagem...');
 
-      const base64 = buffer.toString('base64');
-      const validMime = (['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const)
-        .find(m => m === mimeType) ?? 'image/jpeg';
+      const imageBase64 = buffer.toString('base64');
+      const safeMime = this.toSafeMime(mimeType);
 
-      const response = await this.claude.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: validMime, data: base64 } },
-            { type: 'text', text: MENU_PROMPT },
-          ],
-        }],
-      });
+      await this.log(sessionId, 'INFO', `Conectando ao serviço de IA...`);
 
-      const raw = (response.content[0] as any).text as string;
-      await this.log(sessionId, 'INFO', `IA respondeu com ${raw.length} caracteres`);
+      const { result, provider } = await AIProviderFactory.analyzeWithFallback(
+        this.aiProviders,
+        { prompt: MENU_PROMPT, imageBase64, mimeType: safeMime },
+        (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
+      );
 
-      const parsed = this.parseJson(raw);
+      await this.log(sessionId, 'INFO', `Extraindo produtos (via ${provider})...`);
+
+      const parsed = this.parseJson(result);
       const items: any[] = parsed?.items ?? [];
 
-      await this.log(sessionId, 'INFO', `${items.length} itens extraídos da imagem`);
+      if (items.length === 0) {
+        throw new Error('Nenhum produto encontrado na imagem. Verifique se a imagem contém um cardápio legível.');
+      }
 
-      // Enrich with existing categories from company
-      const categories = await this.prisma.category.findMany({ where: { companyId }, select: { id: true, name: true } });
+      await this.log(sessionId, 'INFO', `${items.length} produto(s) identificado(s)`);
+      await this.log(sessionId, 'INFO', 'Organizando categorias...');
+
+      const categories = await this.prisma.category.findMany({
+        where: { companyId },
+        select: { id: true, name: true },
+      });
 
       const enriched = items.map(item => ({
         ...item,
         suggestedCategoryId: categories.find(c =>
-          c.name.toLowerCase().includes(item.category?.toLowerCase() ?? '') ||
-          item.category?.toLowerCase().includes(c.name.toLowerCase())
+          c.name.toLowerCase().includes((item.category ?? '').toLowerCase()) ||
+          (item.category ?? '').toLowerCase().includes(c.name.toLowerCase())
         )?.id ?? null,
       }));
 
@@ -148,28 +150,23 @@ export class SmartImportService {
         ),
       ]);
 
-      await this.log(sessionId, 'INFO', 'Extração concluída com sucesso');
+      await this.log(sessionId, 'INFO', `Extração concluída — ${items.length} produto(s) prontos para revisão`);
     } catch (err: any) {
+      const userMsg = this.toUserMessage(err?.message);
       await this.prisma.importSession.update({
         where: { id: sessionId },
-        data: { status: 'ERROR', errorMsg: err?.message ?? 'Erro desconhecido' },
+        data: { status: 'ERROR', errorMsg: userMsg },
       });
-      await this.log(sessionId, 'ERROR', err?.message ?? 'Erro ao processar imagem');
+      await this.log(sessionId, 'ERROR', userMsg);
     }
   }
 
   // ── Invoice processing ─────────────────────────────────────────────────────
 
-  async processInvoice(
-    buffer: Buffer,
-    mimeType: string,
-    companyId: string,
-    fileUrl?: string,
-  ) {
+  async processInvoice(buffer: Buffer, mimeType: string, companyId: string, fileUrl?: string) {
     const session = await this.prisma.importSession.create({
       data: { companyId, type: 'INVOICE', status: 'PROCESSING', fileUrl },
     });
-
     const isXml = mimeType === 'application/xml' || mimeType === 'text/xml';
     setImmediate(() =>
       isXml
@@ -179,7 +176,7 @@ export class SmartImportService {
     return { sessionId: session.id, status: 'PROCESSING' };
   }
 
-  private async runXmlExtraction(sessionId: string, buffer: Buffer, companyId: string) {
+  private async runXmlExtraction(sessionId: string, buffer: Buffer, _companyId: string) {
     try {
       await this.log(sessionId, 'INFO', 'Processando XML de NF-e...');
       const xml = buffer.toString('utf-8');
@@ -194,13 +191,11 @@ export class SmartImportService {
         cnpj: emit?.CNPJ ?? null,
         address: null,
       };
-
       const document = {
         number: nfe?.ide?.nNF ?? null,
         date: nfe?.ide?.dhEmi?.substring(0, 10) ?? null,
         total: parseFloat(nfe?.total?.ICMSTot?.vNF ?? '0'),
       };
-
       const items = det.map((d: any) => ({
         name: d?.prod?.xProd ?? 'Produto',
         code: d?.prod?.cProd ?? null,
@@ -211,48 +206,45 @@ export class SmartImportService {
         confidence: 1.0,
       }));
 
-      await this.log(sessionId, 'INFO', `XML processado: ${items.length} itens encontrados`);
+      await this.log(sessionId, 'INFO', `XML processado: ${items.length} item(ns) encontrado(s)`);
       await this.saveInvoiceResult(sessionId, { supplier, document, items });
     } catch (err: any) {
+      const userMsg = this.toUserMessage(err?.message);
       await this.prisma.importSession.update({
         where: { id: sessionId },
-        data: { status: 'ERROR', errorMsg: err?.message },
+        data: { status: 'ERROR', errorMsg: userMsg },
       });
-      await this.log(sessionId, 'ERROR', err?.message ?? 'Erro ao processar XML');
+      await this.log(sessionId, 'ERROR', userMsg);
     }
   }
 
-  private async runInvoiceVision(sessionId: string, buffer: Buffer, mimeType: string, companyId: string) {
+  private async runInvoiceVision(sessionId: string, buffer: Buffer, mimeType: string, _companyId: string) {
     try {
-      await this.log(sessionId, 'INFO', 'Enviando documento para análise IA...');
+      await this.log(sessionId, 'INFO', 'Analisando documento fiscal...');
 
-      const base64 = buffer.toString('base64');
-      const validMime = (['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const)
-        .find(m => m === mimeType) ?? 'image/jpeg';
+      const imageBase64 = buffer.toString('base64');
+      const safeMime = this.toSafeMime(mimeType);
 
-      const response = await this.claude.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: validMime, data: base64 } },
-            { type: 'text', text: INVOICE_PROMPT },
-          ],
-        }],
-      });
+      await this.log(sessionId, 'INFO', 'Conectando ao serviço de IA...');
 
-      const raw = (response.content[0] as any).text as string;
-      const parsed = this.parseJson(raw);
+      const { result, provider } = await AIProviderFactory.analyzeWithFallback(
+        this.aiProviders,
+        { prompt: INVOICE_PROMPT, imageBase64, mimeType: safeMime },
+        (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
+      );
 
-      await this.log(sessionId, 'INFO', `IA extraiu ${parsed?.items?.length ?? 0} itens`);
+      await this.log(sessionId, 'INFO', `Extraindo dados do documento (via ${provider})...`);
+
+      const parsed = this.parseJson(result);
+      await this.log(sessionId, 'INFO', `${parsed?.items?.length ?? 0} item(ns) extraído(s)`);
       await this.saveInvoiceResult(sessionId, parsed);
     } catch (err: any) {
+      const userMsg = this.toUserMessage(err?.message);
       await this.prisma.importSession.update({
         where: { id: sessionId },
-        data: { status: 'ERROR', errorMsg: err?.message },
+        data: { status: 'ERROR', errorMsg: userMsg },
       });
-      await this.log(sessionId, 'ERROR', err?.message ?? 'Erro ao processar documento');
+      await this.log(sessionId, 'ERROR', userMsg);
     }
   }
 
@@ -269,7 +261,7 @@ export class SmartImportService {
         })
       ),
     ]);
-    await this.log(sessionId, 'INFO', 'Extração concluída com sucesso');
+    await this.log(sessionId, 'INFO', `Extração concluída — ${items.length} item(ns) prontos para revisão`);
   }
 
   // ── Confirm: save products ─────────────────────────────────────────────────
@@ -280,7 +272,6 @@ export class SmartImportService {
     companyId: string,
   ) {
     const results: string[] = [];
-
     for (const item of items) {
       const product = await this.prisma.product.create({
         data: {
@@ -302,12 +293,10 @@ export class SmartImportService {
       });
       results.push(product.id);
     }
-
     await this.prisma.importSession.update({
       where: { id: sessionId },
       data: { status: 'DONE' },
     });
-
     return { created: results.length, productIds: results };
   }
 
@@ -317,29 +306,18 @@ export class SmartImportService {
     companyId: string,
   ) {
     const results: string[] = [];
-
     for (const item of items) {
-      // Find or create ingredient
       let ingredient = await this.prisma.ingredient.findFirst({
         where: { companyId, name: { contains: item.name, mode: 'insensitive' } },
       });
-
       if (!ingredient && item.createProduct) {
         ingredient = await this.prisma.ingredient.create({
-          data: {
-            name: item.name,
-            stock: 0,
-            unit: item.unit ?? 'un',
-            cost: item.unitCost,
-            companyId,
-          },
+          data: { name: item.name, stock: 0, unit: item.unit ?? 'un', cost: item.unitCost, companyId },
         });
       }
-
       if (ingredient) {
         const previousStock = Number(ingredient.stock);
         const newStock = previousStock + item.quantity;
-
         const movement = await this.prisma.stockMovement.create({
           data: {
             ingredient: { connect: { id: ingredient.id } },
@@ -353,13 +331,10 @@ export class SmartImportService {
             reason: `Entrada via importação (sessão ${sessionId})`,
           },
         });
-
-        // Update ingredient stock
         await this.prisma.ingredient.update({
           where: { id: ingredient.id },
           data: { stock: newStock, lastPurchaseCost: item.unitCost },
         });
-
         await this.prisma.importItem.update({
           where: { id: item.itemId },
           data: { confirmed: true, savedId: movement.id },
@@ -367,22 +342,33 @@ export class SmartImportService {
         results.push(movement.id);
       }
     }
-
     return { created: results.length, movementIds: results };
   }
 
-  // ── Util ───────────────────────────────────────────────────────────────────
+  // ── Utils ──────────────────────────────────────────────────────────────────
 
   private parseJson(raw: string): any {
-    // Strip markdown code blocks if present
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     try {
       return JSON.parse(cleaned);
     } catch {
-      // Try to extract JSON from text
       const match = cleaned.match(/\{[\s\S]*\}/);
       if (match) return JSON.parse(match[0]);
-      throw new Error('Resposta da IA não é JSON válido');
+      throw new Error('Resposta da IA não é um JSON válido. Tente novamente com uma imagem mais nítida.');
     }
+  }
+
+  private toSafeMime(mimeType: string): string {
+    const safe = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    return safe.includes(mimeType) ? mimeType : 'image/jpeg';
+  }
+
+  /** Convert technical error messages to user-friendly text. */
+  private toUserMessage(msg?: string): string {
+    if (!msg) return 'Não foi possível processar a imagem. Tente novamente.';
+    // Already a user-friendly message from our factory
+    if (msg.includes('Não foi possível') || msg.includes('Nenhum produto')) return msg;
+    // Generic fallback — never expose internal errors
+    return 'Serviço temporariamente indisponível. Tente novamente em alguns instantes.';
   }
 }

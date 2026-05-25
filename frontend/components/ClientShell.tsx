@@ -88,9 +88,9 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "Premium",
+    title: "Marketplace",
     items: [
-      { href: "/modulos", label: "Módulos", icon: <Puzzle size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/modulos", label: "Módulos de Integração", icon: <Puzzle size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {

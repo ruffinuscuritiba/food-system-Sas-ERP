@@ -1,25 +1,13 @@
-name: Keep Backend Alive
+# Keep-alive migrado para Vercel Cron Jobs (vercel.json)
+# GitHub Actions tem delay de até 30 min — não confiável para manter Render ativo
+# Este workflow foi desabilitado intencionalmente.
+name: Keep Backend Alive (DESABILITADO)
 
 on:
-  schedule:
-    # GitHub Actions cron mínimo é */5 (a cada 5 minutos)
-    # Render dorme após 15 min de inatividade — pingar a cada 5 min garante margem segura
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
-  ping:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Render backend (keep-alive)
-        run: |
-          echo "Ping at $(date -u)"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-time 60 \
-            https://food-system-backend-no7d.onrender.com/api/health)
-          echo "HTTP status: $STATUS"
-          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-            echo "Backend is alive"
-          else
-            echo "Backend returned $STATUS — may be waking up"
-          fi
+      - run: echo "Keep-alive agora roda via Vercel Cron (vercel.json)"

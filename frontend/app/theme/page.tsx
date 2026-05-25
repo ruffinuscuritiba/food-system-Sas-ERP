@@ -35,6 +35,9 @@ export default function ThemePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(theme),
       });
+      if (theme.primaryColor) {
+        document.documentElement.style.setProperty("--color-primary", theme.primaryColor);
+      }
       toast.success("Tema atualizado com sucesso!");
     } catch {
       toast.error("Erro ao salvar tema.");
@@ -193,8 +196,8 @@ export default function ThemePage() {
                   )}
                   {theme.gaId && (
                     <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800 rounded-lg px-3 py-2">
-                      <span className="w-2 h-2 bg-orange-500 rounded-full" />
-                      GA4: <span className="font-mono text-orange-400">{theme.gaId}</span>
+                      <span className="w-2 h-2 bg-primary rounded-full" />
+                      GA4: <span className="font-mono text-primary">{theme.gaId}</span>
                     </div>
                   )}
                 </div>

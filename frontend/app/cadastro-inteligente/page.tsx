@@ -246,7 +246,7 @@ export default function CadastroInteligentePage() {
             key={t}
             onClick={() => { reset(); setTab(t); }}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
-              tab === t ? "bg-orange-500 text-white shadow-md shadow-orange-200" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
+              tab === t ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
             }`}
           >
             {t === "menu" ? <><ImageIcon size={15} /> Cardápio por Imagem</> : <><FileText size={15} /> Nota Fiscal / Cupom</>}
@@ -258,7 +258,7 @@ export default function CadastroInteligentePage() {
       {(phase === "idle" || phase === "uploading") && (
         <div
           className={`relative border-2 border-dashed rounded-2xl transition cursor-pointer
-            ${dragOver ? "border-orange-400 bg-orange-50" : "border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/40"}
+            ${dragOver ? "border-primary bg-primary/5" : "border-gray-200 bg-white hover:border-orange-300 hover:bg-primary/5/40"}
           `}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -276,13 +276,13 @@ export default function CadastroInteligentePage() {
           <div className="py-16 flex flex-col items-center gap-4">
             {phase === "uploading" ? (
               <>
-                <Loader2 size={40} className="text-orange-500 animate-spin" />
+                <Loader2 size={40} className="text-primary animate-spin" />
                 <p className="text-gray-500 font-medium">Enviando arquivo…</p>
               </>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-2xl bg-orange-50 flex items-center justify-center">
-                  <Upload size={28} className="text-orange-400" />
+                <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center">
+                  <Upload size={28} className="text-primary" />
                 </div>
                 <div className="text-center">
                   <p className="text-gray-700 font-semibold">Arraste o arquivo aqui ou clique para selecionar</p>
@@ -302,7 +302,7 @@ export default function CadastroInteligentePage() {
       {phase === "processing" && (
         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <Loader2 size={20} className="text-orange-500 animate-spin" />
+            <Loader2 size={20} className="text-primary animate-spin" />
             <span className="font-semibold text-gray-700">Processando com IA…</span>
           </div>
 
@@ -350,7 +350,7 @@ export default function CadastroInteligentePage() {
           <div className="flex justify-end">
             <button
               onClick={tab === "menu" ? confirmMenu : confirmInvoice}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-orange-200 transition"
+              className="bg-primary hover:bg-primary text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 transition"
             >
               <CheckCircle2 size={18} />
               {tab === "menu" ? "Salvar produtos no cardápio" : "Registrar entradas de estoque"}
@@ -426,7 +426,7 @@ function MenuReviewTable({
                 <input
                   value={item.name}
                   onChange={e => update(idx, { name: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   placeholder="Nome do produto"
                 />
               </td>
@@ -434,7 +434,7 @@ function MenuReviewTable({
                 <input
                   value={item.description ?? ""}
                   onChange={e => update(idx, { description: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   placeholder="Descrição"
                 />
               </td>
@@ -443,7 +443,7 @@ function MenuReviewTable({
                   type="number"
                   value={item.price ?? ""}
                   onChange={e => update(idx, { price: e.target.value === "" ? undefined : Number(e.target.value) })}
-                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   placeholder="0.00"
                   step="0.01"
                 />
@@ -453,7 +453,7 @@ function MenuReviewTable({
                   <select
                     value={item.categoryId ?? ""}
                     onChange={e => update(idx, { categoryId: e.target.value })}
-                    className="w-full appearance-none border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400 pr-7"
+                    className="w-full appearance-none border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary pr-7"
                   >
                     <option value="">— sem categoria —</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -515,7 +515,7 @@ function InvoiceReviewTable({
                 <input
                   value={item.name}
                   onChange={e => update(idx, { name: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   placeholder="Nome do produto"
                 />
               </td>
@@ -524,7 +524,7 @@ function InvoiceReviewTable({
                   type="number"
                   value={item.quantity}
                   onChange={e => update(idx, { quantity: Number(e.target.value) })}
-                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   step="0.001"
                 />
               </td>
@@ -532,7 +532,7 @@ function InvoiceReviewTable({
                 <input
                   value={item.unit ?? "UN"}
                   onChange={e => update(idx, { unit: e.target.value })}
-                  className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400 uppercase"
+                  className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary uppercase"
                 />
               </td>
               <td className="px-3 py-2">
@@ -540,7 +540,7 @@ function InvoiceReviewTable({
                   type="number"
                   value={item.unitCost}
                   onChange={e => update(idx, { unitCost: Number(e.target.value) })}
-                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   step="0.01"
                 />
               </td>

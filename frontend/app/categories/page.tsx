@@ -78,7 +78,7 @@ export default function CategoriesPage() {
       <div className="max-w-4xl mx-auto">
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="bg-orange-500 p-2.5 rounded-xl">
+          <div className="bg-primary p-2.5 rounded-xl">
             <FolderKanban size={20} className="text-white" />
           </div>
           <div>
@@ -96,12 +96,12 @@ export default function CategoriesPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && createCategory()}
-              className="flex-1 border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition px-4 py-3 rounded-xl outline-none text-sm text-gray-900"
+              className="flex-1 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-orange-100 transition px-4 py-3 rounded-xl outline-none text-sm text-gray-900"
             />
             <button
               onClick={createCategory}
               disabled={creating}
-              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 transition text-white px-5 rounded-xl font-bold text-sm flex items-center gap-1.5"
+              className="bg-primary hover:bg-primary disabled:opacity-50 transition text-white px-5 rounded-xl font-bold text-sm flex items-center gap-1.5"
             >
               <Plus size={16} />
               {creating ? "Criando..." : "Criar"}
@@ -110,7 +110,7 @@ export default function CategoriesPage() {
           <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
             <div
               onClick={() => setNewAllowMultipleFlavors((v) => !v)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${newAllowMultipleFlavors ? "bg-orange-500" : "bg-gray-200"}`}
+              className={`w-10 h-5 rounded-full transition-colors relative ${newAllowMultipleFlavors ? "bg-primary" : "bg-gray-200"}`}
             >
               <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${newAllowMultipleFlavors ? "translate-x-5" : "translate-x-0.5"}`} />
             </div>
@@ -121,7 +121,7 @@ export default function CategoriesPage() {
         {/* Lista */}
         {loading ? (
           <div className="text-center text-gray-400 py-20">
-            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             Carregando...
           </div>
         ) : categories.length === 0 ? (
@@ -144,7 +144,7 @@ export default function CategoriesPage() {
                           if (e.key === "Escape") setEditingId(null);
                         }}
                         autoFocus
-                        className="flex-1 border border-gray-200 focus:border-orange-400 px-3 py-2 rounded-xl outline-none text-sm text-gray-900"
+                        className="flex-1 border border-gray-200 focus:border-primary px-3 py-2 rounded-xl outline-none text-sm text-gray-900"
                       />
                       <button onClick={() => saveEdit(category.id)} className="text-green-500 hover:text-green-600 transition">
                         <Check size={18} />
@@ -156,7 +156,7 @@ export default function CategoriesPage() {
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <div
                         onClick={() => setEditAllowMultipleFlavors((v) => !v)}
-                        className={`w-8 h-4 rounded-full transition-colors relative ${editAllowMultipleFlavors ? "bg-orange-500" : "bg-gray-200"}`}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${editAllowMultipleFlavors ? "bg-primary" : "bg-gray-200"}`}
                       >
                         <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${editAllowMultipleFlavors ? "translate-x-4" : "translate-x-0.5"}`} />
                       </div>
@@ -171,7 +171,7 @@ export default function CategoriesPage() {
                         <h2 className="text-sm font-bold text-gray-900 truncate">{category.name}</h2>
                       </div>
                       {category.allowMultipleFlavors && (
-                        <span className="mt-1.5 inline-block text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-100 px-2 py-0.5 rounded-full">
+                        <span className="mt-1.5 inline-block text-xs font-semibold bg-primary/5 text-primary border border-orange-100 px-2 py-0.5 rounded-full">
                           🍕 Multi-sabores
                         </span>
                       )}

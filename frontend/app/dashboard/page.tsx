@@ -68,7 +68,7 @@ export default function DashboardPage() {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-gray-500 font-medium">Carregando dashboard...</p>
         </div>
       </main>
@@ -110,8 +110,8 @@ export default function DashboardPage() {
           <MetricCard
             title="CMV"
             value={`R$ ${Number(ordersData.totalCmv).toFixed(2)}`}
-            icon={<ChefHat size={18} className="text-orange-600" />}
-            accent="bg-orange-50"
+            icon={<ChefHat size={18} className="text-primary" />}
+            accent="bg-primary/5"
           />
           <MetricCard
             title="Margem"

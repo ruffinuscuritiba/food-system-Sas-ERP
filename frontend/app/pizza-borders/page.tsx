@@ -137,7 +137,7 @@ export default function PizzaBordersPage() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-md shadow-orange-200"
+          className="flex items-center gap-2 bg-primary hover:bg-primary text-white font-bold px-4 py-2.5 rounded-xl transition text-sm shadow-md shadow-primary/20"
         >
           <Plus size={16} /> Nova Borda
         </button>
@@ -173,7 +173,7 @@ export default function PizzaBordersPage() {
                   </button>
                   <button
                     onClick={() => openEdit(border)}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-600 font-medium transition border border-orange-200"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-primary/5 hover:bg-primary/10 text-primary font-medium transition border border-primary/20"
                   >
                     Editar
                   </button>
@@ -191,9 +191,9 @@ export default function PizzaBordersPage() {
                 {ALL_SIZES.map((size) => {
                   const bs = border.sizes.find((s) => s.size === size);
                   return (
-                    <div key={size} className={`rounded-xl px-3 py-2 text-center ${bs ? "bg-orange-50 border border-orange-100" : "bg-gray-50 border border-gray-100"}`}>
+                    <div key={size} className={`rounded-xl px-3 py-2 text-center ${bs ? "bg-primary/5 border border-orange-100" : "bg-gray-50 border border-gray-100"}`}>
                       <p className="text-xs font-bold text-gray-500">{SIZE_LABELS[size]}</p>
-                      <p className={`text-sm font-black mt-0.5 ${bs ? "text-orange-600" : "text-gray-300"}`}>
+                      <p className={`text-sm font-black mt-0.5 ${bs ? "text-primary" : "text-gray-300"}`}>
                         {bs ? `R$ ${Number(bs.price).toFixed(2)}` : "—"}
                       </p>
                     </div>
@@ -221,7 +221,7 @@ export default function PizzaBordersPage() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-400"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary"
                   placeholder="Ex: Catupiry, Cheddar..."
                 />
               </div>
@@ -241,7 +241,7 @@ export default function PizzaBordersPage() {
                           min="0"
                           value={s.price}
                           onChange={(e) => setSizePrice(s.size, e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-orange-400"
+                          className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary"
                           placeholder="0,00"
                         />
                       </div>
@@ -258,7 +258,7 @@ export default function PizzaBordersPage() {
               <button
                 onClick={save}
                 disabled={saving}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition"
+                className="flex-1 bg-primary hover:bg-primary disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition"
               >
                 <Save size={15} /> {saving ? "Salvando…" : "Salvar"}
               </button>

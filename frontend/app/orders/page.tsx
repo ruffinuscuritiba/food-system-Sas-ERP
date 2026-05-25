@@ -34,7 +34,7 @@ type Order = {
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING:           { label: "Pendente",     color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
   CONFIRMED:         { label: "Confirmado",   color: "bg-blue-100 text-blue-700 border-blue-200" },
-  PREPARING:         { label: "Preparando",   color: "bg-orange-100 text-orange-700 border-orange-200" },
+  PREPARING:         { label: "Preparando",   color: "bg-primary/10 text-orange-700 border-primary/20" },
   READY:             { label: "Pronto",       color: "bg-green-100 text-green-700 border-green-200" },
   OUT_FOR_DELIVERY:  { label: "Saiu entrega", color: "bg-purple-100 text-purple-700 border-purple-200" },
   DELIVERED:         { label: "Finalizado",   color: "bg-gray-100 text-gray-600 border-gray-200" },
@@ -136,7 +136,7 @@ export default function OrdersPage() {
       <div className="max-w-6xl mx-auto">
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="bg-orange-500 p-2.5 rounded-xl">
+          <div className="bg-primary p-2.5 rounded-xl">
             <ShoppingCart size={20} className="text-white" />
           </div>
           <div>
@@ -147,7 +147,7 @@ export default function OrdersPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20 gap-3">
-            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             <span className="text-gray-400">Carregando pedidos...</span>
           </div>
         ) : orders.length === 0 ? (
@@ -175,7 +175,7 @@ export default function OrdersPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-orange-500 font-black text-lg">
+                      <span className="text-primary font-black text-lg">
                         R$ {Number(order.total).toFixed(2)}
                       </span>
                       <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
@@ -192,7 +192,7 @@ export default function OrdersPage() {
                       </p>
                     )}
                     {order.notes && (
-                      <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
+                      <p className="text-xs text-primary bg-primary/5 rounded-lg px-3 py-2 mb-3">
                         Obs: {order.notes}
                       </p>
                     )}
@@ -200,7 +200,7 @@ export default function OrdersPage() {
                       {items.map((item) => (
                         <div key={item.id} className="flex items-center justify-between text-sm">
                           <span className="text-gray-700">
-                            <span className="font-bold text-orange-500">{item.quantity}x</span> {item.productName}
+                            <span className="font-bold text-primary">{item.quantity}x</span> {item.productName}
                             {item.notes && <span className="text-gray-400 ml-2 text-xs">({item.notes})</span>}
                           </span>
                           <span className="text-gray-500 font-medium">R$ {Number(item.subtotal).toFixed(2)}</span>
@@ -214,7 +214,7 @@ export default function OrdersPage() {
                     <select
                       value={order.status}
                       onChange={(e) => updateStatus(order.id, e.target.value)}
-                      className="border border-gray-200 focus:border-orange-400 text-gray-700 px-4 py-2.5 rounded-xl outline-none text-sm font-medium flex-1 max-w-xs"
+                      className="border border-gray-200 focus:border-primary text-gray-700 px-4 py-2.5 rounded-xl outline-none text-sm font-medium flex-1 max-w-xs"
                     >
                       <option value="PENDING">Pendente</option>
                       <option value="CONFIRMED">Confirmado</option>

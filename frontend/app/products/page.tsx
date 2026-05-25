@@ -39,8 +39,8 @@ function SizesTable({
   }
 
   return (
-    <div className="border border-orange-100 bg-orange-50/50 rounded-xl p-4">
-      <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-3">
+    <div className="border border-orange-100 bg-primary/5/50 rounded-xl p-4">
+      <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">
         🍕 Preços por Tamanho
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -56,7 +56,7 @@ function SizesTable({
                 value={s.price}
                 onChange={(e) => setPrice(s.size, e.target.value)}
                 placeholder="0,00"
-                className="w-full border border-gray-200 focus:border-orange-400 rounded-lg pl-8 pr-3 py-2 text-sm outline-none"
+                className="w-full border border-gray-200 focus:border-primary rounded-lg pl-8 pr-3 py-2 text-sm outline-none"
               />
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function ProductsPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-500 p-2.5 rounded-xl">
+              <div className="bg-primary p-2.5 rounded-xl">
                 <Package size={20} className="text-white" />
               </div>
               <div>
@@ -231,7 +231,7 @@ export default function ProductsPage() {
             </div>
             <button
               onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition"
+              className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm transition"
             >
               <Plus size={16} />
               Novo produto
@@ -248,26 +248,26 @@ export default function ProductsPage() {
                 </button>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
-                <input placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <input placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <input placeholder="Código de barras" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900">
+                <input placeholder="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="Código de barras" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900">
                   <option value="">Categoria</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <input placeholder="Preço de custo" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <input placeholder="Margem de lucro %" value={form.profitMargin} onChange={(e) => setForm({ ...form, profitMargin: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="Preço de custo" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="Margem de lucro %" value={form.profitMargin} onChange={(e) => setForm({ ...form, profitMargin: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
                 <button onClick={calculateSalePrice} className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm transition">Calcular preço de venda</button>
-                <input placeholder="Valor de venda *" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <input placeholder="Unidade" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <input placeholder="Tamanho" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <input placeholder="Peso" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
-                <label className="border border-dashed border-gray-300 hover:border-orange-400 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-pointer flex items-center gap-2 transition">
+                <input placeholder="Valor de venda *" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="Unidade" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="Tamanho" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <input placeholder="Peso" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900" />
+                <label className="border border-dashed border-gray-300 hover:border-primary rounded-xl px-4 py-3 text-sm text-gray-400 cursor-pointer flex items-center gap-2 transition">
                   <ImageIcon size={16} />
                   {image ? image.name : "Selecionar imagem"}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => setImage(e.target.files?.[0])} />
                 </label>
-                <textarea placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900 md:col-span-3 resize-none" rows={3} />
+                <textarea placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="border border-gray-200 focus:border-primary px-4 py-3 rounded-xl outline-none text-sm text-gray-900 md:col-span-3 resize-none" rows={3} />
               </div>
 
               {/* Pizza sizes toggle */}
@@ -275,12 +275,12 @@ export default function ProductsPage() {
                 <label className="flex items-center gap-2.5 cursor-pointer w-fit">
                   <div
                     onClick={() => setFormHasSizes((v) => !v)}
-                    className={`w-10 h-5 rounded-full transition relative cursor-pointer ${formHasSizes ? "bg-orange-500" : "bg-gray-300"}`}
+                    className={`w-10 h-5 rounded-full transition relative cursor-pointer ${formHasSizes ? "bg-primary" : "bg-gray-300"}`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${formHasSizes ? "left-5" : "left-0.5"}`} />
                   </div>
                   <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                    <Pizza size={15} className="text-orange-500" /> Produto pizza (preço por tamanho)
+                    <Pizza size={15} className="text-primary" /> Produto pizza (preço por tamanho)
                   </span>
                 </label>
                 {formHasSizes && (
@@ -290,7 +290,7 @@ export default function ProductsPage() {
                 )}
               </div>
 
-              <button onClick={createProduct} className="bg-orange-500 hover:bg-orange-600 text-white px-7 py-3 rounded-xl font-bold text-sm mt-5 transition">
+              <button onClick={createProduct} className="bg-primary hover:bg-primary text-white px-7 py-3 rounded-xl font-bold text-sm mt-5 transition">
                 Criar Produto
               </button>
             </div>
@@ -330,12 +330,12 @@ export default function ProductsPage() {
                       </button>
                     </div>
                     {product.category?.name && (
-                      <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
+                      <span className="absolute bottom-2 left-2 bg-primary text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
                         {product.category.name}
                       </span>
                     )}
                     {product.sizes?.length > 0 && (
-                      <span className="absolute bottom-2 right-2 bg-white/90 text-orange-600 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="absolute bottom-2 right-2 bg-white/90 text-primary text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Pizza size={10} /> 4 tam.
                       </span>
                     )}
@@ -349,7 +349,7 @@ export default function ProductsPage() {
                       {product.sizes?.length > 0 ? (
                         <div className="flex gap-1 flex-wrap">
                           {product.sizes.slice(0, 2).map((ps: any) => (
-                            <span key={ps.size} className="text-xs bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded">
+                            <span key={ps.size} className="text-xs bg-primary/5 text-primary font-bold px-1.5 py-0.5 rounded">
                               {SIZE_LABELS[ps.size as PizzaSize]}: R${Number(ps.price).toFixed(2)}
                             </span>
                           ))}
@@ -358,7 +358,7 @@ export default function ProductsPage() {
                           )}
                         </div>
                       ) : (
-                        <p className="text-orange-500 text-lg font-black">
+                        <p className="text-primary text-lg font-black">
                           R$ {Number(product.salePrice).toFixed(2)}
                         </p>
                       )}
@@ -389,7 +389,7 @@ export default function ProductsPage() {
                 <input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
+                  className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
                 />
               </div>
               <div>
@@ -398,7 +398,7 @@ export default function ProductsPage() {
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={3}
-                  className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm resize-none"
+                  className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-3 text-gray-900 outline-none text-sm resize-none"
                 />
               </div>
 
@@ -407,12 +407,12 @@ export default function ProductsPage() {
                 <label className="flex items-center gap-2.5 cursor-pointer w-fit mb-3">
                   <div
                     onClick={() => setEditHasSizes((v) => !v)}
-                    className={`w-10 h-5 rounded-full transition relative cursor-pointer ${editHasSizes ? "bg-orange-500" : "bg-gray-300"}`}
+                    className={`w-10 h-5 rounded-full transition relative cursor-pointer ${editHasSizes ? "bg-primary" : "bg-gray-300"}`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${editHasSizes ? "left-5" : "left-0.5"}`} />
                   </div>
                   <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                    <Pizza size={15} className="text-orange-500" /> Preço por tamanho
+                    <Pizza size={15} className="text-primary" /> Preço por tamanho
                   </span>
                 </label>
 
@@ -426,7 +426,7 @@ export default function ProductsPage() {
                         type="number" step="0.01"
                         value={editForm.salePrice}
                         onChange={(e) => setEditForm({ ...editForm, salePrice: e.target.value })}
-                        className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
+                        className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
                       />
                     </div>
                     <div>
@@ -435,7 +435,7 @@ export default function ProductsPage() {
                         type="number" step="0.01"
                         value={editForm.costPrice}
                         onChange={(e) => setEditForm({ ...editForm, costPrice: e.target.value })}
-                        className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
+                        className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
                       />
                     </div>
                   </div>
@@ -447,7 +447,7 @@ export default function ProductsPage() {
                 <select
                   value={editForm.categoryId}
                   onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
-                  className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
+                  className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
                 >
                   <option value="">Sem categoria</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -461,7 +461,7 @@ export default function ProductsPage() {
                 {editImage && (
                   <img src={URL.createObjectURL(editImage)} alt="nova" className="w-16 h-16 object-cover rounded-xl mb-2 ring-2 ring-orange-400" />
                 )}
-                <label className="block border border-dashed border-gray-300 hover:border-orange-400 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-pointer flex items-center gap-2 transition">
+                <label className="block border border-dashed border-gray-300 hover:border-primary rounded-xl px-4 py-3 text-sm text-gray-400 cursor-pointer flex items-center gap-2 transition">
                   <ImageIcon size={16} />
                   {editImage ? editImage.name : "Selecionar nova imagem"}
                   <input type="file" accept="image/*" className="hidden" onChange={(e) => setEditImage(e.target.files?.[0] || null)} />
@@ -479,7 +479,7 @@ export default function ProductsPage() {
               <button
                 onClick={saveEdit}
                 disabled={saving}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 transition py-3 rounded-xl font-bold text-sm text-white"
+                className="flex-1 bg-primary hover:bg-primary disabled:opacity-50 transition py-3 rounded-xl font-bold text-sm text-white"
               >
                 {saving ? "Salvando..." : "Salvar"}
               </button>

@@ -125,6 +125,12 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     api.get(`/company/${user.companyId}`)
       .then((r) => { if (r.data?.name) setCompanyName(r.data.name); })
       .catch(() => {});
+    api.get(`/themes/${user.companyId}`)
+      .then((r) => {
+        const color = r.data?.primaryColor;
+        if (color) document.documentElement.style.setProperty("--color-primary", color);
+      })
+      .catch(() => {});
   }, [user?.companyId]);
 
   function stopImpersonating() {
@@ -207,7 +213,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           {/* Brand */}
           <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-orange-200">
+              <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-primary/30">
                 <UtensilsCrossed size={16} className="text-white" />
               </div>
               <div className="min-w-0">
@@ -258,7 +264,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                 href={`/menu/${user.companyId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-orange-500 hover:bg-orange-50 transition font-semibold text-[12px] border border-orange-200/80 group"
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
               >
                 <ExternalLink size={13} />
                 Ver Cardápio Online
@@ -303,7 +309,7 @@ function MenuItem({
       onClick={onClick}
       className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all text-[13px] font-semibold group ${
         active
-          ? "bg-orange-500 text-white shadow-md shadow-orange-200"
+          ? "bg-primary text-white shadow-md shadow-primary/30"
           : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
       }`}
     >

@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* ── Admin theme — cor primária configurável por empresa ── */
+@theme {
+  --color-primary: #f97316;
+}
+
 html,
 body {
   margin: 0;

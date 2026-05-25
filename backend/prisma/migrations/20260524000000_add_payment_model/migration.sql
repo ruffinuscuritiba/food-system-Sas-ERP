@@ -1,8 +1,12 @@
--- CreateEnum
-CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');
+-- CreateEnum (idempotent)
+DO $$ BEGIN
+  CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- CreateTable
-CREATE TABLE "Payment" (
+CREATE TABLE IF NOT EXISTS "Payment" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
     "companyId" TEXT NOT NULL,
@@ -16,17 +20,22 @@ CREATE TABLE "Payment" (
     CONSTRAINT "Payment_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "Payment_orderId_idx" ON "Payment"("orderId");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "Payment_orderId_idx" ON "Payment"("orderId");
+CREATE INDEX IF NOT EXISTS "Payment_companyId_idx" ON "Payment"("companyId");
+CREATE INDEX IF NOT EXISTS "Payment_status_idx" ON "Payment"("status");
 
--- CreateIndex
-CREATE INDEX "Payment_companyId_idx" ON "Payment"("companyId");
+-- AddForeignKey (idempotent)
+DO $$ BEGIN
+  ALTER TABLE "Payment" ADD CONSTRAINT "Payment_orderId_fkey"
+    FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
--- CreateIndex
-CREATE INDEX "Payment_status_idx" ON "Payment"("status");
-
--- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "Payment" ADD CONSTRAINT "Payment_companyId_fkey"
+    FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;

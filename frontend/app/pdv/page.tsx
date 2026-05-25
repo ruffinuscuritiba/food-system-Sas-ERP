@@ -440,56 +440,43 @@ export default function PDVPage() {
         </div>
 
         {/* ── COL 3: Product area ────────────────────────────────────────── */}
-        <main className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--pdv-bg)" }}>
+        <main className="flex-1 flex flex-col overflow-hidden" style={{ background: pdvTheme.productsBg }}>
 
-          {/* Product list */}
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          {/* Product list — starts at top, no centering */}
+          <div className="flex-1 overflow-y-auto px-3 pt-3 pb-3">
             {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-[170px] animate-pulse" style={{ background: "var(--pdv-card)", borderRadius: "var(--pdv-radius)" }} />
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-[140px] animate-pulse rounded-2xl bg-white/60" />
                 ))}
               </div>
             ) : loadError ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <AlertCircle size={32} className="text-red-400" />
-                <p className="text-white/50 text-sm">Erro ao carregar cardápio</p>
-                <button onClick={loadCatalog} className="flex items-center gap-1.5 text-sm font-bold text-blue-400 hover:text-blue-300 transition">
-                  <RefreshCw size={13} /> Tentar novamente
+              <div className="flex items-center gap-3 px-1 pt-2 pb-4 border-b border-gray-200 mb-3">
+                <AlertCircle size={18} className="text-red-400 shrink-0" />
+                <p className="text-gray-500 text-sm">Erro ao carregar</p>
+                <button onClick={loadCatalog} className="flex items-center gap-1 text-sm font-bold text-blue-500 hover:text-blue-600 transition ml-auto">
+                  <RefreshCw size={12} /> Tentar
                 </button>
               </div>
             ) : (
               <>
-                {/* Category banner */}
+                {/* Category label strip — compact, top-aligned */}
                 {activeCat !== "ALL" && activeCatObj && (
-                  <div className="relative overflow-hidden mb-4 flex items-end"
-                    style={{ height: 160, background: "var(--pdv-card)", borderRadius: "var(--pdv-radius)" }}>
-                    {activeCatObj.imageUrl && (
-                      <img src={activeCatObj.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                    )}
-                    {!activeCatObj.imageUrl && filtered[0]?.imageUrl && (
-                      <img src={filtered[0].imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
-                    )}
-                    <div className="absolute inset-0"
-                      style={{ background: "linear-gradient(to right, rgba(15,17,32,0.95) 35%, rgba(15,17,32,0.3))" }} />
-                    <div className="relative z-10 px-6 py-5">
-                      <h2 className="text-[24px] font-black text-white leading-tight">{activeCatObj.name}</h2>
-                      <p className="text-white/50 text-[13px] mt-1">
-                        {filtered.length} {filtered.length === 1 ? "item disponível" : "itens disponíveis"}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <span className="text-[13px] font-black text-gray-700">{activeCatObj.name}</span>
+                    <span className="text-[11px] text-gray-400">{filtered.length} {filtered.length === 1 ? "item" : "itens"}</span>
                   </div>
                 )}
 
                 {filtered.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-48 gap-3">
-                    <div className="text-5xl opacity-20">🍽️</div>
-                    <p className="text-white/30 text-sm">
-                      {products.length === 0 ? "Nenhum produto cadastrado" : "Nenhum produto encontrado"}
+                  <div className="flex items-center gap-3 pt-3 px-1">
+                    <span className="text-2xl opacity-30">🍽️</span>
+                    <p className="text-gray-400 text-sm">
+                      {products.length === 0 ? "Nenhum produto cadastrado" : "Nenhum resultado"}
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {filtered.map((product) => {
                       const inCart   = cart.find((i) => i.cartKey === product.id);
                       const hasSizes = !!(product.sizes?.length);
@@ -497,44 +484,44 @@ export default function PDVPage() {
                         <div key={product.id}
                           className="flex overflow-hidden group"
                           style={{
-                            background: inCart ? "rgba(37,99,235,0.1)" : "var(--pdv-card)",
-                            border: inCart ? "1px solid rgba(37,99,235,0.35)" : "1px solid var(--pdv-border)",
+                            background: inCart ? "#EFF6FF" : "#FFFFFF",
+                            border: inCart ? "1px solid #BFDBFE" : "1px solid #E5E7EB",
                             borderRadius: "var(--pdv-radius)",
-                            minHeight: 160,
+                            minHeight: 140,
                             transition: "var(--pdv-transition)",
-                            boxShadow: pdvTheme.shadows ? "0 2px 16px rgba(0,0,0,0.3)" : "none",
+                            boxShadow: pdvTheme.shadows ? "0 1px 4px rgba(0,0,0,0.06)" : "none",
                           }}>
 
-                          {/* IMAGE — LEFT (~35%) */}
-                          <div className="w-[200px] shrink-0 relative overflow-hidden"
-                            style={{ minHeight: 160, background: "color-mix(in srgb, var(--pdv-card) 70%, #000 30%)" }}>
+                          {/* IMAGE — LEFT */}
+                          <div className="w-[180px] shrink-0 relative overflow-hidden bg-gray-100"
+                            style={{ minHeight: 140 }}>
                             {product.imageUrl ? (
                               <img src={product.imageUrl} alt={product.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                style={{ minHeight: 160 }} />
+                                style={{ minHeight: 140 }} />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-6xl opacity-10"
-                                style={{ minHeight: 160 }}>🍽️</div>
+                              <div className="w-full h-full flex items-center justify-center text-5xl opacity-20"
+                                style={{ minHeight: 140 }}>🍽️</div>
                             )}
                             {inCart && (
-                              <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
-                                style={{ background: "#2563EB" }}>
+                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
+                                style={{ background: "var(--pdv-primary)" }}>
                                 ×{inCart.quantity}
                               </div>
                             )}
                           </div>
 
                           {/* CONTENT — RIGHT */}
-                          <div className="flex-1 px-5 py-4 flex flex-col justify-between min-w-0">
+                          <div className="flex-1 px-4 py-3 flex flex-col justify-between min-w-0">
                             <div>
                               {/* Name + price row */}
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <p className="font-bold text-[16px] text-white leading-snug line-clamp-2 flex-1">
+                              <div className="flex items-start justify-between gap-3 mb-1.5">
+                                <p className="font-bold text-[15px] text-gray-900 leading-snug line-clamp-2 flex-1">
                                   {product.name}
                                 </p>
                                 {!hasSizes && (
                                   <div className="text-right shrink-0">
-                                    <p className="text-[18px] font-black text-white">
+                                    <p className="text-[17px] font-black text-gray-900">
                                       {fmt(Number(product.salePrice))}
                                     </p>
                                   </div>
@@ -543,49 +530,44 @@ export default function PDVPage() {
 
                               {/* Description */}
                               {product.description && (
-                                <p className="text-[13px] leading-relaxed line-clamp-3"
-                                  style={{ color: "rgba(255,255,255,0.45)" }}>
+                                <p className="text-[12px] leading-relaxed line-clamp-2 text-gray-500">
                                   {product.description}
                                 </p>
                               )}
                               {hasSizes && (
-                                <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.30)" }}>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
                                   Preço varia por tamanho
                                 </p>
                               )}
                             </div>
 
                             {/* Actions row */}
-                            <div className="flex items-center justify-end gap-2 mt-3">
+                            <div className="flex items-center justify-end gap-2 mt-2">
                               {/* Pizza shortcut */}
                               <button onClick={() => openPizzaModal(product)}
-                                className="w-9 h-9 rounded-xl flex items-center justify-center text-base transition-all active:scale-90"
-                                style={{ background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.25)" }}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all active:scale-90 border border-orange-200 bg-orange-50 hover:bg-orange-100"
                                 title="Montar pizza">🍕</button>
 
                               {/* ADICIONAR / qty stepper */}
                               {!hasSizes && (
                                 inCart ? (
-                                  <div className="flex items-center gap-0 rounded-xl overflow-hidden border"
-                                    style={{ borderColor: "rgba(37,99,235,0.4)" }}>
+                                  <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-blue-200">
                                     <button onClick={() => updateQty(product.id, -1)}
-                                      className="w-10 h-10 flex items-center justify-center transition font-bold"
-                                      style={{ background: "rgba(37,99,235,0.2)", color: "#93C5FD" }}>
-                                      <Minus size={14} />
+                                      className="w-9 h-9 flex items-center justify-center transition font-bold bg-blue-50 text-blue-600 hover:bg-blue-100">
+                                      <Minus size={13} />
                                     </button>
-                                    <span className="w-10 text-center text-[14px] font-black"
-                                      style={{ color: "#93C5FD" }}>{inCart.quantity}</span>
+                                    <span className="w-9 text-center text-[13px] font-black text-blue-700">{inCart.quantity}</span>
                                     <button onClick={() => updateQty(product.id, 1)}
-                                      className="w-10 h-10 flex items-center justify-center transition font-bold"
-                                      style={{ background: "#2563EB", color: "#fff" }}>
-                                      <Plus size={14} />
+                                      className="w-9 h-9 flex items-center justify-center transition font-bold text-white"
+                                      style={{ background: "var(--pdv-primary)" }}>
+                                      <Plus size={13} />
                                     </button>
                                   </div>
                                 ) : (
                                   <button onClick={() => addToCart(product)}
-                                    className="flex items-center gap-2 px-6 py-2.5 text-white font-bold text-[13px] active:scale-95"
-                                    style={{ background: "var(--pdv-primary)", borderRadius: "var(--pdv-radius)", transition: "var(--pdv-transition)" }}>
-                                    ADICIONAR
+                                    className="flex items-center gap-1.5 px-5 py-2 text-white font-bold text-[13px] active:scale-95"
+                                    style={{ background: "var(--pdv-primary)", borderRadius: "calc(var(--pdv-radius) * 0.7)", transition: "var(--pdv-transition)" }}>
+                                    <Plus size={13} /> ADICIONAR
                                   </button>
                                 )
                               )}

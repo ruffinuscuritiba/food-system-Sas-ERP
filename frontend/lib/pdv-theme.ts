@@ -26,10 +26,10 @@ export const PDV_THEME_KEY = "pdv-admin-theme-v1";
 export const PDV_THEME_DEFAULT: PdvThemeConfig = {
   sidebarBg:     "#0F1120",
   categoriesBg:  "#0D0F22",
-  productsBg:    "#15172A",
+  productsBg:    "#F5F3EF",
   cartBg:        "#0F1120",
   headerBg:      "#0B0D1A",
-  cardBg:        "#1E2138",
+  cardBg:        "#FFFFFF",
   primary:       "#2563EB",
   accent:        "#F97316",
   border:        "rgba(255,255,255,0.07)",

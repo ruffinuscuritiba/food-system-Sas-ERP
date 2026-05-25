@@ -24,6 +24,7 @@ import {
   X,
   UtensilsCrossed,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -76,6 +77,12 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/stock",       label: "Movimentações", icon: <Layers size={18} />,       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
       { href: "/ingredients", label: "Ingredientes",  icon: <FlaskConical size={18} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
       { href: "/recipes",     label: "Receitas",      icon: <BookOpen size={18} />,     roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+    ],
+  },
+  {
+    title: "Inteligência Artificial",
+    items: [
+      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={18} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {

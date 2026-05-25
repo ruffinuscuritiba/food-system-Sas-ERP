@@ -30,6 +30,8 @@
     "@nestjs/platform-socket.io": "^11.1.19",
     "@nestjs/swagger": "^11.4.2",
     "@nestjs/websockets": "^11.1.19",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "fast-xml-parser": "^4.5.0",
     "@prisma/client": "^5.22.0",
     "@types/nodemailer": "^8.0.0",
     "bcrypt": "^6.0.0",

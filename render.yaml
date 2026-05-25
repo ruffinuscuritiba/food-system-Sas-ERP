@@ -17,3 +17,5 @@ services:
         sync: false
       - key: BACKEND_URL
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

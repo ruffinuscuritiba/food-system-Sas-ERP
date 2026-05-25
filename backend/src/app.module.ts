@@ -21,6 +21,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { ChatModule } from './modules/chat/chat.module'
 import { CouponsModule } from './modules/coupons/coupons.module'
 import { UploadModule } from './modules/upload/upload.module'
+import { SmartImportModule } from './modules/smart-import/smart-import.module'
 import { IngredientsModule } from './modules/ingredients/ingredients.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
@@ -51,6 +52,7 @@ import { AppService } from './app.service'
     CouponsModule,
     UploadModule,
     IngredientsModule,
+    SmartImportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

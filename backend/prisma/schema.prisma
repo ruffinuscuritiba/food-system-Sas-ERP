@@ -84,6 +84,59 @@ enum OrderType {
   PICKUP
 }
 
+enum ImportType {
+  MENU
+  INVOICE
+}
+
+enum ImportStatus {
+  PROCESSING
+  DONE
+  ERROR
+}
+
+model ImportSession {
+  id        String       @id @default(cuid())
+  companyId String
+  type      ImportType
+  status    ImportStatus @default(PROCESSING)
+  fileUrl   String?
+  rawResult Json?
+  errorMsg  String?
+  items     ImportItem[]
+  logs      ImportLog[]
+  company   Company      @relation(fields: [companyId], references: [id])
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model ImportItem {
+  id         String        @id @default(cuid())
+  sessionId  String
+  session    ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  data       Json
+  confidence Float?
+  confirmed  Boolean       @default(false)
+  savedId    String?
+  createdAt  DateTime      @default(now())
+
+  @@index([sessionId])
+}
+
+model ImportLog {
+  id        String        @id @default(cuid())
+  sessionId String
+  session   ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  level     String
+  message   String
+  createdAt DateTime      @default(now())
+
+  @@index([sessionId])
+}
+
 enum ModuleCategory {
   OPERACAO
   MARKETING
@@ -142,6 +195,8 @@ model Company {
   users User[]
 
   modules CompanyModule[]
+
+  importSessions ImportSession[]
 
   products Product[]
 

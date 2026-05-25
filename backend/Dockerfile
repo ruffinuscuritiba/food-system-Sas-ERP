@@ -41,4 +41,4 @@ RUN mkdir -p /app/uploads
 EXPOSE 3000
 
 # Resolve migrações com falha (idempotente) e inicia o servidor
-CMD ["sh", "-c", "npx prisma migrate resolve --rolled-back 20260524000000_add_payment_model 2>/dev/null; npx prisma migrate resolve --rolled-back 20260524000001_add_loyalty_system 2>/dev/null; npx prisma migrate resolve --rolled-back 20260524000002_add_tracking_to_theme 2>/dev/null; npx prisma migrate resolve --rolled-back 20260524000003_add_chat_coupon 2>/dev/null; npx prisma migrate deploy && npx prisma db seed && node dist/main"]
+CMD ["sh", "-c", "set -a; [ -f /etc/secrets/.env ] && . /etc/secrets/.env; set +a; npx prisma migrate resolve --rolled-back 20260524000000_add_payment_model 2>/dev/null; npx prisma migrate resolve --rolled-back 20260524000001_add_loyalty_system 2>/dev/null; npx prisma migrate resolve --rolled-back 20260524000002_add_tracking_to_theme 2>/dev/null; npx prisma migrate resolve --rolled-back 20260524000003_add_chat_coupon 2>/dev/null; npx prisma migrate deploy && npx prisma db seed && node dist/main"]

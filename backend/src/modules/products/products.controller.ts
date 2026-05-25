@@ -134,7 +134,7 @@ export class ProductsController {
         writeFileSync(join(uploadsDir, filename), file.buffer);
         const backendUrl =
           this.configService.get<string>("BACKEND_URL") ||
-          `http://localhost:${process.env.PORT || 3001}`;
+          'https://food-system-backend-no7d.onrender.com';
         imageUrl = `${backendUrl}/uploads/${filename}`;
       }
     }
@@ -200,7 +200,7 @@ export class ProductsController {
         writeFileSync(join(uploadsDir, filename), file.buffer);
         const backendUrl =
           this.configService.get<string>("BACKEND_URL") ||
-          `http://localhost:${process.env.PORT || 3001}`;
+          'https://food-system-backend-no7d.onrender.com';
         imageUrl = `${backendUrl}/uploads/${filename}`;
       }
     }

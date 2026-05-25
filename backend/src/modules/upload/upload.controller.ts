@@ -57,7 +57,7 @@ export class UploadController {
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${extname(file.originalname)}`;
     writeFileSync(join(uploadsDir, filename), file.buffer);
 
-    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+    const backendUrl = process.env.BACKEND_URL || 'https://food-system-backend-no7d.onrender.com';
     return { url: `${backendUrl}/uploads/${filename}` };
   }
 }

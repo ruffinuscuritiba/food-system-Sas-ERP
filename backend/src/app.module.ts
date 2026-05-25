@@ -23,6 +23,7 @@ import { CouponsModule } from './modules/coupons/coupons.module'
 import { UploadModule } from './modules/upload/upload.module'
 import { SmartImportModule } from './modules/smart-import/smart-import.module'
 import { IngredientsModule } from './modules/ingredients/ingredients.module'
+import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -53,6 +54,7 @@ import { AppService } from './app.service'
     UploadModule,
     IngredientsModule,
     SmartImportModule,
+    PizzaBordersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

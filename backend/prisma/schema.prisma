@@ -40,6 +40,13 @@ enum CashMovementType {
   WITHDRAW
 }
 
+enum PizzaSize {
+  PEQUENA
+  MEDIA
+  GRANDE
+  FAMILIA
+}
+
 enum StockMovementType {
   ENTRY
   EXIT
@@ -203,6 +210,8 @@ model Company {
 
   categories Category[]
 
+  pizzaBorders PizzaBorder[]
+
   customers Customer[]
 
   orderItems OrderItem[]
@@ -295,6 +304,8 @@ model Category {
 
   name String
 
+  allowMultipleFlavors Boolean @default(false)
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -352,7 +363,11 @@ model Product {
 
   recipe Recipe?
 
+  sizes ProductSize[]
+
   orderItems OrderItem[]
+
+  orderItemFlavors OrderItemFlavor[]
 
   tableOrderItems TableOrderItem[]
 
@@ -363,6 +378,45 @@ model Product {
   @@index([companyId])
   @@index([categoryId])
   @@index([name])
+}
+
+model ProductSize {
+  id        String    @id @default(cuid())
+  productId String
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size      PizzaSize
+  price     Decimal   @db.Decimal(10, 2)
+  companyId String
+  createdAt DateTime  @default(now())
+
+  @@unique([productId, size])
+  @@index([productId])
+  @@index([companyId])
+}
+
+model PizzaBorder {
+  id         String           @id @default(cuid())
+  name       String
+  isActive   Boolean          @default(true)
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id])
+  sizes      PizzaBorderSize[]
+  orderItems OrderItem[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([companyId])
+}
+
+model PizzaBorderSize {
+  id            String      @id @default(cuid())
+  pizzaBorderId String
+  pizzaBorder   PizzaBorder @relation(fields: [pizzaBorderId], references: [id], onDelete: Cascade)
+  size          PizzaSize
+  price         Decimal     @db.Decimal(10, 2)
+
+  @@unique([pizzaBorderId, size])
+  @@index([pizzaBorderId])
 }
 
 model Customer {
@@ -475,6 +529,16 @@ model OrderItem {
 
   notes String?
 
+  pizzaSize     PizzaSize?
+
+  pizzaBorderId String?
+
+  pizzaBorder   PizzaBorder? @relation(fields: [pizzaBorderId], references: [id], onDelete: SetNull)
+
+  borderPrice   Decimal?     @db.Decimal(10, 2)
+
+  flavors       OrderItemFlavor[]
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -483,6 +547,20 @@ model OrderItem {
 
   @@index([companyId])
   @@index([orderId])
+  @@index([productId])
+}
+
+model OrderItemFlavor {
+  id          String    @id @default(cuid())
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  position    Int
+  companyId   String
+  createdAt   DateTime  @default(now())
+
+  @@index([orderItemId])
   @@index([productId])
 }
 

@@ -27,6 +27,7 @@ export class ProductsService {
 
       include: {
         category: true,
+        sizes: { orderBy: { size: 'asc' } },
       },
     });
   }
@@ -34,6 +35,11 @@ export class ProductsService {
   async create(
     data: any,
   ) {
+
+    const rawSizes = data.sizes ?? [];
+    const sizes: Array<{ size: string; price: number }> = typeof rawSizes === 'string'
+      ? JSON.parse(rawSizes)
+      : rawSizes;
 
     const product =
       await this.prisma.product.create({
@@ -108,6 +114,21 @@ export class ProductsService {
               },
             },
           }),
+
+          ...(sizes.length > 0 && {
+            sizes: {
+              create: sizes.map((s) => ({
+                size: s.size as any,
+                price: Number(s.price),
+                companyId: data.companyId,
+              })),
+            },
+          }),
+        },
+
+        include: {
+          category: true,
+          sizes: { orderBy: { size: 'asc' } },
         },
       });
 
@@ -142,6 +163,25 @@ export class ProductsService {
   }
 
   async update(id: string, data: any) {
+    const rawSizes = data.sizes;
+    const sizes: Array<{ size: string; price: number }> | undefined = rawSizes === undefined
+      ? undefined
+      : typeof rawSizes === 'string' ? JSON.parse(rawSizes) : rawSizes;
+
+    if (sizes !== undefined) {
+      await this.prisma.productSize.deleteMany({ where: { productId: id } });
+      if (sizes.length > 0) {
+        await this.prisma.productSize.createMany({
+          data: sizes.map((s) => ({
+            productId: id,
+            size: s.size as any,
+            price: Number(s.price),
+            companyId: data.companyId ?? '',
+          })),
+        });
+      }
+    }
+
     return this.prisma.product.update({
       where: { id },
       data: {
@@ -154,7 +194,10 @@ export class ProductsService {
           category: { connect: { id: data.categoryId } },
         }),
       },
-      include: { category: true },
+      include: {
+        category: true,
+        sizes: { orderBy: { size: 'asc' } },
+      },
     });
   }
 
@@ -175,6 +218,7 @@ export class ProductsService {
 
       include: {
         category: true,
+        sizes: { orderBy: { size: 'asc' } },
       },
 
       orderBy: {

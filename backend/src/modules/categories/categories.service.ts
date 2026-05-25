@@ -12,6 +12,7 @@ export class CategoriesService {
     return this.prisma.category.create({
       data: {
         name: data.name,
+        allowMultipleFlavors: data.allowMultipleFlavors ?? false,
 
         company: {
           connect: {
@@ -34,10 +35,13 @@ export class CategoriesService {
     })
   }
 
-  update(id: string, name: string) {
+  update(id: string, data: { name?: string; allowMultipleFlavors?: boolean }) {
     return this.prisma.category.update({
       where: { id },
-      data: { name },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.allowMultipleFlavors !== undefined && { allowMultipleFlavors: data.allowMultipleFlavors }),
+      },
     })
   }
 

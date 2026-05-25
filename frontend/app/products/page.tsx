@@ -4,7 +4,70 @@ import { api } from "@/services/api";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Pencil, Trash2, X, Package, Plus, ImageIcon } from "lucide-react";
+import { Pencil, Trash2, X, Package, Plus, ImageIcon, Pizza } from "lucide-react";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type PizzaSize = "PEQUENA" | "MEDIA" | "GRANDE" | "FAMILIA";
+
+interface SizeRow {
+  size: PizzaSize;
+  price: string;
+}
+
+const SIZE_LABELS: Record<PizzaSize, string> = {
+  PEQUENA: "Pequena",
+  MEDIA:   "Média",
+  GRANDE:  "Grande",
+  FAMILIA: "Família",
+};
+
+const ALL_SIZES: PizzaSize[] = ["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"];
+
+const emptySizes = (): SizeRow[] => ALL_SIZES.map((s) => ({ size: s, price: "" }));
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function SizesTable({
+  sizes, onChange,
+}: {
+  sizes: SizeRow[];
+  onChange: (sizes: SizeRow[]) => void;
+}) {
+  function setPrice(size: PizzaSize, value: string) {
+    onChange(sizes.map((s) => s.size === size ? { ...s, price: value } : s));
+  }
+
+  return (
+    <div className="border border-orange-100 bg-orange-50/50 rounded-xl p-4">
+      <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-3">
+        🍕 Preços por Tamanho
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {sizes.map((s) => (
+          <div key={s.size}>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">{SIZE_LABELS[s.size]}</label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">R$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={s.price}
+                onChange={(e) => setPrice(s.size, e.target.value)}
+                placeholder="0,00"
+                className="w-full border border-gray-200 focus:border-orange-400 rounded-lg pl-8 pr-3 py-2 text-sm outline-none"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-gray-400 mt-2">Deixe em branco para não oferecer aquele tamanho.</p>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 const emptyForm = {
   name: "", description: "", imageUrl: "", costPrice: "",
@@ -16,11 +79,15 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [form, setForm] = useState<any>(emptyForm);
+  const [formSizes, setFormSizes] = useState<SizeRow[]>(emptySizes());
+  const [formHasSizes, setFormHasSizes] = useState(false);
   const [image, setImage] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
 
   const [editProduct, setEditProduct] = useState<any>(null);
   const [editForm, setEditForm] = useState({ name: "", description: "", salePrice: "", costPrice: "", categoryId: "" });
+  const [editSizes, setEditSizes] = useState<SizeRow[]>(emptySizes());
+  const [editHasSizes, setEditHasSizes] = useState(false);
   const [editImage, setEditImage] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
@@ -61,9 +128,17 @@ export default function ProductsPage() {
       Object.keys(form).forEach((key) => { formData.append(key, form[key]); });
       formData.append("companyId", user.companyId);
       if (image) formData.append("image", image);
+      if (formHasSizes) {
+        const filledSizes = formSizes.filter((s) => s.price !== "" && !isNaN(Number(s.price)));
+        if (filledSizes.length > 0) {
+          formData.append("sizes", JSON.stringify(filledSizes.map((s) => ({ size: s.size, price: Number(s.price) }))));
+        }
+      }
       await api.post("/products", formData);
       toast.success("Produto criado");
       setForm(emptyForm);
+      setFormSizes(emptySizes());
+      setFormHasSizes(false);
       setImage(null);
       setShowForm(false);
       fetchProducts();
@@ -81,22 +156,39 @@ export default function ProductsPage() {
       costPrice: product.costPrice ? String(product.costPrice) : "",
       categoryId: product.categoryId || "",
     });
+    const hasSizes = product.sizes && product.sizes.length > 0;
+    setEditHasSizes(hasSizes);
+    setEditSizes(ALL_SIZES.map((s) => {
+      const existing = product.sizes?.find((ps: any) => ps.size === s);
+      return { size: s, price: existing ? String(existing.price) : "" };
+    }));
     setEditImage(null);
   }
 
   async function saveEdit() {
     if (!editProduct) return;
     if (!editForm.name.trim()) { toast.error("Nome obrigatório"); return; }
-    if (!editForm.salePrice || isNaN(Number(editForm.salePrice))) { toast.error("Valor de venda inválido"); return; }
+    if (!editHasSizes && (!editForm.salePrice || isNaN(Number(editForm.salePrice)))) {
+      toast.error("Informe o valor de venda");
+      return;
+    }
     setSaving(true);
     try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
       const formData = new FormData();
       formData.append("name", editForm.name.trim());
       formData.append("description", editForm.description);
-      formData.append("salePrice", editForm.salePrice);
-      formData.append("costPrice", editForm.costPrice);
+      formData.append("salePrice", editForm.salePrice || "0");
+      formData.append("costPrice", editForm.costPrice || "0");
+      formData.append("companyId", user.companyId);
       if (editForm.categoryId) formData.append("categoryId", editForm.categoryId);
       if (editImage) formData.append("image", editImage);
+
+      const filledSizes = editHasSizes
+        ? editSizes.filter((s) => s.price !== "" && !isNaN(Number(s.price)))
+        : [];
+      formData.append("sizes", JSON.stringify(filledSizes.map((s) => ({ size: s.size, price: Number(s.price) }))));
+
       await api.patch(`/products/${editProduct.id}`, formData);
       toast.success("Produto atualizado");
       setEditProduct(null);
@@ -175,6 +267,27 @@ export default function ProductsPage() {
                 </label>
                 <textarea placeholder="Descrição" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="border border-gray-200 focus:border-orange-400 px-4 py-3 rounded-xl outline-none text-sm text-gray-900 md:col-span-3 resize-none" rows={3} />
               </div>
+
+              {/* Pizza sizes toggle */}
+              <div className="mt-4">
+                <label className="flex items-center gap-2.5 cursor-pointer w-fit">
+                  <div
+                    onClick={() => setFormHasSizes((v) => !v)}
+                    className={`w-10 h-5 rounded-full transition relative cursor-pointer ${formHasSizes ? "bg-orange-500" : "bg-gray-300"}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${formHasSizes ? "left-5" : "left-0.5"}`} />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Pizza size={15} className="text-orange-500" /> Produto pizza (preço por tamanho)
+                  </span>
+                </label>
+                {formHasSizes && (
+                  <div className="mt-3">
+                    <SizesTable sizes={formSizes} onChange={setFormSizes} />
+                  </div>
+                )}
+              </div>
+
               <button onClick={createProduct} className="bg-orange-500 hover:bg-orange-600 text-white px-7 py-3 rounded-xl font-bold text-sm mt-5 transition">
                 Criar Produto
               </button>
@@ -219,6 +332,11 @@ export default function ProductsPage() {
                         {product.category.name}
                       </span>
                     )}
+                    {product.sizes?.length > 0 && (
+                      <span className="absolute bottom-2 right-2 bg-white/90 text-orange-600 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Pizza size={10} /> 4 tam.
+                      </span>
+                    )}
                   </div>
                   <div className="p-4">
                     <h2 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{product.name}</h2>
@@ -226,9 +344,22 @@ export default function ProductsPage() {
                       <p className="text-gray-400 text-xs mt-1 line-clamp-2">{product.description}</p>
                     )}
                     <div className="flex items-center justify-between mt-3">
-                      <p className="text-orange-500 text-lg font-black">
-                        R$ {Number(product.salePrice).toFixed(2)}
-                      </p>
+                      {product.sizes?.length > 0 ? (
+                        <div className="flex gap-1 flex-wrap">
+                          {product.sizes.slice(0, 2).map((ps: any) => (
+                            <span key={ps.size} className="text-xs bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded">
+                              {SIZE_LABELS[ps.size as PizzaSize]}: R${Number(ps.price).toFixed(2)}
+                            </span>
+                          ))}
+                          {product.sizes.length > 2 && (
+                            <span className="text-xs text-gray-400">+{product.sizes.length - 2}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-orange-500 text-lg font-black">
+                          R$ {Number(product.salePrice).toFixed(2)}
+                        </p>
+                      )}
                       {product.sku && <span className="text-gray-300 text-xs">{product.sku}</span>}
                     </div>
                   </div>
@@ -242,7 +373,7 @@ export default function ProductsPage() {
       {/* Modal de edição */}
       {editProduct && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-7">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-7 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-black text-gray-900">Editar Produto</h2>
               <button onClick={() => setEditProduct(null)} className="text-gray-400 hover:text-gray-600 transition">
@@ -268,26 +399,47 @@ export default function ProductsPage() {
                   className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm resize-none"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Valor de Venda *</label>
-                  <input
-                    type="number" step="0.01"
-                    value={editForm.salePrice}
-                    onChange={(e) => setEditForm({ ...editForm, salePrice: e.target.value })}
-                    className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Custo</label>
-                  <input
-                    type="number" step="0.01"
-                    value={editForm.costPrice}
-                    onChange={(e) => setEditForm({ ...editForm, costPrice: e.target.value })}
-                    className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
-                  />
-                </div>
+
+              {/* Pizza sizes toggle */}
+              <div>
+                <label className="flex items-center gap-2.5 cursor-pointer w-fit mb-3">
+                  <div
+                    onClick={() => setEditHasSizes((v) => !v)}
+                    className={`w-10 h-5 rounded-full transition relative cursor-pointer ${editHasSizes ? "bg-orange-500" : "bg-gray-300"}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${editHasSizes ? "left-5" : "left-0.5"}`} />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Pizza size={15} className="text-orange-500" /> Preço por tamanho
+                  </span>
+                </label>
+
+                {editHasSizes ? (
+                  <SizesTable sizes={editSizes} onChange={setEditSizes} />
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Valor de Venda *</label>
+                      <input
+                        type="number" step="0.01"
+                        value={editForm.salePrice}
+                        onChange={(e) => setEditForm({ ...editForm, salePrice: e.target.value })}
+                        className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Custo</label>
+                      <input
+                        type="number" step="0.01"
+                        value={editForm.costPrice}
+                        onChange={(e) => setEditForm({ ...editForm, costPrice: e.target.value })}
+                        className="w-full border border-gray-200 focus:border-orange-400 rounded-xl px-4 py-3 text-gray-900 outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
                 <select

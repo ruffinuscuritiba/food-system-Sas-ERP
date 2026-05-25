@@ -30,10 +30,11 @@ export class OrdersService {
 
   async create(data: any) {
 
-    const productsIds =
-      data.items.map(
-        (item) => item.productId,
-      );
+    // Collect all product IDs including pizza flavors
+    const productsIds = [
+      ...data.items.map((item: any) => item.productId),
+      ...data.items.flatMap((item: any) => (item.flavors ?? []).map((f: any) => f.productId)),
+    ].filter(Boolean);
 
     const products =
       await this.prisma.product.findMany({
@@ -47,80 +48,61 @@ export class OrdersService {
           companyId:
             data.companyId,
         },
+
+        include: {
+          sizes: true,
+        },
       });
 
-    const productsMap =
-      new Map(
-
-        products.map(
-          (product) => [
-
-            product.id,
-
-            product,
-          ],
-        ),
-      );
+    const productsMap = new Map(products.map((p) => [p.id, p]));
 
     let subtotal = 0;
 
-    const orderItemsData =
-      data.items.map((item) => {
+    const orderItemsData = data.items.map((item: any) => {
 
-        const product =
-          productsMap.get(
-            item.productId,
-          );
+      const product = productsMap.get(item.productId);
 
-        if (!product) {
+      if (!product) {
+        throw new NotFoundException("Produto não encontrado");
+      }
 
-          throw new NotFoundException(
-            "Produto não encontrado",
-          );
-        }
+      const quantity = Number(item.quantity);
 
-        const quantity =
-          Number(item.quantity);
+      // Use unitPrice from payload when provided (already accounts for size/border)
+      // Fall back to salePrice for regular (non-pizza) items
+      const unitPrice = item.unitPrice !== undefined
+        ? Number(item.unitPrice)
+        : Number(product.salePrice || 0);
 
-        const unitPrice =
-          Number(
-            product.salePrice || 0,
-          );
+      const borderPrice = Number(item.borderPrice || 0);
+      const itemSubtotal = quantity * (unitPrice + borderPrice);
 
-        const itemSubtotal =
-          quantity * unitPrice;
+      subtotal += itemSubtotal;
 
-        subtotal +=
-          itemSubtotal;
+      const flavorRows = (item.flavors ?? []).map((f: any, idx: number) => ({
+        productId: f.productId,
+        position: idx + 1,
+        companyId: data.companyId,
+      }));
 
-        return {
-
-          productId:
-            product.id,
-
-          quantity,
-
-          unitPrice,
-
-          subtotal:
-            itemSubtotal,
-
-          notes:
-            item.notes,
-
-          companyId:
-            data.companyId,
-
-          productName:
-            product.name,
-
-          productSku:
-            product.sku,
-
-          productCost:
-            product.costPrice,
-        };
-      });
+      return {
+        productId: product.id,
+        quantity,
+        unitPrice: unitPrice + borderPrice,
+        subtotal: itemSubtotal,
+        notes: item.notes,
+        companyId: data.companyId,
+        productName: item.productName ?? product.name,
+        productSku: product.sku,
+        productCost: product.costPrice,
+        ...(item.pizzaSize && { pizzaSize: item.pizzaSize }),
+        ...(item.pizzaBorderId && { pizzaBorderId: item.pizzaBorderId }),
+        ...(borderPrice > 0 && { borderPrice }),
+        ...(flavorRows.length > 0 && {
+          flavors: { create: flavorRows },
+        }),
+      };
+    });
 
     const deliveryFee =
       Number(
@@ -169,7 +151,9 @@ export class OrdersService {
 
             include: {
 
-              items: true,
+              items: {
+                include: { flavors: true },
+              },
 
               customer: true,
             },

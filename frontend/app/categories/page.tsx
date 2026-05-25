@@ -8,10 +8,12 @@ import { Pencil, Trash2, Check, X, FolderKanban, Plus } from "lucide-react";
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [name, setName] = useState("");
+  const [newAllowMultipleFlavors, setNewAllowMultipleFlavors] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editAllowMultipleFlavors, setEditAllowMultipleFlavors] = useState(false);
 
   async function fetchCategories() {
     try {
@@ -30,9 +32,10 @@ export default function CategoriesPage() {
     if (!name.trim()) { toast.error("Digite o nome"); return; }
     setCreating(true);
     try {
-      await api.post("/categories", { name: name.trim() });
+      await api.post("/categories", { name: name.trim(), allowMultipleFlavors: newAllowMultipleFlavors });
       toast.success("Categoria criada");
       setName("");
+      setNewAllowMultipleFlavors(false);
       fetchCategories();
     } catch {
       toast.error("Erro ao criar categoria");
@@ -41,10 +44,16 @@ export default function CategoriesPage() {
     }
   }
 
+  function startEdit(category: any) {
+    setEditingId(category.id);
+    setEditName(category.name);
+    setEditAllowMultipleFlavors(category.allowMultipleFlavors ?? false);
+  }
+
   async function saveEdit(id: string) {
     if (!editName.trim()) { toast.error("Nome não pode ser vazio"); return; }
     try {
-      await api.patch(`/categories/${id}`, { name: editName.trim() });
+      await api.patch(`/categories/${id}`, { name: editName.trim(), allowMultipleFlavors: editAllowMultipleFlavors });
       toast.success("Categoria atualizada");
       setEditingId(null);
       fetchCategories();
@@ -81,7 +90,7 @@ export default function CategoriesPage() {
         {/* Form de criação */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
           <p className="text-sm font-bold text-gray-700 mb-3">Nova categoria</p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 mb-3">
             <input
               placeholder="Nome da categoria"
               value={name}
@@ -98,6 +107,15 @@ export default function CategoriesPage() {
               {creating ? "Criando..." : "Criar"}
             </button>
           </div>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+            <div
+              onClick={() => setNewAllowMultipleFlavors((v) => !v)}
+              className={`w-10 h-5 rounded-full transition-colors relative ${newAllowMultipleFlavors ? "bg-orange-500" : "bg-gray-200"}`}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${newAllowMultipleFlavors ? "translate-x-5" : "translate-x-0.5"}`} />
+            </div>
+            <span className="text-xs font-semibold text-gray-600">Permite múltiplos sabores (pizza)</span>
+          </label>
         </div>
 
         {/* Lista */}
@@ -116,33 +134,51 @@ export default function CategoriesPage() {
             {categories.map((category) => (
               <div key={category.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 {editingId === category.id ? (
-                  <div className="flex gap-2 items-center">
-                    <input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEdit(category.id);
-                        if (e.key === "Escape") setEditingId(null);
-                      }}
-                      autoFocus
-                      className="flex-1 border border-gray-200 focus:border-orange-400 px-3 py-2 rounded-xl outline-none text-sm text-gray-900"
-                    />
-                    <button onClick={() => saveEdit(category.id)} className="text-green-500 hover:text-green-600 transition">
-                      <Check size={18} />
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600 transition">
-                      <X size={18} />
-                    </button>
+                  <div className="space-y-3">
+                    <div className="flex gap-2 items-center">
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(category.id);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        autoFocus
+                        className="flex-1 border border-gray-200 focus:border-orange-400 px-3 py-2 rounded-xl outline-none text-sm text-gray-900"
+                      />
+                      <button onClick={() => saveEdit(category.id)} className="text-green-500 hover:text-green-600 transition">
+                        <Check size={18} />
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600 transition">
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => setEditAllowMultipleFlavors((v) => !v)}
+                        className={`w-8 h-4 rounded-full transition-colors relative ${editAllowMultipleFlavors ? "bg-orange-500" : "bg-gray-200"}`}
+                      >
+                        <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${editAllowMultipleFlavors ? "translate-x-4" : "translate-x-0.5"}`} />
+                      </div>
+                      <span className="text-xs text-gray-500">Multi-sabores</span>
+                    </label>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-2 h-2 bg-orange-400 rounded-full shrink-0" />
-                      <h2 className="text-sm font-bold text-gray-900 truncate">{category.name}</h2>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2 h-2 bg-orange-400 rounded-full shrink-0" />
+                        <h2 className="text-sm font-bold text-gray-900 truncate">{category.name}</h2>
+                      </div>
+                      {category.allowMultipleFlavors && (
+                        <span className="mt-1.5 inline-block text-xs font-semibold bg-orange-50 text-orange-600 border border-orange-100 px-2 py-0.5 rounded-full">
+                          🍕 Multi-sabores
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       <button
-                        onClick={() => { setEditingId(category.id); setEditName(category.name); }}
+                        onClick={() => startEdit(category)}
                         className="text-gray-400 hover:text-blue-500 transition p-1 rounded-lg hover:bg-blue-50"
                       >
                         <Pencil size={15} />

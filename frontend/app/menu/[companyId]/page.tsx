@@ -18,7 +18,7 @@ type Product = {
   isActive: boolean;
 };
 
-type CartItem = { product: Product; quantity: number; notes: string };
+type CartItem = { cartKey: string; product: Product; quantity: number; notes: string; flavors?: Product[] };
 
 type CustomerForm = {
   name: string;
@@ -58,6 +58,13 @@ export default function MenuPage() {
   const [couponId, setCouponId] = useState<string | null>(null);
   const [couponMsg, setCouponMsg] = useState<{ text: string; valid: boolean } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+
+  // Pizza meio a meio
+  const [showFlavorModal, setShowFlavorModal] = useState(false);
+  const [flavorParts, setFlavorParts] = useState(2);
+  const [flavorSlots, setFlavorSlots] = useState<(Product | null)[]>([null, null]);
+  const [flavorFilter, setFlavorFilter] = useState("");
+
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
   });
@@ -167,17 +174,57 @@ export default function MenuPage() {
 
   function addToCart(product: Product) {
     setCart((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
-      if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, notes: "" }];
+      const existing = prev.find((i) => i.cartKey === product.id);
+      if (existing) return prev.map((i) => i.cartKey === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { cartKey: product.id, product, quantity: 1, notes: "" }];
     });
     toast.success(`${product.name} adicionado!`);
     trackPixelAddToCart(Number(product.salePrice), product.name);
     trackGAAddToCart(product.name, Number(product.salePrice));
   }
 
-  function updateQuantity(productId: string, delta: number) {
-    setCart((prev) => prev.map((i) => i.product.id !== productId ? i : { ...i, quantity: i.quantity + delta }).filter((i) => i.quantity > 0));
+  function updateQuantity(cartKey: string, delta: number) {
+    setCart((prev) => prev.map((i) => i.cartKey !== cartKey ? i : { ...i, quantity: i.quantity + delta }).filter((i) => i.quantity > 0));
+  }
+
+  // Pizza meio a meio — funções
+  function openFlavorModal(product?: Product) {
+    setFlavorParts(2);
+    setFlavorSlots(product ? [product, null] : [null, null]);
+    setFlavorFilter("");
+    setShowFlavorModal(true);
+  }
+
+  function changeFlavorParts(n: number) {
+    setFlavorParts(n);
+    setFlavorSlots((prev) => {
+      const next: (Product | null)[] = Array(n).fill(null);
+      for (let i = 0; i < Math.min(prev.length, n); i++) next[i] = prev[i];
+      return next;
+    });
+  }
+
+  function setFlavorSlot(index: number, product: Product | null) {
+    setFlavorSlots((prev) => prev.map((s, i) => i === index ? product : s));
+  }
+
+  function confirmFlavors() {
+    const chosen = flavorSlots.filter(Boolean) as Product[];
+    if (chosen.length < 2) { toast.error("Selecione ao menos 2 sabores"); return; }
+    const highestPrice = Math.max(...chosen.map((f) => Number(f.salePrice)));
+    const base = chosen.find((f) => Number(f.salePrice) === highestPrice) || chosen[0];
+    const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+    const noteText = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
+    const composedName = `Pizza ${chosen.length} sabores: ${chosen.map((f) => f.name).join(" + ")}`;
+    setCart((prev) => [...prev, {
+      cartKey: `pizza-${Date.now()}`,
+      product: { ...base, name: composedName },
+      quantity: 1,
+      notes: noteText,
+      flavors: chosen,
+    }]);
+    setShowFlavorModal(false);
+    toast.success("Pizza montada adicionada! 🍕");
   }
 
   const cartTotal = cart.reduce((acc, i) => acc + Number(i.product.salePrice) * i.quantity, 0);
@@ -205,7 +252,11 @@ export default function MenuPage() {
           deliveryAddress: form.address,
           orderType: tableNumber ? "DINE_IN" : form.orderType,
           paymentMethod: form.paymentMethod,
-          items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity, notes: i.notes })),
+          items: cart.map((i) => ({
+            productId: i.flavors ? i.flavors[0].id : i.product.id,
+            quantity: i.quantity,
+            notes: i.notes || "",
+          })),
           total: finalCartTotal,
           redeemPoints: pointsToRedeem,
           notes: tableNumber ? `Mesa ${tableNumber}` : undefined,
@@ -419,11 +470,20 @@ export default function MenuPage() {
                     <h3 className="font-bold text-lg">{product.name}</h3>
                     {product.description && <p className="text-slate-400 text-sm mt-1 line-clamp-2">{product.description}</p>}
                   </div>
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
                     <span className="text-green-400 font-black text-xl">R$ {Number(product.salePrice).toFixed(2)}</span>
-                    <button onClick={() => addToCart(product)} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-1 transition text-sm">
-                      <Plus size={16} /> Adicionar
-                    </button>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => openFlavorModal(product)}
+                        className="bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 px-3 py-2 rounded-xl font-bold text-xs transition"
+                        title="Montar meio a meio"
+                      >
+                        🍕 Meio a meio
+                      </button>
+                      <button onClick={() => addToCart(product)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl font-bold flex items-center gap-1 transition text-sm">
+                        <Plus size={14} /> Add
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -443,16 +503,19 @@ export default function MenuPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {cart.length === 0 ? <p className="text-slate-400 text-center py-10">Carrinho vazio</p> : cart.map((item) => (
-                <div key={item.product.id} className="flex items-center gap-4 bg-slate-800 rounded-xl p-4">
+                <div key={item.cartKey} className="flex items-center gap-4 bg-slate-800 rounded-xl p-4">
                   <div className="flex-1">
                     <p className="font-bold">{item.product.name}</p>
+                    {item.notes && item.flavors && (
+                      <p className="text-orange-400 text-xs mt-0.5">{item.notes}</p>
+                    )}
                     <p className="text-green-400 font-bold">R$ {(Number(item.product.salePrice) * item.quantity).toFixed(2)}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => updateQuantity(item.product.id, -1)} className="bg-slate-700 hover:bg-slate-600 p-1 rounded-lg transition"><Minus size={16} /></button>
+                    <button onClick={() => updateQuantity(item.cartKey, -1)} className="bg-slate-700 hover:bg-slate-600 p-1 rounded-lg transition"><Minus size={16} /></button>
                     <span className="font-bold w-6 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.product.id, 1)} className="bg-slate-700 hover:bg-slate-600 p-1 rounded-lg transition"><Plus size={16} /></button>
-                    <button onClick={() => setCart((p) => p.filter((i) => i.product.id !== item.product.id))} className="ml-2 text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
+                    <button onClick={() => updateQuantity(item.cartKey, 1)} className="bg-slate-700 hover:bg-slate-600 p-1 rounded-lg transition"><Plus size={16} /></button>
+                    <button onClick={() => setCart((p) => p.filter((i) => i.cartKey !== item.cartKey))} className="ml-2 text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))}
@@ -465,6 +528,84 @@ export default function MenuPage() {
                 className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition">
                 Finalizar pedido <ChevronRight size={20} />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pizza / Meio a meio Modal */}
+      {showFlavorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowFlavorModal(false)} />
+          <div className="relative bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-bold">🍕 Montar Pizza</h2>
+                <p className="text-slate-400 text-xs mt-0.5">Preço = maior valor entre os sabores</p>
+              </div>
+              <button onClick={() => setShowFlavorModal(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+
+            {/* Partes */}
+            <div className="flex items-center gap-2 mb-5">
+              <span className="text-sm text-slate-400 shrink-0">Dividir em:</span>
+              {[2, 3, 4].map((n) => (
+                <button key={n} onClick={() => changeFlavorParts(n)}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
+                  {n === 2 ? "Meio a meio" : n === 3 ? "3 sabores" : "4 sabores"}
+                </button>
+              ))}
+            </div>
+
+            {/* Filtro */}
+            <input
+              value={flavorFilter}
+              onChange={(e) => setFlavorFilter(e.target.value)}
+              placeholder="🔍 Filtrar sabores..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white mb-4 focus:outline-none focus:border-red-500"
+            />
+
+            {/* Slots */}
+            <div className="space-y-3 mb-5">
+              {Array.from({ length: flavorParts }).map((_, i) => {
+                const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xs font-black text-slate-400 w-10 text-center bg-slate-800 rounded-lg py-1.5 shrink-0">{fraction}</span>
+                    <select
+                      value={flavorSlots[i]?.id || ""}
+                      onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-red-500"
+                    >
+                      <option value="">— Sabor {i + 1} —</option>
+                      {products.filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase())).map((p) => (
+                        <option key={p.id} value={p.id}>{p.name} — R$ {Number(p.salePrice).toFixed(2)}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Preview */}
+            {flavorSlots.some(Boolean) && (
+              <div className="bg-slate-800 rounded-xl px-4 py-3 mb-5 flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-slate-400">Composição</p>
+                  <p className="text-sm font-semibold mt-0.5">{flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-400">Total</p>
+                  <p className="text-xl font-black text-green-400">
+                    R$ {Math.max(...flavorSlots.filter(Boolean).map((f) => Number(f!.salePrice))).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowFlavorModal(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 transition py-3 rounded-xl font-semibold text-sm">Cancelar</button>
+              <button onClick={confirmFlavors} className="flex-1 bg-red-500 hover:bg-red-600 transition py-3 rounded-xl font-bold text-sm">Adicionar ao Pedido</button>
             </div>
           </div>
         </div>

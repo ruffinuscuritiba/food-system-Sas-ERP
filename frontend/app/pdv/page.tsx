@@ -11,9 +11,11 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Product  = { id: string; name: string; description?: string; salePrice: number; imageUrl?: string; categoryId?: string };
 type Category = { id: string; name: string };
-type CartItem = { product: Product; quantity: number; notes: string };
+// cartKey: product.id para simples, "pizza-<ts>" para compostas
+type CartItem = { cartKey: string; product: Product; quantity: number; notes: string; flavors?: Product[] };
 type OrderType = "DINE_IN" | "PHONE" | "DELIVERY";
 type PayMethod = "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD";
+type SplitEntry = { method: PayMethod; amount: string };
 
 const PAY_OPTIONS: { key: PayMethod; label: string; icon: React.ReactNode }[] = [
   { key: "PIX",         label: "PIX",      icon: <Smartphone size={18} /> },
@@ -27,6 +29,10 @@ const ORDER_TYPES: { key: OrderType; label: string; icon: React.ReactNode }[] = 
   { key: "PHONE",    label: "Telefone",   icon: <Phone size={16} /> },
   { key: "DELIVERY", label: "Delivery",   icon: <Bike size={16} /> },
 ];
+
+const PAY_LABELS: Record<PayMethod, string> = {
+  PIX: "PIX", CASH: "Dinheiro", CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito",
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function PDVPage() {
@@ -54,6 +60,19 @@ export default function PDVPage() {
   const [address, setAddress]     = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [orderDone, setOrderDone] = useState<string | null>(null);
+
+  // ── Pizza meio a meio ──────────────────────────────────────────────────────
+  const [showFlavorModal, setShowFlavorModal] = useState(false);
+  const [flavorParts, setFlavorParts] = useState(2);
+  const [flavorSlots, setFlavorSlots] = useState<(Product | null)[]>([null, null]);
+  const [flavorFilter, setFlavorFilter] = useState("");
+
+  // ── Split payment ──────────────────────────────────────────────────────────
+  const [splitMode, setSplitMode] = useState(false);
+  const [splits, setSplits] = useState<SplitEntry[]>([
+    { method: "PIX", amount: "" },
+    { method: "CASH", amount: "" },
+  ]);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const loadCash = useCallback(async () => {
@@ -95,27 +114,102 @@ export default function PDVPage() {
   // ── Cart ops ───────────────────────────────────────────────────────────────
   function addToCart(product: Product) {
     setCart((prev) => {
-      const ex = prev.find((i) => i.product.id === product.id);
-      if (ex) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1, notes: "" }];
+      const ex = prev.find((i) => i.cartKey === product.id);
+      if (ex) return prev.map((i) => i.cartKey === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { cartKey: product.id, product, quantity: 1, notes: "" }];
     });
   }
 
-  function updateQty(id: string, delta: number) {
-    setCart((prev) => prev.map((i) => i.product.id !== id ? i : { ...i, quantity: i.quantity + delta }).filter((i) => i.quantity > 0));
+  function updateQty(cartKey: string, delta: number) {
+    setCart((prev) => prev.map((i) => i.cartKey !== cartKey ? i : { ...i, quantity: i.quantity + delta }).filter((i) => i.quantity > 0));
   }
 
-  function removeItem(id: string) { setCart((prev) => prev.filter((i) => i.product.id !== id)); }
+  function removeItem(cartKey: string) { setCart((prev) => prev.filter((i) => i.cartKey !== cartKey)); }
   function clearCart() { setCart([]); setCustomerName(""); setCustomerPhone(""); setTableNumber(""); setAddress(""); }
 
   const cartTotal = cart.reduce((acc, i) => acc + Number(i.product.salePrice) * i.quantity, 0);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
+
+  // ── Pizza meio a meio ──────────────────────────────────────────────────────
+  function openFlavorModal(product?: Product) {
+    setFlavorParts(2);
+    setFlavorSlots(product ? [product, null] : [null, null]);
+    setFlavorFilter("");
+    setShowFlavorModal(true);
+  }
+
+  function changeFlavorParts(n: number) {
+    setFlavorParts(n);
+    setFlavorSlots((prev) => {
+      const next: (Product | null)[] = Array(n).fill(null);
+      for (let i = 0; i < Math.min(prev.length, n); i++) next[i] = prev[i];
+      return next;
+    });
+  }
+
+  function setFlavorSlot(index: number, product: Product | null) {
+    setFlavorSlots((prev) => prev.map((s, i) => i === index ? product : s));
+  }
+
+  function confirmFlavors() {
+    const chosen = flavorSlots.filter(Boolean) as Product[];
+    if (chosen.length < 2) { toast.error("Selecione ao menos 2 sabores"); return; }
+    const highestPrice = Math.max(...chosen.map((f) => Number(f.salePrice)));
+    const base = chosen.find((f) => Number(f.salePrice) === highestPrice) || chosen[0];
+    const parts = flavorSlots.length;
+    const fraction = parts === 2 ? "1/2" : parts === 3 ? "1/3" : "1/4";
+    const noteText = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
+    const composedName = `Pizza ${chosen.length} sabores: ${chosen.map((f) => f.name).join(" + ")}`;
+    setCart((prev) => [...prev, {
+      cartKey: `pizza-${Date.now()}`,
+      product: { ...base, name: composedName },
+      quantity: 1,
+      notes: noteText,
+      flavors: chosen,
+    }]);
+    setShowFlavorModal(false);
+    toast.success("Pizza composta adicionada!");
+  }
+
+  const filteredForFlavor = products.filter((p) =>
+    !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase())
+  );
+
+  // ── Split payment ──────────────────────────────────────────────────────────
+  const splitSum = splits.reduce((acc, s) => acc + (parseFloat(s.amount) || 0), 0);
+  const splitRemaining = cartTotal - splitSum;
+  const splitOk = Math.abs(splitRemaining) < 0.02;
+
+  function addSplit() {
+    if (splits.length >= 4) return;
+    setSplits((prev) => [...prev, { method: "PIX", amount: "" }]);
+  }
+
+  function removeSplit(i: number) {
+    setSplits((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  function updateSplit(i: number, field: keyof SplitEntry, value: string) {
+    setSplits((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
+  }
 
   // ── Submit order ───────────────────────────────────────────────────────────
   async function submitOrder() {
     if (cart.length === 0) { toast.error("Adicione produtos ao pedido"); return; }
     if (orderType === "PHONE" && !customerPhone) { toast.error("Informe o telefone do cliente"); return; }
     if (orderType === "DELIVERY" && !address) { toast.error("Informe o endereço de entrega"); return; }
+
+    // Validate split payment
+    if (splitMode && !splitOk) {
+      toast.error(`Pagamentos não fecham. ${splitRemaining > 0 ? `Faltam R$ ${splitRemaining.toFixed(2)}` : `Sobram R$ ${Math.abs(splitRemaining).toFixed(2)}`}`);
+      return;
+    }
+
+    const primaryMethod: PayMethod = splitMode ? splits[0].method : payMethod;
+    const payNotes = splitMode
+      ? `Pag. dividido: ${splits.map((s) => `${PAY_LABELS[s.method]} R$${parseFloat(s.amount || "0").toFixed(2)}`).join(" | ")}`
+      : undefined;
+
     setSubmitting(true);
     try {
       const res = await api.post("/orders", {
@@ -123,9 +217,10 @@ export default function PDVPage() {
         customerPhone: customerPhone || "PDV",
         deliveryAddress: address || "INTERNO",
         orderType,
-        paymentMethod: payMethod,
+        paymentMethod: primaryMethod,
+        notes: payNotes,
         items: cart.map((i) => ({
-          productId: i.product.id,
+          productId: i.flavors ? i.flavors[0].id : i.product.id,  // usa produto real (maior preço)
           quantity: i.quantity,
           unitPrice: i.product.salePrice,
           subtotal: Number(i.product.salePrice) * i.quantity,
@@ -138,6 +233,8 @@ export default function PDVPage() {
       });
       setOrderDone(`#${res.data?.id?.slice(-6)?.toUpperCase() || "OK"}`);
       clearCart();
+      setSplitMode(false);
+      setSplits([{ method: "PIX", amount: "" }, { method: "CASH", amount: "" }]);
       loadCash();
     } catch { toast.error("Erro ao finalizar pedido"); }
     finally { setSubmitting(false); }
@@ -203,6 +300,15 @@ export default function PDVPage() {
               </button>
             ))}
           </nav>
+          {/* Botão montar pizza */}
+          <div className="p-2 border-t border-slate-800">
+            <button
+              onClick={() => openFlavorModal()}
+              className="w-full bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 text-xs font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-1"
+            >
+              🍕 Montar
+            </button>
+          </div>
         </aside>
 
         {/* ── Col 2: Products ─────────────────────────────────────────────── */}
@@ -231,32 +337,41 @@ export default function PDVPage() {
             ) : (
               <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                 {filtered.map((product) => {
-                  const inCart = cart.find((i) => i.product.id === product.id);
+                  const inCart = cart.find((i) => i.cartKey === product.id);
                   return (
-                    <div key={product.id}
-                      onClick={() => addToCart(product)}
-                      className={`relative bg-slate-900 border rounded-2xl overflow-hidden cursor-pointer hover:border-green-500/50 transition group ${inCart ? "border-green-500/40 bg-slate-800/80" : "border-slate-800"}`}>
+                    <div key={product.id} className={`relative bg-slate-900 border rounded-2xl overflow-hidden cursor-pointer hover:border-green-500/50 transition group ${inCart ? "border-green-500/40 bg-slate-800/80" : "border-slate-800"}`}>
                       {/* Image */}
-                      <div className="h-32 bg-slate-800 overflow-hidden">
+                      <div className="h-28 bg-slate-800 overflow-hidden" onClick={() => addToCart(product)}>
                         {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-700">
-                            <Package size={28} />
-                          </div>
+                          <div className="w-full h-full flex items-center justify-center text-slate-700"><Package size={28} /></div>
                         )}
                       </div>
                       {/* Info */}
                       <div className="p-3">
                         <p className="font-semibold text-sm leading-tight line-clamp-1">{product.name}</p>
                         {product.description && (
-                          <p className="text-slate-500 text-xs mt-0.5 line-clamp-2 leading-tight">{product.description}</p>
+                          <p className="text-slate-500 text-xs mt-0.5 line-clamp-1 leading-tight">{product.description}</p>
                         )}
-                        <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center justify-between mt-2 gap-1">
                           <span className="text-green-400 font-bold text-sm">R$ {Number(product.salePrice).toFixed(2)}</span>
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${inCart ? "bg-green-500 text-white" : "bg-slate-700 text-slate-300 group-hover:bg-green-500 group-hover:text-white"}`}>
-                            {inCart ? <span className="text-xs font-bold">{inCart.quantity}</span> : <Plus size={14} />}
+                          <div className="flex gap-1">
+                            {/* Botão montar pizza */}
+                            <button
+                              onClick={() => openFlavorModal(product)}
+                              title="Montar pizza com este sabor"
+                              className="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 hover:bg-orange-500/40 flex items-center justify-center transition text-xs"
+                            >
+                              🍕
+                            </button>
+                            {/* Botão add simples */}
+                            <button
+                              onClick={() => addToCart(product)}
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${inCart ? "bg-green-500 text-white" : "bg-slate-700 text-slate-300 hover:bg-green-500 hover:text-white"}`}
+                            >
+                              {inCart ? <span className="text-xs font-bold">{inCart.quantity}</span> : <Plus size={14} />}
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -316,23 +431,29 @@ export default function PDVPage() {
                 <p className="text-xs">Clique nos produtos para adicionar</p>
               </div>
             ) : cart.map((item) => (
-              <div key={item.product.id} className="flex items-center gap-2 bg-slate-800 rounded-xl p-2.5">
-                {item.product.imageUrl && (
+              <div key={item.cartKey} className="flex items-start gap-2 bg-slate-800 rounded-xl p-2.5">
+                {item.product.imageUrl && !item.flavors && (
                   <img src={item.product.imageUrl} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                 )}
+                {item.flavors && (
+                  <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center text-lg shrink-0">🍕</div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold line-clamp-1">{item.product.name}</p>
-                  <p className="text-green-400 text-xs font-bold">R$ {(Number(item.product.salePrice) * item.quantity).toFixed(2)}</p>
+                  <p className="text-xs font-semibold line-clamp-2 leading-tight">{item.product.name}</p>
+                  {item.notes && item.flavors && (
+                    <p className="text-orange-400/70 text-xs mt-0.5 leading-tight">{item.notes}</p>
+                  )}
+                  <p className="text-green-400 text-xs font-bold mt-0.5">R$ {(Number(item.product.salePrice) * item.quantity).toFixed(2)}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => updateQty(item.product.id, -1)} className="w-6 h-6 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition">
+                  <button onClick={() => updateQty(item.cartKey, -1)} className="w-6 h-6 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition">
                     <Minus size={12} />
                   </button>
                   <span className="w-5 text-center text-xs font-bold">{item.quantity}</span>
-                  <button onClick={() => updateQty(item.product.id, 1)} className="w-6 h-6 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition">
+                  <button onClick={() => updateQty(item.cartKey, 1)} className="w-6 h-6 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center transition">
                     <Plus size={12} />
                   </button>
-                  <button onClick={() => removeItem(item.product.id)} className="w-6 h-6 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 flex items-center justify-center ml-1 transition">
+                  <button onClick={() => removeItem(item.cartKey)} className="w-6 h-6 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 flex items-center justify-center ml-1 transition">
                     <X size={12} />
                   </button>
                 </div>
@@ -342,9 +463,19 @@ export default function PDVPage() {
 
           {/* Payment + total */}
           <div className="px-4 pb-4 pt-3 border-t border-slate-800 space-y-3 shrink-0">
-            {/* Payment */}
-            <div>
-              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Pagamento</p>
+            {/* Payment header */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Pagamento</p>
+              <button
+                onClick={() => setSplitMode(!splitMode)}
+                className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition ${splitMode ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-slate-800 text-slate-400 hover:text-white"}`}
+              >
+                {splitMode ? "✓ Dividido" : "Dividir conta"}
+              </button>
+            </div>
+
+            {!splitMode ? (
+              /* Pagamento único */
               <div className="grid grid-cols-2 gap-1.5">
                 {PAY_OPTIONS.map((p) => (
                   <button key={p.key} onClick={() => setPayMethod(p.key)}
@@ -353,7 +484,49 @@ export default function PDVPage() {
                   </button>
                 ))}
               </div>
-            </div>
+            ) : (
+              /* Pagamento dividido */
+              <div className="space-y-2">
+                {splits.map((split, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <select
+                      value={split.method}
+                      onChange={(e) => updateSplit(i, "method", e.target.value as PayMethod)}
+                      className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-2 text-xs text-white focus:outline-none w-24 shrink-0"
+                    >
+                      {PAY_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                    </select>
+                    <div className="relative flex-1">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={split.amount}
+                        onChange={(e) => updateSplit(i, "amount", e.target.value)}
+                        placeholder="0,00"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-7 pr-2 py-2 text-xs text-white focus:outline-none focus:border-green-500"
+                      />
+                    </div>
+                    {splits.length > 1 && (
+                      <button onClick={() => removeSplit(i)} className="text-slate-500 hover:text-red-400 transition shrink-0">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {splits.length < 4 && (
+                  <button onClick={addSplit} className="text-xs text-green-400 hover:text-green-300 transition flex items-center gap-1">
+                    <Plus size={12} /> Adicionar forma
+                  </button>
+                )}
+                {/* Saldo */}
+                <div className={`flex justify-between text-xs font-semibold px-1 py-1 rounded-lg ${splitOk ? "text-green-400 bg-green-500/10" : splitRemaining > 0 ? "text-orange-400 bg-orange-500/10" : "text-red-400 bg-red-500/10"}`}>
+                  <span>{splitOk ? "✓ Valores fecham" : splitRemaining > 0 ? "Faltam:" : "Excesso:"}</span>
+                  {!splitOk && <span>R$ {Math.abs(splitRemaining).toFixed(2)}</span>}
+                </div>
+              </div>
+            )}
 
             {/* Total */}
             {cart.length > 0 && (
@@ -383,6 +556,95 @@ export default function PDVPage() {
         </aside>
       </div>
 
+      {/* ── Pizza / Meio a Meio Modal ────────────────────────────────────────── */}
+      {showFlavorModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-bold">🍕 Montar Pizza</h2>
+                <p className="text-slate-400 text-xs mt-0.5">Preço = maior valor entre os sabores</p>
+              </div>
+              <button onClick={() => setShowFlavorModal(false)} className="text-slate-400 hover:text-white transition"><X size={20} /></button>
+            </div>
+
+            {/* Partes */}
+            <div className="flex items-center gap-2 mb-5">
+              <span className="text-sm text-slate-400 shrink-0">Dividir em:</span>
+              {[2, 3, 4].map((n) => (
+                <button key={n} onClick={() => changeFlavorParts(n)}
+                  className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-green-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
+                  {n === 2 ? "Meio a meio" : n === 3 ? "3 sabores" : "4 sabores"}
+                </button>
+              ))}
+            </div>
+
+            {/* Filtro */}
+            <div className="relative mb-4">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                value={flavorFilter}
+                onChange={(e) => setFlavorFilter(e.target.value)}
+                placeholder="Filtrar sabores..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-green-500"
+              />
+            </div>
+
+            {/* Slots de sabor */}
+            <div className="space-y-3 mb-5">
+              {Array.from({ length: flavorParts }).map((_, i) => {
+                const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-xs font-black text-slate-400 w-10 shrink-0 text-center bg-slate-800 rounded-lg py-1">{fraction}</span>
+                    <select
+                      value={flavorSlots[i]?.id || ""}
+                      onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
+                      className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500"
+                    >
+                      <option value="">— Escolher sabor {i + 1} —</option>
+                      {filteredForFlavor.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Preview de preço */}
+            {flavorSlots.some(Boolean) && (
+              <div className="bg-slate-800 rounded-xl px-4 py-3 mb-5">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-xs text-slate-400">Composição:</p>
+                    <p className="text-sm font-semibold mt-0.5">
+                      {flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-400">Valor</p>
+                    <p className="text-xl font-black text-green-400">
+                      R$ {Math.max(...flavorSlots.filter(Boolean).map((f) => Number(f!.salePrice))).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Ações */}
+            <div className="flex gap-3">
+              <button onClick={() => setShowFlavorModal(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 transition py-3 rounded-xl font-semibold text-sm">Cancelar</button>
+              <button onClick={confirmFlavors} className="flex-1 bg-orange-500 hover:bg-orange-600 transition py-3 rounded-xl font-bold text-sm">
+                Adicionar ao Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Cash Modal ──────────────────────────────────────────────────────── */}
       {showCashModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
@@ -391,8 +653,6 @@ export default function PDVPage() {
               <h2 className="text-lg font-bold">Controle de Caixa</h2>
               <button onClick={() => setShowCashModal(false)} className="text-slate-400 hover:text-white"><X size={22} /></button>
             </div>
-
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-3">
               {[
                 { label: "Saldo", value: cash?.balance || 0, color: "text-green-400" },
@@ -405,7 +665,6 @@ export default function PDVPage() {
                 </div>
               ))}
             </div>
-
             {!cash?.isOpen ? (
               <div className="space-y-3">
                 <p className="text-slate-400 text-sm">Informe o valor inicial para abrir o caixa:</p>

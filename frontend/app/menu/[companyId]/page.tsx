@@ -6,7 +6,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
-  MapPin, Clock, Phone, Search,
+  MapPin, Clock, Phone, Search, Copy, Timer,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -27,9 +27,23 @@ type CartItem = { cartKey: string; product: Product; quantity: number; notes: st
 type CustomerForm = {
   name: string;
   phone: string;
-  address: string;
   orderType: "DELIVERY" | "PICKUP";
   paymentMethod: "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD";
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  complement: string;
+};
+
+type PixData = {
+  pixCopyPaste: string;
+  pixQrcode: string | null;
+  expiresAt: Date;
+  paymentId: string;
+  mock?: boolean;
 };
 
 export default function MenuPage() {
@@ -74,8 +88,14 @@ export default function MenuPage() {
   const [flavorFilter, setFlavorFilter] = useState("");
 
   const [form, setForm] = useState<CustomerForm>({
-    name: "", phone: "", address: "", orderType: "DELIVERY", paymentMethod: "PIX",
+    name: "", phone: "", orderType: "DELIVERY", paymentMethod: "PIX",
+    street: "", number: "", neighborhood: "", city: "", state: "", zipcode: "", complement: "",
   });
+  const [onlineOrderId, setOnlineOrderId] = useState<string | null>(null);
+  const [showPixScreen, setShowPixScreen] = useState(false);
+  const [pixData, setPixData]             = useState<PixData | null>(null);
+  const [pixCountdown, setPixCountdown]   = useState(0);
+  const [pixPaid, setPixPaid]             = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -140,6 +160,40 @@ export default function MenuPage() {
   }
 
   useEffect(() => { loadMenu(); }, [companyId]);
+
+  /* ── PIX countdown ────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!showPixScreen || !pixData?.expiresAt) return;
+    const tick = () => {
+      const secs = Math.max(0, Math.floor((new Date(pixData.expiresAt).getTime() - Date.now()) / 1000));
+      setPixCountdown(secs);
+      if (secs === 0) setPixPaid(false);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [showPixScreen, pixData?.expiresAt]);
+
+  /* ── PIX payment polling ──────────────────────────────────────── */
+  useEffect(() => {
+    if (!showPixScreen || !onlineOrderId || pixPaid) return;
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch(`${apiBaseUrl}/payments/status/${onlineOrderId}?companyId=${companyId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.paymentStatus === "APPROVED") {
+          setPixPaid(true);
+          clearInterval(poll);
+        } else if (data.paymentStatus === "REJECTED" || data.paymentStatus === "EXPIRED") {
+          clearInterval(poll);
+          toast.error("Pagamento não confirmado. Tente novamente.");
+          setShowPixScreen(false);
+        }
+      } catch { /* silent */ }
+    }, 4000);
+    return () => clearInterval(poll);
+  }, [showPixScreen, onlineOrderId, pixPaid, companyId]);
 
   const fetchLoyaltyBalance = useCallback(async (phone: string) => {
     if (!phone || phone.length < 8 || !companyId) return;
@@ -248,37 +302,56 @@ export default function MenuPage() {
 
   async function submitOrder() {
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
-    if (form.orderType === "DELIVERY" && !form.address) { toast.error("Informe o endereço"); return; }
+    if (!tableNumber && form.orderType === "DELIVERY" && !form.street) { toast.error("Informe o endereço de entrega"); return; }
     if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
     setSubmitting(true);
+
     try {
-      const pointsToRedeem = usePoints ? loyaltyPoints : 0;
-      const res = await fetch(`${apiBaseUrl}/orders/public`, {
+      const capturedFinalTotal = finalCartTotal;
+      const cartSnapshot = cart.slice();
+
+      const addressLine = form.orderType === "DELIVERY"
+        ? [form.street, form.number, form.complement, form.neighborhood, form.city, form.state].filter(Boolean).join(", ")
+        : "";
+
+      // Step 1 — create OnlineOrder
+      const orderRes = await fetch(`${apiBaseUrl}/online-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyId,
-          customerName: form.name,
+          customerName:  form.name,
           customerPhone: form.phone,
-          deliveryAddress: form.address,
-          orderType: tableNumber ? "DINE_IN" : form.orderType,
-          paymentMethod: form.paymentMethod,
-          items: cart.map((i) => ({
-            productId: i.flavors ? i.flavors[0].id : i.product.id,
-            quantity: i.quantity,
-            notes: i.notes || "",
+          orderType:     tableNumber ? "DINE_IN" : form.orderType,
+          address:       form.street,
+          addressNumber: form.number,
+          neighborhood:  form.neighborhood,
+          city:          form.city,
+          state:         form.state,
+          zipcode:       form.zipcode,
+          complement:    form.complement,
+          items: cartSnapshot.map((i) => ({
+            productId:   i.flavors ? i.flavors[0].id : i.product.id,
+            productName: i.product.name,
+            quantity:    i.quantity,
+            unitPrice:   Number(i.product.salePrice),
+            notes:       i.notes || "",
           })),
-          total: finalCartTotal,
-          redeemPoints: pointsToRedeem,
-          notes: tableNumber ? `Mesa ${tableNumber}` : undefined,
+          subtotal:      cartTotal,
+          discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount,
+          deliveryFee:   0,
+          total:         capturedFinalTotal,
+          paymentMethod: form.paymentMethod,
+          notes:         tableNumber ? `Mesa ${tableNumber}` : undefined,
         }),
       });
-      if (!res.ok) throw new Error();
-      const orderData = await res.json().catch(() => null);
-      const createdOrderId: string | null = orderData?.id ?? null;
-      const cartSnapshot = cart.slice();
-      const capturedFinalTotal = finalCartTotal;
 
+      if (!orderRes.ok) throw new Error(await orderRes.text());
+      const orderData = await orderRes.json();
+      const createdOrderId: string = orderData.id;
+      setOnlineOrderId(createdOrderId);
+
+      // Step 2 — redeem coupon async (fire-and-forget)
       if (couponId) {
         fetch(`${apiBaseUrl}/coupons/redeem`, {
           method: "POST",
@@ -287,11 +360,15 @@ export default function MenuPage() {
         }).catch(() => {});
       }
 
+      // Step 3 — analytics
+      trackPixelPurchase(capturedFinalTotal);
+      trackGAPurchase(createdOrderId, capturedFinalTotal,
+        cartSnapshot.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })));
+
+      // Step 4 — clear cart / form state
       setCart([]);
       setShowCheckout(false);
       setShowCart(false);
-      setOrderId(createdOrderId);
-      setLoyaltyPointsEarned(orderData?.loyaltyPointsEarned ?? 0);
       setUsePoints(false);
       setLoyaltyPoints(0);
       setLoyaltyDiscount(0);
@@ -299,44 +376,159 @@ export default function MenuPage() {
       setCouponDiscount(0);
       setCouponId(null);
       setCouponMsg(null);
-      setOrderSent(true);
 
-      trackPixelPurchase(capturedFinalTotal);
-      trackGAPurchase(
-        createdOrderId || "unknown",
-        capturedFinalTotal,
-        cartSnapshot.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })),
-      );
-
-      const isOnlinePayment =
-        form.paymentMethod === "PIX" ||
-        form.paymentMethod === "CREDIT_CARD" ||
-        form.paymentMethod === "DEBIT_CARD";
-
-      if (isOnlinePayment && createdOrderId) {
+      // Step 5 — PIX flow: generate QR code and show payment screen
+      if (form.paymentMethod === "PIX") {
         setLoadingPayment(true);
         try {
-          const payRes = await fetch(`${apiBaseUrl}/payments/order-checkout`, {
+          const pixRes = await fetch(`${apiBaseUrl}/payments/online-order/${createdOrderId}/pix`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId: createdOrderId, companyId }),
+            body: JSON.stringify({ companyId }),
           });
-          if (payRes.ok) {
-            const payData = await payRes.json();
-            if (payData?.checkoutUrl) setPaymentUrl(payData.checkoutUrl);
-          }
-        } catch { /* silent */ } finally {
+          if (!pixRes.ok) throw new Error(await pixRes.text());
+          const pix = await pixRes.json();
+          setPixData({
+            pixCopyPaste: pix.pixCopyPaste,
+            pixQrcode:    pix.pixQrcode,
+            expiresAt:    new Date(pix.expiresAt),
+            paymentId:    pix.paymentId,
+            mock:         pix.mock,
+          });
+          setShowPixScreen(true);
+        } catch (e) {
+          console.error(e);
+          toast.error("Erro ao gerar PIX. Pedido criado — pague na entrega.");
+          setOrderSent(true);
+        } finally {
           setLoadingPayment(false);
         }
+      } else {
+        // CASH / CARD — show confirmation screen
+        setOrderId(createdOrderId);
+        setOrderSent(true);
       }
-    } catch {
+    } catch (e) {
+      console.error(e);
       toast.error("Erro ao enviar pedido. Tente novamente.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  // ─── Pedido enviado ──────────────────────────────────────────────────────────
+  // ─── Tela PIX ────────────────────────────────────────────────────────────────
+  if (showPixScreen && pixData) {
+    const mins = String(Math.floor(pixCountdown / 60)).padStart(2, "0");
+    const secs = String(pixCountdown % 60).padStart(2, "0");
+
+    if (pixPaid) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
+          <div className="bg-white rounded-3xl shadow-lg p-10 max-w-sm w-full flex flex-col items-center gap-5">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle size={44} className="text-green-500" />
+            </div>
+            <h1 className="text-2xl font-black text-gray-900">Pagamento confirmado!</h1>
+            <p className="text-gray-500 text-sm">Seu pedido foi recebido por <strong>{companyName}</strong> e já está sendo preparado.</p>
+            <button
+              onClick={() => { setShowPixScreen(false); setPixPaid(false); setPixData(null); }}
+              className="w-full py-3.5 rounded-2xl font-black text-white text-base transition"
+              style={{ background: theme.primaryColor }}
+            >
+              Fazer novo pedido
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-4">
+        <div className="bg-white rounded-3xl shadow-lg p-7 max-w-sm w-full flex flex-col items-center gap-5">
+          {/* Header */}
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: "#e8f5e9" }}>
+              <span className="text-3xl">💸</span>
+            </div>
+            <h1 className="text-xl font-black text-gray-900">Pague com PIX</h1>
+            <p className="text-gray-400 text-sm mt-1">Escaneie o QR Code ou copie o código</p>
+          </div>
+
+          {/* QR Code */}
+          {pixData.pixQrcode && !pixData.mock ? (
+            <img
+              src={`data:image/png;base64,${pixData.pixQrcode}`}
+              alt="QR Code PIX"
+              className="w-52 h-52 rounded-2xl border border-gray-100 shadow-sm"
+            />
+          ) : (
+            <div className="w-52 h-52 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 bg-gray-50">
+              <span className="text-4xl">📱</span>
+              <p className="text-xs text-center px-4">QR Code disponível após configurar chave PIX no Mercado Pago</p>
+            </div>
+          )}
+
+          {/* Valor */}
+          <div className="text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wider">Valor a pagar</p>
+            <p className="text-3xl font-black text-gray-900 mt-0.5">
+              R$ {cart.length > 0
+                ? finalCartTotal.toFixed(2)
+                : (onlineOrderId ? "—" : "0,00")}
+            </p>
+          </div>
+
+          {/* Copy-paste */}
+          <div className="w-full">
+            <p className="text-xs text-gray-400 mb-2 text-center">Copia e cola:</p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={pixData.pixCopyPaste}
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-700 font-mono truncate focus:outline-none"
+              />
+              <button
+                onClick={() => { navigator.clipboard.writeText(pixData.pixCopyPaste); toast.success("Código copiado!"); }}
+                className="px-4 py-2.5 rounded-xl text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition"
+                style={{ background: theme.primaryColor }}
+              >
+                <Copy size={13} /> Copiar
+              </button>
+            </div>
+          </div>
+
+          {/* Countdown */}
+          {pixCountdown > 0 && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Timer size={14} />
+              <span>Expira em <strong className="text-gray-900">{mins}:{secs}</strong></span>
+            </div>
+          )}
+
+          {/* Polling indicator */}
+          <div className="flex items-center gap-2 text-xs text-gray-400 animate-pulse">
+            <Loader2 size={12} className="animate-spin" />
+            Aguardando confirmação do pagamento...
+          </div>
+
+          {pixData.mock && (
+            <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 text-center">
+              Modo teste — configure <strong>MERCADOPAGO_ACCESS_TOKEN</strong> no Render para ativar PIX real.
+            </div>
+          )}
+
+          <button
+            onClick={() => { setShowPixScreen(false); setPixData(null); setOnlineOrderId(null); }}
+            className="text-gray-400 hover:text-gray-600 text-sm transition"
+          >
+            Cancelar e voltar ao cardápio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Pedido enviado (dinheiro/cartão) ────────────────────────────────────────
   if (orderSent) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
@@ -802,14 +994,58 @@ export default function MenuPage() {
               </div>
             )}
             {!tableNumber && form.orderType === "DELIVERY" && (
-              <div className="relative">
-                <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      placeholder="Rua / Av. *"
+                      value={form.street}
+                      onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    />
+                  </div>
+                  <input
+                    placeholder="Nº"
+                    value={form.number}
+                    onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
+                    className="w-20 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                  />
+                </div>
                 <input
-                  placeholder="Endereço de entrega *"
-                  value={form.address}
-                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+                  placeholder="Complemento (apto, bloco…)"
+                  value={form.complement}
+                  onChange={(e) => setForm((f) => ({ ...f, complement: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                 />
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Bairro *"
+                    value={form.neighborhood}
+                    onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
+                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                  />
+                  <input
+                    placeholder="CEP"
+                    value={form.zipcode}
+                    onChange={(e) => setForm((f) => ({ ...f, zipcode: e.target.value }))}
+                    className="w-28 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Cidade *"
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                  />
+                  <input
+                    placeholder="UF"
+                    value={form.state}
+                    onChange={(e) => setForm((f) => ({ ...f, state: e.target.value.toUpperCase().slice(0, 2) }))}
+                    className="w-16 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm text-center"
+                  />
+                </div>
               </div>
             )}
             {tableNumber && (

@@ -63,4 +63,8 @@ export class SocketGateway
   emitTableUpdate(companyId: string, data: unknown) {
     this.server.to(`company:${companyId}`).emit('tableUpdate', data)
   }
+
+  emitOnlineOrderPaid(companyId: string, data: unknown) {
+    this.server.to(`company:${companyId}`).emit('onlineOrderPaid', data)
+  }
 }

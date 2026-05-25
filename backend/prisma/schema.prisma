@@ -97,6 +97,31 @@ enum ImportType {
   INVOICE
 }
 
+enum OnlineOrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERING
+  COMPLETED
+  CANCELED
+}
+
+enum OnlinePaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  EXPIRED
+}
+
+enum OnlinePaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+}
+
 enum ImportStatus {
   PROCESSING
   DONE
@@ -247,6 +272,8 @@ model Company {
   chatSessions ChatSession[]
 
   coupons Coupon[]
+
+  onlineOrders OnlineOrder[]
 
   createdAt DateTime @default(now())
 
@@ -964,6 +991,71 @@ model Coupon {
   updatedAt DateTime  @updatedAt
 
   @@unique([code, companyId])
+  @@index([companyId])
+}
+
+model OnlineOrder {
+  id                      String              @id @default(cuid())
+  companyId               String
+  company                 Company             @relation(fields: [companyId], references: [id])
+
+  customerName            String
+  customerPhone           String
+  customerEmail           String?
+
+  orderType               OrderType           @default(DELIVERY)
+
+  address                 String?
+  addressNumber           String?
+  neighborhood            String?
+  city                    String?
+  state                   String?
+  zipcode                 String?
+  complement              String?
+
+  items                   Json
+
+  subtotal                Decimal             @db.Decimal(10, 2)
+  deliveryFee             Decimal             @default(0) @db.Decimal(10, 2)
+  discount                Decimal             @default(0) @db.Decimal(10, 2)
+  total                   Decimal             @db.Decimal(10, 2)
+
+  paymentMethod           OnlinePaymentMethod @default(PIX)
+  paymentGateway          String              @default("MERCADOPAGO")
+  paymentStatus           OnlinePaymentStatus @default(PENDING)
+  orderStatus             OnlineOrderStatus   @default(PENDING)
+
+  mercadopagoPaymentId    String?
+  mercadopagoPreferenceId String?
+  pixQrcode               String?
+  pixCopyPaste            String?
+  pixExpiresAt            DateTime?
+
+  notes                   String?
+  paidAt                  DateTime?
+
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  @@index([companyId])
+  @@index([paymentStatus])
+  @@index([orderStatus])
+  @@index([mercadopagoPaymentId])
+  @@index([createdAt])
+}
+
+model PaymentWebhook {
+  id        String   @id @default(cuid())
+  companyId String?
+  gateway   String
+  eventId   String
+  event     String
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([gateway, eventId])
+  @@index([processed])
   @@index([companyId])
 }
 

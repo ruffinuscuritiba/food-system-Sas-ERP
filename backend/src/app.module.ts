@@ -24,6 +24,7 @@ import { UploadModule } from './modules/upload/upload.module'
 import { SmartImportModule } from './modules/smart-import/smart-import.module'
 import { IngredientsModule } from './modules/ingredients/ingredients.module'
 import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module'
+import { OnlineOrdersModule } from './modules/online-orders/online-orders.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -55,6 +56,7 @@ import { AppService } from './app.service'
     IngredientsModule,
     SmartImportModule,
     PizzaBordersModule,
+    OnlineOrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

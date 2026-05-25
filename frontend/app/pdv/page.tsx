@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
@@ -7,6 +8,9 @@ import {
   DollarSign, CreditCard, Smartphone, Banknote, X,
   Search, Package, ChevronRight, AlertCircle,
   ShoppingCart, UtensilsCrossed, RefreshCw,
+  LayoutDashboard, CookingPot, Store,
+  FolderKanban, FlaskConical, BookOpen, Layers, Palette,
+  QrCode, ExternalLink, Sparkles,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -315,53 +319,71 @@ export default function PDVPage() {
       <div className="flex flex-1 overflow-hidden relative">
 
         {/* ── COL 1: Left nav ────────────────────────────────────────────── */}
-        <aside className="w-[150px] flex flex-col overflow-hidden shrink-0 border-r"
+        <aside className="w-[160px] flex flex-col overflow-y-auto overflow-x-hidden shrink-0 border-r"
           style={{ background: "#0F1120", borderColor: "rgba(255,255,255,0.06)" }}>
 
           {/* Cash status */}
           <button onClick={() => setShowCashModal(true)}
-            className="mx-2 mt-3 mb-1 flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold border transition"
+            className="mx-2 mt-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-md text-[11px] font-bold border transition"
             style={{
               background: cash?.isOpen ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
-              borderColor: cash?.isOpen ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)",
+              borderColor: cash?.isOpen ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)",
               color: cash?.isOpen ? "#34D399" : "#F87171",
             }}>
             <DollarSign size={12} />
             <span className="truncate">{cash?.isOpen ? fmt(Number(cash.balance)) : "Fechado"}</span>
           </button>
 
-          {/* Order context */}
-          <div className="px-3 py-2 border-b text-[11px]" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-            {orderType === "DINE_IN" && tableNumber && (
-              <div className="text-white/50">Mesa: <span className="text-white font-bold">{tableNumber}</span></div>
-            )}
-            {(orderType === "PHONE" || orderType === "DELIVERY") && customerName && (
-              <div className="text-white/50 truncate">{customerName}</div>
-            )}
-            {cart.length > 0 && (
-              <div className="mt-1 space-y-0.5 max-h-[280px] overflow-y-auto">
-                {cart.map((item) => (
-                  <div key={item.cartKey} className="flex items-center justify-between py-0.5">
-                    <span className="text-white/40 text-[10px] truncate flex-1 mr-1">{item.product.name}</span>
-                    <span className="text-white/60 text-[10px] font-bold shrink-0">×{item.quantity}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {cart.length === 0 && (
-              <p className="text-white/20 text-[10px] mt-1">Pedido vazio</p>
-            )}
-          </div>
+          {/* Separator */}
+          <div className="mx-2 mb-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }} />
 
-          <div className="flex-1" />
+          {/* Navigation links */}
+          <nav className="flex-1 px-2 space-y-0.5">
 
-          {/* Pizza CTA */}
-          <div className="p-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+            <SideNavItem href="/" icon={<LayoutDashboard size={13} />} label="Dashboard" />
+
+            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Operação</p>
+            <SideNavItem href="/orders"  icon={<ShoppingCart size={13} />} label="Pedidos" />
+            <SideNavItem href="/kitchen" icon={<CookingPot size={13} />}   label="Cozinha" />
+            <SideNavItem href="/tables"  icon={<Store size={13} />}        label="Mesas" />
+            <SideNavItem href="/pdv"     icon={<DollarSign size={13} />}   label="PDV / Caixa" active />
+
+            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Cardápio</p>
+            <SideNavItem href="/products"      icon={<Package size={13} />}         label="Produtos" />
+            <SideNavItem href="/categories"    icon={<FolderKanban size={13} />}    label="Categorias" />
+            <SideNavItem href="/pizza-borders" icon={<UtensilsCrossed size={13} />} label="Bordas" />
+
+            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Estoque</p>
+            <SideNavItem href="/stock"       icon={<Layers size={13} />}       label="Movimentações" />
+            <SideNavItem href="/ingredients" icon={<FlaskConical size={13} />} label="Ingredientes" />
+            <SideNavItem href="/recipes"     icon={<BookOpen size={13} />}     label="Receitas" />
+
+            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>IA</p>
+            <SideNavItem href="/cadastro-inteligente" icon={<Sparkles size={13} />} label="Cadastro Img" />
+
+            <p className="px-2 pt-3 pb-1 text-[9px] font-black tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.3)" }}>Config</p>
+            <SideNavItem href="/theme"         icon={<Palette size={13} />} label="Tema / Visual" />
+            <SideNavItem href="/tables/qrcode" icon={<QrCode size={13} />}  label="QR Code Mesas" />
+          </nav>
+
+          {/* Pizza CTA + Logout */}
+          <div className="p-2 space-y-1.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
             <button onClick={() => openPizzaModal()}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-black transition"
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-[11px] font-black transition"
               style={{ background: "#F97316" }}>
               🍕 Montar Pizza
             </button>
+            <a
+              href="/menu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-1.5 px-2.5 py-2 rounded-md text-[11px] font-semibold transition"
+              style={{ color: "rgba(255,255,255,0.45)", background: "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.45)")}>
+              <ExternalLink size={11} />
+              <span className="truncate">Ver Cardápio</span>
+            </a>
           </div>
         </aside>
 
@@ -994,5 +1016,25 @@ export default function PDVPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function SideNavItem({ href, icon, label, active }: {
+  href: string; icon: React.ReactNode; label: string; active?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all"
+      style={{
+        background: active ? "#2563EB" : "transparent",
+        color: active ? "#fff" : "rgba(255,255,255,0.5)",
+      }}
+      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "#fff"; } }}
+      onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; } }}
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
+    </Link>
   );
 }

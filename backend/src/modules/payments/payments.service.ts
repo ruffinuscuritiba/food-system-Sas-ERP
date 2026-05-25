@@ -152,7 +152,7 @@ export class PaymentsService {
       const mockExpires = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60_000);
       await this.onlineOrders.updatePayment(onlineOrderId, {
         mercadopagoPaymentId:    `mock_pix_${Date.now()}`,
-        pixQrcode:               null,
+        pixQrcode:               undefined,
         pixCopyPaste:            '00020101021226580014BR.GOV.BCB.PIX0136mock-pix-key-for-testing5204000053039865802BR5925MOCK RESTAURANTE TEST6009SAO PAULO62140510mock12345630461C3',
         pixExpiresAt:            mockExpires,
       });
@@ -210,8 +210,8 @@ export class PaymentsService {
 
     const mp: any = await response.json();
     const txData   = mp.point_of_interaction?.transaction_data;
-    const pixCopyPaste = txData?.qr_code        || null;
-    const pixQrcode    = txData?.qr_code_base64  || null;
+    const pixCopyPaste = txData?.qr_code        || undefined;
+    const pixQrcode    = txData?.qr_code_base64  || undefined;
 
     await this.onlineOrders.updatePayment(onlineOrderId, {
       mercadopagoPaymentId:    String(mp.id),

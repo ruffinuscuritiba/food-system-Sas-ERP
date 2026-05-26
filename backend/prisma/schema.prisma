@@ -920,3 +920,100 @@ enum ChatRole {
   USER
   ASSISTANT
 }
+
+// ─── BI / AI / Alertas ──────────────────────────────────────
+
+enum AlertType {
+  LOW_STOCK
+  HIGH_CMV
+  REVENUE_DROP
+  TICKET_DROP
+  CANCELLATION_SPIKE
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model KpiSnapshot {
+  id              String   @id @default(cuid())
+  companyId       String
+  snapshotAt      DateTime
+  revenue         Decimal  @db.Decimal(14, 2)
+  cmv             Decimal  @db.Decimal(14, 2)
+  grossProfit     Decimal  @db.Decimal(14, 2)
+  grossMargin     Decimal  @db.Decimal(7, 4)
+  orderCount      Int
+  avgTicket       Decimal  @db.Decimal(10, 2)
+  cancelledCount  Int
+  deliveryCount   Int
+  dineInCount     Int
+  pickupCount     Int
+  pixRevenue      Decimal  @db.Decimal(14, 2)
+  cardRevenue     Decimal  @db.Decimal(14, 2)
+  cashRevenue     Decimal  @db.Decimal(14, 2)
+  createdAt       DateTime @default(now())
+
+  @@unique([companyId, snapshotAt])
+  @@index([companyId])
+  @@index([snapshotAt])
+}
+
+model Alert {
+  id          String        @id @default(cuid())
+  companyId   String
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  message     String        @db.Text
+  metadata    Json?
+  read        Boolean       @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([companyId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model AiConversation {
+  id          String      @id @default(cuid())
+  companyId   String
+  userId      String?
+  title       String?
+  messages    AiMessage[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([companyId])
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           ChatRole
+  content        String         @db.Text
+  tokensUsed     Int?
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+}
+
+model OperationalCost {
+  id          String   @id @default(cuid())
+  companyId   String
+  category    String
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  recurring   Boolean  @default(false)
+  period      String?  // MONTHLY | WEEKLY | DAILY
+  referenceAt DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([referenceAt])
+}

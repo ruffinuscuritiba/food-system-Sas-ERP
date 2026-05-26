@@ -17,10 +17,12 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module'
 import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { ChatModule } from './modules/chat/chat.module'
-import { PaymentModule } from './modules/payment/payment.module'
 import { DriversModule } from './modules/drivers/drivers.module'
 import { DeliveryConfigModule } from './modules/delivery-config/delivery-config.module'
 import { TrackingModule } from './modules/tracking/tracking.module'
+import { ReportsModule } from './modules/reports/reports.module'
+import { AlertsModule } from './modules/alerts/alerts.module'
+import { IaModule } from './modules/ia/ia.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -45,10 +47,12 @@ import { AppService } from './app.service'
     PaymentsModule,
     LoyaltyModule,
     ChatModule,
-    PaymentModule,
     DriversModule,
     DeliveryConfigModule,
     TrackingModule,
+    ReportsModule,
+    AlertsModule,
+    IaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

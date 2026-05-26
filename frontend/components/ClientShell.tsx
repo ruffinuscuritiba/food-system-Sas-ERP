@@ -105,7 +105,8 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "IA",
     items: [
-      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/bi",                    label: "Central de Inteligência", icon: <Bot size={16} />,      roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/cadastro-inteligente",  label: "Cadastro por Imagem",     icon: <Sparkles size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {

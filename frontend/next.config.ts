@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "food-system-backend-no7d.onrender.com" },
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "**.unsplash.com" },
     ],
   },
   experimental: {

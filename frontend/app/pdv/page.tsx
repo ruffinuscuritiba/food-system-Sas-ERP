@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -97,112 +99,67 @@ export default function PDVPage() {
             <MenuSection
               title=""
               items={[
-                {
-                  icon: <LayoutDashboard size={18} />,
-                  label: "Dashboard",
-                  active: true,
-                  green: true,
-                },
+                { icon: <LayoutDashboard size={18} />, label: "Dashboard", href: "/", green: true },
               ]}
             />
 
             <MenuSection
               title="OPERAÇÃO"
               items={[
-                {
-                  icon: <ShoppingCart size={18} />,
-                  label: "Pedidos",
-                },
-                {
-                  icon: <ChefHat size={18} />,
-                  label: "Cozinha",
-                },
-                {
-                  icon: <UtensilsCrossed size={18} />,
-                  label: "Mesas",
-                },
-                {
-                  icon: <DollarSign size={18} />,
-                  label: "PDV / Caixa",
-                  active: true,
-                },
+                { icon: <ShoppingCart size={18} />,   label: "Pedidos",    href: "/orders" },
+                { icon: <ChefHat size={18} />,        label: "Cozinha",    href: "/kitchen" },
+                { icon: <UtensilsCrossed size={18} />, label: "Mesas",     href: "/tables" },
+                { icon: <DollarSign size={18} />,     label: "PDV / Caixa", href: "/pdv", active: true },
               ]}
             />
 
             <MenuSection
               title="CARDÁPIO"
               items={[
-                {
-                  icon: <Package size={18} />,
-                  label: "Produtos",
-                },
-                {
-                  icon: <Tags size={18} />,
-                  label: "Categorias",
-                },
-                {
-                  icon: <Pizza size={18} />,
-                  label: "Bordas de Pizza",
-                },
+                { icon: <Package size={18} />, label: "Produtos",        href: "/products" },
+                { icon: <Tags size={18} />,    label: "Categorias",      href: "/categories" },
+                { icon: <Pizza size={18} />,   label: "Bordas de Pizza", href: "/pizza-borders" },
               ]}
             />
 
             <MenuSection
               title="ESTOQUE"
               items={[
-                {
-                  icon: <Boxes size={18} />,
-                  label: "Movimentações",
-                },
-                {
-                  icon: <FlaskConical size={18} />,
-                  label: "Ingredientes",
-                },
-                {
-                  icon: <BookOpen size={18} />,
-                  label: "Receitas",
-                },
+                { icon: <Boxes size={18} />,       label: "Movimentações", href: "/stock" },
+                { icon: <FlaskConical size={18} />, label: "Ingredientes",  href: "/ingredients" },
+                { icon: <BookOpen size={18} />,    label: "Receitas",       href: "/recipes" },
               ]}
             />
 
             <MenuSection
               title="IA"
               items={[
-                {
-                  icon: <Sparkles size={18} />,
-                  label: "Cadastro por Imagem",
-                },
+                { icon: <Sparkles size={18} />, label: "Cadastro por Imagem", href: "/cadastro-inteligente" },
               ]}
             />
 
             <MenuSection
               title="MARKETPLACE"
               items={[
-                {
-                  icon: <Plug size={18} />,
-                  label: "Módulos de Integração",
-                },
+                { icon: <Plug size={18} />, label: "Módulos de Integração", href: "/modulos" },
               ]}
             />
 
             <MenuSection
               title="CONFIGURAÇÕES"
               items={[
-                {
-                  icon: <Palette size={18} />,
-                  label: "Tema / Visual",
-                },
-                {
-                  icon: <QrCode size={18} />,
-                  label: "QR Code Mesas",
-                },
+                { icon: <Palette size={18} />, label: "Tema / Visual",  href: "/theme" },
+                { icon: <QrCode size={18} />,  label: "QR Code Mesas",  href: "/tables/qrcode" },
               ]}
             />
 
-            <button className="w-full h-[42px] rounded-2xl border border-green-700 text-green-400 flex items-center justify-between px-4 text-sm hover:bg-green-700/10 transition">
+            <Link
+              href="/menu"
+              className="w-full h-[42px] rounded-2xl border border-green-700 text-green-400 flex items-center justify-between px-4 text-sm hover:bg-green-700/10 transition"
+            >
               <span>Ver Cardápio Online</span>
               <span>›</span>
-            </button>
+            </Link>
 
           </div>
 
@@ -457,8 +414,9 @@ function MenuSection({
       <div className="space-y-1">
 
         {items.map((item: any) => (
-          <button
+          <Link
             key={item.label}
+            href={item.href ?? "#"}
             className={`w-full h-[40px] rounded-xl px-3 flex items-center gap-2.5 text-sm transition ${
               item.green
                 ? "bg-green-700"
@@ -469,7 +427,7 @@ function MenuSection({
           >
             {item.icon}
             {item.label}
-          </button>
+          </Link>
         ))}
 
       </div>

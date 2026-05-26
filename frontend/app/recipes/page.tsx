@@ -1,27 +1,26 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { BookOpen, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Plus, Search, Trash2, X } from "lucide-react";
+import Link from "next/link";
 
 export default function RecipesPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [ingredients, setIngredients] = useState<any[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [productSearch, setProductSearch] = useState("");
+  const [showProductList, setShowProductList] = useState(false);
   const [items, setItems] = useState<{ ingredientId: string; quantity: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  function getCompanyId() {
-    try { return JSON.parse(localStorage.getItem("user") || "{}").companyId || ""; } catch { return ""; }
-  }
+  const searchRef = useRef<HTMLDivElement>(null);
 
   async function load() {
-    const companyId = getCompanyId();
     try {
       const [prodRes, ingRes] = await Promise.all([
         api.get("/products"),
-        api.get(`/ingredients`),
+        api.get("/ingredients"),
       ]);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
       setIngredients(Array.isArray(ingRes.data) ? ingRes.data : []);
@@ -33,6 +32,32 @@ export default function RecipesPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowProductList(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredProducts = products.filter((p) =>
+    p.name.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  function selectProduct(p: any) {
+    setSelectedProduct(p);
+    setProductSearch(p.name);
+    setShowProductList(false);
+  }
+
+  function clearProduct() {
+    setSelectedProduct(null);
+    setProductSearch("");
+    setShowProductList(false);
+  }
 
   function addItem() {
     setItems([...items, { ingredientId: "", quantity: "" }]);
@@ -58,12 +83,12 @@ export default function RecipesPage() {
     setSaving(true);
     try {
       await api.post("/recipes", {
-        productId: selectedProduct,
+        productId: selectedProduct.id,
         items: items.map((i) => ({ ingredientId: i.ingredientId, quantity: Number(i.quantity) })),
       });
       toast.success("Receita salva com sucesso");
       setItems([]);
-      setSelectedProduct("");
+      clearProduct();
     } catch {
       toast.error("Erro ao salvar receita");
     } finally {
@@ -83,14 +108,65 @@ export default function RecipesPage() {
         </div>
 
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-          {/* Produto */}
-          <div className="mb-6">
+          {/* Produto — searchable combobox */}
+          <div className="mb-6" ref={searchRef}>
             <label className="block text-sm text-gray-600 mb-2">Produto *</label>
-            <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-purple-500">
-              <option value="">Selecione um produto...</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+
+            {loading ? (
+              <div className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-400 text-sm">
+                Carregando produtos...
+              </div>
+            ) : products.length === 0 ? (
+              <div className="w-full border border-dashed border-gray-300 rounded-xl px-4 py-4 text-sm text-gray-500 text-center">
+                Nenhum produto cadastrado.{" "}
+                <Link href="/products" className="text-purple-600 hover:underline font-medium">
+                  Cadastrar produto →
+                </Link>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="w-full flex items-center bg-white border border-gray-300 rounded-xl px-4 py-3 gap-3 focus-within:border-purple-500 transition">
+                  <Search size={16} className="text-gray-400 shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Buscar produto..."
+                    value={productSearch}
+                    onChange={(e) => { setProductSearch(e.target.value); setShowProductList(true); setSelectedProduct(null); }}
+                    onFocus={() => setShowProductList(true)}
+                    className="flex-1 bg-transparent outline-none text-gray-900 text-sm"
+                  />
+                  {productSearch && (
+                    <button onClick={clearProduct} className="text-gray-400 hover:text-gray-600 transition">
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {showProductList && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                    {filteredProducts.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-gray-400">Nenhum produto encontrado</p>
+                    ) : (
+                      filteredProducts.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => selectProduct(p)}
+                          className="w-full text-left px-4 py-3 text-sm text-gray-800 hover:bg-purple-50 hover:text-purple-700 transition"
+                        >
+                          {p.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedProduct && (
+              <p className="mt-1.5 text-xs text-purple-600 font-medium">
+                ✓ {selectedProduct.name} selecionado
+              </p>
+            )}
           </div>
 
           {/* Ingredientes da receita */}
@@ -136,7 +212,7 @@ export default function RecipesPage() {
           )}
 
           <button onClick={saveRecipe} disabled={saving}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition py-3 rounded-xl font-semibold">
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition py-3 rounded-xl font-semibold text-white">
             {saving ? "Salvando..." : "Salvar Receita"}
           </button>
         </div>

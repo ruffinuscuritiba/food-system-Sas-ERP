@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Sparkles,
   Puzzle,
+  Bot,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -51,6 +52,16 @@ type NavItem = {
   roles: string[];
 };
 
+// Module slug → nav item shown below Módulos de Integração when active
+const MODULE_NAV: Record<string, NavItem> = {
+  "cardapio-ia": {
+    href: "/atendimento-ia",
+    label: "Atendimento de IA",
+    icon: <Bot size={16} />,
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+  },
+};
+
 const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     items: [
@@ -60,10 +71,10 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "Operação",
     items: [
+      { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
       { href: "/orders",  label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
       { href: "/kitchen", label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
       { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
-      { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
     ],
   },
   {
@@ -121,6 +132,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const [companyName, setCompanyName] = useState("FoodSaaS ERP");
   const [impersonating, setImpersonating] = useState<{ companyName: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
 
   useEffect(() => {
     loadAuth();
@@ -137,6 +149,14 @@ export default function ClientShell({ children }: { children: React.ReactNode })
       .then((r) => {
         const color = r.data?.primaryColor;
         if (color) document.documentElement.style.setProperty("--color-primary", color);
+      })
+      .catch(() => {});
+    api.get(`/company-module/company/${user.companyId}`)
+      .then((r) => {
+        const slugs = (r.data ?? [])
+          .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL")
+          .map((m: any) => m.slug as string);
+        setActiveSlugs(slugs);
       })
       .catch(() => {});
   }, [user?.companyId]);
@@ -241,6 +261,13 @@ export default function ClientShell({ children }: { children: React.ReactNode })
             {NAV_SECTIONS.map((section, si) => {
               const visible = section.items.filter((item) => canSee(item.roles));
               if (visible.length === 0) return null;
+              const isMarketplace = section.title === "Marketplace";
+              // Module-based items unlocked by contracted modules
+              const moduleItems = isMarketplace
+                ? activeSlugs
+                    .filter((slug) => MODULE_NAV[slug] && canSee(MODULE_NAV[slug].roles))
+                    .map((slug) => MODULE_NAV[slug])
+                : [];
               return (
                 <div key={si} className={si > 0 ? "pt-3" : ""}>
                   {section.title && (
@@ -250,6 +277,16 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                   )}
                   <div className="space-y-0.5">
                     {visible.map((item) => (
+                      <MenuItem
+                        key={item.href}
+                        href={item.href}
+                        icon={item.icon}
+                        label={item.label}
+                        active={pathname === item.href}
+                        onClick={() => setSidebarOpen(false)}
+                      />
+                    ))}
+                    {moduleItems.map((item) => (
                       <MenuItem
                         key={item.href}
                         href={item.href}

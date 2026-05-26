@@ -250,6 +250,8 @@ model Product {
 
   recipe Recipe?
 
+  sizes ProductSize[]
+
   orderItems OrderItem[]
 
   tableOrderItems TableOrderItem[]
@@ -263,6 +265,20 @@ model Product {
   @@index([categoryId])
 
   @@index([name])
+}
+
+model ProductSize {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size      String
+  price     Decimal  @db.Decimal(10, 2)
+  companyId String
+  createdAt DateTime @default(now())
+
+  @@unique([productId, size])
+  @@index([productId])
+  @@index([companyId])
 }
 
 model Customer {

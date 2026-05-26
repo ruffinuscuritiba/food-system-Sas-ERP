@@ -4,29 +4,23 @@ import { api } from "@/services/api";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Pencil, Trash2, X, Package, Plus, ImageIcon, Pizza } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Package, ImageIcon, Pizza } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type PizzaSize = "PEQUENA" | "MEDIA" | "GRANDE" | "FAMILIA";
-
 interface SizeRow {
-  size: PizzaSize;
+  label: string;
   price: string;
 }
 
-const SIZE_LABELS: Record<PizzaSize, string> = {
-  PEQUENA: "Pequena",
-  MEDIA:   "Média",
-  GRANDE:  "Grande",
-  FAMILIA: "Família",
-};
+const defaultSizes = (): SizeRow[] => [
+  { label: "Pequena", price: "" },
+  { label: "Média",   price: "" },
+  { label: "Grande",  price: "" },
+  { label: "Família", price: "" },
+];
 
-const ALL_SIZES: PizzaSize[] = ["PEQUENA", "MEDIA", "GRANDE", "FAMILIA"];
-
-const emptySizes = (): SizeRow[] => ALL_SIZES.map((s) => ({ size: s, price: "" }));
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── SizesTable ────────────────────────────────────────────────────────────────
 
 function SizesTable({
   sizes, onChange,
@@ -34,35 +28,104 @@ function SizesTable({
   sizes: SizeRow[];
   onChange: (sizes: SizeRow[]) => void;
 }) {
-  function setPrice(size: PizzaSize, value: string) {
-    onChange(sizes.map((s) => s.size === size ? { ...s, price: value } : s));
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingLabel, setEditingLabel] = useState("");
+
+  function startEdit(index: number) {
+    setEditingIndex(index);
+    setEditingLabel(sizes[index].label);
+  }
+
+  function confirmEdit(index: number) {
+    const trimmed = editingLabel.trim();
+    if (!trimmed) { setEditingIndex(null); return; }
+    onChange(sizes.map((s, i) => i === index ? { ...s, label: trimmed } : s));
+    setEditingIndex(null);
+  }
+
+  function setPrice(index: number, value: string) {
+    onChange(sizes.map((s, i) => i === index ? { ...s, price: value } : s));
+  }
+
+  function addSize() {
+    onChange([...sizes, { label: `Tamanho ${sizes.length + 1}`, price: "" }]);
+  }
+
+  function removeSize(index: number) {
+    onChange(sizes.filter((_, i) => i !== index));
   }
 
   return (
-    <div className="border border-orange-100 bg-primary/5/50 rounded-xl p-4">
-      <p className="text-xs font-bold text-primary uppercase tracking-wider mb-3">
-        🍕 Preços por Tamanho
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        {sizes.map((s) => (
-          <div key={s.size}>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">{SIZE_LABELS[s.size]}</label>
-            <div className="relative">
+    <div className="border border-orange-100 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold text-primary uppercase tracking-wider">
+          🍕 Preços por Tamanho
+        </p>
+        <button
+          type="button"
+          onClick={addSize}
+          className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-semibold transition"
+        >
+          <Plus size={13} /> Adicionar tamanho
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {sizes.map((s, index) => (
+          <div key={index} className="flex items-center gap-2">
+            {/* Label */}
+            <div className="flex-1 flex items-center gap-1.5 min-w-0">
+              {editingIndex === index ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editingLabel}
+                    onChange={(e) => setEditingLabel(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") confirmEdit(index); if (e.key === "Escape") setEditingIndex(null); }}
+                    className="flex-1 border border-primary rounded-lg px-2.5 py-1.5 text-sm outline-none text-gray-900"
+                  />
+                  <button type="button" onClick={() => confirmEdit(index)} className="text-green-500 hover:text-green-600 transition shrink-0">
+                    <Check size={15} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm font-semibold text-gray-700 truncate">{s.label}</span>
+                  <button type="button" onClick={() => startEdit(index)} className="text-gray-300 hover:text-primary transition shrink-0">
+                    <Pencil size={13} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Price */}
+            <div className="relative w-[130px] shrink-0">
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">R$</span>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={s.price}
-                onChange={(e) => setPrice(s.size, e.target.value)}
+                onChange={(e) => setPrice(index, e.target.value)}
                 placeholder="0,00"
-                className="w-full border border-gray-200 focus:border-primary rounded-lg pl-8 pr-3 py-2 text-sm outline-none"
+                className="w-full border border-gray-200 focus:border-primary rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none"
               />
             </div>
+
+            {/* Remove */}
+            <button
+              type="button"
+              onClick={() => removeSize(index)}
+              className="text-gray-300 hover:text-red-400 transition shrink-0"
+              title="Remover tamanho"
+            >
+              <Trash2 size={14} />
+            </button>
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-400 mt-2">Deixe em branco para não oferecer aquele tamanho.</p>
+
+      <p className="text-xs text-gray-400 mt-2">Deixe o preço em branco para não oferecer aquele tamanho.</p>
     </div>
   );
 }
@@ -79,14 +142,14 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [form, setForm] = useState<any>(emptyForm);
-  const [formSizes, setFormSizes] = useState<SizeRow[]>(emptySizes());
+  const [formSizes, setFormSizes] = useState<SizeRow[]>(defaultSizes());
   const [formHasSizes, setFormHasSizes] = useState(false);
   const [image, setImage] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
 
   const [editProduct, setEditProduct] = useState<any>(null);
   const [editForm, setEditForm] = useState({ name: "", description: "", salePrice: "", costPrice: "", categoryId: "" });
-  const [editSizes, setEditSizes] = useState<SizeRow[]>(emptySizes());
+  const [editSizes, setEditSizes] = useState<SizeRow[]>(defaultSizes());
   const [editHasSizes, setEditHasSizes] = useState(false);
   const [editImage, setEditImage] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -131,9 +194,9 @@ export default function ProductsPage() {
       formData.append("companyId", user.companyId);
       if (image) formData.append("image", image);
       if (formHasSizes) {
-        const filledSizes = formSizes.filter((s) => s.price !== "" && !isNaN(Number(s.price)));
+        const filledSizes = formSizes.filter((s) => s.label.trim() && s.price !== "" && !isNaN(Number(s.price)));
         if (filledSizes.length > 0) {
-          formData.append("sizes", JSON.stringify(filledSizes.map((s) => ({ size: s.size, price: Number(s.price) }))));
+          formData.append("sizes", JSON.stringify(filledSizes.map((s) => ({ size: s.label.trim(), price: Number(s.price) }))));
         }
       }
       await api.post("/products", formData);
@@ -160,10 +223,11 @@ export default function ProductsPage() {
     });
     const hasSizes = product.sizes && product.sizes.length > 0;
     setEditHasSizes(hasSizes);
-    setEditSizes(ALL_SIZES.map((s) => {
-      const existing = product.sizes?.find((ps: any) => ps.size === s);
-      return { size: s, price: existing ? String(existing.price) : "" };
-    }));
+    if (hasSizes && product.sizes?.length > 0) {
+      setEditSizes(product.sizes.map((ps: any) => ({ label: ps.size, price: String(ps.price) })));
+    } else {
+      setEditSizes(defaultSizes());
+    }
     setEditImage(null);
   }
 
@@ -187,9 +251,9 @@ export default function ProductsPage() {
       if (editImage) formData.append("image", editImage);
 
       const filledSizes = editHasSizes
-        ? editSizes.filter((s) => s.price !== "" && !isNaN(Number(s.price)))
+        ? editSizes.filter((s) => s.label.trim() && s.price !== "" && !isNaN(Number(s.price)))
         : [];
-      formData.append("sizes", JSON.stringify(filledSizes.map((s) => ({ size: s.size, price: Number(s.price) }))));
+      formData.append("sizes", JSON.stringify(filledSizes.map((s) => ({ size: s.label.trim(), price: Number(s.price) }))));
 
       await api.patch(`/products/${editProduct.id}`, formData);
       toast.success("Produto atualizado");
@@ -336,7 +400,7 @@ export default function ProductsPage() {
                     )}
                     {product.sizes?.length > 0 && (
                       <span className="absolute bottom-2 right-2 bg-white/90 text-primary text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Pizza size={10} /> 4 tam.
+                        <Pizza size={10} /> {product.sizes.length} tam.
                       </span>
                     )}
                   </div>
@@ -350,7 +414,7 @@ export default function ProductsPage() {
                         <div className="flex gap-1 flex-wrap">
                           {product.sizes.slice(0, 2).map((ps: any) => (
                             <span key={ps.size} className="text-xs bg-primary/5 text-primary font-bold px-1.5 py-0.5 rounded">
-                              {SIZE_LABELS[ps.size as PizzaSize]}: R${Number(ps.price).toFixed(2)}
+                              {ps.size}: R${Number(ps.price).toFixed(2)}
                             </span>
                           ))}
                           {product.sizes.length > 2 && (

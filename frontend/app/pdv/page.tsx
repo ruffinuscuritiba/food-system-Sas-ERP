@@ -292,7 +292,7 @@ export default function PDVPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar produto…"
             className="w-full h-9 rounded-lg pl-8 pr-3 text-[12px] text-white placeholder-white/30 focus:outline-none border"
-            style={{ background: "var(--pdv-card)", borderColor: "var(--pdv-border)" }} />
+            style={{ background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.1)" }} />
         </div>
 
         {/* Table number field when DINE_IN */}
@@ -494,11 +494,21 @@ export default function PDVPage() {
                 )}
 
                 {filtered.length === 0 ? (
-                  <div className="flex items-center gap-3 pt-3 px-1">
-                    <span className="text-2xl opacity-30">🍽️</span>
-                    <p className="text-sm" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.3)" : "#9CA3AF" }}>
-                      {products.length === 0 ? "Nenhum produto cadastrado" : "Nenhum resultado"}
-                    </p>
+                  <div className="flex flex-col items-center justify-center gap-4 py-20">
+                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl"
+                      style={{ background: pdvTheme.darkProducts ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)" }}>
+                      🍽️
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.35)" : "#6B7280" }}>
+                        {products.length === 0 ? "Nenhum produto cadastrado" : "Nenhum resultado"}
+                      </p>
+                      {products.length === 0 && (
+                        <p className="text-xs mt-1" style={{ color: pdvTheme.darkProducts ? "rgba(255,255,255,0.18)" : "#9CA3AF" }}>
+                          Adicione produtos em <strong>Cardápio → Produtos</strong>
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">

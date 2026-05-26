@@ -30,6 +30,7 @@ import {
   Bike,
   MapPin,
   Landmark,
+  BarChart2,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -105,8 +106,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "IA",
     items: [
-      { href: "/bi",                    label: "Central de Inteligência", icon: <Bot size={16} />,      roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/cadastro-inteligente",  label: "Cadastro por Imagem",     icon: <Sparkles size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {
@@ -116,16 +116,12 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "Financeiro",
-    items: [
-      { href: "/financeiro",             label: "Financeiro",    icon: <Landmark size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-    ],
-  },
-  {
     title: "Configurações",
     items: [
-      { href: "/theme",         label: "Tema / Visual", icon: <Palette size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
-      { href: "/tables/qrcode", label: "QR Code Mesas", icon: <QrCode size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/financeiro",    label: "Financeiro",              icon: <Landmark size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/bi",            label: "Relatórios / BI",         icon: <BarChart2 size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/theme",         label: "Tema / Visual",           icon: <Palette size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/tables/qrcode", label: "QR Code Mesas",           icon: <QrCode size={16} />,   roles: ["SUPER_ADMIN","ADMIN"] },
     ],
   },
 ];

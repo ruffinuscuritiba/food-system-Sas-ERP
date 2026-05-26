@@ -22,3 +22,12 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Scrollbar invisível — mantém o scroll funcional sem mostrar a barra */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

@@ -92,7 +92,7 @@ export default function PDVPage() {
         </div>
 
         {/* MENU */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
 
             <MenuSection
               title=""
@@ -289,7 +289,7 @@ export default function PDVPage() {
         <div className="flex-1 grid grid-cols-[220px_1fr] overflow-hidden">
 
           {/* CATEGORY COLUMN */}
-          <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto bg-[#050816]">
+          <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto scrollbar-hide bg-[#050816]">
 
             <div className="space-y-4">
 
@@ -311,7 +311,7 @@ export default function PDVPage() {
           </aside>
 
           {/* PRODUCTS */}
-          <section className="flex-1 min-w-0 overflow-y-auto p-6 bg-[#030712]">
+          <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[#030712]">
 
             {/* HERO */}
             <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">

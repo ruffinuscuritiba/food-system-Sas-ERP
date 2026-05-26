@@ -16,7 +16,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "js-cookie": "^3.0.5",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^1.16.0",
     "next": "16.2.4",
     "qrcode.react": "^4.2.0",
     "radix-ui": "^1.4.3",
@@ -39,6 +39,7 @@
     "autoprefixer": "^10.5.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "playwright": "^1.60.0",
     "postcss": "^8.5.14",
     "tailwindcss": "^4.3.0",
     "typescript": "^5"

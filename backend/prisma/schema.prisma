@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -40,13 +39,6 @@ enum CashMovementType {
   WITHDRAW
 }
 
-enum PizzaSize {
-  PEQUENA
-  MEDIA
-  GRANDE
-  FAMILIA
-}
-
 enum StockMovementType {
   ENTRY
   EXIT
@@ -74,136 +66,10 @@ enum PaymentMethod {
   TRANSFER
 }
 
-enum PaymentStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
-enum PointTransactionType {
-  EARN
-  REDEEM
-}
-
 enum OrderType {
   DELIVERY
   DINE_IN
   PICKUP
-}
-
-enum ImportType {
-  MENU
-  INVOICE
-}
-
-enum OnlineOrderStatus {
-  PENDING
-  CONFIRMED
-  PREPARING
-  READY
-  DELIVERING
-  COMPLETED
-  CANCELED
-}
-
-enum OnlinePaymentStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  REFUNDED
-  EXPIRED
-}
-
-enum OnlinePaymentMethod {
-  PIX
-  CREDIT_CARD
-  DEBIT_CARD
-  CASH
-}
-
-enum ImportStatus {
-  PROCESSING
-  DONE
-  ERROR
-}
-
-model ImportSession {
-  id        String       @id @default(cuid())
-  companyId String
-  type      ImportType
-  status    ImportStatus @default(PROCESSING)
-  fileUrl   String?
-  rawResult Json?
-  errorMsg  String?
-  items     ImportItem[]
-  logs      ImportLog[]
-  company   Company      @relation(fields: [companyId], references: [id])
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  @@index([companyId])
-  @@index([status])
-}
-
-model ImportItem {
-  id         String        @id @default(cuid())
-  sessionId  String
-  session    ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  data       Json
-  confidence Float?
-  confirmed  Boolean       @default(false)
-  savedId    String?
-  createdAt  DateTime      @default(now())
-
-  @@index([sessionId])
-}
-
-model ImportLog {
-  id        String        @id @default(cuid())
-  sessionId String
-  session   ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  level     String
-  message   String
-  createdAt DateTime      @default(now())
-
-  @@index([sessionId])
-}
-
-enum ModuleCategory {
-  OPERACAO
-  MARKETING
-  FINANCEIRO
-  AUTOMACAO
-}
-
-enum ModuleStatus {
-  TRIAL
-  ACTIVE
-  INACTIVE
-  EXPIRED
-}
-
-model Module {
-  id              String         @id @default(cuid())
-  slug            String         @unique
-  name            String
-  description     String
-  longDescription String?
-  icon            String
-  category        ModuleCategory
-  price           Decimal?       @db.Decimal(10,2)
-  isFree          Boolean        @default(false)
-  badge           String?
-  badgeColor      String?
-  benefits        String[]
-  isHighlighted   Boolean        @default(false)
-  isActive        Boolean        @default(true)
-  sortOrder       Int            @default(0)
-  createdAt       DateTime       @default(now())
-
-  @@index([category])
-  @@index([slug])
 }
 
 model Company {
@@ -229,13 +95,9 @@ model Company {
 
   modules CompanyModule[]
 
-  importSessions ImportSession[]
-
   products Product[]
 
   categories Category[]
-
-  pizzaBorders PizzaBorder[]
 
   customers Customer[]
 
@@ -255,8 +117,6 @@ model Company {
 
   recipes Recipe[]
 
-  recipeItems RecipeItem[]
-
   stockMovements StockMovement[]
 
   companyTheme CompanyTheme?
@@ -265,15 +125,16 @@ model Company {
 
   auditLogs AuditLog[]
 
-  payments Payment[]
-
   loyaltyAccounts LoyaltyAccount[]
-
-  chatSessions ChatSession[]
 
   coupons Coupon[]
 
-  onlineOrders OnlineOrder[]
+  payments Payment[]
+
+  chatSessions ChatSession[]
+
+  metaPixelId       String?   // F9: Meta Pixel ID
+  googleAnalyticsId String?   // F10: GA4 Measurement ID
 
   createdAt DateTime @default(now())
 
@@ -306,32 +167,30 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([email])
 }
 
 model CompanyModule {
-  id          String       @id @default(cuid())
-  module      String
-  active      Boolean      @default(false)
-  moduleSlug  String       @default("")
-  status      ModuleStatus @default(INACTIVE)
-  trialEndsAt DateTime?
-  activatedAt DateTime?
-  companyId   String
-  company     Company      @relation(fields: [companyId], references: [id])
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @default(now()) @updatedAt
+  id String @id @default(cuid())
+
+  module String
+
+  active Boolean @default(false)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
 
   @@index([companyId])
-  @@index([moduleSlug])
 }
 
 model Category {
   id String @id @default(cuid())
 
   name String
-
-  allowMultipleFlavors Boolean @default(false)
 
   companyId String
 
@@ -344,6 +203,7 @@ model Category {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([name])
 }
 
@@ -390,11 +250,7 @@ model Product {
 
   recipe Recipe?
 
-  sizes ProductSize[]
-
   orderItems OrderItem[]
-
-  orderItemFlavors OrderItemFlavor[]
 
   tableOrderItems TableOrderItem[]
 
@@ -403,47 +259,10 @@ model Product {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([categoryId])
+
   @@index([name])
-}
-
-model ProductSize {
-  id        String    @id @default(cuid())
-  productId String
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  size      PizzaSize
-  price     Decimal   @db.Decimal(10, 2)
-  companyId String
-  createdAt DateTime  @default(now())
-
-  @@unique([productId, size])
-  @@index([productId])
-  @@index([companyId])
-}
-
-model PizzaBorder {
-  id         String           @id @default(cuid())
-  name       String
-  isActive   Boolean          @default(true)
-  companyId  String
-  company    Company          @relation(fields: [companyId], references: [id])
-  sizes      PizzaBorderSize[]
-  orderItems OrderItem[]
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-
-  @@index([companyId])
-}
-
-model PizzaBorderSize {
-  id            String      @id @default(cuid())
-  pizzaBorderId String
-  pizzaBorder   PizzaBorder @relation(fields: [pizzaBorderId], references: [id], onDelete: Cascade)
-  size          PizzaSize
-  price         Decimal     @db.Decimal(10, 2)
-
-  @@unique([pizzaBorderId, size])
-  @@index([pizzaBorderId])
 }
 
 model Customer {
@@ -461,6 +280,10 @@ model Customer {
 
   orders Order[]
 
+  loyaltyAccount LoyaltyAccount?
+
+  coupons Coupon[]
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -470,6 +293,7 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([phone])
 }
 
@@ -494,8 +318,6 @@ model Order {
 
   items OrderItem[]
 
-  payments Payment[]
-
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -518,12 +340,16 @@ model Order {
 
   cancelledAt DateTime?
 
+  payment Payment?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([status])
+
   @@index([createdAt])
 }
 
@@ -548,23 +374,13 @@ model OrderItem {
 
   subtotal Decimal @db.Decimal(10, 2)
 
-  productCost Decimal? @db.Decimal(10, 2)
+  productCost Decimal? @db.Decimal(10,2)
 
-  cmv Decimal? @db.Decimal(10, 2)
+  cmv Decimal? @db.Decimal(10,2)
 
-  profit Decimal? @db.Decimal(10, 2)
+  profit Decimal? @db.Decimal(10,2)
 
   notes String?
-
-  pizzaSize     PizzaSize?
-
-  pizzaBorderId String?
-
-  pizzaBorder   PizzaBorder? @relation(fields: [pizzaBorderId], references: [id], onDelete: SetNull)
-
-  borderPrice   Decimal?     @db.Decimal(10, 2)
-
-  flavors       OrderItemFlavor[]
 
   companyId String
 
@@ -573,21 +389,9 @@ model OrderItem {
   createdAt DateTime @default(now())
 
   @@index([companyId])
+
   @@index([orderId])
-  @@index([productId])
-}
 
-model OrderItemFlavor {
-  id          String    @id @default(cuid())
-  orderItemId String
-  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-  position    Int
-  companyId   String
-  createdAt   DateTime  @default(now())
-
-  @@index([orderItemId])
   @@index([productId])
 }
 
@@ -685,6 +489,7 @@ model Financial {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([type])
 }
 
@@ -728,7 +533,9 @@ model Ingredient {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
   @@index([deletedAt])
+
   @@index([name])
 }
 
@@ -761,18 +568,14 @@ model RecipeItem {
 
   quantity Decimal @db.Decimal(10, 2)
 
-  companyId String
-
-  company Company @relation(fields: [companyId], references: [id])
-
   recipe Recipe @relation(fields: [recipeId], references: [id])
 
   ingredient Ingredient @relation(fields: [ingredientId], references: [id])
 
   createdAt DateTime @default(now())
 
-  @@index([companyId])
   @@index([recipeId])
+
   @@index([ingredientId])
 }
 
@@ -812,8 +615,11 @@ model StockMovement {
   createdAt DateTime @default(now())
 
   @@index([companyId])
+
   @@index([ingredientId])
+
   @@index([type])
+
   @@index([createdAt])
 }
 
@@ -837,10 +643,6 @@ model CompanyTheme {
   bannerUrl String?
 
   darkMode Boolean @default(true)
-
-  metaPixelId String?
-
-  gaId String?
 
   createdAt DateTime @default(now())
 
@@ -899,190 +701,151 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([companyId])
+
   @@index([userId])
+
   @@index([entity])
+
   @@index([action])
+
   @@index([createdAt])
 }
 
-model LoyaltyAccount {
-  id String @id @default(cuid())
+// ─── F8: Gateway de Pagamento ───────────────────────────────
 
-  phone String
+model Payment {
+  id          String        @id @default(uuid())
+  orderId     String        @unique
+  order       Order         @relation(fields: [orderId], references: [id])
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
+  externalId  String?       // ID gerado pelo Mercado Pago / PagSeguro
+  provider    PaymentProvider
+  status      PaymentStatus @default(PENDING)
+  amount      Decimal       @db.Decimal(10, 2)
+  currency    String        @default("BRL")
+  checkoutUrl String?       // URL de redirect para o cliente
+  webhookData Json?         // payload bruto do webhook
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  companyId String
-
-  company Company @relation(fields: [companyId], references: [id])
-
-  points Int @default(0)
-
-  totalOrders Int @default(0)
-
-  totalSpent Decimal @default(0) @db.Decimal(10, 2)
-
-  transactions PointTransaction[]
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  @@unique([phone, companyId])
+  @@index([orderId])
+  @@index([externalId])
   @@index([companyId])
-  @@index([phone])
+}
+
+enum PaymentProvider {
+  MERCADO_PAGO
+  PAGSEGURO
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+// ─── F7: Sistema de Fidelidade ──────────────────────────────
+
+model LoyaltyAccount {
+  id           String             @id @default(uuid())
+  customerId   String             @unique
+  customer     Customer           @relation(fields: [customerId], references: [id])
+  companyId    String
+  company      Company            @relation(fields: [companyId], references: [id])
+  totalPoints  Int                @default(0)
+  totalCashback Decimal           @default(0) @db.Decimal(10, 2)
+  transactions PointTransaction[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([customerId, companyId])
+  @@index([companyId])
 }
 
 model PointTransaction {
-  id String @id @default(cuid())
-
+  id               String          @id @default(uuid())
   loyaltyAccountId String
-
-  loyaltyAccount LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id])
-
-  companyId String
-
-  type PointTransactionType
-
-  points Int
-
-  orderId String?
-
-  description String?
-
-  createdAt DateTime @default(now())
+  loyaltyAccount   LoyaltyAccount  @relation(fields: [loyaltyAccountId], references: [id])
+  orderId          String?
+  points           Int             // positivo = ganho, negativo = resgatado
+  type             PointType
+  description      String?
+  expiresAt        DateTime?
+  createdAt        DateTime        @default(now())
 
   @@index([loyaltyAccountId])
-  @@index([companyId])
 }
 
-model ChatSession {
-  id        String        @id @default(cuid())
-  companyId String
-  company   Company       @relation(fields: [companyId], references: [id])
-  messages  ChatMessage[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+enum PointType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  BONUS
+  CASHBACK
+}
+
+model Coupon {
+  id              String       @id @default(uuid())
+  companyId       String
+  company         Company      @relation(fields: [companyId], references: [id])
+  code            String       @unique
+  type            CouponType
+  value           Decimal      @db.Decimal(10, 2) // % ou R$ dependendo do type
+  minOrderAmount  Decimal?     @db.Decimal(10, 2)
+  maxDiscount     Decimal?     @db.Decimal(10, 2)
+  usageLimit      Int?
+  usageCount      Int          @default(0)
+  customerId      String?
+  customer        Customer?    @relation(fields: [customerId], references: [id])
+  pointsCost      Int?         // pontos necessários para resgatar
+  active          Boolean      @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@index([companyId])
+  @@index([code])
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+// ─── F6: Chatbot IA ─────────────────────────────────────────
+
+model ChatSession {
+  id         String        @id @default(uuid())
+  companyId  String
+  company    Company       @relation(fields: [companyId], references: [id])
+  customerId String?
+  sessionKey String        @unique @default(uuid()) // usado no frontend (cookie)
+  messages   ChatMessage[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([companyId])
+  @@index([sessionKey])
 }
 
 model ChatMessage {
-  id        String      @id @default(cuid())
+  id        String      @id @default(uuid())
   sessionId String
   session   ChatSession @relation(fields: [sessionId], references: [id])
-  role      String
+  role      ChatRole
   content   String      @db.Text
   createdAt DateTime    @default(now())
 
   @@index([sessionId])
 }
 
-model Coupon {
-  id        String    @id @default(cuid())
-  companyId String
-  company   Company   @relation(fields: [companyId], references: [id])
-  code      String
-  discount  Decimal   @db.Decimal(10, 2)
-  isPercent Boolean   @default(false)
-  maxUses   Int?
-  usedCount Int       @default(0)
-  expiresAt DateTime?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@unique([code, companyId])
-  @@index([companyId])
-}
-
-model OnlineOrder {
-  id                      String              @id @default(cuid())
-  companyId               String
-  company                 Company             @relation(fields: [companyId], references: [id])
-
-  customerName            String
-  customerPhone           String
-  customerEmail           String?
-
-  orderType               OrderType           @default(DELIVERY)
-
-  address                 String?
-  addressNumber           String?
-  neighborhood            String?
-  city                    String?
-  state                   String?
-  zipcode                 String?
-  complement              String?
-
-  items                   Json
-
-  subtotal                Decimal             @db.Decimal(10, 2)
-  deliveryFee             Decimal             @default(0) @db.Decimal(10, 2)
-  discount                Decimal             @default(0) @db.Decimal(10, 2)
-  total                   Decimal             @db.Decimal(10, 2)
-
-  paymentMethod           OnlinePaymentMethod @default(PIX)
-  paymentGateway          String              @default("MERCADOPAGO")
-  paymentStatus           OnlinePaymentStatus @default(PENDING)
-  orderStatus             OnlineOrderStatus   @default(PENDING)
-
-  mercadopagoPaymentId    String?
-  mercadopagoPreferenceId String?
-  pixQrcode               String?
-  pixCopyPaste            String?
-  pixExpiresAt            DateTime?
-
-  notes                   String?
-  paidAt                  DateTime?
-
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-
-  @@index([companyId])
-  @@index([paymentStatus])
-  @@index([orderStatus])
-  @@index([mercadopagoPaymentId])
-  @@index([createdAt])
-}
-
-model PaymentWebhook {
-  id        String   @id @default(cuid())
-  companyId String?
-  gateway   String
-  eventId   String
-  event     String
-  payload   Json
-  processed Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@unique([gateway, eventId])
-  @@index([processed])
-  @@index([companyId])
-}
-
-model Payment {
-  id String @id @default(cuid())
-
-  orderId String
-
-  order Order @relation(fields: [orderId], references: [id])
-
-  companyId String
-
-  company Company @relation(fields: [companyId], references: [id])
-
-  externalId String?
-
-  status PaymentStatus @default(PENDING)
-
-  provider String @default("MERCADOPAGO")
-
-  amount Decimal @db.Decimal(10, 2)
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  @@index([orderId])
-  @@index([companyId])
-  @@index([status])
+enum ChatRole {
+  USER
+  ASSISTANT
 }

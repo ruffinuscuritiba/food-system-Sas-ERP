@@ -17,6 +17,9 @@ from "../stock/stock.service";
 import { SocketGateway }
 from "../../socket/socket.gateway";
 
+import { LoyaltyService }
+from "../loyalty/loyalty.service";
+
 @Injectable()
 export class OrdersService {
 
@@ -26,15 +29,16 @@ export class OrdersService {
     private stockService: StockService,
 
     private socketGateway: SocketGateway,
+
+    private loyaltyService: LoyaltyService,
   ) {}
 
   async create(data: any) {
 
-    // Collect all product IDs including pizza flavors
-    const productsIds = [
-      ...data.items.map((item: any) => item.productId),
-      ...data.items.flatMap((item: any) => (item.flavors ?? []).map((f: any) => f.productId)),
-    ].filter(Boolean);
+    const productsIds =
+      data.items.map(
+        (item) => item.productId,
+      );
 
     const products =
       await this.prisma.product.findMany({
@@ -48,61 +52,80 @@ export class OrdersService {
           companyId:
             data.companyId,
         },
-
-        include: {
-          sizes: true,
-        },
       });
 
-    const productsMap = new Map(products.map((p) => [p.id, p]));
+    const productsMap =
+      new Map(
+
+        products.map(
+          (product) => [
+
+            product.id,
+
+            product,
+          ],
+        ),
+      );
 
     let subtotal = 0;
 
-    const orderItemsData = data.items.map((item: any) => {
+    const orderItemsData =
+      data.items.map((item) => {
 
-      const product = productsMap.get(item.productId);
+        const product =
+          productsMap.get(
+            item.productId,
+          );
 
-      if (!product) {
-        throw new NotFoundException("Produto não encontrado");
-      }
+        if (!product) {
 
-      const quantity = Number(item.quantity);
+          throw new NotFoundException(
+            "Produto não encontrado",
+          );
+        }
 
-      // Use unitPrice from payload when provided (already accounts for size/border)
-      // Fall back to salePrice for regular (non-pizza) items
-      const unitPrice = item.unitPrice !== undefined
-        ? Number(item.unitPrice)
-        : Number(product.salePrice || 0);
+        const quantity =
+          Number(item.quantity);
 
-      const borderPrice = Number(item.borderPrice || 0);
-      const itemSubtotal = quantity * (unitPrice + borderPrice);
+        const unitPrice =
+          Number(
+            product.salePrice || 0,
+          );
 
-      subtotal += itemSubtotal;
+        const itemSubtotal =
+          quantity * unitPrice;
 
-      const flavorRows = (item.flavors ?? []).map((f: any, idx: number) => ({
-        productId: f.productId,
-        position: idx + 1,
-        companyId: data.companyId,
-      }));
+        subtotal +=
+          itemSubtotal;
 
-      return {
-        productId: product.id,
-        quantity,
-        unitPrice: unitPrice + borderPrice,
-        subtotal: itemSubtotal,
-        notes: item.notes,
-        companyId: data.companyId,
-        productName: item.productName ?? product.name,
-        productSku: product.sku,
-        productCost: product.costPrice,
-        ...(item.pizzaSize && { pizzaSize: item.pizzaSize }),
-        ...(item.pizzaBorderId && { pizzaBorderId: item.pizzaBorderId }),
-        ...(borderPrice > 0 && { borderPrice }),
-        ...(flavorRows.length > 0 && {
-          flavors: { create: flavorRows },
-        }),
-      };
-    });
+        return {
+
+          productId:
+            product.id,
+
+          quantity,
+
+          unitPrice,
+
+          subtotal:
+            itemSubtotal,
+
+          notes:
+            item.notes,
+
+          companyId:
+            data.companyId,
+
+          productName:
+            product.name,
+
+          productSku:
+            product.sku,
+
+          productCost:
+            product.costPrice,
+        };
+      });
 
     const deliveryFee =
       Number(
@@ -151,9 +174,7 @@ export class OrdersService {
 
             include: {
 
-              items: {
-                include: { flavors: true },
-              },
+              items: true,
 
               customer: true,
             },
@@ -176,7 +197,6 @@ export class OrdersService {
 
     this.socketGateway
       .emitDashboardUpdate(
-        data.companyId,
         dashboard,
       );
 
@@ -210,7 +230,6 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
     userId: string,
-    companyId?: string,
   ) {
 
     const order =
@@ -218,8 +237,6 @@ export class OrdersService {
 
         where: {
           id,
-          // Se companyId fornecido (não SUPER_ADMIN), valida ownership
-          ...(companyId ? { companyId } : {}),
         },
 
         include: {
@@ -260,8 +277,6 @@ export class OrdersService {
                   where: {
                     productId:
                       orderItem.productId,
-                    companyId:
-                      order.companyId,
                   },
 
                   include: {
@@ -370,6 +385,16 @@ export class OrdersService {
                 },
               });
             }
+
+            // Hook de fidelidade após confirmação
+            if (order.customerId) {
+              await this.loyaltyService.processOrderReward(
+                order.customerId,
+                order.companyId,
+                order.id,
+                Number(order.total),
+              );
+            }
           }
 
           if (
@@ -392,8 +417,6 @@ export class OrdersService {
                   where: {
                     productId:
                       orderItem.productId,
-                    companyId:
-                      order.companyId,
                   },
 
                   include: {
@@ -505,6 +528,9 @@ export class OrdersService {
 
             timestamps.deliveredAt =
               new Date();
+
+            timestamps.completedAt =
+              new Date();
           }
 
           if (
@@ -519,21 +545,13 @@ export class OrdersService {
           return tx.order.update({
 
             where: {
-              id: order.id,
+              id,
             },
 
             data: {
-
               status,
 
               ...timestamps,
-            },
-
-            include: {
-
-              items: true,
-
-              customer: true,
             },
           });
         },
@@ -545,7 +563,7 @@ export class OrdersService {
       );
 
     this.socketGateway
-      .emitKitchenUpdate(
+      .emitOrderStatusUpdated(
         updatedOrder,
       );
 
@@ -556,7 +574,6 @@ export class OrdersService {
 
     this.socketGateway
       .emitDashboardUpdate(
-        order.companyId,
         dashboard,
       );
 
@@ -567,107 +584,55 @@ export class OrdersService {
     companyId: string,
   ) {
 
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+
     const orders =
       await this.prisma.order.findMany({
 
         where: {
-
           companyId,
 
-          status: {
-
-            not:
-              OrderStatus.CANCELLED,
+          createdAt: {
+            gte: today,
           },
         },
-
-        include: {
-
-          items: true,
-        },
       });
-
-    const revenue =
-      orders.reduce(
-
-        (
-          total,
-          order,
-        ) => {
-
-          return (
-            total +
-            Number(
-              order.total,
-            )
-          );
-        },
-
-        0,
-      );
-
-    let totalProfit = 0;
-
-    let totalCmv = 0;
-
-    for (
-      const order
-      of orders
-    ) {
-
-      for (
-        const item
-        of order.items
-      ) {
-
-        totalProfit +=
-
-          Number(
-            item.profit || 0,
-          );
-
-        totalCmv +=
-
-          Number(
-            item.cmv || 0,
-          );
-      }
-    }
 
     const totalOrders =
       orders.length;
 
-    const averageTicket =
-      totalOrders > 0
+    const totalRevenue =
+      orders.reduce(
+        (acc, order) =>
+          acc +
+          Number(order.total),
+        0,
+      );
 
-        ? revenue /
-          totalOrders
+    const pendingOrders =
+      orders.filter(
+        (order) =>
+          order.status ===
+          OrderStatus.PENDING,
+      ).length;
 
-        : 0;
-
-    const margin =
-      revenue > 0
-
-        ? (
-            totalProfit /
-            revenue
-          ) * 100
-
-        : 0;
+    const confirmedOrders =
+      orders.filter(
+        (order) =>
+          order.status ===
+          OrderStatus.CONFIRMED,
+      ).length;
 
     return {
-
-      revenue,
-
-      totalProfit,
-
-      totalCmv,
-
-      margin,
-
       totalOrders,
 
-      averageTicket,
+      totalRevenue,
+
+      pendingOrders,
+
+      confirmedOrders,
     };
   }
 }

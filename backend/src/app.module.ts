@@ -15,16 +15,9 @@ import { CompanyModule } from './modules/company/company.module'
 import { AuditModule } from './modules/audit/audit.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
 import { PaymentsModule } from './modules/payments/payments.module'
-import { CompanyModuleModule } from './company-module/company-module.module'
-import { SuperAdminModule } from './modules/super-admin/super-admin.module'
 import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { ChatModule } from './modules/chat/chat.module'
-import { CouponsModule } from './modules/coupons/coupons.module'
-import { UploadModule } from './modules/upload/upload.module'
-import { SmartImportModule } from './modules/smart-import/smart-import.module'
-import { IngredientsModule } from './modules/ingredients/ingredients.module'
-import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module'
-import { OnlineOrdersModule } from './modules/online-orders/online-orders.module'
+import { PaymentModule } from './modules/payment/payment.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -45,18 +38,11 @@ import { AppService } from './app.service'
     CashModule,
     ThemesModule,
     CompanyModule,
-    CompanyModuleModule,
-    SuperAdminModule,
     NotificationsModule,
     PaymentsModule,
     LoyaltyModule,
     ChatModule,
-    CouponsModule,
-    UploadModule,
-    IngredientsModule,
-    SmartImportModule,
-    PizzaBordersModule,
-    OnlineOrdersModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

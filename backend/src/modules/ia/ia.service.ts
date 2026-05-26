@@ -1,23 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { ReportsService } from '../reports/reports.service';
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class IaService {
   private readonly logger = new Logger(IaService.name);
-  private client: Anthropic;
+  private genai: GoogleGenerativeAI;
 
   constructor(private prisma: PrismaService, private reports: ReportsService) {
-    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    this.genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
   }
 
   async ask(companyId: string, userId: string, conversationId: string | null, question: string) {
-    // Build business context
     const kpis = await this.reports.getExecutiveKpis(companyId).catch(() => null);
-    const company = await this.prisma.company.findUnique({ where: { id: companyId }, select: { name: true, plan: true } });
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true, plan: true },
+    });
 
-    const contextBlock = kpis ? `
+    const contextBlock = kpis
+      ? `
 CONTEXTO DO NEGÓCIO (últimos 30 dias):
 - Empresa: ${company?.name}
 - Faturamento: R$ ${kpis.revenue.toFixed(2)}
@@ -25,8 +28,14 @@ CONTEXTO DO NEGÓCIO (últimos 30 dias):
 - Pedidos: ${kpis.orderCount} | Ticket médio: R$ ${kpis.avgTicket.toFixed(2)}
 - CMV: R$ ${kpis.cmv.toFixed(2)} (${(kpis.cmvRatio * 100).toFixed(1)}% do faturamento)
 - Taxa de cancelamento: ${(kpis.cancelRate * 100).toFixed(1)}%
-- Top produtos: ${kpis.topProducts.slice(0, 5).map(p => `${p.productName} (R$ ${p.revenue.toFixed(0)})`).join(', ')}
-` : '';
+- Top produtos: ${kpis.topProducts.slice(0, 5).map((p) => `${p.productName} (R$ ${p.revenue.toFixed(0)})`).join(', ')}
+`
+      : '';
+
+    const systemInstruction = `Você é um consultor de negócios especializado em restaurantes e food service, integrado ao ERP da empresa.
+Responda de forma objetiva, prática e em português brasileiro.
+Use dados reais do negócio quando disponíveis. Foque em insights acionáveis.
+${contextBlock}`;
 
     // Get or create conversation
     let conv = conversationId
@@ -46,25 +55,23 @@ CONTEXTO DO NEGÓCIO (últimos 30 dias):
       take: 20,
     });
 
-    const messages: { role: 'user' | 'assistant'; content: string }[] = [
-      ...history.map((m) => ({ role: m.role.toLowerCase() as 'user' | 'assistant', content: m.content })),
-      { role: 'user', content: question },
-    ];
-
-    const response = await this.client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: `Você é um consultor de negócios especializado em restaurantes e food service, integrado ao ERP da empresa.
-Responda de forma objetiva, prática e em português brasileiro.
-Use dados reais do negócio quando disponíveis. Foque em insights acionáveis.
-${contextBlock}`,
-      messages,
+    const model = this.genai.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      systemInstruction,
     });
 
-    const answer = response.content[0].type === 'text' ? response.content[0].text : '';
-    const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+    const chat = model.startChat({
+      history: history.map((m) => ({
+        role: m.role === 'USER' ? 'user' : 'model',
+        parts: [{ text: m.content }],
+      })),
+    });
 
-    // Persist messages
+    const result = await chat.sendMessage(question);
+    const answer = result.response.text();
+    const usage = result.response.usageMetadata;
+    const tokensUsed = (usage?.promptTokenCount ?? 0) + (usage?.candidatesTokenCount ?? 0);
+
     await this.prisma.aiMessage.createMany({
       data: [
         { conversationId: conv.id, role: 'USER', content: question },

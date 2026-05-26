@@ -53,6 +53,30 @@ function getPriceForSize(p: Product, size: string) {
 }
 function fmt(n: number) { return `R$ ${n.toFixed(2)}`; }
 
+function getCategoryEmoji(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("pizza") || n.includes("pizz")) return "🍕";
+  if (n.includes("lanche") || n.includes("burger") || n.includes("hamburguer")) return "🍔";
+  if (n.includes("bebida") || n.includes("drink") || n.includes("suco") || n.includes("refri")) return "🥤";
+  if (n.includes("sobremesa") || n.includes("doce") || n.includes("sorvete")) return "🍰";
+  if (n.includes("salada") || n.includes("vegano") || n.includes("vegetal")) return "🥗";
+  if (n.includes("frango") || n.includes("chicken") || n.includes("asa")) return "🍗";
+  if (n.includes("carne") || n.includes("steak") || n.includes("picanha") || n.includes("churrasco")) return "🥩";
+  if (n.includes("peixe") || n.includes("salmão") || n.includes("frutos")) return "🐟";
+  if (n.includes("massa") || n.includes("macarrão") || n.includes("espaguete") || n.includes("pasta")) return "🍝";
+  if (n.includes("porcao") || n.includes("porção") || n.includes("aperitivo") || n.includes("entrada")) return "🍟";
+  if (n.includes("sopa") || n.includes("caldo")) return "🍲";
+  if (n.includes("cafe") || n.includes("café") || n.includes("expresso")) return "☕";
+  if (n.includes("açaí") || n.includes("acai")) return "🫐";
+  if (n.includes("tapioca") || n.includes("crepe")) return "🫓";
+  if (n.includes("combo") || n.includes("promoção") || n.includes("promo")) return "🎁";
+  if (n.includes("adicional") || n.includes("extra")) return "➕";
+  if (n.includes("prato") || n.includes("executivo") || n.includes("almoço")) return "🍽️";
+  if (n.includes("kids") || n.includes("infantil") || n.includes("criança")) return "🧒";
+  if (n.includes("veggie") || n.includes("natural")) return "🌿";
+  return "🍴";
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PDVPage() {
   /* cash */
@@ -417,9 +441,9 @@ export default function PDVPage() {
 
           {/* "Todos" */}
           <button onClick={() => setActiveCat("ALL")}
-            className="w-full flex items-center justify-center text-center px-2 font-bold text-[13px] border-b"
+            className="w-full flex flex-col items-center justify-center text-center px-1 border-b gap-1"
             style={{
-              height: pdvTheme.compactMode ? 60 : 78,
+              height: pdvTheme.compactMode ? 64 : 88,
               background: activeCat === "ALL" ? pdvTheme.primary : "transparent",
               color: activeCat === "ALL" ? "#fff" : "rgba(255,255,255,0.45)",
               borderColor: pdvTheme.border,
@@ -428,14 +452,15 @@ export default function PDVPage() {
                 ? `inset 0 -2px 0 rgba(255,255,255,0.15), 0 0 20px ${pdvTheme.primary}60`
                 : "none",
             }}>
-            Todos
+            <span className="text-[22px] leading-none">🍴</span>
+            <span className="font-bold text-[11px] leading-tight">Todos</span>
           </button>
 
           {categories.map((cat) => (
             <button key={cat.id} onClick={() => setActiveCat(cat.id)}
-              className="w-full flex flex-col items-center justify-center text-center px-2 font-bold text-[12px] border-b leading-tight gap-0.5"
+              className="w-full flex flex-col items-center justify-center text-center px-1 border-b gap-1"
               style={{
-                height: pdvTheme.compactMode ? 60 : 78,
+                height: pdvTheme.compactMode ? 64 : 88,
                 background: activeCat === cat.id ? pdvTheme.primary : "transparent",
                 color: activeCat === cat.id ? "#fff" : "rgba(255,255,255,0.45)",
                 borderColor: pdvTheme.border,
@@ -444,7 +469,14 @@ export default function PDVPage() {
                   ? `inset 0 -2px 0 rgba(255,255,255,0.15), 0 0 20px ${pdvTheme.primary}60`
                   : "none",
               }}>
-              <span className="line-clamp-2 text-center">{cat.name}</span>
+              {cat.imageUrl ? (
+                <img src={cat.imageUrl} alt={cat.name}
+                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                  style={{ opacity: activeCat === cat.id ? 1 : 0.6 }} />
+              ) : (
+                <span className="text-[22px] leading-none">{getCategoryEmoji(cat.name)}</span>
+              )}
+              <span className="font-bold text-[11px] leading-tight line-clamp-2 text-center w-full px-1">{cat.name}</span>
             </button>
           ))}
 

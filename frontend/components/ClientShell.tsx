@@ -27,6 +27,8 @@ import {
   Sparkles,
   Puzzle,
   Bot,
+  Bike,
+  MapPin,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -52,12 +54,18 @@ type NavItem = {
   roles: string[];
 };
 
-// Module slug → nav item shown below Módulos de Integração when active
+// Module slug → nav item(s) shown below Módulos de Integração when active
 const MODULE_NAV: Record<string, NavItem> = {
   "cardapio-ia": {
     href: "/atendimento-ia",
     label: "Atendimento de IA",
     icon: <Bot size={16} />,
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+  },
+  "delivery": {
+    href: "/entregadores",
+    label: "Entregadores",
+    icon: <Bike size={16} />,
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
 };

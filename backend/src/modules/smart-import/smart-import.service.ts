@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
+import * as pdfParse from 'pdf-parse';
 import { PrismaService } from 'src/database/prisma.service';
 import { AIProvider } from 'src/services/ai/ai-provider.interface';
 import { AIProviderFactory } from 'src/services/ai/ai-provider.factory';
@@ -117,16 +118,45 @@ export class SmartImportService {
   private async runMenuExtraction(sessionId: string, buffer: Buffer, mimeType: string, companyId: string) {
     try {
       const isPdf = mimeType === 'application/pdf';
-      await this.log(sessionId, 'INFO', isPdf ? 'Analisando PDF do cardápio...' : 'Analisando imagem...');
+      await this.log(sessionId, 'INFO', isPdf ? 'Extraindo texto do PDF...' : 'Analisando imagem...');
 
-      const imageBase64 = buffer.toString('base64');
-      const safeMime = isPdf ? 'application/pdf' : this.toSafeMime(mimeType);
+      let aiParams: import('src/services/ai/ai-provider.interface').AIImageRequest;
+
+      if (isPdf) {
+        // Extract text from PDF — much more reliable than sending as binary to vision AI
+        let pdfText = '';
+        try {
+          const parsed = await (pdfParse as any)(buffer);
+          pdfText = (parsed.text ?? '').trim();
+        } catch (e) {
+          pdfText = '';
+        }
+
+        if (!pdfText || pdfText.length < 30) {
+          // Scanned PDF (image-only) — fall back to Gemini inline_data vision
+          await this.log(sessionId, 'INFO', 'PDF escaneado detectado, usando visão computacional...');
+          aiParams = {
+            prompt: MENU_PROMPT,
+            imageBase64: buffer.toString('base64'),
+            mimeType: 'application/pdf',
+          };
+        } else {
+          await this.log(sessionId, 'INFO', `Texto extraído do PDF (${pdfText.length} chars). Analisando com IA...`);
+          aiParams = { prompt: MENU_PROMPT, textContent: pdfText.slice(0, 40_000) };
+        }
+      } else {
+        aiParams = {
+          prompt: MENU_PROMPT,
+          imageBase64: buffer.toString('base64'),
+          mimeType: this.toSafeMime(mimeType),
+        };
+      }
 
       await this.log(sessionId, 'INFO', `Conectando ao serviço de IA...`);
 
       const { result, provider } = await AIProviderFactory.analyzeWithFallback(
         this.aiProviders,
-        { prompt: MENU_PROMPT, imageBase64, mimeType: safeMime },
+        aiParams,
         (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
       );
 
@@ -310,16 +340,33 @@ export class SmartImportService {
 
   private async runInvoiceVision(sessionId: string, buffer: Buffer, mimeType: string, _companyId: string) {
     try {
-      await this.log(sessionId, 'INFO', 'Analisando documento fiscal...');
+      const isPdf = mimeType === 'application/pdf';
+      await this.log(sessionId, 'INFO', isPdf ? 'Extraindo texto do PDF fiscal...' : 'Analisando documento fiscal...');
 
-      const imageBase64 = buffer.toString('base64');
-      const safeMime = this.toSafeMime(mimeType);
+      let aiParams: import('src/services/ai/ai-provider.interface').AIImageRequest;
+
+      if (isPdf) {
+        let pdfText = '';
+        try {
+          const parsed = await (pdfParse as any)(buffer);
+          pdfText = (parsed.text ?? '').trim();
+        } catch { pdfText = ''; }
+
+        if (!pdfText || pdfText.length < 30) {
+          aiParams = { prompt: INVOICE_PROMPT, imageBase64: buffer.toString('base64'), mimeType: 'application/pdf' };
+        } else {
+          await this.log(sessionId, 'INFO', `Texto extraído (${pdfText.length} chars). Analisando...`);
+          aiParams = { prompt: INVOICE_PROMPT, textContent: pdfText.slice(0, 40_000) };
+        }
+      } else {
+        aiParams = { prompt: INVOICE_PROMPT, imageBase64: buffer.toString('base64'), mimeType: this.toSafeMime(mimeType) };
+      }
 
       await this.log(sessionId, 'INFO', 'Conectando ao serviço de IA...');
 
       const { result, provider } = await AIProviderFactory.analyzeWithFallback(
         this.aiProviders,
-        { prompt: INVOICE_PROMPT, imageBase64, mimeType: safeMime },
+        aiParams,
         (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
       );
 

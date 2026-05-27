@@ -197,6 +197,7 @@ export class OrdersService {
 
     this.socketGateway
       .emitDashboardUpdate(
+        data.companyId,
         dashboard,
       );
 
@@ -563,7 +564,7 @@ export class OrdersService {
       );
 
     this.socketGateway
-      .emitOrderStatusUpdated(
+      .emitKitchenUpdate(
         updatedOrder,
       );
 
@@ -574,6 +575,7 @@ export class OrdersService {
 
     this.socketGateway
       .emitDashboardUpdate(
+        order.companyId,
         dashboard,
       );
 

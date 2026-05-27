@@ -137,6 +137,8 @@ model Company {
 
   deliveryZones DeliveryZone[]
 
+  importSessions ImportSession[]
+
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
@@ -1056,4 +1058,58 @@ model Module {
 
   @@index([category])
   @@index([slug])
+}
+
+// ─── Smart Import (cadastro inteligente por imagem/PDF/XML) ─────────────────
+enum ImportType {
+  MENU
+  INVOICE
+}
+
+enum ImportStatus {
+  PROCESSING
+  DONE
+  ERROR
+}
+
+model ImportSession {
+  id        String       @id @default(cuid())
+  companyId String
+  company   Company      @relation(fields: [companyId], references: [id])
+  type      ImportType
+  status    ImportStatus @default(PROCESSING)
+  fileUrl   String?
+  rawResult Json?
+  errorMsg  String?
+  items     ImportItem[]
+  logs      ImportLog[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([companyId])
+  @@index([status])
+}
+
+model ImportItem {
+  id         String        @id @default(cuid())
+  sessionId  String
+  session    ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  data       Json
+  confidence Float?
+  confirmed  Boolean       @default(false)
+  savedId    String?
+  createdAt  DateTime      @default(now())
+
+  @@index([sessionId])
+}
+
+model ImportLog {
+  id        String        @id @default(cuid())
+  sessionId String
+  session   ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  level     String
+  message   String
+  createdAt DateTime      @default(now())
+
+  @@index([sessionId])
 }

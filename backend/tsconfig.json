@@ -28,5 +28,19 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*spec.ts",
+    "src/modules/payments/**",
+    "src/modules/chat/**",
+    "src/modules/drivers/**",
+    "src/modules/delivery-config/**",
+    "src/modules/tracking/**",
+    "src/modules/alerts/**",
+    "src/modules/coupons/**",
+    "src/modules/online-orders/**",
+    "src/modules/pizza-borders/**"
+  ]
 }

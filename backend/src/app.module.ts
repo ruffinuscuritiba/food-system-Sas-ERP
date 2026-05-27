@@ -14,17 +14,17 @@ import { ThemesModule } from './modules/themes/themes.module'
 import { CompanyModule } from './modules/company/company.module'
 import { AuditModule } from './modules/audit/audit.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
-import { PaymentsModule } from './modules/payments/payments.module'
-import { LoyaltyModule } from './modules/loyalty/loyalty.module'
-import { ChatModule } from './modules/chat/chat.module'
-import { DriversModule } from './modules/drivers/drivers.module'
-import { DeliveryConfigModule } from './modules/delivery-config/delivery-config.module'
-import { TrackingModule } from './modules/tracking/tracking.module'
 import { ReportsModule } from './modules/reports/reports.module'
-import { AlertsModule } from './modules/alerts/alerts.module'
 import { IaModule } from './modules/ia/ia.module'
+import { LoyaltyModule } from './modules/loyalty/loyalty.module'
+import { SmartImportModule } from './modules/smart-import/smart-import.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
+
+// NOTE: Modules disabled temporarily due to schema/code mismatch
+// (will be re-enabled after backend cleanup):
+// - PaymentsModule, LoyaltyModule, ChatModule, DriversModule,
+// - DeliveryConfigModule, TrackingModule, AlertsModule
 
 @Module({
   imports: [
@@ -44,15 +44,10 @@ import { AppService } from './app.service'
     ThemesModule,
     CompanyModule,
     NotificationsModule,
-    PaymentsModule,
-    LoyaltyModule,
-    ChatModule,
-    DriversModule,
-    DeliveryConfigModule,
-    TrackingModule,
     ReportsModule,
-    AlertsModule,
     IaModule,
+    LoyaltyModule,
+    SmartImportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -288,22 +288,21 @@ export default function PDVPage() {
           {/* PRODUCTS */}
           <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[#030712]">
 
-            {/* HERO banner — shows active category name */}
-            <div className="relative h-[160px] w-full rounded-[32px] overflow-hidden mb-6 bg-gradient-to-br from-blue-900 to-slate-900">
-              <div className="absolute inset-0 opacity-20"
-                style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #3b82f6 0%, transparent 60%)" }} />
-              <div className="relative z-10 p-8 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl font-black shadow-lg">
-                  🍽️
-                </div>
-                <div>
-                  <h1 className="text-2xl xl:text-3xl font-black leading-tight">
-                    {activeCategoryName}
-                  </h1>
-                  <p className="text-zinc-400 text-sm mt-1">
-                    {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}
-                  </p>
-                </div>
+            {/* HERO banner */}
+            <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
+              <img
+                src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400"
+                className="absolute inset-0 w-full h-full object-cover"
+                alt="hero"
+              />
+              <div className="absolute inset-0 bg-black/60" />
+              <div className="relative z-10 p-10">
+                <h1 className="text-3xl xl:text-5xl font-black mb-2 leading-tight break-words max-w-[700px]">
+                  {activeCategoryName}
+                </h1>
+                <p className="text-base text-zinc-300">
+                  {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}
+                </p>
               </div>
             </div>
 

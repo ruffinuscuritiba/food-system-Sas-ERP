@@ -23,7 +23,7 @@ export class AnthropicProvider implements AIProvider {
       messages: [{
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: validMime as any, data: imageBase64 } },
+          { type: 'image', source: { type: 'base64', media_type: validMime as any, data: imageBase64 as any } },
           { type: 'text', text: prompt },
         ],
       }],

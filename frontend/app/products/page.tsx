@@ -202,7 +202,7 @@ export default function ProductsPage() {
       await api.post("/products", formData);
       toast.success("Produto criado");
       setForm(emptyForm);
-      setFormSizes(emptySizes());
+      setFormSizes(defaultSizes());
       setFormHasSizes(false);
       setImage(null);
       setShowForm(false);

@@ -1,100 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import {
-  Search, LayoutGrid, ShoppingBag, Megaphone, DollarSign,
-  Sparkles, Puzzle, Check, MoreHorizontal, Download,
-  Package, Clock, AlertCircle, ChevronRight, TrendingUp,
+  TrendingUp, Check, ChevronRight, Sparkles, Shield, CreditCard, Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { HeroModules } from "@/components/modulos/HeroModules";
+import { ModuleGrid, CatKey } from "@/components/modulos/ModuleGrid";
+import { BillingPeriod } from "@/components/modulos/PricingSelector";
+import { AnalyticsOrb } from "@/components/modulos/AnalyticsOrb";
+import type { Mod } from "@/components/modulos/ModuleCard";
 
-type ModuleStatus = "ACTIVE" | "INACTIVE" | "TRIAL" | "EXPIRED";
-
-interface Mod {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: string;
-  price: number | null;
-  isFree: boolean;
-  badge: string | null;
-  badgeColor: string | null;
-  benefits: string[];
-  isHighlighted: boolean;
-  sortOrder: number;
-  companyModuleId: string | null;
-  status: ModuleStatus;
-  trialEndsAt: string | null;
-  activatedAt: string | null;
-}
-
-// ─── Visual helpers ───────────────────────────────────────────────────────────
-
-const GRADIENT: Record<string, string> = {
-  "pdv":                   "from-blue-400 to-blue-600",
-  "delivery":              "from-emerald-400 to-green-600",
-  "nfce":                  "from-red-400 to-rose-600",
-  "estoque":               "from-amber-400 to-orange-500",
-  "cozinha":               "from-orange-400 to-red-500",
-  "multi-loja":            "from-purple-400 to-violet-600",
-  "meta-pixel":            "from-blue-500 to-indigo-600",
-  "google-analytics":      "from-green-400 to-teal-500",
-  "fidelidade":            "from-teal-400 to-cyan-600",
-  "cupons":                "from-yellow-400 to-amber-500",
-  "crm-whatsapp":          "from-green-500 to-emerald-600",
-  "recuperacao-clientes":  "from-sky-400 to-blue-500",
-  "fluxo-caixa":           "from-emerald-400 to-green-600",
-  "dashboard-financeiro":  "from-blue-400 to-indigo-500",
-  "dre":                   "from-purple-400 to-violet-500",
-  "pix-automatico":        "from-teal-400 to-cyan-500",
-  "relatorios-avancados":  "from-orange-400 to-amber-500",
-  "cardapio-ia":           "from-violet-400 to-purple-600",
-  "ifood":                 "from-red-400 to-rose-600",
-  "99food":                "from-amber-400 to-yellow-500",
-  "automacao-marketing":   "from-pink-400 to-rose-500",
-  "webhooks":              "from-slate-400 to-slate-600",
-};
-
-const BADGE_STYLE: Record<string, string> = {
-  green:  "bg-green-100 text-green-700",
-  orange: "bg-orange-100 text-orange-700",
-  red:    "bg-red-100 text-red-700",
-  blue:   "bg-blue-100 text-blue-700",
-  yellow: "bg-amber-100 text-amber-700",
-  purple: "bg-purple-100 text-purple-700",
-};
-
-// ─── Category filters ─────────────────────────────────────────────────────────
-
-const IA_SLUGS   = ["cardapio-ia", "automacao-marketing"];
-const INT_SLUGS  = ["ifood", "99food", "webhooks"];
-
-type CatFilter = { label: string; icon: ReactNode; match: (m: Mod) => boolean };
-
-const CATS: CatFilter[] = [
-  { label: "Todos",        icon: <LayoutGrid size={14}/>,     match: () => true },
-  { label: "Operação",     icon: <ShoppingBag size={14}/>,    match: m => m.category === "OPERACAO" },
-  { label: "Marketing",    icon: <Megaphone size={14}/>,      match: m => m.category === "MARKETING" && !IA_SLUGS.includes(m.slug) },
-  { label: "Financeiro",   icon: <DollarSign size={14}/>,     match: m => m.category === "FINANCEIRO" },
-  { label: "IA",           icon: <Sparkles size={14}/>,       match: m => IA_SLUGS.includes(m.slug) },
-  { label: "Integrações",  icon: <Puzzle size={14}/>,         match: m => INT_SLUGS.includes(m.slug) },
-];
-
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ModulosPage() {
-  const [modules, setModules]         = useState<Mod[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [search, setSearch]           = useState("");
-  const [activeCat, setActiveCat]     = useState("Todos");
-  const [busy, setBusy]               = useState<Record<string, boolean>>({});
-  const [openMenu, setOpenMenu]       = useState<string | null>(null);
-  const companyId                     = useRef("");
+  const [modules, setModules]       = useState<Mod[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [search, setSearch]         = useState("");
+  const [activeCategory, setActiveCategory] = useState<CatKey>("Todos");
+  const [billing, setBilling]       = useState<BillingPeriod>("annual");
+  const [busy, setBusy]             = useState<Record<string, boolean>>({});
+  const [openMenu, setOpenMenu]     = useState<string | null>(null);
+  const companyId                   = useRef("");
 
   useEffect(() => {
     try {
@@ -133,7 +63,7 @@ export default function ModulosPage() {
   async function handleActivate(slug: string) {
     try {
       await api.post("/company-module/activate", { companyId: companyId.current, moduleSlug: slug });
-      toast.success("Módulo ativado com sucesso!");
+      toast.success("✅ Módulo ativado com sucesso!");
       load(companyId.current);
     } catch { toast.error("Erro ao ativar módulo"); }
   }
@@ -146,373 +76,181 @@ export default function ModulosPage() {
     } catch { toast.error("Erro ao desativar módulo"); }
   }
 
-  const cat = CATS.find(c => c.label === activeCat) ?? CATS[0];
-
-  const filtered = modules.filter(m => {
-    const q = search.toLowerCase();
-    const matchSearch = !search
-      || m.name.toLowerCase().includes(q)
-      || m.description.toLowerCase().includes(q);
-    return matchSearch && cat.match(m);
-  });
-
-  const installed = modules.filter(m => m.status === "ACTIVE" || m.status === "TRIAL");
-
-  return (
-    <div className="min-h-screen bg-[#f8f6f2]" onClick={() => setOpenMenu(null)}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-
-          {/* Title */}
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/25">
-              <Package size={22} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black text-gray-900">Módulos Adicionais</h1>
-              <p className="text-gray-500 text-sm mt-0.5">Expanda seu restaurante com recursos avançados e automações.</p>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar módulos..."
-              className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:border-primary/40 focus:bg-white transition w-60"
-            />
-          </div>
-        </div>
-
-        {/* Category pills */}
-        <div className="flex items-center gap-2 mt-5 flex-wrap">
-          {CATS.map(c => (
-            <button
-              key={c.label}
-              onClick={() => setActiveCat(c.label)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                activeCat === c.label
-                  ? "bg-primary text-white shadow-md shadow-primary/25"
-                  : "bg-white text-gray-600 border border-gray-200 hover:border-primary/30 hover:text-primary"
-              }`}
-            >
-              {c.icon} {c.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Grid ───────────────────────────────────────────────────────────── */}
-      <div className="p-8">
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-3xl h-72 animate-pulse border border-gray-100" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-            <Package size={52} className="mb-4 opacity-30" />
-            <p className="text-lg font-semibold">Nenhum módulo encontrado</p>
-            <p className="text-sm mt-1">Tente outro filtro ou busca</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filtered.map(m => (
-              <ModuleCard
-                key={m.slug}
-                mod={m}
-                loading={!!busy[m.slug]}
-                menuOpen={openMenu === m.slug}
-                onToggleMenu={e => { e.stopPropagation(); setOpenMenu(p => p === m.slug ? null : m.slug); }}
-                onTrial={withBusy(m.slug, () => handleTrial(m.slug))}
-                onActivate={withBusy(m.slug, () => handleActivate(m.slug))}
-                onDeactivate={withBusy(m.slug, () => handleDeactivate(m.slug))}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* ── Bottom panels ────────────────────────────────────────────────── */}
-        {!loading && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
-
-            {/* CTA banner */}
-            <div className="xl:col-span-2 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border border-orange-100 rounded-3xl p-8 flex items-center justify-between gap-6 overflow-hidden relative">
-              <div className="relative z-10">
-                <p className="text-xs font-black text-primary uppercase tracking-widest mb-2">Potencialize seu restaurante</p>
-                <h3 className="text-xl font-black text-gray-900 mb-2 max-w-xs leading-snug">
-                  Os módulos certos aumentam suas vendas e produtividade.
-                </h3>
-                <p className="text-gray-500 text-sm max-w-sm mb-5">
-                  Explore a biblioteca completa e expanda seu sistema com as ferramentas que fazem diferença real.
-                </p>
-                <button
-                  onClick={() => setActiveCat("Todos")}
-                  className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-primary/90 transition shadow-lg shadow-primary/20"
-                >
-                  Explorar todos os módulos <ChevronRight size={15} />
-                </button>
-              </div>
-              <div className="hidden md:flex gap-3 shrink-0">
-                {(["📱","🚀","⭐","📊"] as const).map((e, i) => (
-                  <div
-                    key={i}
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm ${
-                      ["bg-orange-200","bg-teal-200","bg-purple-200","bg-blue-200"][i]
-                    }`}
-                  >{e}</div>
-                ))}
-              </div>
-            </div>
-
-            {/* Installed panel */}
-            <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-black text-gray-900 text-sm">Seus módulos instalados</h3>
-                {installed.length > 0 && (
-                  <span className="text-xs text-gray-400 font-semibold">{installed.length} ativo{installed.length !== 1 ? "s" : ""}</span>
-                )}
-              </div>
-
-              {installed.length === 0 ? (
-                <div className="flex flex-col items-center py-6 text-gray-300">
-                  <TrendingUp size={36} className="mb-2" />
-                  <p className="text-xs text-center">Ative um módulo para vê-lo aqui</p>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-3">
-                  {installed.slice(0, 5).map(m => (
-                    <div
-                      key={m.slug}
-                      title={m.name}
-                      className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${GRADIENT[m.slug] ?? "from-gray-400 to-gray-600"} flex items-center justify-center text-xl shadow-sm cursor-default`}
-                    >
-                      {m.icon}
-                    </div>
-                  ))}
-                  {installed.length > 5 && (
-                    <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-xs font-black text-gray-500">
-                      +{installed.length - 5}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── ModuleCard ───────────────────────────────────────────────────────────────
-
-function ModuleCard({
-  mod, loading, menuOpen, onToggleMenu, onTrial, onActivate, onDeactivate,
-}: {
-  mod: Mod;
-  loading: boolean;
-  menuOpen: boolean;
-  onToggleMenu: (e: React.MouseEvent) => void;
-  onTrial: () => void;
-  onActivate: () => void;
-  onDeactivate: () => void;
-}) {
-  const gradient = GRADIENT[mod.slug] ?? "from-gray-400 to-gray-600";
-
-  const daysLeft = mod.trialEndsAt
-    ? Math.max(0, Math.ceil((new Date(mod.trialEndsAt).getTime() - Date.now()) / 86_400_000))
-    : 0;
-
-  const canTrial = mod.status === "INACTIVE" && !mod.trialEndsAt && !mod.isFree;
-
-  function StatusBadge() {
-    if (mod.status === "ACTIVE")
-      return <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-green-100 text-green-700"><Check size={10}/> ATIVO</span>;
-    if (mod.status === "TRIAL")
-      return <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-700"><Clock size={10}/> TESTE</span>;
-    if (mod.status === "EXPIRED")
-      return <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-red-100 text-red-700"><AlertCircle size={10}/> EXPIRADO</span>;
-    if (mod.badge)
-      return <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black ${BADGE_STYLE[mod.badgeColor ?? "blue"] ?? "bg-gray-100 text-gray-700"}`}>{mod.badge}</span>;
-    return null;
-  }
-
-  function Footer() {
-    /* ACTIVE */
-    if (mod.status === "ACTIVE") return (
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-green-600 font-bold text-sm">
-          <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
-            <Check size={11} className="text-green-600" />
-          </div>
-          Ativado
-        </div>
-        <MenuBtn menuOpen={menuOpen} onToggle={onToggleMenu}>
-          <MenuOption label="Assinar módulo" onClick={onActivate} variant="primary" />
-          <MenuOption label="Desativar módulo" onClick={onDeactivate} variant="danger" />
-        </MenuBtn>
-      </div>
-    );
-
-    /* TRIAL */
-    if (mod.status === "TRIAL") return (
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-bold text-blue-600 flex items-center gap-1.5">
-            <Clock size={13}/> Teste grátis ativo
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {daysLeft} dia{daysLeft !== 1 ? "s" : ""} restante{daysLeft !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <MenuBtn menuOpen={menuOpen} onToggle={onToggleMenu}>
-          <MenuOption label="Assinar módulo" onClick={onActivate} variant="primary" />
-          <MenuOption label="Cancelar teste" onClick={onDeactivate} variant="danger" />
-        </MenuBtn>
-      </div>
-    );
-
-    /* EXPIRED */
-    if (mod.status === "EXPIRED") return (
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-red-500 font-semibold flex items-center gap-1.5">
-          <AlertCircle size={13}/> Teste expirado
-        </p>
-        <button
-          onClick={onActivate}
-          disabled={loading}
-          className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-md shadow-primary/20 disabled:opacity-50"
-        >
-          {loading ? "..." : "Assinar módulo"}
-        </button>
-      </div>
-    );
-
-    /* INACTIVE - free */
-    if (mod.isFree) return (
-      <div className="flex items-center justify-between">
-        <span className="text-green-600 font-black text-sm">Gratuito</span>
-        <button
-          onClick={onActivate}
-          disabled={loading}
-          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition disabled:opacity-50"
-        >
-          {loading ? "..." : "Ativar Grátis"}
-        </button>
-      </div>
-    );
-
-    /* INACTIVE - paid */
-    return (
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-primary font-black text-lg leading-none">
-            R$ {Number(mod.price).toFixed(2).replace(".", ",")}
-          </p>
-          <p className="text-gray-400 text-xs">/mês</p>
-        </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <button
-            onClick={onActivate}
-            disabled={loading}
-            className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-md shadow-primary/20 disabled:opacity-50"
-          >
-            <Download size={13}/> {loading ? "..." : "Instalar"}
-          </button>
-          {canTrial && (
-            <button
-              onClick={onTrial}
-              disabled={loading}
-              className="text-xs text-primary hover:underline font-semibold disabled:opacity-50"
-            >
-              Testar 5 dias grátis
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const active    = modules.filter(m => m.status === "ACTIVE" || m.status === "TRIAL");
+  const installed = active.length;
 
   return (
     <div
-      className={`relative bg-white rounded-3xl p-6 border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 group flex flex-col ${
-        mod.isHighlighted ? "border-primary/20 ring-1 ring-primary/10" : "border-gray-100"
-      }`}
+      className="min-h-screen"
+      style={{ background: "linear-gradient(180deg, #f8f9fc 0%, #f3f4f6 100%)" }}
+      onClick={() => setOpenMenu(null)}
     >
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-4">
-        <div
-          className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-2xl shrink-0 shadow-lg group-hover:scale-105 transition-transform duration-200`}
+      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
+      <HeroModules
+        totalModules={modules.length}
+        activeModules={installed}
+        billing={billing}
+        onBillingChange={setBilling}
+      />
+
+      {/* ── Installed bar ────────────────────────────────────────────────────── */}
+      {installed > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-6 -mt-6 relative z-10 bg-white rounded-2xl border border-gray-100 shadow-xl px-6 py-4 flex items-center gap-4 flex-wrap"
+          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9)" }}
         >
-          {mod.icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2 flex-wrap">
-            <h3 className="font-black text-gray-900 text-[15px] leading-tight">{mod.name}</h3>
-            <StatusBadge />
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-black text-gray-900 text-sm">{installed} módulo{installed !== 1 ? "s" : ""} ativo{installed !== 1 ? "s" : ""}</span>
           </div>
-          <p className="text-gray-400 text-[12px] mt-1 leading-relaxed line-clamp-2">
-            {mod.description}
-          </p>
-        </div>
-      </div>
-
-      {/* Benefits */}
-      <ul className="space-y-1.5 flex-1 mb-5">
-        {mod.benefits.slice(0, 3).map(b => (
-          <li key={b} className="flex items-center gap-2 text-[13px] text-gray-600">
-            <Check size={12} className="text-green-500 shrink-0" />
-            {b}
-          </li>
-        ))}
-      </ul>
-
-      {/* Footer */}
-      <div className="border-t border-gray-100 pt-4">
-        <Footer />
-      </div>
-    </div>
-  );
-}
-
-// ─── Dropdown menu helpers ────────────────────────────────────────────────────
-
-function MenuBtn({ menuOpen, onToggle, children }: { menuOpen: boolean; onToggle: (e: React.MouseEvent) => void; children: ReactNode }) {
-  return (
-    <div className="relative">
-      <button
-        onClick={onToggle}
-        className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
-      >
-        <MoreHorizontal size={16} />
-      </button>
-      {menuOpen && (
-        <div className="absolute right-0 bottom-10 bg-white border border-gray-100 shadow-2xl rounded-2xl py-2 w-48 z-30">
-          {children}
-        </div>
+          <div className="flex items-center gap-2 flex-wrap flex-1">
+            {active.slice(0, 6).map(m => (
+              <div
+                key={m.slug}
+                title={m.name}
+                className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-600"
+              >
+                <span>{m.icon}</span> {m.name}
+              </div>
+            ))}
+            {active.length > 6 && (
+              <span className="text-xs text-gray-400 font-semibold">+{active.length - 6} mais</span>
+            )}
+          </div>
+          <span className="text-xs text-gray-400 font-medium ml-auto hidden md:block">Todos funcionando normalmente ✓</span>
+        </motion.div>
       )}
-    </div>
-  );
-}
 
-function MenuOption({ label, onClick, variant }: { label: string; onClick: () => void; variant: "primary" | "danger" }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-4 py-2.5 text-sm font-semibold transition ${
-        variant === "danger"
-          ? "text-red-500 hover:bg-red-50"
-          : "text-primary hover:bg-primary/5"
-      }`}
-    >
-      {label}
-    </button>
+      {/* ── Module grid ──────────────────────────────────────────────────────── */}
+      <ModuleGrid
+        modules={modules}
+        billing={billing}
+        search={search}
+        onSearchChange={setSearch}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
+        loading={loading}
+        busy={busy}
+        openMenu={openMenu}
+        onToggleMenu={(slug, e) => { e.stopPropagation(); setOpenMenu(p => p === slug ? null : slug); }}
+        onTrial={s => withBusy(s, () => handleTrial(s))()}
+        onActivate={s => withBusy(s, () => handleActivate(s))()}
+        onDeactivate={s => withBusy(s, () => handleDeactivate(s))()}
+      />
+
+      {/* ── Payment & Trust section ───────────────────────────────────────────── */}
+      <div className="px-6 pb-16 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* Payment options */}
+          <div
+            className="lg:col-span-2 rounded-3xl p-8 relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, #0a1628 0%, #0f2040 60%, #071530 100%)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            }}
+          >
+            {/* Glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 opacity-15 pointer-events-none"
+              style={{ background: "radial-gradient(circle, #3b82f6, transparent)" }} />
+
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap size={14} className="text-amber-400" />
+                <span className="text-amber-400 text-xs font-black uppercase tracking-widest">Pagamento & Fidelização</span>
+              </div>
+              <h3 className="text-white text-xl font-black mb-1">Escolha como pagar</h3>
+              <p className="text-white/50 text-sm mb-6">Economize mais com pagamento antecipado e Pix</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    icon: "⚡", title: "Pix com desconto",
+                    desc: "Pague via Pix e ganhe 5% adicional de desconto no total.",
+                    tag: "-5% extra", tagColor: "text-emerald-400 bg-emerald-400/15",
+                  },
+                  {
+                    icon: "🔄", title: "Cartão recorrente",
+                    desc: "Débito automático mensal. Zero preocupação, renovação garantida.",
+                    tag: "Auto-renovável", tagColor: "text-blue-400 bg-blue-400/15",
+                  },
+                  {
+                    icon: "📅", title: "Pagamento antecipado",
+                    desc: "Pague o ano todo de uma vez e economize até 35% com Pix.",
+                    tag: "Máx. economia", tagColor: "text-amber-400 bg-amber-400/15",
+                  },
+                  {
+                    icon: "🎁", title: "Fidelização",
+                    desc: "Clientes com plano anual têm acesso prioritário a novos módulos.",
+                    tag: "Exclusivo", tagColor: "text-violet-400 bg-violet-400/15",
+                  },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/8 transition">
+                    <span className="text-2xl">{item.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-white font-bold text-sm">{item.title}</span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${item.tagColor}`}>{item.tag}</span>
+                      </div>
+                      <p className="text-white/45 text-xs leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-3 mt-5 pt-5 border-t border-white/10">
+                <CreditCard size={14} className="text-white/40" />
+                <span className="text-white/40 text-xs">Aceitamos: Pix · Cartão de crédito · Débito · Boleto · Transferência</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Trust & CTA panel */}
+          <div className="flex flex-col gap-4">
+
+            {/* Savings CTA */}
+            <div className="bg-gradient-to-br from-indigo-50 to-violet-50 border border-indigo-100 rounded-3xl p-6 flex-1">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
+                style={{ boxShadow: "0 8px 24px rgba(99,102,241,0.35)" }}>
+                <Sparkles size={20} className="text-white" />
+              </div>
+              <h4 className="font-black text-gray-900 text-base mb-1">Plano Enterprise</h4>
+              <p className="text-gray-500 text-xs mb-4 leading-relaxed">
+                Módulos ilimitados + suporte dedicado + onboarding + SLA garantido.
+              </p>
+              <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{
+                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                  boxShadow: "0 6px 18px rgba(79,70,229,0.3)",
+                }}>
+                Falar com vendas <ChevronRight size={13} />
+              </button>
+            </div>
+
+            {/* Trust badges */}
+            <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-wider mb-4">Garantias</p>
+              <div className="space-y-3">
+                {[
+                  { icon: <Shield size={13} className="text-emerald-500" />, text: "Dados protegidos com criptografia AES-256" },
+                  { icon: <TrendingUp size={13} className="text-blue-500" />, text: "99.9% de uptime garantido por SLA" },
+                  { icon: <Check size={13} className="text-amber-500" />, text: "Cancele quando quiser, sem multa" },
+                  { icon: <Zap size={13} className="text-violet-500" />, text: "Suporte técnico incluído em todos os planos" },
+                ].map((g, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0">
+                      {g.icon}
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium leading-tight">{g.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

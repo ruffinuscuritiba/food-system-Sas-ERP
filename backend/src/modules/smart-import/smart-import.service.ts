@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
+import * as XLSX from 'xlsx';
 import { PrismaService } from 'src/database/prisma.service';
 import { AIProvider } from 'src/services/ai/ai-provider.interface';
 import { AIProviderFactory } from 'src/services/ai/ai-provider.factory';
@@ -90,20 +91,36 @@ export class SmartImportService {
 
   // ── Menu image processing ──────────────────────────────────────────────────
 
-  async processMenuImage(buffer: Buffer, mimeType: string, companyId: string, fileUrl?: string) {
+  async processMenuImage(buffer: Buffer, mimeType: string, companyId: string, fileUrl?: string, filename?: string) {
     const session = await this.prisma.importSession.create({
       data: { companyId, type: 'MENU', status: 'PROCESSING', fileUrl },
     });
-    setImmediate(() => this.runMenuExtraction(session.id, buffer, mimeType, companyId));
+
+    const ext = (filename ?? '').split('.').pop()?.toLowerCase() ?? '';
+    const SPREADSHEET_MIMES = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel.sheet.macroEnabled.12',
+      'application/vnd.ms-excel',
+    ];
+    const isSpreadsheet =
+      SPREADSHEET_MIMES.some(t => mimeType.includes(t)) ||
+      ['xlsx', 'xlsm', 'xls'].includes(ext);
+
+    if (isSpreadsheet) {
+      setImmediate(() => this.runSpreadsheetExtraction(session.id, buffer, companyId));
+    } else {
+      setImmediate(() => this.runMenuExtraction(session.id, buffer, mimeType, companyId));
+    }
     return { sessionId: session.id, status: 'PROCESSING' };
   }
 
   private async runMenuExtraction(sessionId: string, buffer: Buffer, mimeType: string, companyId: string) {
     try {
-      await this.log(sessionId, 'INFO', 'Analisando imagem...');
+      const isPdf = mimeType === 'application/pdf';
+      await this.log(sessionId, 'INFO', isPdf ? 'Analisando PDF do cardápio...' : 'Analisando imagem...');
 
       const imageBase64 = buffer.toString('base64');
-      const safeMime = this.toSafeMime(mimeType);
+      const safeMime = isPdf ? 'application/pdf' : this.toSafeMime(mimeType);
 
       await this.log(sessionId, 'INFO', `Conectando ao serviço de IA...`);
 
@@ -124,6 +141,79 @@ export class SmartImportService {
 
       await this.log(sessionId, 'INFO', `${items.length} produto(s) identificado(s)`);
       await this.log(sessionId, 'INFO', 'Organizando categorias...');
+
+      const categories = await this.prisma.category.findMany({
+        where: { companyId },
+        select: { id: true, name: true },
+      });
+
+      const enriched = items.map(item => ({
+        ...item,
+        suggestedCategoryId: categories.find(c =>
+          c.name.toLowerCase().includes((item.category ?? '').toLowerCase()) ||
+          (item.category ?? '').toLowerCase().includes(c.name.toLowerCase())
+        )?.id ?? null,
+      }));
+
+      await this.prisma.$transaction([
+        this.prisma.importSession.update({
+          where: { id: sessionId },
+          data: { status: 'DONE', rawResult: parsed as any },
+        }),
+        ...enriched.map(item =>
+          this.prisma.importItem.create({
+            data: { sessionId, data: item as any, confidence: item.confidence ?? null },
+          })
+        ),
+      ]);
+
+      await this.log(sessionId, 'INFO', `Extração concluída — ${items.length} produto(s) prontos para revisão`);
+    } catch (err: any) {
+      const userMsg = this.toUserMessage(err?.message);
+      await this.prisma.importSession.update({
+        where: { id: sessionId },
+        data: { status: 'ERROR', errorMsg: userMsg },
+      });
+      await this.log(sessionId, 'ERROR', userMsg);
+    }
+  }
+
+  // ── Spreadsheet processing ─────────────────────────────────────────────────
+
+  private async runSpreadsheetExtraction(sessionId: string, buffer: Buffer, companyId: string) {
+    try {
+      await this.log(sessionId, 'INFO', 'Lendo planilha Excel...');
+
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) throw new Error('Planilha vazia ou formato inválido.');
+
+      const sheet = workbook.Sheets[sheetName];
+      // Convert to CSV-style text for AI
+      const csvText = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+
+      if (!csvText || csvText.trim().length < 5) {
+        throw new Error('A planilha parece estar vazia. Verifique se há dados na primeira aba.');
+      }
+
+      await this.log(sessionId, 'INFO', `Planilha lida (${workbook.SheetNames.length} aba(s)). Analisando com IA...`);
+
+      const { result, provider } = await AIProviderFactory.analyzeWithFallback(
+        this.aiProviders,
+        { prompt: MENU_PROMPT, textContent: csvText.slice(0, 30_000) },
+        (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
+      );
+
+      await this.log(sessionId, 'INFO', `Extraindo produtos (via ${provider})...`);
+
+      const parsed = this.parseJson(result);
+      const items: any[] = parsed?.items ?? [];
+
+      if (items.length === 0) {
+        throw new Error('Nenhum produto encontrado na planilha. Verifique se há colunas de nome e preço.');
+      }
+
+      await this.log(sessionId, 'INFO', `${items.length} produto(s) identificado(s)`);
 
       const categories = await this.prisma.category.findMany({
         where: { companyId },
@@ -365,9 +455,16 @@ export class SmartImportService {
 
   /** Convert technical error messages to user-friendly text. */
   private toUserMessage(msg?: string): string {
-    if (!msg) return 'Não foi possível processar a imagem. Tente novamente.';
-    // Already a user-friendly message from our factory
-    if (msg.includes('Não foi possível') || msg.includes('Nenhum produto')) return msg;
+    if (!msg) return 'Não foi possível processar o arquivo. Tente novamente.';
+    // Already a user-friendly message from our factory or thrown above
+    if (
+      msg.includes('Não foi possível') ||
+      msg.includes('Nenhum produto') ||
+      msg.includes('planilha') ||
+      msg.includes('Planilha') ||
+      msg.includes('formato inválido') ||
+      msg.includes('PDF')
+    ) return msg;
     // Generic fallback — never expose internal errors
     return 'Serviço temporariamente indisponível. Tente novamente em alguns instantes.';
   }

@@ -14,16 +14,19 @@ export class GeminiProvider implements AIProvider {
     this.model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
   }
 
-  async analyzeImage({ prompt, imageBase64, mimeType }: AIImageRequest): Promise<string> {
+  async analyzeImage({ prompt, imageBase64, mimeType, textContent }: AIImageRequest): Promise<string> {
     const url = `${GEMINI_API_URL}/${this.model}:generateContent?key=${this.apiKey}`;
 
+    // Build parts: text prompt + file data (image/pdf) or plain text
+    const parts: any[] = [{ text: prompt }];
+    if (textContent) {
+      parts.push({ text: `\n\nDados do arquivo:\n${textContent}` });
+    } else if (imageBase64 && mimeType) {
+      parts.push({ inline_data: { mime_type: mimeType, data: imageBase64 } });
+    }
+
     const body = {
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: imageBase64 } },
-        ],
-      }],
+      contents: [{ parts }],
       generationConfig: { maxOutputTokens: 8192, temperature: 0.1 },
     };
 

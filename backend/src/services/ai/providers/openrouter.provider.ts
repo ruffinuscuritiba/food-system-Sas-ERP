@@ -13,7 +13,18 @@ export class OpenRouterProvider implements AIProvider {
     this.model = process.env.OPENROUTER_MODEL ?? 'google/gemini-2.0-flash-exp:free';
   }
 
-  async analyzeImage({ prompt, imageBase64, mimeType }: AIImageRequest): Promise<string> {
+  async analyzeImage({ prompt, imageBase64, mimeType, textContent }: AIImageRequest): Promise<string> {
+    // Build message content: text-only for spreadsheets, image+text otherwise
+    const contentParts: any[] = [];
+    if (textContent) {
+      contentParts.push({ type: 'text', text: `${prompt}\n\nDados do arquivo:\n${textContent}` });
+    } else if (imageBase64 && mimeType) {
+      contentParts.push({ type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } });
+      contentParts.push({ type: 'text', text: prompt });
+    } else {
+      contentParts.push({ type: 'text', text: prompt });
+    }
+
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -26,13 +37,7 @@ export class OpenRouterProvider implements AIProvider {
         model: this.model,
         max_tokens: 8192,
         temperature: 0.1,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-            { type: 'text', text: prompt },
-          ],
-        }],
+        messages: [{ role: 'user', content: contentParts }],
       }),
       signal: AbortSignal.timeout(90_000),
     });

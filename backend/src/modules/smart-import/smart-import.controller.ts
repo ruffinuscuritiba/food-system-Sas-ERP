@@ -14,10 +14,10 @@ export class SmartImportController {
 
   /** Upload menu image → start async processing */
   @Post('menu')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }))
   async uploadMenu(@UploadedFile() file: Express.Multer.File, @Request() req: any) {
     const companyId: string = req.user.companyId;
-    return this.service.processMenuImage(file.buffer, file.mimetype, companyId);
+    return this.service.processMenuImage(file.buffer, file.mimetype, companyId, undefined, file.originalname);
   }
 
   /** Upload invoice (image/PDF/XML) → start async processing */

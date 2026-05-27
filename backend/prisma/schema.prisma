@@ -178,19 +178,21 @@ model User {
 }
 
 model CompanyModule {
-  id String @id @default(cuid())
-
-  module String
-
-  active Boolean @default(false)
-
-  companyId String
-
-  company Company @relation(fields: [companyId], references: [id])
-
-  createdAt DateTime @default(now())
+  id         String        @id @default(cuid())
+  module     String
+  active     Boolean       @default(false)
+  companyId  String
+  company    Company       @relation(fields: [companyId], references: [id])
+  // Extended fields added by add_module_catalog migration
+  moduleSlug String        @default("")
+  status     ModuleStatus  @default(INACTIVE)
+  trialEndsAt  DateTime?
+  activatedAt  DateTime?
+  updatedAt    DateTime     @default(now()) @updatedAt
+  createdAt    DateTime     @default(now())
 
   @@index([companyId])
+  @@index([moduleSlug])
 }
 
 model Category {
@@ -1016,4 +1018,42 @@ model OperationalCost {
 
   @@index([companyId])
   @@index([referenceAt])
+}
+
+// ── Module Catalog ─────────────────────────────────────────────────────────
+
+enum ModuleCategory {
+  OPERACAO
+  MARKETING
+  FINANCEIRO
+  AUTOMACAO
+}
+
+enum ModuleStatus {
+  TRIAL
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+model Module {
+  id              String         @id
+  slug            String         @unique
+  name            String
+  description     String
+  longDescription String?
+  icon            String
+  category        ModuleCategory
+  price           Decimal?       @db.Decimal(10, 2)
+  isFree          Boolean        @default(false)
+  badge           String?
+  badgeColor      String?
+  benefits        String[]
+  isHighlighted   Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+
+  @@index([category])
+  @@index([slug])
 }

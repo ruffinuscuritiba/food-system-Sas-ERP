@@ -289,10 +289,31 @@ const MODULE_CATALOG = [
 
 async function seedModuleCatalog() {
   for (const mod of MODULE_CATALOG) {
-    await (prisma as any).module.upsert({
+    await prisma.module.upsert({
       where: { id: mod.id },
-      update: { name: mod.name, description: mod.description, badge: mod.badge ?? null, badgeColor: mod.badgeColor ?? null, isHighlighted: mod.isHighlighted, sortOrder: mod.sortOrder },
-      create: { ...mod, price: mod.price ? mod.price : null, isFree: mod.isFree ?? false },
+      update: {
+        name: mod.name,
+        description: mod.description,
+        badge: mod.badge ?? null,
+        badgeColor: mod.badgeColor ?? null,
+        isHighlighted: mod.isHighlighted,
+        sortOrder: mod.sortOrder,
+      },
+      create: {
+        id: mod.id,
+        slug: mod.slug,
+        name: mod.name,
+        description: mod.description,
+        icon: mod.icon,
+        category: mod.category,
+        price: mod.price ?? null,
+        isFree: mod.isFree ?? false,
+        badge: mod.badge ?? null,
+        badgeColor: mod.badgeColor ?? null,
+        benefits: mod.benefits ?? [],
+        isHighlighted: mod.isHighlighted,
+        sortOrder: mod.sortOrder,
+      },
     })
   }
   console.log(`✅ ${MODULE_CATALOG.length} módulos do catálogo criados`)

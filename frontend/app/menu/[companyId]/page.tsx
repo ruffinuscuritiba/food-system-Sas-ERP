@@ -114,8 +114,9 @@ export default function MenuPage() {
       ]);
 
       if (!menuRes.ok) {
-        if (attempt < 3) {
-          setTimeout(() => loadMenu(attempt + 1), 6000);
+        // Render free tier pode demorar até 50s para acordar — tentar até 8x
+        if (attempt < 8) {
+          setTimeout(() => loadMenu(attempt + 1), attempt <= 2 ? 5000 : 8000);
           return;
         }
         setLoadError(true);
@@ -150,8 +151,8 @@ export default function MenuPage() {
 
       setLoading(false);
     } catch {
-      if (attempt < 3) {
-        setTimeout(() => loadMenu(attempt + 1), 6000);
+      if (attempt < 8) {
+        setTimeout(() => loadMenu(attempt + 1), attempt <= 2 ? 5000 : 8000);
         return;
       }
       setLoadError(true);
@@ -578,7 +579,7 @@ export default function MenuPage() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-gray-500 font-medium">Carregando cardápio...</p>
-        <p className="text-gray-400 text-xs">Se demorar, o servidor pode estar acordando</p>
+        <p className="text-gray-400 text-xs">Aguarde, o servidor pode levar até 1 minuto para acordar</p>
       </div>
     );
   }

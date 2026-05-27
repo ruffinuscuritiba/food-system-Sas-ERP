@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
-import * as pdfParse from 'pdf-parse';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require('pdf-parse');
 import { PrismaService } from 'src/database/prisma.service';
 import { AIProvider } from 'src/services/ai/ai-provider.interface';
 import { AIProviderFactory } from 'src/services/ai/ai-provider.factory';
@@ -126,7 +127,7 @@ export class SmartImportService {
         // Extract text from PDF — much more reliable than sending as binary to vision AI
         let pdfText = '';
         try {
-          const parsed = await (pdfParse as any)(buffer);
+          const parsed = await pdfParse(buffer);
           pdfText = (parsed.text ?? '').trim();
         } catch (e) {
           pdfText = '';
@@ -348,7 +349,7 @@ export class SmartImportService {
       if (isPdf) {
         let pdfText = '';
         try {
-          const parsed = await (pdfParse as any)(buffer);
+          const parsed = await pdfParse(buffer);
           pdfText = (parsed.text ?? '').trim();
         } catch { pdfText = ''; }
 

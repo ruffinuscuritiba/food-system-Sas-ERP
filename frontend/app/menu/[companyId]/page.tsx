@@ -630,6 +630,7 @@ export default function MenuPage() {
               <img
                 src={theme.logoUrl}
                 alt="logo"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0"
               />
             )}

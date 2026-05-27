@@ -46,8 +46,15 @@ export class AIProviderFactory {
       }
     }
 
-    // All failed — throw user-friendly message, log technical details server-side
-    console.error('[AIProviderFactory] All providers failed:', errors.join(' | '));
+    // All failed — log full details server-side (visible in Render logs)
+    const detail = errors.join(' | ');
+    console.error('[AIProviderFactory] All providers failed:', detail);
+
+    // Surface the first meaningful error so toUserMessage() can map it
+    // (quota, 404, timeout, etc.) — only fall back to generic if no detail
+    if (errors.length > 0) {
+      throw new Error(errors[0]);
+    }
     throw new Error('Não foi possível processar a imagem agora. Tente novamente em alguns instantes.');
   }
 }

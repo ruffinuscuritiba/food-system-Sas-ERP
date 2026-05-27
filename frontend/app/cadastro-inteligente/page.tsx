@@ -497,37 +497,43 @@ export default function CadastroInteligentePage() {
       )}
 
       {/* ── REVIEW ── */}
-      {phase === "review" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-gray-800">
-              Revise e edite os itens extraídos
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({tab === "menu" ? menuItems.filter(i => i.enabled).length : invoiceItems.filter(i => i.enabled).length} selecionados)
-              </span>
-            </h2>
-            <button onClick={reset} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
-              <XCircle size={14} /> Reiniciar
-            </button>
-          </div>
+      {phase === "review" && (() => {
+        // Use endpoint (not tab key) to decide menu vs invoice display —
+        // "pdf" and "spreadsheet" tabs go to the "menu" endpoint and must show
+        // the menu review table, not the invoice one.
+        const isMenuTab = TAB_CONFIG.find(t => t.key === tab)?.endpoint === "menu";
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-800">
+                Revise e edite os itens extraídos
+                <span className="ml-2 text-sm font-normal text-gray-400">
+                  ({isMenuTab ? menuItems.filter(i => i.enabled).length : invoiceItems.filter(i => i.enabled).length} selecionados)
+                </span>
+              </h2>
+              <button onClick={reset} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
+                <XCircle size={14} /> Reiniciar
+              </button>
+            </div>
 
-          {tab === "menu" ? (
-            <MenuReviewTable items={menuItems} setItems={setMenuItems} categories={categories} />
-          ) : (
-            <InvoiceReviewTable items={invoiceItems} setItems={setInvoiceItems} />
-          )}
+            {isMenuTab ? (
+              <MenuReviewTable items={menuItems} setItems={setMenuItems} categories={categories} />
+            ) : (
+              <InvoiceReviewTable items={invoiceItems} setItems={setInvoiceItems} />
+            )}
 
-          <div className="flex justify-end">
-            <button
-              onClick={tab === "menu" ? confirmMenu : confirmInvoice}
-              className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 transition"
-            >
-              <CheckCircle2 size={18} />
-              {tab === "menu" ? "Salvar produtos no cardápio" : "Registrar entradas de estoque"}
-            </button>
+            <div className="flex justify-end">
+              <button
+                onClick={isMenuTab ? confirmMenu : confirmInvoice}
+                className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 transition"
+              >
+                <CheckCircle2 size={18} />
+                {isMenuTab ? "Salvar produtos no cardápio" : "Registrar entradas de estoque"}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── DONE ── */}
       {phase === "done" && (

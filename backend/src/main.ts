@@ -8,9 +8,14 @@ import { PrismaService } from '@/database/prisma.service'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 import type { Request, Response, NextFunction } from 'express'
+import { json, urlencoded } from 'express'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
+
+  // Aumentar limite para suportar imagens base64 no body JSON (logo, banner, etc.)
+  app.use(json({ limit: '10mb' }))
+  app.use(urlencoded({ extended: true, limit: '10mb' }))
 
   // Serve uploaded files (fallback when Cloudinary is not configured)
   const uploadsDir = join(process.cwd(), 'uploads')

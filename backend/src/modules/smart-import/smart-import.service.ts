@@ -587,22 +587,29 @@ export class SmartImportService {
     if (
       msg.includes('Não foi possível') ||
       msg.includes('Nenhum produto') ||
+      msg.includes('Nenhum provedor') ||
       msg.includes('planilha') ||
       msg.includes('Planilha') ||
       msg.includes('formato inválido') ||
       msg.includes('PDF')
     ) return msg;
     // Map common API errors to friendlier text
-    if (msg.includes('Gemini 404') || msg.includes('is not found for API')) {
-      return 'O modelo de IA configurado não existe mais. Atualize GEMINI_MODEL no servidor.';
+    if (msg.includes('Gemini 404') || msg.includes('404') || msg.includes('not found for API')) {
+      return 'O modelo de IA configurado não existe mais. Atualize GEMINI_MODEL no servidor para gemini-1.5-flash.';
     }
-    if (msg.includes('Gemini 429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+    if (msg.includes('Gemini 429') || msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
       return 'Cota da IA esgotada. Aguarde alguns minutos e tente novamente.';
     }
     if (msg.includes('credit balance is too low')) {
       return 'Crédito do provedor de IA esgotado.';
     }
+    if (msg.includes('GEMINI_API_KEY')) {
+      return 'Chave da API Gemini não configurada no servidor. Adicione GEMINI_API_KEY nas variáveis de ambiente do Render.';
+    }
+    if (msg.includes('aborted') || msg.includes('timeout') || msg.includes('TimeoutError')) {
+      return 'Tempo limite atingido ao processar a imagem. Tente com uma imagem menor ou mais simples.';
+    }
     // Expose at least a short hint of the real error to help diagnosis
-    return `Falha no processamento: ${msg.slice(0, 140)}`;
+    return `Falha no processamento: ${(msg ?? '').slice(0, 140)}`;
   }
 }

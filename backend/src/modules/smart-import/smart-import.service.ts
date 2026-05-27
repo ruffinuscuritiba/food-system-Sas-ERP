@@ -521,14 +521,56 @@ export class SmartImportService {
   // ── Utils ──────────────────────────────────────────────────────────────────
 
   private parseJson(raw: string): any {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    try {
-      return JSON.parse(cleaned);
-    } catch {
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (match) return JSON.parse(match[0]);
-      throw new Error('Resposta da IA não é um JSON válido. Tente novamente com uma imagem mais nítida.');
+    // Strip markdown fences if any
+    let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Direct parse
+    try { return JSON.parse(cleaned); } catch {}
+
+    // Try to slice from first '{' to last '}'
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      const slice = cleaned.slice(firstBrace, lastBrace + 1);
+      try { return JSON.parse(slice); } catch {}
     }
+
+    // Truncated array recovery: find "items": [ and parse items one by one
+    const itemsMatch = cleaned.match(/"items"\s*:\s*\[/);
+    if (itemsMatch) {
+      const startIdx = itemsMatch.index! + itemsMatch[0].length;
+      const items: any[] = [];
+      let i = startIdx;
+      while (i < cleaned.length) {
+        // Skip whitespace and commas
+        while (i < cleaned.length && /[\s,]/.test(cleaned[i])) i++;
+        if (cleaned[i] !== '{') break;
+
+        // Find matching closing brace (track nesting and string state)
+        let depth = 0;
+        let inStr = false;
+        let escape = false;
+        const objStart = i;
+        for (; i < cleaned.length; i++) {
+          const c = cleaned[i];
+          if (escape) { escape = false; continue; }
+          if (c === '\\') { escape = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (c === '{') depth++;
+          else if (c === '}') {
+            depth--;
+            if (depth === 0) { i++; break; }
+          }
+        }
+        if (depth !== 0) break; // truncated mid-object, stop
+        const objStr = cleaned.slice(objStart, i);
+        try { items.push(JSON.parse(objStr)); } catch { /* skip invalid */ }
+      }
+      if (items.length) return { items };
+    }
+
+    throw new Error('Resposta da IA não é um JSON válido. Tente novamente com uma imagem mais nítida.');
   }
 
   private toSafeMime(mimeType: string): string {

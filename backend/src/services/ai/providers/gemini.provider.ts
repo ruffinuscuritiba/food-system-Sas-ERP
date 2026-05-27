@@ -27,7 +27,12 @@ export class GeminiProvider implements AIProvider {
 
     const body = {
       contents: [{ parts }],
-      generationConfig: { maxOutputTokens: 8192, temperature: 0.1 },
+      generationConfig: {
+        maxOutputTokens: 16384,
+        temperature: 0.1,
+        // Force Gemini to return JSON only (no markdown, no commentary)
+        responseMimeType: 'application/json',
+      },
     };
 
     const res = await fetch(url, {

@@ -37,8 +37,15 @@ export default function ModulosPage() {
   async function load(cid: string) {
     setLoading(true);
     try {
-      const { data } = await api.get(`/company-module/company/${cid}`);
-      setModules(data);
+      // /company-module/company/:cid doesn't exist; read modules from /company
+      const { data } = await api.get(`/company/${cid}`);
+      const mods: any[] = Array.isArray(data?.modules) ? data.modules : [];
+      // Normalize so downstream code that reads `status` / `slug` still works
+      setModules(mods.map((m: any) => ({
+        ...m,
+        slug: m.moduleSlug ?? m.slug ?? m.module,
+        status: m.status ?? (m.active ? "ACTIVE" : "INACTIVE"),
+      })));
     } catch { toast.error("Erro ao carregar módulos"); }
     finally  { setLoading(false); }
   }

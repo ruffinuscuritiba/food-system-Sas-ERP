@@ -87,8 +87,14 @@ export default function PlanosPage() {
 
   async function loadModules(cid: string) {
     try {
-      const res = await api.get(`/company-module/company/${cid}`);
-      setModules(res.data);
+      // /company-module/company/:cid doesn't exist; modules ship with /company
+      const res = await api.get(`/company/${cid}`);
+      const mods: any[] = Array.isArray(res.data?.modules) ? res.data.modules : [];
+      setModules(mods.map((m: any) => ({
+        ...m,
+        slug: m.moduleSlug ?? m.slug ?? m.module,
+        status: m.status ?? (m.active ? "ACTIVE" : "INACTIVE"),
+      })));
     } catch {
       toast.error("Erro ao carregar módulos.");
     } finally {

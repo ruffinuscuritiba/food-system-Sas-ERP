@@ -154,21 +154,23 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!user?.companyId) return;
+    // /company already returns the modules relation — single call,
+    // no separate /company-module fetch needed (that route doesn't exist).
     api.get(`/company/${user.companyId}`)
-      .then((r) => { if (r.data?.name) setCompanyName(r.data.name); })
+      .then((r) => {
+        if (r.data?.name) setCompanyName(r.data.name);
+        const modules: any[] = Array.isArray(r.data?.modules) ? r.data.modules : [];
+        const slugs = modules
+          .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL" || m.active)
+          .map((m: any) => (m.moduleSlug ?? m.slug ?? m.module) as string)
+          .filter(Boolean);
+        setActiveSlugs(slugs);
+      })
       .catch(() => {});
     api.get(`/themes/${user.companyId}`)
       .then((r) => {
         const color = r.data?.primaryColor;
         if (color) document.documentElement.style.setProperty("--color-primary", color);
-      })
-      .catch(() => {});
-    api.get(`/company-module/company/${user.companyId}`)
-      .then((r) => {
-        const slugs = (r.data ?? [])
-          .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL")
-          .map((m: any) => m.slug as string);
-        setActiveSlugs(slugs);
       })
       .catch(() => {});
   }, [user?.companyId]);

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { api } from "@/services/api";
 
 import {
   LayoutDashboard,
@@ -28,48 +30,45 @@ import {
   Pencil,
 } from "lucide-react";
 
-const categories = [
-  "Entradas",
-  "Hambúrgueres Clássico",
-  "Hambúrgueres Gourmet",
-  "Hambúrgueres Vegetarianos",
-  "Hambúrgueres Kids",
-  "Acompanhamentos",
-  "Sobremesas",
-  "Bebidas",
-];
-
-const products = [
-  {
-    name: "Picanha ao Fogo com Molho Chimichurri",
-    description:
-      "Suculento hambúrguer de picanha grelhado no ponto ideal, coberto com o irresistível molho chimichurri feito com especiarias frescas.",
-    price: "34,90",
-    old: "39,90",
-    image:
-      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600",
-  },
-  {
-    name: "Black Angus Truffle",
-    description:
-      "Blend Black Angus 220g, queijo brie, rúcula, cebola roxa caramelizada e maionese de trufas no pão australiano.",
-    price: "44,90",
-    old: "49,90",
-    image:
-      "https://images.unsplash.com/photo-1550547660-d9450f859349?w=600",
-  },
-  {
-    name: "Costela 12 Horas",
-    description:
-      "Hambúrguer de costela desfiada por 12h, queijo gouda defumado, anéis de cebola crocantes e molho barbecue artesanal.",
-    price: "39,90",
-    old: "45,90",
-    image:
-      "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=600",
-  },
-];
+interface Category { id: string; name: string; }
+interface Product {
+  id: string; name: string; description?: string;
+  salePrice?: number; costPrice?: number; imageUrl?: string;
+  categoryId?: string; isActive: boolean;
+}
 
 export default function PDVPage() {
+  const [categories, setCategories]           = useState<Category[]>([]);
+  const [products, setProducts]               = useState<Product[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [search, setSearch]                   = useState("");
+  const [loading, setLoading]                 = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/categories"),
+      api.get("/products"),
+    ]).then(([catRes, prodRes]) => {
+      setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+      setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const filteredProducts = products.filter(p => {
+    if (!p.isActive) return false;
+    const matchCat = selectedCategory === "all" || p.categoryId === selectedCategory;
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const activeCategoryName = selectedCategory === "all"
+    ? "Todos os Produtos"
+    : categories.find(c => c.id === selectedCategory)?.name ?? "Produtos";
+
+  const fmt = (v?: number) => v != null
+    ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
+    : "—";
+
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
 
@@ -185,6 +184,8 @@ export default function PDVPage() {
               <Search size={18} className="text-zinc-400" />
 
               <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar produto, código ou cliente..."
                 className="bg-transparent outline-none w-full text-sm"
               />
@@ -247,104 +248,125 @@ export default function PDVPage() {
 
           {/* CATEGORY COLUMN */}
           <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto scrollbar-hide bg-[#050816]">
-
             <div className="space-y-4">
 
-              {categories.map((cat, i) => (
-                <button
-                  key={cat}
-                  className={`w-full min-h-[84px] rounded-3xl text-center px-4 transition ${
-                    i === 2
-                      ? "bg-blue-600"
-                      : "bg-[#0c101d] hover:bg-[#151c2d]"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+              {/* "Todos" button */}
+              <button
+                onClick={() => setSelectedCategory("all")}
+                className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
+                  selectedCategory === "all"
+                    ? "bg-blue-600 text-white"
+                    : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
+                }`}
+              >
+                Todos
+              </button>
+
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[#0c101d] animate-pulse" />
+                ))
+              ) : (
+                categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
+                      selectedCategory === cat.id
+                        ? "bg-blue-600 text-white"
+                        : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))
+              )}
 
             </div>
-
           </aside>
 
           {/* PRODUCTS */}
           <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[#030712]">
 
-            {/* HERO */}
-            <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
-
-              <img
-                src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-
-              <div className="absolute inset-0 bg-black/60" />
-
-              <div className="relative z-10 p-10">
-                <h1 className="text-3xl xl:text-5xl font-black mb-4 leading-tight break-words max-w-[700px]">
-                  Hambúrgueres Gourmet
-                </h1>
-
-                <p className="text-base xl:text-xl text-zinc-300 max-w-[700px] break-words">
-                  Conheça nossos Hambúrgueres de Cortes Especiais
-                  suculentos, molhos exclusivos e acompanhamentos irresistíveis.
-                </p>
+            {/* HERO banner — shows active category name */}
+            <div className="relative h-[160px] w-full rounded-[32px] overflow-hidden mb-6 bg-gradient-to-br from-blue-900 to-slate-900">
+              <div className="absolute inset-0 opacity-20"
+                style={{ backgroundImage: "radial-gradient(circle at 30% 50%, #3b82f6 0%, transparent 60%)" }} />
+              <div className="relative z-10 p-8 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-2xl font-black shadow-lg">
+                  🍽️
+                </div>
+                <div>
+                  <h1 className="text-2xl xl:text-3xl font-black leading-tight">
+                    {activeCategoryName}
+                  </h1>
+                  <p className="text-zinc-400 text-sm mt-1">
+                    {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}
+                  </p>
+                </div>
               </div>
-
             </div>
 
-            {/* PRODUCTS */}
+            {/* PRODUCTS LIST */}
             <div className="space-y-5">
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="min-h-[160px] w-full rounded-[32px] bg-[#0b0f1b] animate-pulse" />
+                ))
+              ) : filteredProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+                  <span className="text-5xl mb-4">🍽️</span>
+                  <p className="font-semibold text-lg">Nenhum produto nesta categoria</p>
+                </div>
+              ) : (
+                filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6"
+                  >
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] object-cover rounded-3xl shrink-0"
+                      />
+                    ) : (
+                      <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[#161b2d] flex items-center justify-center shrink-0 text-4xl">
+                        🍽️
+                      </div>
+                    )}
 
-              {products.map((product) => (
-                <div
-  key={product.name}
-  className="min-h-[210px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6"
-                >
+                    <div className="flex-1 px-5 xl:px-8 min-w-0 overflow-hidden">
+                      <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full">
+                        {product.name}
+                      </h2>
+                      {product.description && (
+                        <p className="text-zinc-400 text-sm xl:text-base leading-relaxed break-words max-w-full line-clamp-2">
+                          {product.description}
+                        </p>
+                      )}
+                      <div className="flex gap-3 mt-4">
+                        <IconBtn icon={<Pencil size={16} />} />
+                        <IconBtn icon={<EyeOff size={16} />} />
+                      </div>
+                    </div>
 
-                  <img
-                    src={product.image}
-                    className="w-[140px] xl:w-[180px] h-[120px] xl:h-[150px] object-cover rounded-3xl"
-                  />
-
-                  <div className="flex-1 px-5 xl:px-8 min-w-0 overflow-hidden">
-
-                    <h2 className="text-2xl xl:text-3xl font-bold mb-3 leading-tight break-words max-w-full">
-                      {product.name}
-                    </h2>
-
-                    <p className="text-zinc-400 text-base xl:text-lg leading-relaxed break-words max-w-full">
-                      {product.description}
-                    </p>
-
-                    <div className="flex gap-3 mt-5">
-
-                      <IconBtn icon={<Pencil size={18} />} />
-                      <IconBtn icon={<Trash2 size={18} />} />
-                      <IconBtn icon={<EyeOff size={18} />} />
-
+                    <div className="w-[160px] xl:w-[200px] shrink-0 flex flex-col items-end pl-4">
+                      <span className="text-2xl xl:text-3xl font-black whitespace-nowrap">
+                        {fmt(product.salePrice)}
+                      </span>
+                      {product.costPrice != null && (
+                        <span className="text-zinc-600 text-xs mt-1">
+                          Custo: {fmt(product.costPrice)}
+                        </span>
+                      )}
+                      <button className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition text-base font-bold">
+                        ADICIONAR
+                      </button>
                     </div>
                   </div>
-
-                  <div className="w-[160px] xl:w-[220px] shrink-0 flex flex-col items-end pl-4">
-
-                    <span className="text-zinc-500 line-through text-2xl">
-                      R$ {product.old}
-                    </span>
-
-                    <span className="text-2xl xl:text-4xl font-black whitespace-nowrap">
-                      R$ {product.price}
-                    </span>
-
-                    <button className="mt-6 h-[58px] px-10 rounded-2xl bg-blue-600 hover:bg-blue-500 transition text-lg font-bold">
-                      ADICIONAR
-                    </button>
-
-                  </div>
-
-                </div>
-              ))}
-
+                ))
+              )}
             </div>
 
           </section>

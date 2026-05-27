@@ -90,12 +90,33 @@ export class SmartImportService {
       include: { items: true, logs: { orderBy: { createdAt: 'asc' } } },
     });
     if (!session) throw new NotFoundException('Sessão não encontrada.');
-    // Diagnostic: log first item.data so Render logs show what's in the DB
+
+    // Diagnostic: log raw data shape from DB
     if (session.items.length > 0) {
       const first = session.items[0];
-      console.log(`[SmartImport getSession] item[0].data type=${typeof first.data}, value=`, JSON.stringify(first.data)?.slice(0, 200));
+      console.log(`[SmartImport getSession] item[0].data type=${typeof first.data}, value=`, JSON.stringify(first.data)?.slice(0, 300));
     }
-    return session;
+
+    // Flatten data fields onto each item so the frontend can read them directly
+    // (guards against Json column serialization quirks in Prisma/Supabase)
+    return {
+      ...session,
+      items: session.items.map(item => {
+        const d: any = (typeof item.data === 'object' && item.data !== null) ? item.data : {};
+        return {
+          ...item,
+          name: d.name ?? '',
+          description: d.description ?? null,
+          price: d.price ?? null,
+          category: d.category ?? null,
+          suggestedCategoryId: d.suggestedCategoryId ?? null,
+          quantity: d.quantity ?? null,
+          unit: d.unit ?? null,
+          unitCost: d.unitCost ?? null,
+          total: d.total ?? null,
+        };
+      }),
+    };
   }
 
   async listSessions(companyId: string) {

@@ -11,7 +11,7 @@ export class GeminiProvider implements AIProvider {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
     this.apiKey = apiKey;
-    this.model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
+    this.model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
   }
 
   async analyzeImage({ prompt, imageBase64, mimeType, textContent }: AIImageRequest): Promise<string> {

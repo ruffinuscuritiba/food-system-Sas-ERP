@@ -19,28 +19,30 @@ import { AIProviderFactory } from 'src/services/ai/ai-provider.factory';
 // ── Prompts ────────────────────────────────────────────────────────────────────
 
 const MENU_PROMPT = `Você é especialista em análise de cardápios de restaurantes brasileiros.
-Analise esta imagem e extraia TODOS os itens do cardápio visíveis. Retorne SOMENTE JSON válido, sem texto extra:
+Analise o conteúdo (imagem ou texto) e extraia TODOS os itens reais do cardápio.
+
+IMPORTANTE: Retorne SOMENTE JSON válido, no formato EXATO abaixo, com os VALORES REAIS extraídos (NUNCA copie o texto de exemplo):
 
 {
   "items": [
     {
-      "name": "nome do produto",
-      "description": "descrição curta ou null",
+      "name": "<nome real do prato>",
+      "description": "<descrição real ou null>",
       "price": 29.90,
       "category": "Lanches",
-      "sizes": [],
-      "notes": null,
       "confidence": 0.95
     }
   ]
 }
 
-Regras:
-- Extraia TODOS os produtos visíveis, sem omitir nenhum
-- price: número float em reais, null se não encontrado
-- category: Lanches, Pizzas, Bebidas, Combos, Adicionais, Sobremesas, Massas, Porções, Pratos, Outros
-- confidence: 0 a 1 indicando certeza da leitura
-- Retorne APENAS o JSON puro, sem markdown, sem explicações`;
+Regras OBRIGATÓRIAS:
+- Cada item DEVE ter o campo "name" preenchido com o NOME REAL do produto (string não vazia)
+- NÃO retorne placeholders como "nome do produto" — extraia o nome REAL
+- price: número decimal em reais (ex: 29.90), null se não houver
+- category: uma das opções [Lanches, Pizzas, Bebidas, Combos, Adicionais, Sobremesas, Massas, Porções, Pratos, Outros]
+- confidence: 0 a 1 indicando certeza da leitura daquele item
+- Os campos devem ficar no NÍVEL RAIZ de cada item (NÃO aninhe dentro de "data" ou outro objeto)
+- Retorne APENAS o JSON puro — sem markdown \`\`\`, sem texto antes ou depois`;
 
 const INVOICE_PROMPT = `Você é especialista em documentos fiscais brasileiros (NF-e, NFC-e, cupom fiscal).
 Analise este documento e extraia os dados. Retorne SOMENTE JSON válido:
@@ -173,7 +175,31 @@ export class SmartImportService {
       await this.log(sessionId, 'INFO', `Extraindo produtos (via ${provider})...`);
 
       const parsed = this.parseJson(result);
-      const items: any[] = parsed?.items ?? [];
+      const rawItems: any[] = parsed?.items ?? parsed?.products ?? parsed?.menu ?? [];
+
+      // Log a preview of the raw response for debugging
+      console.log(`[SmartImport ${sessionId}] Raw response preview (${provider}):`, JSON.stringify(parsed).slice(0, 500));
+
+      // Normalize: Gemini sometimes nests fields under "data" or returns alt field names.
+      // Flatten so item.name / item.price / item.description / item.category are top-level.
+      const items = rawItems.map((raw: any) => {
+        const src = raw?.data && typeof raw.data === 'object' ? { ...raw, ...raw.data } : raw;
+        return {
+          name: src.name ?? src.title ?? src.product_name ?? src.productName ?? src.nome ?? '',
+          description: src.description ?? src.desc ?? src.descricao ?? null,
+          price: typeof src.price === 'number' ? src.price
+               : typeof src.preco === 'number' ? src.preco
+               : typeof src.valor === 'number' ? src.valor
+               : src.price ? Number(String(src.price).replace(',', '.')) || null
+               : null,
+          category: src.category ?? src.categoria ?? src.cat ?? null,
+          sizes: src.sizes ?? src.tamanhos ?? [],
+          notes: src.notes ?? src.observacoes ?? null,
+          confidence: typeof src.confidence === 'number' ? src.confidence
+                    : typeof raw.confidence === 'number' ? raw.confidence
+                    : null,
+        };
+      }).filter((it: any) => it.name && String(it.name).trim().length > 0);
 
       if (items.length === 0) {
         throw new Error('Nenhum produto encontrado na imagem. Verifique se a imagem contém um cardápio legível.');
@@ -513,6 +539,8 @@ export class SmartImportService {
   /** Convert technical error messages to user-friendly text. */
   private toUserMessage(msg?: string): string {
     if (!msg) return 'Não foi possível processar o arquivo. Tente novamente.';
+    // Log the raw error so we can debug from Render logs
+    console.error('[SmartImport] Raw error:', msg);
     // Already a user-friendly message from our factory or thrown above
     if (
       msg.includes('Não foi possível') ||
@@ -522,7 +550,17 @@ export class SmartImportService {
       msg.includes('formato inválido') ||
       msg.includes('PDF')
     ) return msg;
-    // Generic fallback — never expose internal errors
-    return 'Serviço temporariamente indisponível. Tente novamente em alguns instantes.';
+    // Map common API errors to friendlier text
+    if (msg.includes('Gemini 404') || msg.includes('is not found for API')) {
+      return 'O modelo de IA configurado não existe mais. Atualize GEMINI_MODEL no servidor.';
+    }
+    if (msg.includes('Gemini 429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+      return 'Cota da IA esgotada. Aguarde alguns minutos e tente novamente.';
+    }
+    if (msg.includes('credit balance is too low')) {
+      return 'Crédito do provedor de IA esgotado.';
+    }
+    // Expose at least a short hint of the real error to help diagnosis
+    return `Falha no processamento: ${msg.slice(0, 140)}`;
   }
 }

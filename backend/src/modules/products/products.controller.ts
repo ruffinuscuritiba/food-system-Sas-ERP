@@ -21,12 +21,6 @@ from "@nestjs/platform-express";
 import { memoryStorage }
 from "multer";
 
-import { extname, join }
-from "path";
-
-import { writeFileSync, mkdirSync }
-from "fs";
-
 import { ProductsService }
 from "./products.service";
 
@@ -101,42 +95,7 @@ export class ProductsController {
     let imageUrl: string | null = body.imageUrl || null;
 
     if (file) {
-      const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
-
-      if (cloudinaryUrl) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const cloudinary = require("cloudinary").v2;
-          cloudinary.config({ cloudinary_url: cloudinaryUrl });
-
-          const result = await new Promise<any>((resolve, reject) => {
-            const { Readable } = require("stream");
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "food-system", resource_type: "image" },
-              (error: any, result: any) => {
-                if (error) reject(error);
-                else resolve(result);
-              },
-            );
-            Readable.from(file.buffer).pipe(stream);
-          });
-
-          imageUrl = result.secure_url;
-        } catch {
-          // fallback to local
-        }
-      }
-
-      if (!imageUrl) {
-        const uploadsDir = join(process.cwd(), "uploads");
-        try { mkdirSync(uploadsDir, { recursive: true }); } catch { /* ok */ }
-        const filename = `${Date.now()}${extname(file.originalname)}`;
-        writeFileSync(join(uploadsDir, filename), file.buffer);
-        const backendUrl =
-          this.configService.get<string>("BACKEND_URL") ||
-          'https://food-system-backend-no7d.onrender.com';
-        imageUrl = `${backendUrl}/uploads/${filename}`;
-      }
+      imageUrl = await this.resolveImageUrl(file);
     }
 
     return this.service.create({ ...body, imageUrl });
@@ -167,45 +126,43 @@ export class ProductsController {
     let imageUrl: string | undefined = body.imageUrl;
 
     if (file) {
-      const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
-
-      if (cloudinaryUrl) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const cloudinary = require("cloudinary").v2;
-          cloudinary.config({ cloudinary_url: cloudinaryUrl });
-
-          const result = await new Promise<any>((resolve, reject) => {
-            const { Readable } = require("stream");
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "food-system", resource_type: "image" },
-              (error: any, result: any) => {
-                if (error) reject(error);
-                else resolve(result);
-              },
-            );
-            Readable.from(file.buffer).pipe(stream);
-          });
-
-          imageUrl = result.secure_url;
-        } catch {
-          // fallback to local
-        }
-      }
-
-      if (!imageUrl) {
-        const uploadsDir = join(process.cwd(), "uploads");
-        try { mkdirSync(uploadsDir, { recursive: true }); } catch { /* ok */ }
-        const filename = `${Date.now()}${extname(file.originalname)}`;
-        writeFileSync(join(uploadsDir, filename), file.buffer);
-        const backendUrl =
-          this.configService.get<string>("BACKEND_URL") ||
-          'https://food-system-backend-no7d.onrender.com';
-        imageUrl = `${backendUrl}/uploads/${filename}`;
-      }
+      imageUrl = await this.resolveImageUrl(file);
     }
 
     return this.service.update(id, { ...body, ...(imageUrl !== undefined ? { imageUrl } : {}) });
+  }
+
+  /**
+   * Convert a multer file to a persistent URL.
+   * Priority: Cloudinary → base64 data URL (stored in DB, zero infra needed).
+   * Local-disk fallback removed: Render's filesystem is ephemeral.
+   */
+  private async resolveImageUrl(file: Express.Multer.File): Promise<string> {
+    const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
+
+    if (cloudinaryUrl) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const cloudinary = require("cloudinary").v2;
+        cloudinary.config({ cloudinary_url: cloudinaryUrl });
+        const result = await new Promise<any>((resolve, reject) => {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { Readable } = require("stream");
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "food-system", resource_type: "image" },
+            (error: any, res: any) => { if (error) reject(error); else resolve(res); },
+          );
+          Readable.from(file.buffer).pipe(stream);
+        });
+        return result.secure_url;
+      } catch {
+        // fall through to base64
+      }
+    }
+
+    // Fallback: base64 data URL — permanent (stored in DB), no external service needed
+    const mime = file.mimetype?.startsWith("image/") ? file.mimetype : "image/jpeg";
+    return `data:${mime};base64,${file.buffer.toString("base64")}`;
   }
 
   @Get(

@@ -3,61 +3,63 @@ import {
   Post,
   UploadedFile,
   UseInterceptors,
-  InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { extname, join } from 'path';
-import { writeFileSync, mkdirSync } from 'fs';
+import { ConfigService } from '@nestjs/config';
+
+const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 @Controller('upload')
 export class UploadController {
+  constructor(private config: ConfigService) {}
 
   @Post()
   @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage() }),
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_SIZE },
+    }),
   )
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new InternalServerErrorException('Nenhum arquivo recebido.');
+    if (!file) throw new BadRequestException('Nenhum arquivo recebido.');
+    if (!ALLOWED_MIMES.includes(file.mimetype)) {
+      throw new BadRequestException(`Tipo de arquivo não suportado: ${file.mimetype}`);
+    }
 
-    const cloudinaryUrl = process.env.CLOUDINARY_URL;
+    const cloudinaryUrl = this.config.get<string>('CLOUDINARY_URL');
 
-    // ─── Cloudinary (production) ─────────────────────────────────────────────
+    // ── 1. Cloudinary (preferred) ─────────────────────────────────────────────
     if (cloudinaryUrl) {
       try {
-        // Lazy-require to avoid error if package not installed
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const cloudinary = require('cloudinary').v2;
-        // cloudinaryUrl already configures the SDK when set via env
         cloudinary.config({ cloudinary_url: cloudinaryUrl });
 
         const result = await new Promise<any>((resolve, reject) => {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
           const { Readable } = require('stream');
-          const uploadStream = cloudinary.uploader.upload_stream(
+          const stream = cloudinary.uploader.upload_stream(
             { folder: 'food-system', resource_type: 'image' },
-            (error: any, result: any) => {
-              if (error) reject(error);
-              else resolve(result);
-            },
+            (error: any, res: any) => { if (error) reject(error); else resolve(res); },
           );
-          Readable.from(file.buffer).pipe(uploadStream);
+          Readable.from(file.buffer).pipe(stream);
         });
 
         return { url: result.secure_url };
-      } catch (err) {
-        console.error('Cloudinary upload error:', err);
-        throw new InternalServerErrorException('Falha no upload para Cloudinary.');
+      } catch (err: any) {
+        console.error('[Upload] Cloudinary failed:', err?.message);
+        // fall through to base64
       }
     }
 
-    // ─── Local disk fallback (development / sem Cloudinary) ──────────────────
-    const uploadsDir = join(process.cwd(), 'uploads');
-    try { mkdirSync(uploadsDir, { recursive: true }); } catch { /* already exists */ }
-
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${extname(file.originalname)}`;
-    writeFileSync(join(uploadsDir, filename), file.buffer);
-
-    const backendUrl = process.env.BACKEND_URL || 'https://food-system-backend-no7d.onrender.com';
-    return { url: `${backendUrl}/uploads/${filename}` };
+    // ── 2. Base64 data URL (zero infra) ───────────────────────────────────────
+    // Stored directly in the database as a data: URI.
+    // Works without any cloud storage; PostgreSQL TEXT has no size limit.
+    const mime = ALLOWED_MIMES.includes(file.mimetype) ? file.mimetype : 'image/jpeg';
+    const dataUrl = `data:${mime};base64,${file.buffer.toString('base64')}`;
+    return { url: dataUrl };
   }
 }

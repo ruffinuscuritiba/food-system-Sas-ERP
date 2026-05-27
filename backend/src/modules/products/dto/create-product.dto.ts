@@ -82,4 +82,12 @@ export class CreateProductDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   allowNegativeStock?: boolean
+
+  /**
+   * JSON string: [{ size, price, cost? }]
+   * Sent as a FormData text field when creating/updating pizza products.
+   */
+  @IsOptional()
+  @IsString()
+  sizes?: string
 }

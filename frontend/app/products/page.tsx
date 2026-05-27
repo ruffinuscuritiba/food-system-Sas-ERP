@@ -1,132 +1,138 @@
 "use client";
 
 import { api } from "@/services/api";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Check, Pencil, Plus, Trash2, X, Package, ImageIcon, Pizza } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Package, Pizza } from "lucide-react";
+import { CurrencyInputBR } from "@/components/ui/CurrencyInputBR";
+import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SizeRow {
   size: string;
-  cost: string;
-  margin: string;
-  price: string;
+  cost: number;   // R$
+  margin: number; // %
+  price: number;  // R$
 }
 
 const defaultSizes = (): SizeRow[] => [
-  { size: "Pequena", cost: "", margin: "", price: "" },
-  { size: "Média",   cost: "", margin: "", price: "" },
-  { size: "Grande",  cost: "", margin: "", price: "" },
-  { size: "Família", cost: "", margin: "", price: "" },
+  { size: "Pequena", cost: 0, margin: 0, price: 0 },
+  { size: "Média",   cost: 0, margin: 0, price: 0 },
+  { size: "Grande",  cost: 0, margin: 0, price: 0 },
+  { size: "Família", cost: 0, margin: 0, price: 0 },
 ];
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function calcPrice(cost: string, margin: string): string {
-  const c = parseFloat(cost);
-  const m = parseFloat(margin);
-  if (!isFinite(c) || c <= 0 || !isFinite(m) || m < 0) return "";
-  return (c * (1 + m / 100)).toFixed(2);
+function calcPriceFromCostMargin(cost: number, margin: number): number {
+  if (!isFinite(cost) || cost <= 0) return 0;
+  if (!isFinite(margin) || margin < 0) return cost;
+  return parseFloat((cost * (1 + margin / 100)).toFixed(2));
 }
 
-function calcMargin(cost: string, price: string): string {
-  const c = parseFloat(cost);
-  const p = parseFloat(price);
-  if (!isFinite(c) || c <= 0 || !isFinite(p) || p <= 0) return "";
-  return (((p / c) - 1) * 100).toFixed(1);
+function calcMarginFromCostPrice(cost: number, price: number): number {
+  if (!isFinite(cost) || cost <= 0 || !isFinite(price) || price <= 0) return 0;
+  return parseFloat((((price - cost) / cost) * 100).toFixed(1));
 }
 
-function isPizzaCategory(categoryId: string, categories: any[]): boolean {
-  const cat = categories.find((c) => c.id === categoryId);
-  return !!cat && cat.name.toLowerCase().includes("pizza");
+function isPizzaCat(catId: string, cats: any[]): boolean {
+  return !!cats.find((c) => c.id === catId && c.name.toLowerCase().includes("pizza"));
 }
 
-// ── input class ───────────────────────────────────────────────────────────────
+const fmtBRL = (v: number) =>
+  v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ── shared input class ────────────────────────────────────────────────────────
 
 const inp =
   "w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 " +
-  "rounded-lg px-3 py-2 text-sm text-gray-900 bg-white outline-none transition placeholder-gray-400";
+  "rounded-xl px-3.5 py-2.5 text-sm text-gray-900 bg-white outline-none transition placeholder-gray-400";
 
 // ── SizesTable ────────────────────────────────────────────────────────────────
 
-function SizesTable({ sizes, onChange }: { sizes: SizeRow[]; onChange: (s: SizeRow[]) => void }) {
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState("");
+function SizesTable({ rows, onChange }: { rows: SizeRow[]; onChange: (r: SizeRow[]) => void }) {
+  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
 
-  function update(index: number, patch: Partial<SizeRow>) {
-    const next = sizes.map((s, i) => i === index ? { ...s, ...patch } : s);
-    onChange(next);
+  function update(i: number, patch: Partial<SizeRow>) {
+    onChange(rows.map((r, idx) => idx === i ? { ...r, ...patch } : r));
   }
 
-  function onCostChange(index: number, value: string) {
-    const row = { ...sizes[index], cost: value };
-    if (row.margin !== "") row.price = calcPrice(value, row.margin);
-    update(index, { cost: value, margin: row.margin, price: row.price });
+  function onCostChange(i: number, cost: number) {
+    const row = rows[i];
+    const price = calcPriceFromCostMargin(cost, row.margin);
+    update(i, { cost, price });
   }
 
-  function onMarginChange(index: number, value: string) {
-    const row = { ...sizes[index], margin: value };
-    row.price = calcPrice(row.cost, value);
-    update(index, { margin: value, price: row.price });
+  function onMarginChange(i: number, val: string) {
+    const margin = Math.min(Math.max(parseFloat(val) || 0, 0), 10000);
+    const price = calcPriceFromCostMargin(rows[i].cost, margin);
+    update(i, { margin, price });
   }
 
-  function onPriceChange(index: number, value: string) {
-    const row = { ...sizes[index], price: value };
-    row.margin = calcMargin(row.cost, value);
-    update(index, { price: value, margin: row.margin });
+  function onPriceChange(i: number, price: number) {
+    const margin = calcMarginFromCostPrice(rows[i].cost, price);
+    update(i, { price, margin });
+  }
+
+  function confirmEdit(i: number) {
+    const trimmed = editName.trim();
+    if (trimmed) update(i, { size: trimmed });
+    setEditIdx(null);
   }
 
   return (
-    <div className="border border-orange-100 rounded-xl overflow-hidden">
+    <div className="border border-orange-100 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="bg-orange-50 px-4 py-2.5 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-orange-50 to-amber-50 px-4 py-3 flex items-center justify-between border-b border-orange-100">
         <span className="text-xs font-black text-orange-600 uppercase tracking-wider flex items-center gap-1.5">
           <Pizza size={13} /> Preços por Tamanho
         </span>
         <button
           type="button"
-          onClick={() => onChange([...sizes, { size: `Tamanho ${sizes.length + 1}`, cost: "", margin: "", price: "" }])}
-          className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 font-bold transition"
+          onClick={() => onChange([...rows, { size: `Tamanho ${rows.length + 1}`, cost: 0, margin: 0, price: 0 }])}
+          className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 font-bold bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition"
         >
           <Plus size={12} /> Adicionar
         </button>
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_90px_80px_90px_32px] gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+      <div className="grid grid-cols-[1fr_120px_90px_130px_36px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-wider">
         <span>Tamanho</span>
-        <span>Custo R$</span>
-        <span>Margem %</span>
-        <span>Venda R$</span>
+        <span className="text-right">Custo R$</span>
+        <span className="text-right">Margem %</span>
+        <span className="text-right">Venda R$</span>
         <span />
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-gray-50">
-        {sizes.map((s, i) => (
-          <div key={i} className="grid grid-cols-[1fr_90px_80px_90px_32px] gap-2 items-center px-3 py-2">
-            {/* Tamanho */}
-            {editingIdx === i ? (
-              <div className="flex items-center gap-1">
+      <div className="divide-y divide-gray-50 bg-white">
+        {rows.map((row, i) => (
+          <div
+            key={i}
+            className="grid grid-cols-[1fr_120px_90px_130px_36px] gap-2 items-center px-4 py-2.5 hover:bg-gray-50/50 transition"
+          >
+            {/* Tamanho inline edit */}
+            {editIdx === i ? (
+              <div className="flex items-center gap-1.5">
                 <input
                   autoFocus
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      if (editingName.trim()) update(i, { size: editingName.trim() });
-                      setEditingIdx(null);
-                    }
-                    if (e.key === "Escape") setEditingIdx(null);
+                    if (e.key === "Enter") confirmEdit(i);
+                    if (e.key === "Escape") setEditIdx(null);
                   }}
-                  className={inp + " text-xs py-1.5"}
+                  onBlur={() => confirmEdit(i)}
+                  className="flex-1 border border-orange-300 ring-2 ring-orange-100 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-gray-900 outline-none"
                 />
                 <button
                   type="button"
-                  onClick={() => { if (editingName.trim()) update(i, { size: editingName.trim() }); setEditingIdx(null); }}
-                  className="text-green-500 hover:text-green-600 shrink-0"
+                  onMouseDown={(e) => { e.preventDefault(); confirmEdit(i); }}
+                  className="w-8 h-8 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center justify-center transition shrink-0"
                 >
                   <Check size={14} />
                 </button>
@@ -134,52 +140,45 @@ function SizesTable({ sizes, onChange }: { sizes: SizeRow[]; onChange: (s: SizeR
             ) : (
               <button
                 type="button"
-                onClick={() => { setEditingIdx(i); setEditingName(s.size); }}
-                className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-orange-500 transition text-left w-full group"
+                onClick={() => { setEditIdx(i); setEditName(row.size); }}
+                className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-orange-500 transition text-left group"
               >
-                <span className="truncate">{s.size}</span>
-                <Pencil size={11} className="shrink-0 text-gray-300 group-hover:text-orange-400 transition" />
+                <span>{row.size}</span>
+                <Pencil size={11} className="text-gray-300 group-hover:text-orange-400 transition shrink-0 opacity-0 group-hover:opacity-100" />
               </button>
             )}
 
             {/* Custo */}
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0,00"
-              value={s.cost}
-              onChange={(e) => onCostChange(i, e.target.value)}
-              className={inp + " text-xs py-1.5 text-right"}
+            <CurrencyInputBR
+              value={row.cost}
+              onChange={(v) => onCostChange(i, v)}
+              className="w-full border border-gray-200 focus:border-orange-300 focus:ring-1 focus:ring-orange-100 rounded-lg px-2.5 py-1.5 text-xs text-right font-medium text-gray-700 bg-white outline-none"
             />
 
             {/* Margem */}
             <input
               type="number"
-              min="0"
-              step="0.1"
+              min={0}
+              max={10000}
+              step={0.1}
               placeholder="0"
-              value={s.margin}
+              value={row.margin || ""}
               onChange={(e) => onMarginChange(i, e.target.value)}
-              className={inp + " text-xs py-1.5 text-right"}
+              className="w-full border border-gray-200 focus:border-orange-300 focus:ring-1 focus:ring-orange-100 rounded-lg px-2.5 py-1.5 text-xs text-right font-medium text-gray-700 bg-white outline-none"
             />
 
             {/* Venda */}
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0,00"
-              value={s.price}
-              onChange={(e) => onPriceChange(i, e.target.value)}
-              className={inp + " text-xs py-1.5 text-right font-bold text-orange-600"}
+            <CurrencyInputBR
+              value={row.price}
+              onChange={(v) => onPriceChange(i, v)}
+              className="w-full border border-orange-200 focus:border-orange-400 focus:ring-1 focus:ring-orange-100 rounded-lg px-2.5 py-1.5 text-xs text-right font-black text-orange-600 bg-orange-50/50 outline-none"
             />
 
             {/* Remove */}
             <button
               type="button"
-              onClick={() => onChange(sizes.filter((_, idx) => idx !== i))}
-              className="flex items-center justify-center text-gray-300 hover:text-red-400 transition"
+              onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+              className="flex items-center justify-center w-8 h-8 text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition"
             >
               <Trash2 size={13} />
             </button>
@@ -187,9 +186,9 @@ function SizesTable({ sizes, onChange }: { sizes: SizeRow[]; onChange: (s: SizeR
         ))}
       </div>
 
-      <p className="text-[10px] text-gray-400 px-3 py-2 bg-gray-50 border-t border-gray-100">
-        Venda calculada automaticamente. Edite diretamente para ajustar a margem.
-      </p>
+      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
+        Venda = Custo × (1 + Margem%). Editando Venda recalcula Margem automaticamente.
+      </div>
     </div>
   );
 }
@@ -198,13 +197,13 @@ function SizesTable({ sizes, onChange }: { sizes: SizeRow[]; onChange: (s: SizeR
 
 function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="flex items-center gap-2.5 cursor-pointer w-fit select-none">
+    <label className="flex items-center gap-3 cursor-pointer select-none w-fit">
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full transition-colors relative ${value ? "bg-orange-500" : "bg-gray-300"}`}
+        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${value ? "bg-orange-500" : "bg-gray-300"}`}
       >
-        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${value ? "left-5" : "left-0.5"}`} />
+        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-200 ${value ? "left-6" : "left-1"}`} />
       </button>
       <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
         <Pizza size={14} className="text-orange-500" /> {label}
@@ -213,132 +212,145 @@ function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: bool
   );
 }
 
-// ── MoneyField ────────────────────────────────────────────────────────────────
+// ── MoneyField (non-pizza) ────────────────────────────────────────────────────
 
 function MoneyField({ label, value, onChange, required }: {
-  label: string; value: string; onChange: (v: string) => void; required?: boolean;
+  label: string; value: number; onChange: (v: number) => void; required?: boolean;
 }) {
   return (
     <div>
       <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
         {label}{required && " *"}
       </label>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium pointer-events-none select-none">
-          R$
-        </span>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder="0,00"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inp + " pl-9"}
-        />
-      </div>
+      <CurrencyInputBR
+        value={value}
+        onChange={onChange}
+        className={inp}
+        placeholder="0,00"
+      />
     </div>
   );
 }
 
-// ── Main form state ───────────────────────────────────────────────────────────
+// ── Form state ────────────────────────────────────────────────────────────────
 
-const emptyForm = {
-  name: "", description: "", imageUrl: "",
-  costPrice: "", profitMargin: "", salePrice: "",
-  unit: "", size: "", weight: "", sku: "", barcode: "", categoryId: "",
-};
+const emptyForm = () => ({
+  name: "", description: "", sku: "", barcode: "",
+  categoryId: "", unit: "", weight: "",
+  costPrice: 0, profitMargin: 0, salePrice: 0,
+  imageUrl: null as string | null,
+});
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ProductsPage() {
-  const [products, setProducts]   = useState<any[]>([]);
+  const [products, setProducts]     = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading]       = useState(true);
 
-  // Create form
+  // Create
   const [showForm, setShowForm]   = useState(false);
-  const [form, setForm]           = useState<any>(emptyForm);
+  const [form, setForm]           = useState(emptyForm());
   const [formSizes, setFormSizes] = useState<SizeRow[]>(defaultSizes());
   const [formPizza, setFormPizza] = useState(false);
-  const [image, setImage]         = useState<File | null>(null);
 
-  // Edit modal
+  // Edit
   const [editProduct, setEditProduct]   = useState<any>(null);
-  const [editForm, setEditForm]         = useState({ name: "", description: "", salePrice: "", costPrice: "", profitMargin: "", categoryId: "" });
+  const [editForm, setEditForm]         = useState(emptyForm());
   const [editSizes, setEditSizes]       = useState<SizeRow[]>(defaultSizes());
   const [editPizza, setEditPizza]       = useState(false);
-  const [editImage, setEditImage]       = useState<File | null>(null);
   const [saving, setSaving]             = useState(false);
 
-  // ── derived ──────────────────────────────────────────────────────────────────
-  const isFormPizza = formPizza || isPizzaCategory(form.categoryId, categories);
-  const isEditPizza = editPizza || isPizzaCategory(editForm.categoryId, categories);
+  // Derived
+  const isFormPizza = formPizza || isPizzaCat(form.categoryId, categories);
+  const isEditPizza = editPizza || isPizzaCat(editForm.categoryId, categories);
 
-  // auto-toggle pizza mode when category changes
+  // auto-toggle pizza when category changes
+  useEffect(() => { if (isPizzaCat(form.categoryId, categories)) setFormPizza(true); }, [form.categoryId, categories]);
+  useEffect(() => { if (isPizzaCat(editForm.categoryId, categories)) setEditPizza(true); }, [editForm.categoryId, categories]);
+
+  // margin auto-calc for non-pizza form
   useEffect(() => {
-    if (isPizzaCategory(form.categoryId, categories)) setFormPizza(true);
-  }, [form.categoryId, categories]);
+    if (isFormPizza) return;
+    if (form.costPrice > 0 && form.profitMargin >= 0) {
+      const p = calcPriceFromCostMargin(form.costPrice, form.profitMargin);
+      setForm((f) => f.salePrice === p ? f : { ...f, salePrice: p });
+    }
+  }, [form.costPrice, form.profitMargin, isFormPizza]);
 
   useEffect(() => {
-    if (isPizzaCategory(editForm.categoryId, categories)) setEditPizza(true);
-  }, [editForm.categoryId, categories]);
+    if (isEditPizza) return;
+    if (editForm.costPrice > 0 && editForm.profitMargin >= 0) {
+      const p = calcPriceFromCostMargin(editForm.costPrice, editForm.profitMargin);
+      setEditForm((f) => f.salePrice === p ? f : { ...f, salePrice: p });
+    }
+  }, [editForm.costPrice, editForm.profitMargin, isEditPizza]);
 
-  // ── main price auto-calc (non-pizza mode) ────────────────────────────────────
-  function calcFormSalePrice() {
-    const c = parseFloat(form.costPrice);
-    const m = parseFloat(form.profitMargin);
-    if (!isFinite(c) || c <= 0) { toast.error("Informe o custo"); return; }
-    if (!isFinite(m) || m < 0) { toast.error("Informe a margem %"); return; }
-    setForm((f: any) => ({ ...f, salePrice: (c * (1 + m / 100)).toFixed(2) }));
-  }
-
-  // ── API ───────────────────────────────────────────────────────────────────────
-  async function fetchProducts() {
+  // ── API ───────────────────────────────────────────────────────────────────
+  const fetchProducts = useCallback(async () => {
     try { const r = await api.get("/products"); setProducts(r.data); }
     catch { toast.error("Erro ao carregar produtos"); }
-  }
+    finally { setLoading(false); }
+  }, []);
 
-  async function fetchCategories() {
+  const fetchCategories = useCallback(async () => {
     try { const r = await api.get("/categories"); setCategories(r.data); }
-    catch { toast.error("Erro ao carregar categorias"); }
-  }
+    catch { /* silent */ }
+  }, []);
 
-  useEffect(() => { fetchProducts(); fetchCategories(); }, []);
+  useEffect(() => { fetchProducts(); fetchCategories(); }, [fetchProducts, fetchCategories]);
 
-  // ── Sizes → backend format ────────────────────────────────────────────────────
+  // ── Sizes → payload ───────────────────────────────────────────────────────
   function sizesToPayload(rows: SizeRow[]) {
-    return rows
-      .filter((s) => s.size.trim() && s.price !== "" && isFinite(Number(s.price)))
-      .map((s) => ({
-        size:  s.size.trim(),
-        price: parseFloat(s.price) || 0,
-        cost:  parseFloat(s.cost)  || 0,
-      }));
+    return rows.filter((r) => r.size.trim() && r.price > 0).map((r) => ({
+      size: r.size.trim(),
+      price: r.price,
+      cost: r.cost,
+    }));
   }
 
-  // ── Create ────────────────────────────────────────────────────────────────────
+  // ── Create ────────────────────────────────────────────────────────────────
   async function createProduct() {
     if (!form.name.trim()) { toast.error("Nome obrigatório"); return; }
-    if (!isFormPizza && (!form.salePrice || isNaN(Number(form.salePrice)))) {
-      toast.error("Informe o valor de venda"); return;
-    }
+    if (!isFormPizza && form.salePrice <= 0) { toast.error("Informe o preço de venda"); return; }
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const fd   = new FormData();
-      Object.keys(form).forEach((k) => { if (form[k] !== "") fd.append(k, form[k]); });
+      const fd = new FormData();
+      fd.append("name", form.name.trim());
+      if (form.description) fd.append("description", form.description);
+      if (form.sku) fd.append("sku", form.sku);
+      if (form.barcode) fd.append("barcode", form.barcode);
+      if (form.categoryId) fd.append("categoryId", form.categoryId);
+      if (form.unit) fd.append("unit", form.unit);
       fd.append("companyId", user.companyId);
-      if (image) fd.append("image", image);
+
       const sized = isFormPizza ? sizesToPayload(formSizes) : [];
       fd.append("sizes", JSON.stringify(sized));
-      if (isFormPizza) { fd.set("salePrice", sized.length > 0 ? String(Math.max(...sized.map((s) => s.price))) : "0"); }
+
+      if (isFormPizza) {
+        const maxPrice = sized.length > 0 ? Math.max(...sized.map((s) => s.price)) : 0;
+        fd.append("salePrice", String(maxPrice));
+        fd.append("costPrice", "0");
+      } else {
+        fd.append("salePrice", String(form.salePrice));
+        fd.append("costPrice", String(form.costPrice));
+        fd.append("profitMargin", String(form.profitMargin));
+      }
+
+      // Image: send as imageUrl (base64) — not as file attachment
+      if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
+
       await api.post("/products", fd);
       toast.success("Produto criado!");
-      setForm(emptyForm); setFormSizes(defaultSizes()); setFormPizza(false); setImage(null); setShowForm(false);
+      setForm(emptyForm()); setFormSizes(defaultSizes()); setFormPizza(false); setShowForm(false);
       fetchProducts();
-    } catch { toast.error("Erro ao criar produto"); }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Erro ao criar produto"));
+    }
   }
 
-  // ── Open edit ─────────────────────────────────────────────────────────────────
+  // ── Open edit ─────────────────────────────────────────────────────────────
   function openEdit(product: any) {
     setEditProduct(product);
     const hasSizes = product.sizes?.length > 0;
@@ -346,65 +358,80 @@ export default function ProductsPage() {
     setEditForm({
       name:        product.name        || "",
       description: product.description || "",
-      salePrice:   product.salePrice   ? String(product.salePrice) : "",
-      costPrice:   product.costPrice   ? String(product.costPrice) : "",
-      profitMargin: "",
+      sku:         product.sku         || "",
+      barcode:     product.barcode     || "",
       categoryId:  product.categoryId  || "",
+      unit:        product.unit        || "",
+      weight:      product.weight      ? String(product.weight) : "",
+      costPrice:   Number(product.costPrice)   || 0,
+      profitMargin: 0,
+      salePrice:   Number(product.salePrice)   || 0,
+      imageUrl:    product.imageUrl    || null,
     });
     setEditSizes(
       hasSizes
         ? product.sizes.map((ps: any) => ({
             size:   ps.size,
-            cost:   ps.cost   != null ? String(ps.cost)  : "",
-            margin: "",
-            price:  ps.price  != null ? String(ps.price) : "",
+            cost:   Number(ps.cost)  || 0,
+            margin: calcMarginFromCostPrice(Number(ps.cost), Number(ps.price)),
+            price:  Number(ps.price) || 0,
           }))
         : defaultSizes()
     );
-    setEditImage(null);
   }
 
-  // ── Save edit ─────────────────────────────────────────────────────────────────
+  // ── Save edit ─────────────────────────────────────────────────────────────
   async function saveEdit() {
     if (!editProduct) return;
     if (!editForm.name.trim()) { toast.error("Nome obrigatório"); return; }
-    if (!isEditPizza && (!editForm.salePrice || isNaN(Number(editForm.salePrice)))) {
-      toast.error("Informe o valor de venda"); return;
-    }
+    if (!isEditPizza && editForm.salePrice <= 0) { toast.error("Informe o preço de venda"); return; }
     setSaving(true);
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const fd   = new FormData();
-      fd.append("name",        editForm.name.trim());
-      fd.append("description", editForm.description);
-      fd.append("companyId",   user.companyId);
+      const fd = new FormData();
+      fd.append("name", editForm.name.trim());
+      if (editForm.description) fd.append("description", editForm.description);
+      if (editForm.sku) fd.append("sku", editForm.sku);
+      if (editForm.barcode) fd.append("barcode", editForm.barcode);
       if (editForm.categoryId) fd.append("categoryId", editForm.categoryId);
-      if (editImage) fd.append("image", editImage);
+      if (editForm.unit) fd.append("unit", editForm.unit);
+      fd.append("companyId", user.companyId);
 
       const sized = isEditPizza ? sizesToPayload(editSizes) : [];
       fd.append("sizes", JSON.stringify(sized));
-      const sp = isEditPizza
-        ? (sized.length > 0 ? String(Math.max(...sized.map((s) => s.price))) : "0")
-        : editForm.salePrice;
-      fd.append("salePrice", sp || "0");
-      fd.append("costPrice",  editForm.costPrice  || "0");
+
+      if (isEditPizza) {
+        const maxPrice = sized.length > 0 ? Math.max(...sized.map((s) => s.price)) : 0;
+        fd.append("salePrice", String(maxPrice));
+        fd.append("costPrice", "0");
+      } else {
+        fd.append("salePrice", String(editForm.salePrice));
+        fd.append("costPrice", String(editForm.costPrice));
+        fd.append("profitMargin", String(editForm.profitMargin));
+      }
+
+      if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
 
       await api.patch(`/products/${editProduct.id}`, fd);
       toast.success("Produto atualizado!");
       setEditProduct(null);
       fetchProducts();
-    } catch { toast.error("Erro ao atualizar produto"); }
-    finally { setSaving(false); }
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Erro ao atualizar produto"));
+    } finally {
+      setSaving(false);
+    }
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────
   async function deleteProduct(product: any) {
     if (!confirm(`Excluir "${product.name}"?`)) return;
     try { await api.delete(`/products/${product.id}`); toast.success("Excluído"); fetchProducts(); }
     catch { toast.error("Erro ao excluir"); }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <RoleGuard allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER"]}>
       <main className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -413,46 +440,32 @@ export default function ProductsPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <div className="bg-orange-500 p-2.5 rounded-xl">
+              <div className="bg-orange-500 p-2.5 rounded-xl shadow-lg shadow-orange-200">
                 <Package size={20} className="text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-black text-gray-900">Produtos</h1>
-                <p className="text-gray-400 text-sm">{products.length} produto{products.length !== 1 ? "s" : ""} cadastrado{products.length !== 1 ? "s" : ""}</p>
+                <p className="text-gray-400 text-sm">{products.length} cadastrado{products.length !== 1 ? "s" : ""}</p>
               </div>
             </div>
             <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition"
+              onClick={() => { setShowForm(!showForm); if (showForm) { setForm(emptyForm()); setFormSizes(defaultSizes()); setFormPizza(false); }}}
+              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-orange-200"
             >
-              <Plus size={16} />
-              Novo produto
+              {showForm ? <X size={16} /> : <Plus size={16} />}
+              {showForm ? "Cancelar" : "Novo produto"}
             </button>
           </div>
 
-          {/* ── Form de criação ────────────────────────────────────────────── */}
+          {/* ── Form criação ──────────────────────────────────────────────── */}
           {showForm && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-8">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-base font-bold text-gray-900">Novo produto</h2>
-                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 transition">
-                  <X size={18} />
-                </button>
-              </div>
+              <h2 className="text-base font-bold text-gray-900 mb-5">Novo produto</h2>
 
-              {/* Basic fields */}
-              <div className="grid md:grid-cols-3 gap-4 mb-4">
-                <div>
+              <div className="grid md:grid-cols-3 gap-4 mb-5">
+                <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Nome *</label>
                   <input placeholder="Ex: Pizza Margherita" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inp} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">SKU</label>
-                  <input placeholder="Código interno" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className={inp} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Código de barras</label>
-                  <input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className={inp} />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
@@ -462,59 +475,61 @@ export default function ProductsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Unidade</label>
-                  <input placeholder="un, kg, L…" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inp} />
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">SKU</label>
+                  <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className={inp} placeholder="Código interno" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Peso / Tamanho</label>
-                  <input value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} className={inp} />
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Código de barras</label>
+                  <input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} className={inp} placeholder="EAN-13" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Unidade</label>
+                  <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inp} placeholder="un, kg, L…" />
                 </div>
               </div>
 
-              {/* Preços — hidden when pizza */}
+              {/* Preços — apenas modo normal */}
               {!isFormPizza && (
-                <div className="grid md:grid-cols-4 gap-4 mb-4">
+                <div className="grid md:grid-cols-4 gap-4 mb-5 p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <MoneyField label="Custo" value={form.costPrice} onChange={(v) => setForm({ ...form, costPrice: v })} />
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Margem %</label>
                     <input
-                      type="number" min="0" step="0.1" placeholder="0"
-                      value={form.profitMargin}
-                      onChange={(e) => setForm({ ...form, profitMargin: e.target.value })}
+                      type="number" min={0} max={10000} step={0.1} placeholder="ex: 120"
+                      value={form.profitMargin || ""}
+                      onChange={(e) => {
+                        const m = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), 10000);
+                        setForm({ ...form, profitMargin: m });
+                      }}
                       className={inp}
                     />
                   </div>
-                  <div className="flex flex-col justify-end">
-                    <button
-                      type="button"
-                      onClick={calcFormSalePrice}
-                      className="h-[42px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm transition"
-                    >
-                      Calcular →
-                    </button>
+                  <MoneyField label="Venda *" value={form.salePrice} onChange={(v) => {
+                    const m = calcMarginFromCostPrice(form.costPrice, v);
+                    setForm({ ...form, salePrice: v, profitMargin: m });
+                  }} required />
+                  <div className="flex items-end">
+                    <div className="w-full bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5 text-center">
+                      <p className="text-[10px] text-orange-400 font-bold uppercase">Margem calculada</p>
+                      <p className="text-lg font-black text-orange-600">{form.profitMargin.toFixed(1)}%</p>
+                    </div>
                   </div>
-                  <MoneyField label="Venda *" value={form.salePrice} onChange={(v) => setForm({ ...form, salePrice: v })} required />
                 </div>
               )}
 
               {/* Pizza toggle */}
               <div className="mb-4">
-                <Toggle
-                  value={isFormPizza}
-                  onChange={(v) => setFormPizza(v)}
-                  label="Produto pizza (preço por tamanho)"
-                />
+                <Toggle value={isFormPizza} onChange={setFormPizza} label="Produto pizza (preço por tamanho)" />
               </div>
 
-              {/* Sizes table */}
               {isFormPizza && (
-                <div className="mb-4">
-                  <SizesTable sizes={formSizes} onChange={setFormSizes} />
+                <div className="mb-5">
+                  <SizesTable rows={formSizes} onChange={setFormSizes} />
                 </div>
               )}
 
-              {/* Desc + image */}
-              <div className="grid md:grid-cols-2 gap-4 mb-5">
+              {/* Descrição + Imagem */}
+              <div className="grid md:grid-cols-2 gap-5 mb-6">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Descrição</label>
                   <textarea
@@ -522,61 +537,68 @@ export default function ProductsPage() {
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     className={inp + " resize-none"}
-                    rows={3}
+                    rows={4}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Imagem</label>
-                  <label className="block border border-dashed border-gray-300 hover:border-orange-400 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-pointer flex items-center gap-2 transition h-[90px]">
-                    <ImageIcon size={16} className="shrink-0" />
-                    <span className="truncate">{image ? image.name : "Selecionar imagem (JPG, PNG)"}</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setImage(e.target.files?.[0] || null)} />
-                  </label>
+                  <ImageUploaderPreview
+                    value={form.imageUrl || undefined}
+                    onChange={(url) => setForm({ ...form, imageUrl: url })}
+                  />
                 </div>
               </div>
 
               <button
                 onClick={createProduct}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-7 py-3 rounded-xl font-bold text-sm transition"
+                className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold text-sm transition shadow-md shadow-orange-200"
               >
                 Criar Produto
               </button>
             </div>
           )}
 
-          {/* ── Grid de produtos ────────────────────────────────────────────── */}
-          {products.length === 0 ? (
+          {/* ── Grid de produtos ──────────────────────────────────────────── */}
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-64 animate-pulse" />
+              ))}
+            </div>
+          ) : products.length === 0 ? (
             <div className="text-center text-gray-400 py-20">
               <Package size={48} className="mx-auto mb-3 opacity-30" />
-              Nenhum produto cadastrado
+              <p className="font-semibold">Nenhum produto cadastrado</p>
+              <p className="text-sm mt-1">Clique em "Novo produto" para começar</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
               {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
                   <div className="relative h-44 bg-gray-100">
                     <img
                       src={product.imageUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"}
                       onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"; }}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       alt={product.name}
                     />
-                    <div className="absolute top-2 right-2 flex gap-1">
-                      <button onClick={() => openEdit(product)} className="bg-white/90 hover:bg-white shadow p-1.5 rounded-lg transition" title="Editar">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition" />
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <button onClick={() => openEdit(product)} className="bg-white/95 hover:bg-white shadow-sm p-1.5 rounded-lg transition" title="Editar">
                         <Pencil size={13} className="text-gray-600" />
                       </button>
-                      <button onClick={() => deleteProduct(product)} className="bg-white/90 hover:bg-red-50 shadow p-1.5 rounded-lg transition" title="Excluir">
+                      <button onClick={() => deleteProduct(product)} className="bg-white/95 hover:bg-red-50 shadow-sm p-1.5 rounded-lg transition" title="Excluir">
                         <Trash2 size={13} className="text-red-500" />
                       </button>
                     </div>
                     {product.category?.name && (
-                      <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
+                      <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">
                         {product.category.name}
                       </span>
                     )}
                     {product.sizes?.length > 0 && (
-                      <span className="absolute bottom-2 right-2 bg-white/90 text-orange-500 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Pizza size={10} /> {product.sizes.length} tam.
+                      <span className="absolute bottom-2 right-2 bg-white/95 text-orange-500 text-[10px] font-black px-2 py-0.5 rounded-full shadow flex items-center gap-1">
+                        <Pizza size={9} /> {product.sizes.length} tam.
                       </span>
                     )}
                   </div>
@@ -589,20 +611,16 @@ export default function ProductsPage() {
                       {product.sizes?.length > 0 ? (
                         <div className="flex gap-1 flex-wrap">
                           {product.sizes.slice(0, 2).map((ps: any) => (
-                            <span key={ps.size} className="text-xs bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded border border-orange-100">
-                              {ps.size}: R${Number(ps.price).toFixed(2)}
+                            <span key={ps.size} className="text-[10px] bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded-lg border border-orange-100">
+                              {ps.size}: R${fmtBRL(Number(ps.price))}
                             </span>
                           ))}
-                          {product.sizes.length > 2 && (
-                            <span className="text-xs text-gray-400">+{product.sizes.length - 2}</span>
-                          )}
+                          {product.sizes.length > 2 && <span className="text-[10px] text-gray-400">+{product.sizes.length - 2}</span>}
                         </div>
                       ) : (
-                        <p className="text-orange-500 text-lg font-black">
-                          R$ {Number(product.salePrice).toFixed(2)}
-                        </p>
+                        <p className="text-orange-500 text-base font-black">R$ {fmtBRL(Number(product.salePrice))}</p>
                       )}
-                      {product.sku && <span className="text-gray-300 text-xs">{product.sku}</span>}
+                      {product.sku && <span className="text-gray-300 text-xs font-mono">{product.sku}</span>}
                     </div>
                   </div>
                 </div>
@@ -612,9 +630,9 @@ export default function ProductsPage() {
         </div>
       </main>
 
-      {/* ── Modal de edição ─────────────────────────────────────────────────── */}
+      {/* ── Modal de edição ─────────────────────────────────────────────── */}
       {editProduct && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-7 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-black text-gray-900">Editar Produto</h2>
@@ -624,104 +642,69 @@ export default function ProductsPage() {
             </div>
 
             <div className="space-y-4">
-              {/* Nome */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Nome *</label>
-                <input
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className={inp}
-                />
+                <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={inp} />
               </div>
-
-              {/* Descrição */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Descrição</label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  rows={2}
-                  className={inp + " resize-none"}
-                />
+                <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={2} className={inp + " resize-none"} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
+                  <select value={editForm.categoryId} onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })} className={inp}>
+                    <option value="">— Sem categoria —</option>
+                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Código de barras</label>
+                  <input value={editForm.barcode} onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })} className={inp} placeholder="EAN-13" />
+                </div>
               </div>
 
-              {/* Categoria */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
-                <select
-                  value={editForm.categoryId}
-                  onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
-                  className={inp}
-                >
-                  <option value="">— Sem categoria —</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
+              <Toggle value={isEditPizza} onChange={setEditPizza} label="Preço por tamanho" />
 
-              {/* Pizza toggle */}
-              <Toggle
-                value={isEditPizza}
-                onChange={(v) => setEditPizza(v)}
-                label="Preço por tamanho"
-              />
-
-              {/* Preços OR sizes */}
               {isEditPizza ? (
-                <SizesTable sizes={editSizes} onChange={setEditSizes} />
+                <SizesTable rows={editSizes} onChange={setEditSizes} />
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <MoneyField label="Custo" value={editForm.costPrice} onChange={(v) => setEditForm({ ...editForm, costPrice: v })} />
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Margem %</label>
                     <input
-                      type="number" min="0" step="0.1" placeholder="0"
-                      value={editForm.profitMargin}
+                      type="number" min={0} max={10000} step={0.1}
+                      value={editForm.profitMargin || ""}
                       onChange={(e) => {
-                        const m = e.target.value;
-                        const c = parseFloat(editForm.costPrice);
-                        const price = calcPrice(editForm.costPrice, m);
-                        setEditForm({ ...editForm, profitMargin: m, salePrice: price || editForm.salePrice });
+                        const m = Math.min(Math.max(parseFloat(e.target.value) || 0, 0), 10000);
+                        setEditForm({ ...editForm, profitMargin: m });
                       }}
                       className={inp}
                     />
                   </div>
                   <MoneyField label="Venda *" value={editForm.salePrice} onChange={(v) => {
-                    const margin = calcMargin(editForm.costPrice, v);
-                    setEditForm({ ...editForm, salePrice: v, profitMargin: margin });
+                    const m = calcMarginFromCostPrice(editForm.costPrice, v);
+                    setEditForm({ ...editForm, salePrice: v, profitMargin: m });
                   }} required />
                 </div>
               )}
 
-              {/* Imagem */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Imagem</label>
-                {editProduct.imageUrl && !editImage && (
-                  <img src={editProduct.imageUrl} alt="atual" className="w-16 h-16 object-cover rounded-xl mb-2" />
-                )}
-                {editImage && (
-                  <img src={URL.createObjectURL(editImage)} alt="nova" className="w-16 h-16 object-cover rounded-xl mb-2 ring-2 ring-orange-400" />
-                )}
-                <label className="flex items-center gap-2 border border-dashed border-gray-300 hover:border-orange-400 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-pointer transition">
-                  <ImageIcon size={16} className="shrink-0" />
-                  <span className="truncate">{editImage ? editImage.name : "Selecionar nova imagem"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => setEditImage(e.target.files?.[0] || null)} />
-                </label>
+                <ImageUploaderPreview
+                  value={editForm.imageUrl || undefined}
+                  onChange={(url) => setEditForm({ ...editForm, imageUrl: url })}
+                />
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setEditProduct(null)}
-                className="flex-1 border border-gray-200 hover:bg-gray-50 transition py-3 rounded-xl font-semibold text-sm text-gray-600"
-              >
+              <button onClick={() => setEditProduct(null)} className="flex-1 border border-gray-200 hover:bg-gray-50 py-3 rounded-xl font-semibold text-sm text-gray-600 transition">
                 Cancelar
               </button>
-              <button
-                onClick={saveEdit}
-                disabled={saving}
-                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 transition py-3 rounded-xl font-bold text-sm text-white"
-              >
-                {saving ? "Salvando..." : "Salvar"}
+              <button onClick={saveEdit} disabled={saving} className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 py-3 rounded-xl font-bold text-sm text-white transition shadow-md shadow-orange-200">
+                {saving ? "Salvando…" : "Salvar alterações"}
               </button>
             </div>
           </div>

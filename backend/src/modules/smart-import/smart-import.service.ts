@@ -90,6 +90,11 @@ export class SmartImportService {
       include: { items: true, logs: { orderBy: { createdAt: 'asc' } } },
     });
     if (!session) throw new NotFoundException('Sessão não encontrada.');
+    // Diagnostic: log first item.data so Render logs show what's in the DB
+    if (session.items.length > 0) {
+      const first = session.items[0];
+      console.log(`[SmartImport getSession] item[0].data type=${typeof first.data}, value=`, JSON.stringify(first.data)?.slice(0, 200));
+    }
     return session;
   }
 
@@ -208,6 +213,11 @@ export class SmartImportService {
       await this.log(sessionId, 'INFO', `${items.length} produto(s) identificado(s)`);
       await this.log(sessionId, 'INFO', 'Organizando categorias...');
 
+      // Diagnostic: log first item shape so we can verify data in Render logs
+      if (items.length > 0) {
+        console.log(`[SmartImport ${sessionId}] First item shape:`, JSON.stringify(items[0]).slice(0, 300));
+      }
+
       const categories = await this.prisma.category.findMany({
         where: { companyId },
         select: { id: true, name: true },
@@ -228,7 +238,7 @@ export class SmartImportService {
         }),
         ...enriched.map(item =>
           this.prisma.importItem.create({
-            data: { sessionId, data: item as any, confidence: item.confidence ?? null },
+            data: { sessionId, data: JSON.parse(JSON.stringify(item)), confidence: item.confidence ?? null },
           })
         ),
       ]);
@@ -301,7 +311,7 @@ export class SmartImportService {
         }),
         ...enriched.map(item =>
           this.prisma.importItem.create({
-            data: { sessionId, data: item as any, confidence: item.confidence ?? null },
+            data: { sessionId, data: JSON.parse(JSON.stringify(item)), confidence: item.confidence ?? null },
           })
         ),
       ]);
@@ -430,7 +440,7 @@ export class SmartImportService {
       }),
       ...items.map(item =>
         this.prisma.importItem.create({
-          data: { sessionId, data: item as any, confidence: item.confidence ?? null },
+          data: { sessionId, data: JSON.parse(JSON.stringify(item)), confidence: item.confidence ?? null },
         })
       ),
     ]);

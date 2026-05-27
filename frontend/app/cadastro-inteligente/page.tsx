@@ -6,11 +6,12 @@ import toast from "react-hot-toast";
 import {
   Sparkles, Upload, FileText, Image as ImageIcon, Loader2,
   CheckCircle2, XCircle, Trash2, ChevronDown, RefreshCw, Zap,
+  FileSpreadsheet, FileCode2, FileImage,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type TabType = "menu" | "invoice";
+type TabType = "menu" | "invoice" | "pdf" | "xml" | "spreadsheet";
 type Phase = "idle" | "uploading" | "processing" | "review" | "done" | "error";
 
 interface SessionLog { level: string; message: string; createdAt: string }
@@ -38,6 +39,64 @@ interface InvoiceItem {
   createProduct: boolean;
   enabled: boolean;
 }
+
+// ── Tab config ────────────────────────────────────────────────────────────────
+
+const TAB_CONFIG: {
+  key: TabType;
+  label: string;
+  icon: React.ReactNode;
+  formats: string;
+  accept: string;
+  hint: string;
+  endpoint: "menu" | "invoice";
+}[] = [
+  {
+    key: "menu",
+    label: "Cardápio Imagem",
+    icon: <FileImage size={18} />,
+    formats: "JPG · PNG · WEBP",
+    accept: "image/*",
+    hint: "Foto do cardápio, lista de preços ou embalagem",
+    endpoint: "menu",
+  },
+  {
+    key: "pdf",
+    label: "PDF Cardápio",
+    icon: <FileText size={18} />,
+    formats: "PDF",
+    accept: "application/pdf,.pdf",
+    hint: "Cardápio ou lista de preços em PDF",
+    endpoint: "menu",
+  },
+  {
+    key: "invoice",
+    label: "Nota Fiscal",
+    icon: <FileImage size={18} />,
+    formats: "JPG · PNG · PDF",
+    accept: "image/*,application/pdf,.pdf",
+    hint: "Foto ou PDF de nota fiscal / cupom fiscal",
+    endpoint: "invoice",
+  },
+  {
+    key: "xml",
+    label: "XML NF-e",
+    icon: <FileCode2 size={18} />,
+    formats: "XML",
+    accept: "application/xml,text/xml,.xml",
+    hint: "Arquivo XML de Nota Fiscal Eletrônica (NF-e)",
+    endpoint: "invoice",
+  },
+  {
+    key: "spreadsheet",
+    label: "Planilha Excel",
+    icon: <FileSpreadsheet size={18} />,
+    formats: "XLSX · XLSM",
+    accept: ".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12",
+    hint: "Planilha de produtos ou lista de preços",
+    endpoint: "menu",
+  },
+];
 
 // ── Progress stages ───────────────────────────────────────────────────────────
 
@@ -188,7 +247,8 @@ export default function CadastroInteligentePage() {
     fd.append("file", file);
 
     try {
-      const endpoint = tab === "menu" ? "/smart-import/menu" : "/smart-import/invoice";
+      const tc = TAB_CONFIG.find(t => t.key === tab)!;
+      const endpoint = `/smart-import/${tc.endpoint}`;
       const { data } = await api.post(endpoint, fd, { headers: { "Content-Type": "multipart/form-data" } });
       setSessionId(data.sessionId);
       setPhase("processing");
@@ -317,16 +377,20 @@ export default function CadastroInteligentePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {(["menu", "invoice"] as TabType[]).map(t => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
+        {TAB_CONFIG.map(tc => (
           <button
-            key={t}
-            onClick={() => { reset(); setTab(t); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
-              tab === t ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
+            key={tc.key}
+            onClick={() => { reset(); setTab(tc.key); }}
+            className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl text-xs font-semibold transition border ${
+              tab === tc.key
+                ? "bg-primary text-white shadow-md shadow-primary/20 border-primary"
+                : "bg-white text-gray-500 hover:bg-gray-50 border-gray-200 hover:border-gray-300"
             }`}
           >
-            {t === "menu" ? <><ImageIcon size={15} /> Cardápio por Imagem</> : <><FileText size={15} /> Nota Fiscal / Cupom</>}
+            <span className={tab === tc.key ? "text-white" : "text-gray-400"}>{tc.icon}</span>
+            <span className="leading-tight text-center">{tc.label}</span>
+            <span className={`text-[10px] font-medium ${tab === tc.key ? "text-white/70" : "text-gray-400"}`}>{tc.formats}</span>
           </button>
         ))}
       </div>
@@ -346,7 +410,7 @@ export default function CadastroInteligentePage() {
             ref={fileRef}
             type="file"
             className="hidden"
-            accept={tab === "menu" ? "image/*" : "image/*,application/xml,text/xml,application/pdf"}
+            accept={TAB_CONFIG.find(t => t.key === tab)?.accept ?? "image/*"}
             onChange={onFileInput}
           />
           <div className="py-16 flex flex-col items-center gap-4">
@@ -363,9 +427,10 @@ export default function CadastroInteligentePage() {
                 <div className="text-center">
                   <p className="text-gray-700 font-semibold">Arraste o arquivo aqui ou clique para selecionar</p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {tab === "menu"
-                      ? "JPG, PNG, WEBP — foto do cardápio ou lista de preços"
-                      : "JPG, PNG, XML (NF-e), PDF — nota fiscal ou cupom"}
+                    {TAB_CONFIG.find(t => t.key === tab)?.hint}
+                  </p>
+                  <p className="text-[11px] text-gray-300 mt-1 font-medium tracking-wide">
+                    {TAB_CONFIG.find(t => t.key === tab)?.formats}
                   </p>
                 </div>
               </>

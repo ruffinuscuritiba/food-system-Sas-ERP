@@ -18,6 +18,7 @@ import { ReportsModule } from './modules/reports/reports.module'
 import { IaModule } from './modules/ia/ia.module'
 import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { SmartImportModule } from './modules/smart-import/smart-import.module'
+import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -48,6 +49,7 @@ import { AppService } from './app.service'
     IaModule,
     LoyaltyModule,
     SmartImportModule,
+    PizzaBordersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

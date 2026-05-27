@@ -139,6 +139,8 @@ model Company {
 
   importSessions ImportSession[]
 
+  pizzaBorders PizzaBorder[]
+
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
@@ -1112,4 +1114,38 @@ model ImportLog {
   createdAt DateTime      @default(now())
 
   @@index([sessionId])
+}
+
+// ── Pizza Borders ─────────────────────────────────────────────────────────────
+
+enum PizzaSize {
+  PEQUENA
+  MEDIA
+  GRANDE
+  FAMILIA
+  EXTRA_GRANDE
+}
+
+model PizzaBorder {
+  id        String            @id @default(cuid())
+  companyId String
+  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  sizes     PizzaBorderSize[]
+
+  @@index([companyId])
+}
+
+model PizzaBorderSize {
+  id           String      @id @default(cuid())
+  pizzaBorderId String
+  pizzaBorder  PizzaBorder @relation(fields: [pizzaBorderId], references: [id], onDelete: Cascade)
+  size         PizzaSize
+  price        Decimal     @db.Decimal(10, 2)
+
+  @@unique([pizzaBorderId, size])
+  @@index([pizzaBorderId])
 }

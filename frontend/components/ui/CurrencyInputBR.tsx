@@ -47,7 +47,18 @@ export function CurrencyInputBR({
   const [cents, setCents] = useState(() => reaisToCents(value));
   const ref = useRef<HTMLInputElement>(null);
 
-  // Keep in sync when parent resets the value to 0 / different value
+  // ── Sync external value changes (e.g. price recalculated by parent) ──────────
+  // Uses the "update state during render" pattern so there is no flicker:
+  // React discards this render and restarts with the new cents immediately.
+  const prevValueRef = useRef<number | string>(value);
+  const incomingCents = reaisToCents(value);
+  if (prevValueRef.current !== value) {
+    prevValueRef.current = value;
+    if (incomingCents !== cents) {
+      setCents(incomingCents);
+    }
+  }
+
   const displayValue = cents === 0 ? "" : centsToBRL(cents);
 
   const handleKeyDown = useCallback(

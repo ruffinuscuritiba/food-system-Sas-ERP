@@ -287,27 +287,32 @@ export default function CadastroInteligentePage() {
 
   function buildReviewState(data: any) {
     const items: any[] = data.items ?? [];
-    if (tab === "menu") {
+    // Decide menu vs invoice display by the tab's *endpoint*, not the tab key,
+    // so "pdf" and "spreadsheet" (which use the menu endpoint) render as menu.
+    const tabConfig = TAB_CONFIG.find(t => t.key === tab);
+    const isMenu = tabConfig?.endpoint === "menu";
+
+    if (isMenu) {
       setMenuItems(items.map((it: any) => ({
         itemId: it.id,
-        name: it.data?.name ?? "",
-        description: it.data?.description ?? "",
-        price: it.data?.price ?? undefined,
-        category: it.data?.category ?? "",
-        suggestedCategoryId: it.data?.suggestedCategoryId ?? undefined,
-        categoryId: it.data?.suggestedCategoryId ?? "",
-        confidence: it.confidence ?? undefined,
+        name: it.data?.name ?? it.name ?? "",
+        description: it.data?.description ?? it.description ?? "",
+        price: it.data?.price ?? it.price ?? undefined,
+        category: it.data?.category ?? it.category ?? "",
+        suggestedCategoryId: it.data?.suggestedCategoryId ?? it.suggestedCategoryId ?? undefined,
+        categoryId: it.data?.suggestedCategoryId ?? it.suggestedCategoryId ?? "",
+        confidence: it.confidence ?? it.data?.confidence ?? undefined,
         enabled: true,
       })));
     } else {
       setInvoiceItems(items.map((it: any) => ({
         itemId: it.id,
-        name: it.data?.name ?? "",
-        quantity: it.data?.quantity ?? 1,
-        unit: it.data?.unit ?? "UN",
-        unitCost: it.data?.unitCost ?? 0,
-        total: it.data?.total ?? undefined,
-        confidence: it.confidence ?? undefined,
+        name: it.data?.name ?? it.name ?? "",
+        quantity: it.data?.quantity ?? it.quantity ?? 1,
+        unit: it.data?.unit ?? it.unit ?? "UN",
+        unitCost: it.data?.unitCost ?? it.unitCost ?? 0,
+        total: it.data?.total ?? it.total ?? undefined,
+        confidence: it.confidence ?? it.data?.confidence ?? undefined,
         createProduct: false,
         enabled: true,
       })));

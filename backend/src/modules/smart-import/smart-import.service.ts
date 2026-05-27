@@ -1,9 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 import * as XLSX from 'xlsx';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require('pdf-parse');
 import { PrismaService } from 'src/database/prisma.service';
+
+// Lazy-load pdf-parse so the entire backend doesn't crash at startup
+// on Node < 22.6 (pdf-parse pulls in code that needs process.getBuiltinModule).
+let _pdfParse: ((buf: Buffer) => Promise<{ text: string }>) | null = null;
+function pdfParse(buf: Buffer): Promise<{ text: string }> {
+  if (!_pdfParse) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    _pdfParse = require('pdf-parse');
+  }
+  return _pdfParse!(buf);
+}
 import { AIProvider } from 'src/services/ai/ai-provider.interface';
 import { AIProviderFactory } from 'src/services/ai/ai-provider.factory';
 

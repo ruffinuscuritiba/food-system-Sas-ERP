@@ -23,6 +23,30 @@ body {
   box-sizing: border-box;
 }
 
+/*
+ * Reset global de cor para inputs/textarea/select.
+ * O body usa color:#fff (tema escuro do admin) mas formulários
+ * em fundos brancos herdariam texto branco — invisível.
+ * Este reset garante texto escuro por padrão em todos os campos.
+ */
+input:not([type="color"]),
+input:not([type="range"]),
+textarea,
+select {
+  color: #111827;
+  -webkit-text-fill-color: #111827;
+  caret-color: #111827;
+}
+
+/* Restaurar para inputs que precisam de texto claro (classes explícitas sobrepõem) */
+input.text-white,
+textarea.text-white,
+select.text-white {
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+}
+
 /* Scrollbar invisível — mantém o scroll funcional sem mostrar a barra */
 .scrollbar-hide {
   -ms-overflow-style: none;

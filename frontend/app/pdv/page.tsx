@@ -34,11 +34,13 @@ import {
 } from "lucide-react";
 
 interface Category { id: string; name: string; }
+interface ProductSize { size: string; price: number; }
 interface Product {
   id: string; name: string; description?: string;
   salePrice?: number; costPrice?: number; imageUrl?: string;
   videoUrl?: string; hasVideo?: boolean;
   categoryId?: string; isActive: boolean;
+  sizes?: ProductSize[];
 }
 
 interface CartItem { product: Product; qty: number; }
@@ -563,6 +565,11 @@ export default function PDVPage() {
                   .filter(p => p.categoryId && pizzaCategories.has(p.categoryId || ""))
                   .map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={[]}
+                sizes={pizzaProduct.sizes?.map(s => ({
+                  size: s.size,
+                  label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "),
+                  price: Number(s.price) || 0,
+                }))}
                 onAdd={addPizzaToCart}
               />
             </div>

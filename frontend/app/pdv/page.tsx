@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api } from "@/services/api";
-
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -26,14 +25,16 @@ import {
   Receipt,
   Trash2,
   ShoppingBag,
+  Eye,
   EyeOff,
-  Pencil,
+  X,
 } from "lucide-react";
 
 interface Category { id: string; name: string; }
 interface Product {
   id: string; name: string; description?: string;
   salePrice?: number; costPrice?: number; imageUrl?: string;
+  videoUrl?: string; hasVideo?: boolean;
   categoryId?: string; isActive: boolean;
 }
 
@@ -43,6 +44,7 @@ export default function PDVPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [search, setSearch]                   = useState("");
   const [loading, setLoading]                 = useState(true);
+  const [videoProduct, setVideoProduct]       = useState<Product | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -345,8 +347,7 @@ export default function PDVPage() {
                         </p>
                       )}
                       <div className="flex gap-3 mt-4">
-                        <IconBtn icon={<Pencil size={16} />} />
-                        <IconBtn icon={<EyeOff size={16} />} />
+                        <VideoEyeBtn product={product} onOpen={setVideoProduct} />
                       </div>
                     </div>
 
@@ -390,6 +391,11 @@ export default function PDVPage() {
 
       </main>
 
+      {/* VIDEO MODAL */}
+      {videoProduct && (
+        <VideoModal product={videoProduct} onClose={() => setVideoProduct(null)} />
+      )}
+
     </div>
   );
 }
@@ -411,11 +417,121 @@ function TopButton({
   );
 }
 
-function IconBtn({ icon }: { icon: any }) {
+/** Botão de olho: ativo se o produto tem vídeo, desabilitado caso contrário */
+function VideoEyeBtn({
+  product,
+  onOpen,
+}: {
+  product: Product;
+  onOpen: (p: Product) => void;
+}) {
+  const active = !!(product.videoUrl);
   return (
-    <button className="w-12 h-12 rounded-xl border border-[#1d2336] flex items-center justify-center hover:bg-[#151c2d] transition">
-      {icon}
+    <button
+      onClick={() => active && onOpen(product)}
+      title={active ? "Visualizar vídeo do produto" : "Sem vídeo cadastrado"}
+      disabled={!active}
+      className={`
+        w-12 h-12 rounded-xl border flex items-center justify-center transition
+        ${active
+          ? "border-blue-600/40 text-blue-400 hover:bg-blue-600/20 cursor-pointer"
+          : "border-[#1d2336] text-zinc-600 opacity-40 cursor-not-allowed"
+        }
+      `}
+    >
+      {active ? <Eye size={16} /> : <EyeOff size={16} />}
     </button>
+  );
+}
+
+/** Modal de vídeo — desktop: modal centralizado | mobile: fullscreen estilo reels */
+function VideoModal({
+  product,
+  onClose,
+}: {
+  product: Product;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  // Tentar fullscreen nativo em iOS/Android
+  useEffect(() => {
+    if (!isMobile || !videoRef.current) return;
+    const el = videoRef.current as any;
+    const req =
+      el.requestFullscreen ??
+      el.webkitRequestFullscreen ??
+      el.webkitEnterFullscreen;
+    if (req) req.call(el).catch(() => {});
+  }, []);
+
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-12 pb-4">
+          <div className="min-w-0">
+            <p className="text-xs text-zinc-400 mb-0.5">Visualizando</p>
+            <h3 className="font-bold text-white text-lg truncate">{product.name}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {/* Video fullscreen */}
+        <div className="flex-1 flex items-center justify-center px-2 pb-8">
+          <video
+            ref={videoRef}
+            src={product.videoUrl}
+            controls
+            autoPlay
+            playsInline
+            className="w-full max-h-full rounded-2xl object-contain"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-[#0b0f1b] rounded-3xl overflow-hidden w-full max-w-3xl shadow-2xl border border-[#1d2336]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#161b2d]">
+          <div>
+            <p className="text-xs text-zinc-500 mb-0.5">Vídeo do produto</p>
+            <h3 className="font-bold text-white text-xl">{product.name}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {/* Video */}
+        <div className="p-3">
+          <video
+            ref={videoRef}
+            src={product.videoUrl}
+            controls
+            autoPlay
+            className="w-full max-h-[70vh] rounded-2xl bg-black object-contain"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 

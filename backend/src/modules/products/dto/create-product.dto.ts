@@ -90,4 +90,21 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   sizes?: string
+
+  @IsOptional()
+  @IsString()
+  videoUrl?: string
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  hasVideo?: boolean
+
+  @IsOptional()
+  @IsString()
+  productType?: string
+
+  @IsOptional()
+  @IsString()
+  eanCode?: string
 }

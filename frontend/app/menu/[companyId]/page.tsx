@@ -1,12 +1,13 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
 import { useEffect, useState, useCallback, useRef } from "react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
-  MapPin, Clock, Phone, Search, Copy, Timer,
+  MapPin, Clock, Phone, Search, Copy, Timer, Eye,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -18,6 +19,8 @@ type Product = {
   description: string;
   salePrice: number;
   imageUrl: string | null;
+  videoUrl?: string | null;
+  hasVideo?: boolean;
   category?: { name: string; categoryType?: string; displayColumns?: number };
   isActive: boolean;
 };
@@ -90,6 +93,7 @@ export default function MenuPage() {
   const [couponLoading, setCouponLoading] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [videoProduct, setVideoProduct] = useState<Product | null>(null);
 
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [flavorParts, setFlavorParts] = useState(2);
@@ -834,6 +838,15 @@ export default function MenuPage() {
                       <p className="text-sm font-black mt-auto" style={{ color: theme.primaryColor }}>
                         R$ {Number(product.salePrice).toFixed(2)}
                       </p>
+                      {product.videoUrl && (
+                        <button
+                          onClick={() => setVideoProduct(product)}
+                          className="w-full py-1 rounded-xl font-bold text-gray-500 text-xs flex items-center justify-center gap-1 transition border border-gray-100 hover:bg-gray-50 mt-1"
+                          title="Ver vídeo"
+                        >
+                          <Eye size={12} /> Vídeo
+                        </button>
+                      )}
                       <button
                         onClick={() => addToCart(product)}
                         className="w-full py-1.5 rounded-xl font-black text-white text-sm flex items-center justify-center gap-1 transition mt-1"
@@ -867,7 +880,16 @@ export default function MenuPage() {
                       <span className="font-black text-lg" style={{ color: theme.primaryColor }}>
                         R$ {Number(product.salePrice).toFixed(2)}
                       </span>
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {product.videoUrl && (
+                          <button
+                            onClick={() => setVideoProduct(product)}
+                            className="border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1"
+                            title="Ver vídeo do produto"
+                          >
+                            <Eye size={13} /> Vídeo
+                          </button>
+                        )}
                         {isPizzaCat && (
                           <button
                             onClick={() => openFlavorModal(product)}
@@ -1305,6 +1327,86 @@ export default function MenuPage() {
           </div>
         </div>
       )}
+      {/* ─── Modal de vídeo do produto ──────────────────────────────────────── */}
+      {videoProduct && (
+        <MenuVideoModal product={videoProduct} onClose={() => setVideoProduct(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Modal de vídeo para o cardápio — desktop: modal | mobile: fullscreen overlay */
+function MenuVideoModal({ product, onClose }: { product: { name: string; videoUrl?: string | null }; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+  useEffect(() => {
+    if (!isMobile || !videoRef.current) return;
+    const el = videoRef.current as any;
+    const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.webkitEnterFullscreen;
+    if (req) req.call(el).catch(() => {});
+  }, []);
+
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+        <div className="flex items-center justify-between px-5 pt-12 pb-4">
+          <div className="min-w-0">
+            <p className="text-xs text-gray-400 mb-0.5">Vídeo do produto</p>
+            <h3 className="font-bold text-white text-lg truncate">{product.name}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center px-2 pb-8">
+          <video
+            ref={videoRef}
+            src={product.videoUrl ?? ""}
+            controls
+            autoPlay
+            playsInline
+            className="w-full max-h-full rounded-2xl object-contain"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white rounded-3xl overflow-hidden w-full max-w-2xl shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">Vídeo do produto</p>
+            <h3 className="font-bold text-gray-900 text-xl">{product.name}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-3">
+          <video
+            ref={videoRef}
+            src={product.videoUrl ?? ""}
+            controls
+            autoPlay
+            className="w-full max-h-[65vh] rounded-2xl bg-black object-contain"
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -273,6 +273,10 @@ model Product {
   // EAN/código de barras para bebidas industrializadas
   eanCode String?
 
+  // Vídeo demonstrativo do produto (URL)
+  videoUrl String?
+  hasVideo Boolean @default(false)
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])

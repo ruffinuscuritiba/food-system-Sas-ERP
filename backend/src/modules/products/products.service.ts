@@ -96,6 +96,18 @@ export class ProductsService {
           allowNegativeStock:
             data.allowNegativeStock ?? false,
 
+          videoUrl:
+            data.videoUrl ?? null,
+
+          hasVideo:
+            !!(data.videoUrl),
+
+          productType:
+            data.productType ?? 'standard',
+
+          eanCode:
+            data.eanCode ?? null,
+
           company: {
 
             connect: {
@@ -190,6 +202,13 @@ export class ProductsService {
         ...(data.salePrice !== undefined && { salePrice: parseFloat(data.salePrice) }),
         ...(data.costPrice !== undefined && { costPrice: parseFloat(data.costPrice) }),
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
+        ...(data.videoUrl !== undefined && {
+          videoUrl: data.videoUrl || null,
+          hasVideo: !!(data.videoUrl),
+        }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.productType !== undefined && { productType: data.productType }),
+        ...(data.eanCode !== undefined && { eanCode: data.eanCode }),
         ...(data.categoryId !== undefined && data.categoryId !== '' && {
           category: { connect: { id: data.categoryId } },
         }),

@@ -1,6 +1,6 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
@@ -76,6 +76,10 @@ export default function MenuPage() {
     pizzaPricingMode?: string;
   }>({ primaryColor: "#f97316" });
   const [cepLoading, setCepLoading] = useState(false);
+  const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
+  const [streetLoading, setStreetLoading] = useState(false);
+  const streetDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponId, setCouponId] = useState<string | null>(null);
@@ -293,6 +297,37 @@ export default function MenuPage() {
       }));
     } catch { /* silent */ }
     finally { setCepLoading(false); }
+  }
+
+  async function searchStreet(query: string) {
+    if (query.length < 5) { setStreetSuggestions([]); return; }
+    setStreetLoading(true);
+    try {
+      const q = encodeURIComponent(query + ', Brasil');
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${q}&countrycodes=br&addressdetails=1&limit=6`,
+        { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'FoodSaaS-ERP/1.0' } }
+      );
+      if (!r.ok) return;
+      const data = await r.json();
+      setStreetSuggestions(data.filter((i: any) => i.address?.road));
+    } catch { /* silent */ }
+    finally { setStreetLoading(false); }
+  }
+
+  function selectStreetSuggestion(item: any) {
+    const addr = item.address;
+    const stateIso: string = addr['ISO3166-2-lvl4'] ?? '';
+    const stateCode = stateIso.length >= 2 ? stateIso.slice(-2) : (addr.state ?? '');
+    setForm((f) => ({
+      ...f,
+      street: addr.road ?? addr.pedestrian ?? addr.footway ?? f.street,
+      neighborhood: addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? f.neighborhood,
+      city: addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? f.city,
+      state: stateCode.toUpperCase().slice(0, 2) || f.state,
+      zipcode: addr.postcode ?? f.zipcode,
+    }));
+    setStreetSuggestions([]);
   }
 
   function calcPizzaPrice(flavors: Product[]) {
@@ -1034,34 +1069,50 @@ export default function MenuPage() {
             )}
             {!tableNumber && form.orderType === "DELIVERY" && (
               <div className="space-y-2">
-                {/* CEP primeiro — preenche os demais automaticamente */}
-                <div className="relative">
-                  <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    placeholder="CEP *"
-                    value={form.zipcode}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 8);
-                      const formatted = v.length > 5 ? `${v.slice(0,5)}-${v.slice(5)}` : v;
-                      setForm((f) => ({ ...f, zipcode: formatted }));
-                      if (v.length === 8) fetchByCep(v);
-                    }}
-                    className="w-full border border-gray-200 rounded-xl pl-9 pr-10 py-3 text-gray-900 outline-none focus:border-primary text-sm"
-                    inputMode="numeric"
-                    maxLength={9}
-                  />
-                  {cepLoading && (
-                    <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
-                  )}
-                </div>
+                {/* Rua com autocomplete Nominatim */}
                 <div className="flex gap-2">
                   <div className="relative flex-1 min-w-0">
+                    <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
                       placeholder="Rua / Av. *"
                       value={form.street}
-                      onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({ ...f, street: v }));
+                        if (streetDebounce.current) clearTimeout(streetDebounce.current);
+                        streetDebounce.current = setTimeout(() => searchStreet(v), 500);
+                      }}
+                      onBlur={() => setTimeout(() => setStreetSuggestions([]), 200)}
+                      className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                      autoComplete="off"
                     />
+                    {streetLoading && (
+                      <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                    )}
+                    {streetSuggestions.length > 0 && (
+                      <div
+                        ref={suggestionsRef}
+                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+                      >
+                        {streetSuggestions.map((item, idx) => {
+                          const addr = item.address;
+                          const road = addr.road ?? addr.pedestrian ?? '';
+                          const city = addr.city ?? addr.town ?? addr.village ?? '';
+                          const state = (addr['ISO3166-2-lvl4'] ?? '').slice(-2);
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onMouseDown={() => selectStreetSuggestion(item)}
+                              className="w-full text-left px-4 py-2.5 hover:bg-orange-50 border-b border-gray-50 last:border-0 transition"
+                            >
+                              <div className="text-sm font-semibold text-gray-800 truncate">{road}</div>
+                              <div className="text-xs text-gray-400 truncate">{city}{state ? ` — ${state}` : ''}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   <input
                     placeholder="Nº"
@@ -1092,12 +1143,32 @@ export default function MenuPage() {
                     maxLength={2}
                   />
                 </div>
-                <input
-                  placeholder="Cidade *"
-                  value={form.city}
-                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
-                />
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Cidade *"
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                    className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                  />
+                  <div className="relative w-24 flex-shrink-0">
+                    <input
+                      placeholder="CEP"
+                      value={form.zipcode}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        const fmt = v.length > 5 ? `${v.slice(0,5)}-${v.slice(5)}` : v;
+                        setForm((f) => ({ ...f, zipcode: fmt }));
+                        if (v.length === 8) fetchByCep(v);
+                      }}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                      inputMode="numeric"
+                      maxLength={9}
+                    />
+                    {cepLoading && (
+                      <Loader2 size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                    )}
+                  </div>
+                </div>
               </div>
             )}
             {tableNumber && (

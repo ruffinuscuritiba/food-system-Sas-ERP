@@ -21,6 +21,7 @@ import { SmartImportModule } from './modules/smart-import/smart-import.module'
 import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module'
 import { PizzaSizeConfigsModule } from './modules/pizza-size-configs/pizza-size-configs.module'
 import { ComplementsModule } from './modules/complements/complements.module'
+import { OnlineOrdersModule } from './modules/online-orders/online-orders.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -54,6 +55,7 @@ import { AppService } from './app.service'
     PizzaBordersModule,
     PizzaSizeConfigsModule,
     ComplementsModule,
+    OnlineOrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

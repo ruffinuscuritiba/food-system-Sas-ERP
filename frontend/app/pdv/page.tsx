@@ -141,8 +141,8 @@ export default function PDVPage() {
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
 
-      {/* SIDEBAR */}
-      <aside className="w-[240px] bg-[#050816] border-r border-[#161b2d] flex flex-col overflow-hidden">
+      {/* SIDEBAR — hidden on mobile */}
+      <aside className="hidden md:flex w-[240px] bg-[#050816] border-r border-[#161b2d] flex-col overflow-hidden">
 
         {/* LOGO */}
         <div className="h-[92px] shrink-0 border-b border-[#161b2d] flex items-center px-5 gap-4">
@@ -246,91 +246,70 @@ export default function PDVPage() {
       <main className="flex-1 flex flex-col">
 
         {/* HEADER */}
-        <header className="h-[92px] border-b border-[#161b2d] flex items-center justify-between px-6">
+        <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-3 md:px-6 h-16 md:h-[92px] gap-2">
 
-          <div className="flex items-center gap-5">
-
-            {/* SEARCH */}
-            <div className="w-[420px] h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-2xl flex items-center px-5 gap-4">
-              <Search size={18} className="text-zinc-400" />
-
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar produto, código ou cliente..."
-                className="bg-transparent outline-none w-full text-sm"
-              />
-            </div>
-
-            {/* MESA */}
-            <div className="w-[100px] h-[54px] rounded-2xl bg-[#0c101d] border border-[#1d2336] flex items-center justify-center gap-3">
-
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-
-              <div className="leading-none">
-                <div className="text-[10px] text-zinc-400 uppercase">
-                  Mesa
-                </div>
-
-                <div className="font-bold text-2xl">
-                  29
-                </div>
-              </div>
-
-            </div>
-
+          {/* Search */}
+          <div className="flex-1 max-w-xs md:max-w-[420px] h-10 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-2xl flex items-center px-3 md:px-5 gap-2 md:gap-4">
+            <Search size={16} className="text-zinc-400 shrink-0" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar produto..."
+              className="bg-transparent outline-none w-full text-sm"
+            />
           </div>
 
-          {/* ACTIONS */}
-          <div className="flex items-center gap-3">
-
-            <TopButton
-              icon={<ArrowLeftRight size={18} />}
-              title="Trocar"
-              subtitle="Mesa"
-            />
-
-            <TopButton
-              icon={<Receipt size={18} />}
-              title="Criar"
-              subtitle="Cupom"
-            />
-
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            {/* Limpar — icon only on mobile */}
             <button
               onClick={clearCart}
-              className="h-[54px] px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-3"
+              title="Limpar conta"
+              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-2"
             >
-              <Trash2 size={18} />
-              <div className="text-left leading-none">
-                <div className="font-semibold">Limpar</div>
-                <div className="text-xs opacity-80 mt-1">Conta</div>
-              </div>
+              <Trash2 size={16} />
+              <span className="hidden md:block text-sm font-semibold">Limpar</span>
             </button>
 
+            {/* Cart */}
             <button
               onClick={() => setShowCart(true)}
-              className="h-[54px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-3 font-semibold relative"
+              className="h-10 md:h-[54px] px-3 md:px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-2 font-semibold relative"
             >
-              <ShoppingBag size={20} />
-              Carrinho
+              <ShoppingBag size={18} />
+              <span className="hidden md:block text-sm">Carrinho</span>
               {cartCount > 0 && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-xs flex items-center justify-center font-bold">
+                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 md:w-6 md:h-6 rounded-full bg-red-500 text-xs flex items-center justify-center font-bold">
                   {cartCount}
                 </div>
               )}
             </button>
-
           </div>
         </header>
 
-        {/* BODY */}
-        <div className="flex-1 grid grid-cols-[220px_1fr] overflow-hidden">
+        {/* Mobile: categories horizontal scroll */}
+        <div className="md:hidden shrink-0 flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide bg-[#050816] border-b border-[#161b2d]">
+          {[{ id: "all", name: "Todos" }, ...categories].map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold transition ${
+                selectedCategory === cat.id
+                  ? "bg-blue-600 text-white"
+                  : "bg-[#0c101d] text-zinc-300"
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
 
-          {/* CATEGORY COLUMN */}
+        {/* BODY */}
+        <div className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
+
+          {/* CATEGORY COLUMN — desktop only */}
           <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto scrollbar-hide bg-[#050816]">
             <div className="space-y-4">
-
-              {/* "Todos" button */}
               <button
                 onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
@@ -341,7 +320,6 @@ export default function PDVPage() {
               >
                 Todos
               </button>
-
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[#0c101d] animate-pulse" />
@@ -361,11 +339,10 @@ export default function PDVPage() {
                   </button>
                 ))
               )}
-
             </div>
           </aside>
 
-          {/* PRODUCTS */}
+          {/* PRODUCTS — desktop */}
           <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[#030712]">
 
             {/* HERO banner */}
@@ -454,8 +431,44 @@ export default function PDVPage() {
 
         </div>
 
-        {/* FOOTER */}
-        <footer className="h-[58px] border-t border-[#161b2d] flex items-center justify-between px-6">
+        {/* PRODUCTS — mobile only (full width list) */}
+        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712] px-3 py-3 space-y-3">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl bg-[#0b0f1b] animate-pulse" />
+            ))
+          ) : filteredProducts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+              <span className="text-4xl mb-3">🍽️</span>
+              <p className="text-sm font-semibold">Nenhum produto nesta categoria</p>
+            </div>
+          ) : (
+            filteredProducts.map(product => (
+              <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
+                {product.imageUrl
+                  ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                  : <div className="w-16 h-16 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>
+                }
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm leading-tight">{product.name}</p>
+                  {product.description && (
+                    <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
+                  )}
+                  <p className="text-blue-400 font-black text-base mt-1">{fmt(product.salePrice)}</p>
+                </div>
+                <button
+                  onClick={() => addToCart(product)}
+                  className="shrink-0 h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-sm font-bold"
+                >
+                  +
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* FOOTER — hidden on mobile */}
+        <footer className="hidden md:flex h-[58px] border-t border-[#161b2d] items-center justify-between px-6">
 
           <div className="flex items-center gap-3 text-zinc-400">
             <div className="w-3 h-3 rounded-full bg-green-500" />
@@ -475,8 +488,8 @@ export default function PDVPage() {
       {/* CART DRAWER */}
       {showCart && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="flex-1 bg-black/60" onClick={() => setShowCart(false)} />
-          <aside className="w-[380px] bg-[#050816] border-l border-[#161b2d] flex flex-col h-full">
+          <div className="flex-1 bg-black/60 hidden md:block" onClick={() => setShowCart(false)} />
+          <aside className="w-full md:w-[380px] bg-[#050816] border-l border-[#161b2d] flex flex-col h-full">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
               <h2 className="font-bold text-lg flex items-center gap-2">
                 <ShoppingBag size={20} className="text-blue-400" /> Carrinho

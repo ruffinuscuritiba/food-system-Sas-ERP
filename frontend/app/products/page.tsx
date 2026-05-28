@@ -4,9 +4,10 @@ import { api } from "@/services/api";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Check, Pencil, Plus, Trash2, X, Package, Pizza } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon } from "lucide-react";
 import { CurrencyInputBR } from "@/components/ui/CurrencyInputBR";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
+import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,10 @@ function calcMarginFromCostPrice(cost: number, price: number): number {
 
 function isPizzaCat(catId: string, cats: any[]): boolean {
   return !!cats.find((c) => c.id === catId && c.name.toLowerCase().includes("pizza"));
+}
+
+function isBeverageCat(catId: string, cats: any[]): boolean {
+  return !!cats.find((c) => c.id === catId && c.categoryType === "bebidas");
 }
 
 const fmtBRL = (v: number) =>
@@ -254,6 +259,10 @@ export default function ProductsPage() {
   const [formSizes, setFormSizes] = useState<SizeRow[]>(defaultSizes());
   const [formPizza, setFormPizza] = useState(false);
 
+  // Beverage modal
+  const [showBeverageModal, setShowBeverageModal] = useState(false);
+  const [beverageCategoryId, setBeverageCategoryId] = useState<string>("");
+
   // Edit
   const [editProduct, setEditProduct]   = useState<any>(null);
   const [editForm, setEditForm]         = useState(emptyForm());
@@ -268,6 +277,25 @@ export default function ProductsPage() {
   // auto-toggle pizza when category changes
   useEffect(() => { if (isPizzaCat(form.categoryId, categories)) setFormPizza(true); }, [form.categoryId, categories]);
   useEffect(() => { if (isPizzaCat(editForm.categoryId, categories)) setEditPizza(true); }, [editForm.categoryId, categories]);
+
+  // When "New Product" button is clicked and category is beverage, open beverage modal
+  function handleNewProductClick() {
+    setShowForm(!showForm);
+    if (showForm) {
+      setForm(emptyForm());
+      setFormSizes(defaultSizes());
+      setFormPizza(false);
+    }
+  }
+
+  function handleCategoryChange(catId: string) {
+    setForm({ ...form, categoryId: catId });
+    if (isBeverageCat(catId, categories)) {
+      setBeverageCategoryId(catId);
+      setShowBeverageModal(true);
+      setShowForm(false);
+    }
+  }
 
   // margin auto-calc for non-pizza form
   useEffect(() => {
@@ -448,13 +476,34 @@ export default function ProductsPage() {
                 <p className="text-gray-400 text-sm">{products.length} cadastrado{products.length !== 1 ? "s" : ""}</p>
               </div>
             </div>
-            <button
-              onClick={() => { setShowForm(!showForm); if (showForm) { setForm(emptyForm()); setFormSizes(defaultSizes()); setFormPizza(false); }}}
-              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-orange-200"
-            >
-              {showForm ? <X size={16} /> : <Plus size={16} />}
-              {showForm ? "Cancelar" : "Novo produto"}
-            </button>
+            <div className="flex gap-2">
+              {/* Complementos shortcut */}
+              <Link
+                href="/complements"
+                className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-sm"
+              >
+                <Settings2 size={15} /> Complementos
+              </Link>
+              {/* Beverage quick add */}
+              {categories.some((c) => c.categoryType === "bebidas") && (
+                <button
+                  onClick={() => {
+                    const bev = categories.find((c) => c.categoryType === "bebidas");
+                    if (bev) { setBeverageCategoryId(bev.id); setShowBeverageModal(true); }
+                  }}
+                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-blue-200"
+                >
+                  <Beer size={15} /> Bebida
+                </button>
+              )}
+              <button
+                onClick={handleNewProductClick}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-orange-200"
+              >
+                {showForm ? <X size={16} /> : <Plus size={16} />}
+                {showForm ? "Cancelar" : "Novo produto"}
+              </button>
+            </div>
           </div>
 
           {/* ── Form criação ──────────────────────────────────────────────── */}
@@ -469,10 +518,19 @@ export default function ProductsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
-                  <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className={inp}>
+                  <select value={form.categoryId} onChange={(e) => handleCategoryChange(e.target.value)} className={inp}>
                     <option value="">— Selecione —</option>
-                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.categoryType === "bebidas" ? "🥤 " : "🍽️ "}{c.name}
+                      </option>
+                    ))}
                   </select>
+                  {isBeverageCat(form.categoryId, categories) && (
+                    <p className="text-xs text-blue-500 mt-1 font-semibold">
+                      🥤 Categoria de bebidas — use o modal especial
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">SKU</label>
@@ -710,6 +768,394 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+      {/* ── Beverage Modal ──────────────────────────────────────────────── */}
+      {showBeverageModal && (
+        <BeverageModal
+          categoryId={beverageCategoryId}
+          categories={categories}
+          onClose={() => setShowBeverageModal(false)}
+          onCreated={() => { setShowBeverageModal(false); fetchProducts(); }}
+        />
+      )}
     </RoleGuard>
+  );
+}
+
+// ── BeverageModal ─────────────────────────────────────────────────────────────
+
+interface BeverageModalProps {
+  categoryId: string;
+  categories: any[];
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageModalProps) {
+  type Step = "type" | "search" | "form";
+
+  const [step, setStep]                 = useState<Step>("type");
+  const [productType, setProductType]   = useState<"preparado" | "industrializado">("industrializado");
+  const [searchQuery, setSearchQuery]   = useState("");
+  const [searching, setSearching]       = useState(false);
+  const [suggestions, setSuggestions]   = useState<any[]>([]);
+  const [saving, setSaving]             = useState(false);
+  const [form, setForm]                 = useState({
+    name: "", description: "", salePrice: 0, costPrice: 0,
+    eanCode: "", unit: "un", imageUrl: null as string | null,
+    brand: "", categoryId,
+  });
+
+  // Search Open Food Facts
+  async function searchProducts(query: string) {
+    if (!query.trim()) return;
+    setSearching(true);
+    setSuggestions([]);
+    try {
+      // Try EAN lookup first
+      if (/^\d{8,14}$/.test(query.trim())) {
+        const r = await fetch(
+          `https://world.openfoodfacts.org/api/v0/product/${query.trim()}.json`
+        );
+        const data = await r.json();
+        if (data.status === 1 && data.product) {
+          setSuggestions([mapOFFProduct(data.product)]);
+          return;
+        }
+      }
+      // Name search
+      const r = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?` +
+        `search_terms=${encodeURIComponent(query)}&action=process&json=1&` +
+        `page_size=8&fields=product_name,brands,code,image_url,quantity,categories`
+      );
+      const data = await r.json();
+      if (Array.isArray(data.products)) {
+        setSuggestions(data.products.map(mapOFFProduct).filter((p: any) => p.name));
+      }
+    } catch {
+      toast.error("Erro na busca. Verifique sua conexão.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function mapOFFProduct(p: any) {
+    return {
+      name:     p.product_name || p.product_name_pt || "",
+      brand:    p.brands || "",
+      ean:      p.code || p._id || "",
+      imageUrl: p.image_url || p.image_front_url || null,
+      quantity: p.quantity || "",
+    };
+  }
+
+  function selectSuggestion(s: any) {
+    setForm((f) => ({
+      ...f,
+      name:     s.brand ? `${s.brand} ${s.name}`.trim() : s.name,
+      eanCode:  s.ean,
+      imageUrl: s.imageUrl,
+      unit:     s.quantity || "un",
+    }));
+    setStep("form");
+  }
+
+  async function save() {
+    if (!form.name.trim()) { toast.error("Nome obrigatório"); return; }
+    if (form.salePrice <= 0) { toast.error("Informe o preço de venda"); return; }
+    setSaving(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const fd = new FormData();
+      fd.append("name",        form.name.trim());
+      fd.append("categoryId",  form.categoryId);
+      fd.append("unit",        form.unit);
+      fd.append("salePrice",   String(form.salePrice));
+      fd.append("costPrice",   String(form.costPrice));
+      fd.append("companyId",   user.companyId);
+      fd.append("productType", productType);
+      if (form.description) fd.append("description", form.description);
+      if (form.eanCode)     fd.append("barcode", form.eanCode);
+      if (form.imageUrl)    fd.append("imageUrl", form.imageUrl);
+      fd.append("sizes", JSON.stringify([]));
+      await api.post("/products", fd);
+      toast.success("Bebida cadastrada!");
+      onCreated();
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Erro ao salvar"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-primary bg-white";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🥤</span>
+            <h2 className="font-black text-gray-900">Cadastrar Bebida</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <div className="px-6 py-5">
+
+          {/* STEP 1: choose type */}
+          {step === "type" && (
+            <div className="space-y-4">
+              <p className="text-sm font-semibold text-gray-600 mb-4">
+                Que tipo de bebida você quer cadastrar?
+              </p>
+
+              <button
+                onClick={() => { setProductType("industrializado"); setStep("search"); }}
+                className="w-full flex items-start gap-4 p-4 rounded-2xl border-2 border-blue-100 hover:border-blue-400 hover:bg-blue-50 transition text-left group"
+              >
+                <div className="text-3xl mt-0.5">🏪</div>
+                <div>
+                  <p className="font-black text-gray-900 group-hover:text-blue-700">Industrializado</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Produtos prontos: refrigerantes, água, cerveja, energético, chocolates, salgadinhos…
+                  </p>
+                  <span className="inline-block mt-2 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+                    🔍 Busca automática por nome ou código de barras (EAN)
+                  </span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => { setProductType("preparado"); setStep("form"); }}
+                className="w-full flex items-start gap-4 p-4 rounded-2xl border-2 border-green-100 hover:border-green-400 hover:bg-green-50 transition text-left group"
+              >
+                <div className="text-3xl mt-0.5">🧃</div>
+                <div>
+                  <p className="font-black text-gray-900 group-hover:text-green-700">Preparado pela loja</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Produtos que você produz: sucos naturais, vitaminas, drinks, cafés, milkshakes…
+                  </p>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* STEP 2: search EAN / name */}
+          {step === "search" && (
+            <div className="space-y-4">
+              <button
+                onClick={() => setStep("type")}
+                className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
+              >
+                ← voltar
+              </button>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
+                  Nome do produto ou código de barras (EAN)
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      autoFocus
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && searchProducts(searchQuery)}
+                      placeholder="Ex: Coca-Cola 350ml ou 7894900011517"
+                      className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <button
+                    onClick={() => searchProducts(searchQuery)}
+                    disabled={searching}
+                    className="px-4 py-2.5 bg-primary text-white rounded-xl font-bold text-sm disabled:opacity-50 transition"
+                  >
+                    {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Busca na base Open Food Facts (mundial, gratuita)
+                </p>
+              </div>
+
+              {/* Suggestions */}
+              {suggestions.length > 0 && (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => selectSuggestion(s)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary hover:bg-orange-50 transition text-left"
+                    >
+                      {s.imageUrl ? (
+                        <img src={s.imageUrl} alt={s.name} className="w-12 h-12 object-contain rounded-lg bg-gray-50 border border-gray-100 shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
+                          <Beer size={20} className="text-gray-400" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-900 truncate">{s.name}</p>
+                        {s.brand && <p className="text-xs text-gray-400">{s.brand}</p>}
+                        {s.ean && <p className="text-xs text-gray-300 font-mono">{s.ean}</p>}
+                      </div>
+                      <span className="text-xs text-primary font-bold ml-auto shrink-0 bg-primary/5 px-2 py-1 rounded-lg border border-orange-100">
+                        Usar →
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {suggestions.length === 0 && searchQuery && !searching && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-400">Nenhum resultado. Preencha manualmente →</p>
+                  <button
+                    onClick={() => setStep("form")}
+                    className="mt-2 text-sm text-primary font-bold underline"
+                  >
+                    Cadastrar manualmente
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3: form */}
+          {step === "form" && (
+            <div className="space-y-4">
+              {step === "form" && productType === "industrializado" && (
+                <button
+                  onClick={() => setStep("search")}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
+                >
+                  ← voltar para a busca
+                </button>
+              )}
+              {step === "form" && productType === "preparado" && (
+                <button
+                  onClick={() => setStep("type")}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
+                >
+                  ← voltar
+                </button>
+              )}
+
+              {/* Preview image if from search */}
+              {form.imageUrl && (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                  <img src={form.imageUrl} alt="" className="w-14 h-14 object-contain rounded-lg bg-white border border-gray-100" />
+                  <div>
+                    <p className="text-xs font-bold text-blue-700">Imagem encontrada automaticamente</p>
+                    <button
+                      onClick={() => setForm((f) => ({ ...f, imageUrl: null }))}
+                      className="text-xs text-blue-500 underline mt-0.5"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Nome *</label>
+                <input
+                  autoFocus
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Ex: Coca-Cola Lata 350ml"
+                  className={inp}
+                />
+              </div>
+
+              {form.eanCode && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">EAN / Código de barras</label>
+                  <input
+                    value={form.eanCode}
+                    onChange={(e) => setForm({ ...form, eanCode: e.target.value })}
+                    className={inp}
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Preço de venda *</label>
+                  <CurrencyInputBR value={form.salePrice} onChange={(v) => setForm({ ...form, salePrice: v })} className={inp} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Custo</label>
+                  <CurrencyInputBR value={form.costPrice} onChange={(v) => setForm({ ...form, costPrice: v })} className={inp} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Unidade</label>
+                  <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inp} placeholder="un, L, 350ml…" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
+                  <select
+                    value={form.categoryId}
+                    onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                    className={inp}
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Descrição</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={2}
+                  className={inp + " resize-none"}
+                  placeholder="Ingredientes, sabor, observações…"
+                />
+              </div>
+
+              {!form.imageUrl && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Imagem</label>
+                  <ImageUploaderPreview
+                    value={form.imageUrl || undefined}
+                    onChange={(url) => setForm({ ...form, imageUrl: url })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {step === "form" && (
+          <div className="px-6 py-4 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="flex-1 bg-primary disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={15} />}
+              {saving ? "Salvando…" : "Cadastrar Bebida"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

@@ -19,6 +19,8 @@ import { IaModule } from './modules/ia/ia.module'
 import { LoyaltyModule } from './modules/loyalty/loyalty.module'
 import { SmartImportModule } from './modules/smart-import/smart-import.module'
 import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module'
+import { PizzaSizeConfigsModule } from './modules/pizza-size-configs/pizza-size-configs.module'
+import { ComplementsModule } from './modules/complements/complements.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -50,6 +52,8 @@ import { AppService } from './app.service'
     LoyaltyModule,
     SmartImportModule,
     PizzaBordersModule,
+    PizzaSizeConfigsModule,
+    ComplementsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

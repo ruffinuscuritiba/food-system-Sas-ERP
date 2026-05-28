@@ -18,7 +18,7 @@ type Product = {
   description: string;
   salePrice: number;
   imageUrl: string | null;
-  category?: { name: string };
+  category?: { name: string; categoryType?: string; displayColumns?: number };
   isActive: boolean;
 };
 
@@ -52,7 +52,10 @@ export default function MenuPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryObjects, setCategoryObjects] = useState<any[]>([]); // full category objects with categoryType
   const [activeCategory, setActiveCategory] = useState("Todos");
+  // Pizza size configs — maxFlavors per size
+  const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<{ size: string; label: string; slices: number; maxFlavors: number; isActive: boolean }[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -113,10 +116,11 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes, themeRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes, sizeConfigRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/pizza-size-configs/public?companyId=${companyId}`).catch(() => null),
       ]);
 
       if (!menuRes.ok) {
@@ -138,6 +142,21 @@ export default function MenuPage() {
         list.map((p) => p.category?.name?.trim() || "Outros")
       ));
       setCategories(["Todos", ...catNames.sort((a, b) => a === "Outros" ? 1 : b === "Outros" ? -1 : a.localeCompare(b, "pt-BR"))]);
+
+      // Keep full category objects (with categoryType) from menu data
+      const catObjs: any[] = [];
+      list.forEach((p) => {
+        if (p.category && !catObjs.find((c) => c.name === p.category!.name)) {
+          catObjs.push(p.category);
+        }
+      });
+      setCategoryObjects(catObjs);
+
+      // Pizza size configs
+      if (sizeConfigRes?.ok) {
+        const sc = await sizeConfigRes.json().catch(() => []);
+        if (Array.isArray(sc)) setPizzaSizeConfigs(sc);
+      }
 
       if (companyRes?.ok) {
         const cd = await companyRes.json().catch(() => null);
@@ -337,6 +356,11 @@ export default function MenuPage() {
     }
     return Math.max(...prices);
   }
+
+  // Máximo de sabores permitido — usa os configs ou default 4
+  const globalMaxFlavors = pizzaSizeConfigs.length > 0
+    ? Math.max(...pizzaSizeConfigs.filter((c) => c.isActive).map((c) => c.maxFlavors))
+    : 4;
 
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
@@ -774,67 +798,122 @@ export default function MenuPage() {
       <main className="max-w-2xl mx-auto px-4 py-6 pb-32">
         {filtered.length === 0 ? (
           <p className="text-gray-400 text-center py-20">Nenhum produto disponível</p>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex"
-              >
-                <div className="flex-1 p-4 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-base leading-snug">{product.name}</h3>
-                    {product.description && (
-                      <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
-                    <span className="text-orange-500 font-black text-lg">
-                      R$ {Number(product.salePrice).toFixed(2)}
-                    </span>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => openFlavorModal(product)}
-                        className="border border-orange-200 text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-xl font-bold text-xs transition"
-                        title="Meio a meio"
-                      >
-                        🍕 Meio a meio
-                      </button>
+        ) : (() => {
+          // Determine active category type
+          const activeCatObj = categoryObjects.find((c) => c.name?.trim() === activeCategory);
+          const isBeverageCat = activeCatObj?.categoryType === "bebidas";
+          const isPizzaCat = !isBeverageCat && (
+            activeCategory === "Todos"
+              ? false
+              : activeCatObj?.allowMultipleFlavors === true ||
+                activeCategory.toLowerCase().includes("pizza")
+          );
+
+          // Beverage grid layout
+          if (isBeverageCat) {
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {filtered.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    <div className="relative aspect-square bg-gray-50">
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="w-full h-full object-contain p-2"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-4xl">🥤</div>
+                      )}
+                    </div>
+                    <div className="p-2.5 flex flex-col gap-1 flex-1">
+                      <p className="text-xs font-bold text-gray-900 line-clamp-2 leading-snug">{product.name}</p>
+                      <p className="text-sm font-black mt-auto" style={{ color: theme.primaryColor }}>
+                        R$ {Number(product.salePrice).toFixed(2)}
+                      </p>
                       <button
                         onClick={() => addToCart(product)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                        className="w-full py-1.5 rounded-xl font-black text-white text-sm flex items-center justify-center gap-1 transition mt-1"
+                        style={{ backgroundColor: theme.primaryColor }}
                       >
-                        <Plus size={14} /> Adicionar
+                        <Plus size={13} /> Adicionar
                       </button>
                     </div>
                   </div>
-                </div>
-                <div className="w-28 h-28 flex-shrink-0 relative">
-                  {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const t = e.currentTarget;
-                        t.onerror = null;
-                        t.style.display = "none";
-                        const ph = t.nextElementSibling as HTMLElement;
-                        if (ph) ph.style.display = "flex";
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className="w-full h-full bg-orange-50 flex items-center justify-center text-3xl"
-                    style={{ display: product.imageUrl ? "none" : "flex" }}
-                  >
-                    🍽️
+                ))}
+              </div>
+            );
+          }
+
+          // Default list layout
+          return (
+            <div className="space-y-3">
+              {filtered.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex"
+                >
+                  <div className="flex-1 p-4 flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-base leading-snug">{product.name}</h3>
+                      {product.description && (
+                        <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
+                      <span className="font-black text-lg" style={{ color: theme.primaryColor }}>
+                        R$ {Number(product.salePrice).toFixed(2)}
+                      </span>
+                      <div className="flex gap-1.5">
+                        {isPizzaCat && (
+                          <button
+                            onClick={() => openFlavorModal(product)}
+                            className="border border-orange-200 text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-xl font-bold text-xs transition"
+                            title="Meio a meio"
+                          >
+                            🍕 Meio a meio
+                          </button>
+                        )}
+                        <button
+                          onClick={() => addToCart(product)}
+                          className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                          style={{ backgroundColor: theme.primaryColor }}
+                        >
+                          <Plus size={14} /> Adicionar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-28 h-28 flex-shrink-0 relative">
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const t = e.currentTarget;
+                          t.onerror = null;
+                          t.style.display = "none";
+                          const ph = t.nextElementSibling as HTMLElement;
+                          if (ph) ph.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="w-full h-full bg-orange-50 flex items-center justify-center text-3xl"
+                      style={{ display: product.imageUrl ? "none" : "flex" }}
+                    >
+                      🍽️
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
       </main>
 
       {/* ─── Botão flutuante de carrinho (mobile) ─────────────────────────────── */}
@@ -926,7 +1005,7 @@ export default function MenuPage() {
             </div>
             <div className="flex items-center gap-2 mb-5">
               <span className="text-sm text-gray-500 shrink-0">Dividir em:</span>
-              {[2, 3, 4].map((n) => (
+              {[2, 3, 4].filter((n) => n <= Math.max(2, globalMaxFlavors)).map((n) => (
                 <button key={n} onClick={() => changeFlavorParts(n)}
                   className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
                   {n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}

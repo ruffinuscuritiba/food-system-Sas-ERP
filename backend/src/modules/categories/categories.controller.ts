@@ -25,7 +25,7 @@ export class CategoriesController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   update(
     @Param('id') id: string,
-    @Body() body: { name?: string; allowMultipleFlavors?: boolean },
+    @Body() body: { name?: string; allowMultipleFlavors?: boolean; categoryType?: string; displayColumns?: number },
   ) {
     return this.service.update(id, body);
   }

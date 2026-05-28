@@ -11,14 +11,11 @@ export class CategoriesService {
   create(data: any) {
     return this.prisma.category.create({
       data: {
-        name: data.name,
+        name:                 data.name,
         allowMultipleFlavors: data.allowMultipleFlavors ?? false,
-
-        company: {
-          connect: {
-            id: data.companyId,
-          },
-        },
+        categoryType:         data.categoryType ?? 'normal',
+        displayColumns:       data.displayColumns ?? 4,
+        company: { connect: { id: data.companyId } },
       },
     })
   }
@@ -35,12 +32,14 @@ export class CategoriesService {
     })
   }
 
-  update(id: string, data: { name?: string; allowMultipleFlavors?: boolean }) {
+  update(id: string, data: { name?: string; allowMultipleFlavors?: boolean; categoryType?: string; displayColumns?: number }) {
     return this.prisma.category.update({
       where: { id },
       data: {
-        ...(data.name !== undefined && { name: data.name }),
+        ...(data.name                 !== undefined && { name:                 data.name }),
         ...(data.allowMultipleFlavors !== undefined && { allowMultipleFlavors: data.allowMultipleFlavors }),
+        ...(data.categoryType         !== undefined && { categoryType:         data.categoryType }),
+        ...(data.displayColumns       !== undefined && { displayColumns:       data.displayColumns }),
       },
     })
   }

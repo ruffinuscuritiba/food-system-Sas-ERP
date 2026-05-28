@@ -141,6 +141,10 @@ model Company {
 
   pizzaBorders PizzaBorder[]
 
+  pizzaSizeConfigs PizzaSizeConfig[]
+
+  complements Complement[]
+
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
@@ -204,11 +208,22 @@ model Category {
 
   name String
 
+  // pizza helper — permite selecionar múltiplos sabores nesta categoria
+  allowMultipleFlavors Boolean @default(false)
+
+  // "normal" | "bebidas" — controla layout e fluxo de cadastro especial
+  categoryType String @default("normal")
+
+  // colunas no grid (bebidas)
+  displayColumns Int @default(4)
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
 
   products Product[]
+
+  complements Complement[]
 
   createdAt DateTime @default(now())
 
@@ -252,6 +267,12 @@ model Product {
 
   allowNegativeStock Boolean @default(false)
 
+  // "standard" | "preparado" | "industrializado"
+  productType String @default("standard")
+
+  // EAN/código de barras para bebidas industrializadas
+  eanCode String?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -263,6 +284,8 @@ model Product {
   recipe Recipe?
 
   sizes ProductSize[]
+
+  complements Complement[]
 
   orderItems OrderItem[]
 
@@ -459,9 +482,14 @@ model OrderItem {
 
   notes String?
 
+  // snapshot dos complementos selecionados (JSON)
+  complementsData Json?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
+
+  selectedComplements OrderItemComplement[]
 
   createdAt DateTime @default(now())
 
@@ -1150,4 +1178,91 @@ model PizzaBorderSize {
 
   @@unique([pizzaBorderId, size])
   @@index([pizzaBorderId])
+}
+
+// ── Configuração de tamanhos de pizza por empresa ───────────────────────────────
+// Cada empresa pode definir: quantos sabores são permitidos por tamanho e quantas fatias tem
+
+model PizzaSizeConfig {
+  id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  size       PizzaSize
+  label      String    // "Pequena", "Média", "Grande", "Família", "Extra Grande"
+  slices     Int       @default(8)
+  maxFlavors Int       @default(1)
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([companyId, size])
+  @@index([companyId])
+}
+
+// ── Sistema de Complementos (estilo iFood) ──────────────────────────────────────
+
+enum ComplementType {
+  INGREDIENTES
+  ESPECIFICACOES
+  CROSS_SELL
+  DESCARTAVEIS
+}
+
+model Complement {
+  id             String           @id @default(cuid())
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId      String?
+  product        Product?         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId     String?
+  category       Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name           String
+  type           ComplementType   @default(INGREDIENTES)
+  required       Boolean          @default(false)
+  chargesExtra   Boolean          @default(true)
+  multipleChoice Boolean          @default(false)
+  minOptions     Int              @default(0)
+  maxOptions     Int              @default(1)
+  sortOrder      Int              @default(0)
+  isActive       Boolean          @default(true)
+  options        ComplementOption[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([companyId])
+  @@index([productId])
+  @@index([categoryId])
+}
+
+model ComplementOption {
+  id                   String               @id @default(cuid())
+  complementId         String
+  complement           Complement           @relation(fields: [complementId], references: [id], onDelete: Cascade)
+  name                 String
+  price                Decimal              @default(0) @db.Decimal(10, 2)
+  imageUrl             String?
+  isActive             Boolean              @default(true)
+  sortOrder            Int                  @default(0)
+  orderItemComplements OrderItemComplement[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([complementId])
+}
+
+model OrderItemComplement {
+  id                 String           @id @default(cuid())
+  orderItemId        String
+  orderItem          OrderItem        @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  complementOptionId String
+  complementOption   ComplementOption @relation(fields: [complementOptionId], references: [id])
+  complementName     String           // snapshot
+  optionName         String           // snapshot
+  price              Decimal          @db.Decimal(10, 2) // snapshot
+  quantity           Int              @default(1)
+  createdAt          DateTime         @default(now())
+
+  @@index([orderItemId])
+  @@index([complementOptionId])
 }

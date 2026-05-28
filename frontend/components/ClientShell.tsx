@@ -90,9 +90,10 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "Cardápio",
     items: [
-      { href: "/products",      label: "Produtos",        icon: <Package size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/categories",    label: "Categorias",      icon: <FolderKanban size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/pizza-borders", label: "Bordas de Pizza", icon: <UtensilsCrossed size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/products",      label: "Produtos",         icon: <Package size={16} />,         roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/categories",    label: "Categorias",       icon: <FolderKanban size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/complements",   label: "Complementos",     icon: <Layers size={16} />,          roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/pizza-borders", label: "Pizza / Bordas",   icon: <UtensilsCrossed size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {

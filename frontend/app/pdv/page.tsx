@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/services/api";
+import toast from "react-hot-toast";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -38,13 +39,28 @@ interface Product {
   categoryId?: string; isActive: boolean;
 }
 
+interface CartItem { product: Product; qty: number; }
+
 export default function PDVPage() {
-  const [categories, setCategories]           = useState<Category[]>([]);
-  const [products, setProducts]               = useState<Product[]>([]);
+  const [categories, setCategories]             = useState<Category[]>([]);
+  const [products, setProducts]                 = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [search, setSearch]                   = useState("");
-  const [loading, setLoading]                 = useState(true);
-  const [videoProduct, setVideoProduct]       = useState<Product | null>(null);
+  const [search, setSearch]                     = useState("");
+  const [loading, setLoading]                   = useState(true);
+  const [videoProduct, setVideoProduct]         = useState<Product | null>(null);
+  const [cart, setCart]                         = useState<CartItem[]>([]);
+  const [showCart, setShowCart]                 = useState(false);
+  const [companyId, setCompanyId]               = useState<string>("");
+  const [now, setNow]                           = useState(new Date());
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (user.companyId) setCompanyId(user.companyId);
+    } catch {}
+    const tick = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -55,6 +71,24 @@ export default function PDVPage() {
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  const addToCart = useCallback((product: Product) => {
+    setCart(prev => {
+      const ex = prev.find(i => i.product.id === product.id);
+      if (ex) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { product, qty: 1 }];
+    });
+    toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
+  }, []);
+
+  const removeFromCart = useCallback((id: string) => {
+    setCart(prev => prev.filter(i => i.product.id !== id));
+  }, []);
+
+  const clearCart = useCallback(() => { setCart([]); }, []);
+
+  const cartCount = cart.reduce((a, i) => a + i.qty, 0);
+  const cartTotal = cart.reduce((a, i) => a + (Number(i.product.salePrice) || 0) * i.qty, 0);
 
   const filteredProducts = products.filter(p => {
     if (!p.isActive) return false;
@@ -155,7 +189,9 @@ export default function PDVPage() {
             />
 
             <Link
-              href="/menu"
+              href={companyId ? `/menu/${companyId}` : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full h-[42px] rounded-2xl border border-green-700 text-green-400 flex items-center justify-between px-4 text-sm hover:bg-green-700/10 transition"
             >
               <span>Ver Cardápio Online</span>
@@ -227,19 +263,28 @@ export default function PDVPage() {
               subtitle="Cupom"
             />
 
-            <TopButton
-              icon={<Trash2 size={18} />}
-              title="Limpar"
-              subtitle="Conta"
-            />
+            <button
+              onClick={clearCart}
+              className="h-[54px] px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-3"
+            >
+              <Trash2 size={18} />
+              <div className="text-left leading-none">
+                <div className="font-semibold">Limpar</div>
+                <div className="text-xs opacity-80 mt-1">Conta</div>
+              </div>
+            </button>
 
-            <button className="h-[54px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-3 font-semibold relative">
+            <button
+              onClick={() => setShowCart(true)}
+              className="h-[54px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-3 font-semibold relative"
+            >
               <ShoppingBag size={20} />
               Carrinho
-
-              <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-xs flex items-center justify-center">
-                0
-              </div>
+              {cartCount > 0 && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-xs flex items-center justify-center font-bold">
+                  {cartCount}
+                </div>
+              )}
             </button>
 
           </div>
@@ -360,7 +405,10 @@ export default function PDVPage() {
                           Custo: {fmt(product.costPrice)}
                         </span>
                       )}
-                      <button className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition text-base font-bold">
+                      <button
+                        onClick={() => addToCart(product)}
+                        className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-base font-bold"
+                      >
                         ADICIONAR
                       </button>
                     </div>
@@ -383,13 +431,73 @@ export default function PDVPage() {
 
           <div className="flex items-center gap-10 text-zinc-400">
             <span>Operador: Caixa 01</span>
-            <span>05/03/2026</span>
-            <span>13:27</span>
+            <span>{now.toLocaleDateString("pt-BR")}</span>
+            <span>{now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
 
         </footer>
 
       </main>
+
+      {/* CART DRAWER */}
+      {showCart && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="flex-1 bg-black/60" onClick={() => setShowCart(false)} />
+          <aside className="w-[380px] bg-[#050816] border-l border-[#161b2d] flex flex-col h-full">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <ShoppingBag size={20} className="text-blue-400" /> Carrinho
+              </h2>
+              <button onClick={() => setShowCart(false)} className="text-zinc-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-zinc-600 py-20">
+                  <ShoppingBag size={48} className="mb-4 opacity-30" />
+                  <p className="text-sm font-medium">Carrinho vazio</p>
+                </div>
+              ) : (
+                cart.map(({ product, qty }) => (
+                  <div key={product.id} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-center gap-3">
+                    {product.imageUrl
+                      ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                      : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{product.name}</p>
+                      <p className="text-zinc-400 text-xs mt-0.5">{fmt(product.salePrice)} × {qty}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-bold text-blue-400">{fmt((Number(product.salePrice) || 0) * qty)}</span>
+                      <button onClick={() => removeFromCart(product.id)} className="w-7 h-7 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-700/40 flex items-center justify-center transition">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {cart.length > 0 && (
+              <div className="border-t border-[#161b2d] p-5 space-y-3">
+                <div className="flex items-center justify-between text-lg font-black">
+                  <span>Total</span>
+                  <span className="text-blue-400">{fmt(cartTotal)}</span>
+                </div>
+                <button
+                  onClick={() => { clearCart(); setShowCart(false); toast.success("Conta limpa!"); }}
+                  className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 transition font-bold text-sm"
+                >
+                  Finalizar Pedido
+                </button>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
 
       {/* VIDEO MODAL */}
       {videoProduct && (

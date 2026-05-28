@@ -31,6 +31,7 @@ import {
   MapPin,
   Landmark,
   BarChart2,
+  Eye,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -143,9 +144,10 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   const { loadAuth, user } = useAuthStore();
   const [companyName, setCompanyName] = useState("FoodSaaS ERP");
-  const [impersonating, setImpersonating] = useState<{ companyName: string } | null>(null);
+  const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
+  const [impersonatingMenuOpen, setImpersonatingMenuOpen] = useState(false);
 
   useEffect(() => {
     loadAuth();
@@ -210,23 +212,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     <>
       <Toaster position="top-right" />
 
-      {/* Impersonation banner */}
-      {impersonating && (
-        <div className="fixed top-0 inset-x-0 z-50 bg-amber-400 text-black px-5 py-2 flex items-center justify-between">
-          <span className="text-sm font-semibold">
-            Visualizando como: <strong>{impersonating.companyName}</strong>
-          </span>
-          <button
-            onClick={stopImpersonating}
-            className="flex items-center gap-1.5 bg-black/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-black transition"
-          >
-            <ArrowLeft size={13} /> Voltar ao Super Admin
-          </button>
-        </div>
-      )}
-
       {/* Mobile top bar */}
-      <div className={`md:hidden fixed inset-x-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm ${impersonating ? "top-9" : "top-0"}`}>
+      <div className="md:hidden fixed inset-x-0 top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-orange-500 rounded-xl flex items-center justify-center shadow-md shadow-orange-200">
             <UtensilsCrossed size={15} className="text-white" />
@@ -242,7 +229,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex min-h-screen bg-[#F5F3EF] ${impersonating ? "pt-9" : ""} md:pt-0 pt-14`}>
+      <div className="flex min-h-screen bg-[#F5F3EF] md:pt-0 pt-14">
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside className={`
@@ -250,7 +237,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           transition-transform duration-300 ease-in-out
           md:relative md:translate-x-0 md:z-auto
           ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:shadow-sm"}
-          ${impersonating ? "top-9 md:top-0" : "top-0"}
+          top-0
         `}>
 
           {/* Brand */}
@@ -350,6 +337,77 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+
+      {/* ─── Floating impersonation indicator ──────────────────────── */}
+      {impersonating && (
+        <div className="fixed bottom-5 right-5 z-[9998]">
+          {/* Mini menu popup */}
+          {impersonatingMenuOpen && (
+            <>
+              {/* Backdrop to close on outside click */}
+              <div
+                className="fixed inset-0 z-0"
+                onClick={() => setImpersonatingMenuOpen(false)}
+              />
+              <div className="absolute bottom-full right-0 mb-2 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-10">
+                {/* Header */}
+                <div className="px-4 py-3.5 border-b border-slate-800">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                    Visualizando como cliente
+                  </p>
+                  <p className="text-white font-bold text-sm leading-tight truncate">
+                    {impersonating.companyName}
+                  </p>
+                </div>
+                {/* Actions */}
+                <div className="p-2 space-y-1">
+                  {user?.companyId && (
+                    <a
+                      href={`/menu/${user.companyId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition text-[13px] font-medium"
+                      onClick={() => setImpersonatingMenuOpen(false)}
+                    >
+                      <ExternalLink size={14} className="text-slate-400" />
+                      Abrir cardápio da loja
+                    </a>
+                  )}
+                  <button
+                    onClick={stopImpersonating}
+                    className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-red-400 hover:bg-red-900/30 hover:text-red-300 transition text-[13px] font-semibold"
+                  >
+                    <ArrowLeft size={14} />
+                    Sair da visualização
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Pill trigger button */}
+          <button
+            onClick={() => setImpersonatingMenuOpen((o) => !o)}
+            className={`
+              flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg border transition-all duration-200 select-none
+              ${impersonatingMenuOpen
+                ? "bg-slate-700 border-slate-500 text-white shadow-black/40"
+                : "bg-slate-900/95 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600 shadow-black/30"
+              }
+            `}
+            title="Modo visualização de cliente"
+          >
+            <Eye size={13} className="text-amber-400 shrink-0" />
+            <span className="text-xs font-semibold truncate max-w-[140px]">
+              {impersonating.companyName}
+            </span>
+            <ChevronRight
+              size={12}
+              className={`text-slate-500 shrink-0 transition-transform duration-200 ${impersonatingMenuOpen ? "-rotate-90" : "rotate-90"}`}
+            />
+          </button>
+        </div>
+      )}
     </>
   );
 }

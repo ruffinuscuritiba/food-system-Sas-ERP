@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
+import { SocketGateway } from '@/socket/socket.gateway';
 
 export interface CreateOnlineOrderDto {
   companyId: string;
@@ -38,17 +39,30 @@ export interface CreateOnlineOrderDto {
 export class OnlineOrdersService {
   private readonly logger = new Logger(OnlineOrdersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly socketGateway: SocketGateway,
+  ) {}
 
+  /**
+   * Creates an online order.
+   *
+   * Atomicity guarantee:
+   * 1. Validate inputs
+   * 2. Persist to DB (prisma.create — awaited, throws on failure)
+   * 3. ONLY AFTER DB success → emit socket events to kitchen/dashboard
+   *
+   * Socket events never fire if DB write fails.
+   */
   async create(dto: CreateOnlineOrderDto) {
+    // ── 1. Validations ──────────────────────────────────────────────────────
     const company = await this.prisma.company.findUnique({
       where: { id: dto.companyId },
-      select: { id: true, isBlocked: true },
+      select: { id: true, isBlocked: true, name: true },
     });
 
     if (!company) throw new NotFoundException('Empresa não encontrada.');
     if (company.isBlocked) throw new BadRequestException('Empresa não está aceitando pedidos.');
-
     if (!dto.items?.length) throw new BadRequestException('Pedido sem itens.');
 
     const subtotal = Number(dto.subtotal);
@@ -56,8 +70,12 @@ export class OnlineOrdersService {
     const discount = Number(dto.discount ?? 0);
     const total = Number(dto.total);
 
-    if (total <= 0) throw new BadRequestException('Valor total inválido.');
+    if (!isFinite(total) || total <= 0) {
+      throw new BadRequestException('Valor total inválido.');
+    }
 
+    // ── 2. Persist to database ─────────────────────────────────────────────
+    // This is the ONLY source of truth. Events fire only after this resolves.
     const order = await this.prisma.onlineOrder.create({
       data: {
         companyId:     dto.companyId,
@@ -82,7 +100,31 @@ export class OnlineOrdersService {
       },
     });
 
-    this.logger.log(`OnlineOrder created: ${order.id} company=${dto.companyId} total=${total}`);
+    // ── 3. Post-persistence side-effects (non-blocking, guarded) ───────────
+    // These run ONLY because the DB write above succeeded.
+    // Errors here are logged but do NOT roll back or affect the response.
+    setImmediate(() => {
+      try {
+        // → Kitchen screen picks up new order
+        this.socketGateway.emitOrderCreated({ companyId: dto.companyId, ...order });
+
+        // → Dashboard KPI counters refresh
+        this.socketGateway.emitDashboardUpdate(dto.companyId, {
+          event: 'onlineOrderCreated',
+          orderId: order.id,
+          total,
+        });
+
+        this.logger.log(
+          `[OnlineOrder] id=${order.id} company=${dto.companyId} ` +
+          `total=${total} type=${dto.orderType} — socket events emitted`,
+        );
+      } catch (err: any) {
+        // Socket failure must never affect the already-created order
+        this.logger.warn(`[OnlineOrder] socket emit failed: ${err?.message}`);
+      }
+    });
+
     return order;
   }
 
@@ -114,7 +156,19 @@ export class OnlineOrdersService {
       paidAt?: Date;
     },
   ) {
-    return this.prisma.onlineOrder.update({ where: { id }, data });
+    const order = await this.prisma.onlineOrder.update({ where: { id }, data });
+
+    // After payment confirmation → emit to kitchen (PIX approved, etc.)
+    setImmediate(() => {
+      try {
+        this.socketGateway.emitOnlineOrderPaid(order.companyId, {
+          orderId: id,
+          paymentStatus: data.paymentStatus,
+        });
+      } catch {}
+    });
+
+    return order;
   }
 
   async updateOrderStatus(id: string, orderStatus: string) {

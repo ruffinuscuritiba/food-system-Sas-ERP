@@ -334,8 +334,12 @@ async function main() {
   // Produtos demo para empresa principal
   await seedDemoProducts('company-seed-001')
 
-  // Catálogo de módulos
-  await seedModuleCatalog()
+  // Catálogo de módulos — isolado: falha aqui não deve bloquear o deploy
+  try {
+    await seedModuleCatalog()
+  } catch (e: any) {
+    console.warn('⚠️  seedModuleCatalog falhou (não crítico):', e?.message ?? e)
+  }
 
   console.log('\n🎉 Seed concluído!')
   console.log('\n📋 Super Admin: superadmin@system.com / SuperAdmin@123')

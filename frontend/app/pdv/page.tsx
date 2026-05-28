@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
+import { PaymentModal } from "@/components/pdv/PaymentModal";
+import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -50,8 +52,11 @@ export default function PDVPage() {
   const [videoProduct, setVideoProduct]         = useState<Product | null>(null);
   const [cart, setCart]                         = useState<CartItem[]>([]);
   const [showCart, setShowCart]                 = useState(false);
+  const [showPayment, setShowPayment]           = useState(false);
+  const [pizzaProduct, setPizzaProduct]         = useState<Product | null>(null);
   const [companyId, setCompanyId]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
+  const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
 
   useEffect(() => {
     try {
@@ -67,18 +72,44 @@ export default function PDVPage() {
       api.get("/categories"),
       api.get("/products"),
     ]).then(([catRes, prodRes]) => {
-      setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+      const cats: Category[] = Array.isArray(catRes.data) ? catRes.data : [];
+      setCategories(cats);
+      const pizzaCatIds = new Set(
+        cats.filter(c => c.name.toLowerCase().includes("pizza")).map(c => c.id)
+      );
+      setPizzaCategories(pizzaCatIds);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const addToCart = useCallback((product: Product) => {
+    // Pizza category → open builder for meio a meio
+    if (product.categoryId && pizzaCategories.has(product.categoryId)) {
+      setPizzaProduct(product);
+      return;
+    }
     setCart(prev => {
       const ex = prev.find(i => i.product.id === product.id);
       if (ex) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i);
       return [...prev, { product, qty: 1 }];
     });
     toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
+  }, [pizzaCategories]);
+
+  const addPizzaToCart = useCallback((pizza: any) => {
+    const pizzaItem: CartItem = {
+      product: {
+        id: `pizza-${Date.now()}`,
+        name: pizza.name,
+        salePrice: pizza.price,
+        categoryId: pizza.categoryId,
+        isActive: true,
+      },
+      qty: 1,
+    };
+    setCart(prev => [...prev, pizzaItem]);
+    setPizzaProduct(null);
+    toast.success(`${pizza.name} adicionada`, { duration: 1500, icon: "🍕" });
   }, []);
 
   const removeFromCart = useCallback((id: string) => {
@@ -488,14 +519,54 @@ export default function PDVPage() {
                   <span className="text-blue-400">{fmt(cartTotal)}</span>
                 </div>
                 <button
-                  onClick={() => { clearCart(); setShowCart(false); toast.success("Conta limpa!"); }}
-                  className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 transition font-bold text-sm"
+                  onClick={() => { setShowCart(false); setShowPayment(true); }}
+                  className="w-full py-3 rounded-2xl bg-green-600 hover:bg-green-500 transition font-bold text-sm"
                 >
-                  Finalizar Pedido
+                  Finalizar Pedido →
                 </button>
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* PAYMENT MODAL */}
+      <PaymentModal
+        open={showPayment}
+        total={cartTotal}
+        onClose={() => setShowPayment(false)}
+        onConfirm={(method, received, splits) => {
+          const fmtTotal = cartTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+          if (splits) {
+            toast.success(`Pedido fechado! Dividido em ${splits.length} formas`, { duration: 3000 });
+          } else {
+            toast.success(`Pedido fechado — ${method} ${fmtTotal}`, { duration: 3000 });
+          }
+          clearCart();
+          setShowPayment(false);
+        }}
+      />
+
+      {/* PIZZA BUILDER MODAL */}
+      {pizzaProduct && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-[#050816] border border-[#1d2336] rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#161b2d]">
+              <h2 className="font-black text-lg">🍕 Monte sua Pizza — {pizzaProduct.name}</h2>
+              <button onClick={() => setPizzaProduct(null)} className="text-zinc-400 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <PizzaBuilder
+                flavors={filteredProducts
+                  .filter(p => p.categoryId && pizzaCategories.has(p.categoryId || ""))
+                  .map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
+                borders={[]}
+                onAdd={addPizzaToCart}
+              />
+            </div>
+          </div>
         </div>
       )}
 

@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "LoyaltyAccount_customerId_companyId_key"
 
 -- 5. FK from LoyaltyAccount.customerId -> Customer.id
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'LoyaltyAccount_customerId_fkey')
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_fkey')
   AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Customer')
   AND EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -104,7 +104,7 @@ CREATE INDEX IF NOT EXISTS "OnlineOrder_orderStatus_idx"   ON "OnlineOrder"("ord
 CREATE INDEX IF NOT EXISTS "OnlineOrder_createdAt_idx"     ON "OnlineOrder"("createdAt");
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'OnlineOrder_companyId_fkey') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OnlineOrder_companyId_fkey') THEN
     ALTER TABLE "OnlineOrder"
       ADD CONSTRAINT "OnlineOrder_companyId_fkey"
       FOREIGN KEY ("companyId") REFERENCES "Company"("id")

@@ -875,7 +875,7 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
       fd.append("companyId",   user.companyId);
       fd.append("productType", productType);
       if (form.description) fd.append("description", form.description);
-      if (form.eanCode)     fd.append("barcode", form.eanCode);
+      if (form.eanCode)     fd.append("eanCode", form.eanCode);
       if (form.imageUrl)    fd.append("imageUrl", form.imageUrl);
       fd.append("sizes", JSON.stringify([]));
       await api.post("/products", fd);

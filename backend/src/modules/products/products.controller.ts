@@ -86,11 +86,9 @@ export class ProductsController {
   )
 
   async create(
-    @UploadedFile()
-    file: Express.Multer.File,
-
-    @Body()
-    body: CreateProductDto,
+    @Request() req: any,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: CreateProductDto,
   ) {
     let imageUrl: string | null = body.imageUrl || null;
 
@@ -98,7 +96,8 @@ export class ProductsController {
       imageUrl = await this.resolveImageUrl(file);
     }
 
-    return this.service.create({ ...body, imageUrl });
+    // companyId always from JWT — never trust the body
+    return this.service.create({ ...body, imageUrl, companyId: req.user.companyId });
   }
 
   @Patch(":id")

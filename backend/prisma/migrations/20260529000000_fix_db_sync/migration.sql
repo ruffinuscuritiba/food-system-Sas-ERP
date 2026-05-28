@@ -1,58 +1,81 @@
--- ── Fix DB sync issues identified from Render logs ──────────────────────────
--- Run: 2026-05-29
--- All statements are idempotent (IF NOT EXISTS / EXCEPTION WHEN)
+-- ── Fix DB sync issues (fully idempotent via pg_constraint checks) ───────────
 
--- 1. Add EXTRA_GRANDE to PizzaSize enum (if not present)
+-- 1. Add EXTRA_GRANDE to PizzaSize enum
 DO $$ BEGIN
-  ALTER TYPE "PizzaSize" ADD VALUE IF NOT EXISTS 'EXTRA_GRANDE';
-EXCEPTION WHEN others THEN
-  -- Enum may not exist yet; handled by add_pizza_borders migration
-  null;
-END $$;
-
--- 2. Add customerId to LoyaltyAccount (if column missing)
-DO $$ BEGIN
-  ALTER TABLE "LoyaltyAccount" ADD COLUMN "customerId" TEXT;
-EXCEPTION WHEN duplicate_column THEN null; END $$;
-
--- 3. Add unique constraint on LoyaltyAccount.customerId (if not exists)
-DO $$ BEGIN
-  ALTER TABLE "LoyaltyAccount" ADD CONSTRAINT "LoyaltyAccount_customerId_key" UNIQUE ("customerId");
-EXCEPTION WHEN duplicate_table THEN null;
-         WHEN duplicate_object THEN null; END $$;
-
--- 4. Add composite unique constraint (customerId, companyId)
-DO $$ BEGIN
-  ALTER TABLE "LoyaltyAccount" ADD CONSTRAINT "LoyaltyAccount_customerId_companyId_key" UNIQUE ("customerId", "companyId");
-EXCEPTION WHEN duplicate_table THEN null;
-         WHEN duplicate_object THEN null; END $$;
-
--- 5. Add foreign key from LoyaltyAccount.customerId -> Customer.id (if Customer table exists)
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Customer') THEN
-    BEGIN
-      ALTER TABLE "LoyaltyAccount"
-        ADD CONSTRAINT "LoyaltyAccount_customerId_fkey"
-        FOREIGN KEY ("customerId") REFERENCES "Customer"("id")
-        ON DELETE RESTRICT ON UPDATE CASCADE;
-    EXCEPTION WHEN duplicate_object THEN null; END;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'PizzaSize' AND e.enumlabel = 'EXTRA_GRANDE'
+  ) THEN
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PizzaSize') THEN
+      ALTER TYPE "PizzaSize" ADD VALUE 'EXTRA_GRANDE';
+    END IF;
   END IF;
 END $$;
 
--- 6. Ensure OnlineOrder table enums exist (idempotent)
+-- 2. Add customerId column to LoyaltyAccount
 DO $$ BEGIN
-  CREATE TYPE "OnlineOrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING', 'COMPLETED', 'CANCELED');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'LoyaltyAccount' AND column_name = 'customerId'
+  ) THEN
+    ALTER TABLE "LoyaltyAccount" ADD COLUMN "customerId" TEXT;
+  END IF;
+END $$;
 
+-- 3. Add unique constraint on LoyaltyAccount.customerId
 DO $$ BEGIN
-  CREATE TYPE "OnlinePaymentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'REFUNDED', 'EXPIRED');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_key'
+  ) THEN
+    ALTER TABLE "LoyaltyAccount" ADD CONSTRAINT "LoyaltyAccount_customerId_key" UNIQUE ("customerId");
+  END IF;
+END $$;
 
+-- 4. Add composite unique (customerId, companyId) on LoyaltyAccount
 DO $$ BEGIN
-  CREATE TYPE "OnlinePaymentMethod" AS ENUM ('PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_companyId_key'
+  ) THEN
+    ALTER TABLE "LoyaltyAccount" ADD CONSTRAINT "LoyaltyAccount_customerId_companyId_key" UNIQUE ("customerId", "companyId");
+  END IF;
+END $$;
 
--- 7. Ensure OnlineOrder table exists
+-- 5. Add FK from LoyaltyAccount.customerId -> Customer.id
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_fkey'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.tables WHERE table_name = 'Customer'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'LoyaltyAccount' AND column_name = 'customerId'
+  ) THEN
+    ALTER TABLE "LoyaltyAccount"
+      ADD CONSTRAINT "LoyaltyAccount_customerId_fkey"
+      FOREIGN KEY ("customerId") REFERENCES "Customer"("id")
+      ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+-- 6. Ensure OnlineOrder/PaymentWebhook enums exist
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OnlineOrderStatus') THEN
+    CREATE TYPE "OnlineOrderStatus" AS ENUM ('PENDING','CONFIRMED','PREPARING','READY','DELIVERING','COMPLETED','CANCELED');
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OnlinePaymentStatus') THEN
+    CREATE TYPE "OnlinePaymentStatus" AS ENUM ('PENDING','APPROVED','REJECTED','REFUNDED','EXPIRED');
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OnlinePaymentMethod') THEN
+    CREATE TYPE "OnlinePaymentMethod" AS ENUM ('PIX','CREDIT_CARD','DEBIT_CARD','CASH');
+  END IF;
+END $$;
+
+-- 7. Create OnlineOrder table
 CREATE TABLE IF NOT EXISTS "OnlineOrder" (
   "id"                      TEXT NOT NULL,
   "companyId"               TEXT NOT NULL,
@@ -87,19 +110,23 @@ CREATE TABLE IF NOT EXISTS "OnlineOrder" (
   "updatedAt"               TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "OnlineOrder_pkey" PRIMARY KEY ("id")
 );
-
-CREATE INDEX IF NOT EXISTS "OnlineOrder_companyId_idx" ON "OnlineOrder"("companyId");
+CREATE INDEX IF NOT EXISTS "OnlineOrder_companyId_idx"     ON "OnlineOrder"("companyId");
 CREATE INDEX IF NOT EXISTS "OnlineOrder_paymentStatus_idx" ON "OnlineOrder"("paymentStatus");
-CREATE INDEX IF NOT EXISTS "OnlineOrder_orderStatus_idx" ON "OnlineOrder"("orderStatus");
-CREATE INDEX IF NOT EXISTS "OnlineOrder_createdAt_idx" ON "OnlineOrder"("createdAt");
+CREATE INDEX IF NOT EXISTS "OnlineOrder_orderStatus_idx"   ON "OnlineOrder"("orderStatus");
+CREATE INDEX IF NOT EXISTS "OnlineOrder_createdAt_idx"     ON "OnlineOrder"("createdAt");
 
 DO $$ BEGIN
-  ALTER TABLE "OnlineOrder" ADD CONSTRAINT "OnlineOrder_companyId_fkey"
-    FOREIGN KEY ("companyId") REFERENCES "Company"("id")
-    ON DELETE RESTRICT ON UPDATE CASCADE;
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'OnlineOrder_companyId_fkey'
+  ) THEN
+    ALTER TABLE "OnlineOrder"
+      ADD CONSTRAINT "OnlineOrder_companyId_fkey"
+      FOREIGN KEY ("companyId") REFERENCES "Company"("id")
+      ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- 8. Ensure PaymentWebhook table exists
+-- 8. Create PaymentWebhook table
 CREATE TABLE IF NOT EXISTS "PaymentWebhook" (
   "id"        TEXT NOT NULL,
   "companyId" TEXT,
@@ -113,7 +140,12 @@ CREATE TABLE IF NOT EXISTS "PaymentWebhook" (
 );
 
 DO $$ BEGIN
-  ALTER TABLE "PaymentWebhook" ADD CONSTRAINT "PaymentWebhook_gateway_eventId_key" UNIQUE ("gateway", "eventId");
-EXCEPTION WHEN duplicate_object THEN null; END $$;
-CREATE INDEX IF NOT EXISTS "PaymentWebhook_processed_idx" ON "PaymentWebhook"("processed");
-CREATE INDEX IF NOT EXISTS "PaymentWebhook_companyId_idx" ON "PaymentWebhook"("companyId");
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'PaymentWebhook_gateway_eventId_key'
+  ) THEN
+    ALTER TABLE "PaymentWebhook"
+      ADD CONSTRAINT "PaymentWebhook_gateway_eventId_key" UNIQUE ("gateway", "eventId");
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS "PaymentWebhook_processed_idx"  ON "PaymentWebhook"("processed");
+CREATE INDEX IF NOT EXISTS "PaymentWebhook_companyId_idx"  ON "PaymentWebhook"("companyId");

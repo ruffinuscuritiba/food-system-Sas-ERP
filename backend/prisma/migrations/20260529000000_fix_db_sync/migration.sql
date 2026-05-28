@@ -1,19 +1,19 @@
--- ── Fix DB sync issues (fully idempotent via pg_constraint checks) ───────────
+-- ── Fix DB sync issues — fully idempotent ────────────────────────────────────
+-- Uses pg_class for index/constraint checks (covers both INDEX and CONSTRAINT)
+-- Uses information_schema for column checks
 
 -- 1. Add EXTRA_GRANDE to PizzaSize enum
 DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum e
-    JOIN pg_type t ON e.enumtypid = t.oid
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PizzaSize')
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid
     WHERE t.typname = 'PizzaSize' AND e.enumlabel = 'EXTRA_GRANDE'
   ) THEN
-    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PizzaSize') THEN
-      ALTER TYPE "PizzaSize" ADD VALUE 'EXTRA_GRANDE';
-    END IF;
+    ALTER TYPE "PizzaSize" ADD VALUE 'EXTRA_GRANDE';
   END IF;
 END $$;
 
--- 2. Add customerId column to LoyaltyAccount
+-- 2. Add customerId to LoyaltyAccount
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -23,31 +23,19 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 3. Add unique constraint on LoyaltyAccount.customerId
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_key'
-  ) THEN
-    ALTER TABLE "LoyaltyAccount" ADD CONSTRAINT "LoyaltyAccount_customerId_key" UNIQUE ("customerId");
-  END IF;
-END $$;
+-- 3. Unique index on LoyaltyAccount.customerId (use INDEX not CONSTRAINT to avoid 42P07)
+CREATE UNIQUE INDEX IF NOT EXISTS "LoyaltyAccount_customerId_key"
+  ON "LoyaltyAccount"("customerId");
 
--- 4. Add composite unique (customerId, companyId) on LoyaltyAccount
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_companyId_key'
-  ) THEN
-    ALTER TABLE "LoyaltyAccount" ADD CONSTRAINT "LoyaltyAccount_customerId_companyId_key" UNIQUE ("customerId", "companyId");
-  END IF;
-END $$;
+-- 4. Unique index on (customerId, companyId)
+CREATE UNIQUE INDEX IF NOT EXISTS "LoyaltyAccount_customerId_companyId_key"
+  ON "LoyaltyAccount"("customerId", "companyId");
 
--- 5. Add FK from LoyaltyAccount.customerId -> Customer.id
+-- 5. FK from LoyaltyAccount.customerId -> Customer.id
 DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'LoyaltyAccount_customerId_fkey'
-  ) AND EXISTS (
-    SELECT 1 FROM information_schema.tables WHERE table_name = 'Customer'
-  ) AND EXISTS (
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'LoyaltyAccount_customerId_fkey')
+  AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Customer')
+  AND EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'LoyaltyAccount' AND column_name = 'customerId'
   ) THEN
@@ -58,7 +46,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 6. Ensure OnlineOrder/PaymentWebhook enums exist
+-- 6. Ensure OnlineOrder/PaymentWebhook enum types exist
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OnlineOrderStatus') THEN
     CREATE TYPE "OnlineOrderStatus" AS ENUM ('PENDING','CONFIRMED','PREPARING','READY','DELIVERING','COMPLETED','CANCELED');
@@ -75,7 +63,7 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 7. Create OnlineOrder table
+-- 7. Create OnlineOrder table (stores as TEXT instead of enum to avoid type conflicts)
 CREATE TABLE IF NOT EXISTS "OnlineOrder" (
   "id"                      TEXT NOT NULL,
   "companyId"               TEXT NOT NULL,
@@ -116,9 +104,7 @@ CREATE INDEX IF NOT EXISTS "OnlineOrder_orderStatus_idx"   ON "OnlineOrder"("ord
 CREATE INDEX IF NOT EXISTS "OnlineOrder_createdAt_idx"     ON "OnlineOrder"("createdAt");
 
 DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'OnlineOrder_companyId_fkey'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'OnlineOrder_companyId_fkey') THEN
     ALTER TABLE "OnlineOrder"
       ADD CONSTRAINT "OnlineOrder_companyId_fkey"
       FOREIGN KEY ("companyId") REFERENCES "Company"("id")
@@ -139,13 +125,10 @@ CREATE TABLE IF NOT EXISTS "PaymentWebhook" (
   CONSTRAINT "PaymentWebhook_pkey" PRIMARY KEY ("id")
 );
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'PaymentWebhook_gateway_eventId_key'
-  ) THEN
-    ALTER TABLE "PaymentWebhook"
-      ADD CONSTRAINT "PaymentWebhook_gateway_eventId_key" UNIQUE ("gateway", "eventId");
-  END IF;
-END $$;
-CREATE INDEX IF NOT EXISTS "PaymentWebhook_processed_idx"  ON "PaymentWebhook"("processed");
-CREATE INDEX IF NOT EXISTS "PaymentWebhook_companyId_idx"  ON "PaymentWebhook"("companyId");
+-- Use CREATE UNIQUE INDEX IF NOT EXISTS (not ADD CONSTRAINT) to avoid 42P07
+-- when the index already exists from a previous migration run
+CREATE UNIQUE INDEX IF NOT EXISTS "PaymentWebhook_gateway_eventId_key"
+  ON "PaymentWebhook"("gateway", "eventId");
+
+CREATE INDEX IF NOT EXISTS "PaymentWebhook_processed_idx" ON "PaymentWebhook"("processed");
+CREATE INDEX IF NOT EXISTS "PaymentWebhook_companyId_idx" ON "PaymentWebhook"("companyId");

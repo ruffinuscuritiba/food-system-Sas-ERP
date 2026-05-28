@@ -129,6 +129,40 @@ export default function ThemePage() {
               </div>
             </section>
 
+            {/* Pizza Pricing */}
+            <section className="rounded-3xl p-8 border border-gray-200 bg-gray-50">
+              <h2 className="text-2xl font-bold mb-2">🍕 Pizza Meio a Meio</h2>
+              <p className="text-gray-500 text-sm mb-6">Como calcular o preço quando o cliente monta pizza com vários sabores</p>
+              <div className="space-y-3">
+                {[
+                  { value: "MAX", label: "Cobrar o valor cheio", desc: "Cobra o preço do sabor mais caro (padrão do mercado)" },
+                  { value: "HALF", label: "Cobrar a média", desc: "Cobra a média dos preços entre os sabores escolhidos" },
+                ].map(({ value, label, desc }) => (
+                  <label
+                    key={value}
+                    className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition ${
+                      (theme.pizzaPricingMode || "MAX") === value
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-200 hover:border-gray-300 bg-white"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="pizzaPricingMode"
+                      value={value}
+                      checked={(theme.pizzaPricingMode || "MAX") === value}
+                      onChange={() => setTheme({ ...theme, pizzaPricingMode: value })}
+                      className="w-4 h-4 accent-red-500"
+                    />
+                    <div>
+                      <div className="font-bold text-sm text-gray-800">{label}</div>
+                      <div className="text-gray-400 text-xs mt-0.5">{desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </section>
+
             {/* Rastreamento */}
             <section className="rounded-3xl p-8 border border-gray-200 bg-gray-50">
               <h2 className="text-2xl font-bold mb-2">Rastreamento & Analytics</h2>

@@ -73,7 +73,9 @@ export default function MenuPage() {
   const [gaId, setGaId] = useState<string | null>(null);
   const [theme, setTheme] = useState<{
     primaryColor: string; logoUrl?: string | null; bannerUrl?: string | null;
+    pizzaPricingMode?: string;
   }>({ primaryColor: "#f97316" });
+  const [cepLoading, setCepLoading] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponId, setCouponId] = useState<string | null>(null);
@@ -146,6 +148,7 @@ export default function MenuPage() {
           primaryColor: td.primaryColor || "#f97316",
           logoUrl: td.logoUrl || null,
           bannerUrl: td.bannerUrl || null,
+          pizzaPricingMode: td.pizzaPricingMode || "MAX",
         });
       }
 
@@ -272,17 +275,45 @@ export default function MenuPage() {
     setFlavorSlots((prev) => prev.map((s, i) => i === index ? product : s));
   }
 
+  async function fetchByCep(cep: string) {
+    const clean = cep.replace(/\D/g, '');
+    if (clean.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.erro) return;
+      setForm((f) => ({
+        ...f,
+        street: d.logradouro || f.street,
+        neighborhood: d.bairro || f.neighborhood,
+        city: d.localidade || f.city,
+        state: d.uf || f.state,
+      }));
+    } catch { /* silent */ }
+    finally { setCepLoading(false); }
+  }
+
+  function calcPizzaPrice(flavors: Product[]) {
+    const prices = flavors.map((f) => Number(f.salePrice));
+    if (theme.pizzaPricingMode === "HALF") {
+      return prices.reduce((a, b) => a + b, 0) / prices.length;
+    }
+    return Math.max(...prices);
+  }
+
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
     if (chosen.length < 2) { toast.error("Selecione ao menos 2 sabores"); return; }
-    const highestPrice = Math.max(...chosen.map((f) => Number(f.salePrice)));
-    const base = chosen.find((f) => Number(f.salePrice) === highestPrice) || chosen[0];
+    const finalPrice = calcPizzaPrice(chosen);
+    const base = chosen.find((f) => Number(f.salePrice) === Math.max(...chosen.map(f => Number(f.salePrice)))) || chosen[0];
     const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
     const noteText = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
     const composedName = `Pizza ${chosen.length} sabores: ${chosen.map((f) => f.name).join(" + ")}`;
     setCart((prev) => [...prev, {
       cartKey: `pizza-${Date.now()}`,
-      product: { ...base, name: composedName },
+      product: { ...base, name: composedName, salePrice: finalPrice as any },
       quantity: 1,
       notes: noteText,
       flavors: chosen,
@@ -608,7 +639,7 @@ export default function MenuPage() {
       <ChatWidget companyId={companyId} companyName={companyName} />
 
       {/* ─── Header ────────────────────────────────────────────────────────────── */}
-      <header className="relative text-white pb-16 overflow-hidden" style={{ minHeight: 160 }}>
+      <header className="relative text-white pb-24 sm:pb-16 overflow-hidden" style={{ minHeight: 180 }}>
         {/* Banner image or solid color */}
         {theme.bannerUrl ? (
           <>
@@ -651,7 +682,7 @@ export default function MenuPage() {
       </header>
 
       {/* ─── Painel flutuante sobre o header ───────────────────────────────────── */}
-      <div className="max-w-2xl mx-auto px-4 -mt-8">
+      <div className="max-w-2xl mx-auto px-4 -mt-16 sm:-mt-10 relative z-20">
         <div className="bg-white rounded-2xl shadow-md px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Seu pedido</p>
@@ -850,7 +881,9 @@ export default function MenuPage() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-xl font-black text-gray-900">Montar Pizza</h2>
-                <p className="text-gray-400 text-xs mt-0.5">Preço = maior valor entre os sabores</p>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  {theme.pizzaPricingMode === "HALF" ? "Preço = média dos sabores" : "Preço = sabor mais caro"}
+                </p>
               </div>
               <button onClick={() => setShowFlavorModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
@@ -902,7 +935,7 @@ export default function MenuPage() {
                 <div className="text-right">
                   <p className="text-xs text-gray-400">Total</p>
                   <p className="text-xl font-black text-orange-500">
-                    R$ {Math.max(...flavorSlots.filter(Boolean).map((f) => Number(f!.salePrice))).toFixed(2)}
+                    R$ {calcPizzaPrice(flavorSlots.filter(Boolean) as Product[]).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -919,13 +952,17 @@ export default function MenuPage() {
       {showCheckout && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowCheckout(false)} />
-          <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-2">
+          <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+            {/* Header fixo */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
               <h2 className="text-xl font-black text-gray-900">Seus dados</h2>
               <button onClick={() => setShowCheckout(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={22} />
               </button>
             </div>
+
+            {/* Conteúdo com scroll */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
 
             <input
               placeholder="Seu nome *"
@@ -997,21 +1034,41 @@ export default function MenuPage() {
             )}
             {!tableNumber && form.orderType === "DELIVERY" && (
               <div className="space-y-2">
+                {/* CEP primeiro — preenche os demais automaticamente */}
+                <div className="relative">
+                  <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    placeholder="CEP *"
+                    value={form.zipcode}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                      const formatted = v.length > 5 ? `${v.slice(0,5)}-${v.slice(5)}` : v;
+                      setForm((f) => ({ ...f, zipcode: formatted }));
+                      if (v.length === 8) fetchByCep(v);
+                    }}
+                    className="w-full border border-gray-200 rounded-xl pl-9 pr-10 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    inputMode="numeric"
+                    maxLength={9}
+                  />
+                  {cepLoading && (
+                    <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
+                  )}
+                </div>
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <MapPin size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <div className="relative flex-1 min-w-0">
                     <input
                       placeholder="Rua / Av. *"
                       value={form.street}
                       onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                     />
                   </div>
                   <input
                     placeholder="Nº"
                     value={form.number}
                     onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
-                    className="w-20 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    className="w-16 flex-shrink-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    inputMode="numeric"
                   />
                 </div>
                 <input
@@ -1025,29 +1082,22 @@ export default function MenuPage() {
                     placeholder="Bairro *"
                     value={form.neighborhood}
                     onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
-                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
-                  />
-                  <input
-                    placeholder="CEP"
-                    value={form.zipcode}
-                    onChange={(e) => setForm((f) => ({ ...f, zipcode: e.target.value }))}
-                    className="w-28 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    placeholder="Cidade *"
-                    value={form.city}
-                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                   />
                   <input
                     placeholder="UF"
                     value={form.state}
                     onChange={(e) => setForm((f) => ({ ...f, state: e.target.value.toUpperCase().slice(0, 2) }))}
-                    className="w-16 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm text-center"
+                    className="w-14 flex-shrink-0 border border-gray-200 rounded-xl px-2 py-3 text-gray-900 outline-none focus:border-primary text-sm text-center uppercase"
+                    maxLength={2}
                   />
                 </div>
+                <input
+                  placeholder="Cidade *"
+                  value={form.city}
+                  onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                />
               </div>
             )}
             {tableNumber && (
@@ -1090,13 +1140,18 @@ export default function MenuPage() {
               </div>
             </div>
 
-            <button
-              onClick={submitOrder}
-              disabled={submitting}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base transition"
-            >
-              {submitting ? "Enviando..." : "Confirmar pedido"}
-            </button>
+            </div>{/* fim scroll area */}
+
+            {/* Botão fixo no rodapé do modal */}
+            <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={submitOrder}
+                disabled={submitting}
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base transition"
+              >
+                {submitting ? "Enviando..." : "Confirmar pedido"}
+              </button>
+            </div>
           </div>
         </div>
       )}

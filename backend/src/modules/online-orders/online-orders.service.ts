@@ -106,7 +106,7 @@ export class OnlineOrdersService {
     setImmediate(() => {
       try {
         // → Kitchen screen picks up new order
-        this.socketGateway.emitOrderCreated({ companyId: dto.companyId, ...order });
+        this.socketGateway.emitOrderCreated(order);
 
         // → Dashboard KPI counters refresh
         this.socketGateway.emitDashboardUpdate(dto.companyId, {

@@ -145,6 +145,10 @@ model Company {
 
   complements Complement[]
 
+  onlineOrders OnlineOrder[]
+
+  whatsappConnections WhatsappConnection[]
+
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
@@ -1269,4 +1273,147 @@ model OrderItemComplement {
 
   @@index([orderItemId])
   @@index([complementOptionId])
+}
+
+// ─── Online Orders (cardápio digital / delivery público) ─────────────────────
+
+model OnlineOrder {
+  id                      String   @id @default(cuid())
+  companyId               String
+  company                 Company  @relation(fields: [companyId], references: [id])
+  customerName            String
+  customerPhone           String
+  customerEmail           String?
+  orderType               String   @default("DELIVERY")
+  address                 String?
+  addressNumber           String?
+  neighborhood            String?
+  city                    String?
+  state                   String?
+  zipcode                 String?
+  complement              String?
+  items                   Json
+  subtotal                Decimal  @db.Decimal(10, 2)
+  deliveryFee             Decimal  @default(0) @db.Decimal(10, 2)
+  discount                Decimal  @default(0) @db.Decimal(10, 2)
+  total                   Decimal  @db.Decimal(10, 2)
+  paymentMethod           String   @default("PIX")
+  paymentGateway          String   @default("MERCADOPAGO")
+  paymentStatus           String   @default("PENDING")
+  orderStatus             String   @default("PENDING")
+  mercadopagoPaymentId    String?
+  mercadopagoPreferenceId String?
+  pixQrcode               String?
+  pixCopyPaste            String?
+  pixExpiresAt            DateTime?
+  notes                   String?
+  paidAt                  DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([paymentStatus])
+  @@index([orderStatus])
+  @@index([createdAt])
+}
+
+model PaymentWebhook {
+  id        String   @id @default(cuid())
+  companyId String?
+  gateway   String
+  eventId   String
+  event     String
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([gateway, eventId])
+  @@index([processed])
+  @@index([companyId])
+}
+
+// ─── WhatsApp IA ──────────────────────────────────────────────────────────────
+
+model WhatsappConnection {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  name         String   // "WhatsApp Principal"
+  provider     String   @default("EVOLUTION") // EVOLUTION | CLOUD_API | ZAPI | TWILIO
+  instanceName String?
+  apiUrl       String?
+  apiToken     String?  @db.Text
+  phoneNumberId String? // Cloud API phone_number_id
+  webhookToken String?  // token para verificar webhooks recebidos
+  phoneNumber  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  settings      WhatsappAiSettings?
+  conversations WhatsappConversation[]
+
+  @@index([companyId])
+}
+
+model WhatsappAiSettings {
+  id               String   @id @default(cuid())
+  connectionId     String   @unique
+  connection       WhatsappConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  companyId        String
+  aiProvider       String   @default("GEMINI")      // GEMINI | ANTHROPIC | OPENAI
+  aiModel          String   @default("gemini-1.5-flash")
+  attendantName    String   @default("Atendente")
+  systemPrompt     String?  @db.Text
+  greetingMessage  String?  @db.Text
+  offlineMessage   String?  @db.Text
+  transferKeywords String?                           // vírgula separado
+  mode             String   @default("AUTO")         // AUTO | HYBRID | MANUAL
+  typingDelay      Int      @default(1500)           // ms delay fake digitando
+  messageDelay     Int      @default(800)            // ms entre mensagens
+  useEmojis        Boolean  @default(true)
+  businessHoursStart String @default("08:00")
+  businessHoursEnd   String @default("22:00")
+  businessDays     String   @default("1,2,3,4,5,6") // 0=dom..6=sab
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model WhatsappConversation {
+  id            String   @id @default(cuid())
+  connectionId  String
+  connection    WhatsappConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  companyId     String
+  customerPhone String
+  customerName  String?
+  status        String   @default("ACTIVE")   // ACTIVE | CLOSED | TRANSFERRED
+  mode          String   @default("AI")        // AI | HUMAN | PAUSED
+  context       Json?                          // { cart, step, address, phone, ... }
+  orderId       String?
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages WhatsappMessage[]
+
+  @@unique([connectionId, customerPhone])
+  @@index([companyId])
+  @@index([connectionId])
+}
+
+model WhatsappMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  companyId      String
+  role           String   // USER | ASSISTANT | SYSTEM
+  content        String   @db.Text
+  externalId     String?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([companyId])
 }

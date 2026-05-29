@@ -81,8 +81,12 @@ const PIZZA_SIZE_SUFFIXES: [string, string[]][] = [
 function stripSizeFromName(name: string): { baseName: string; sizeKey: string | null } {
   for (const [sizeKey, labels] of PIZZA_SIZE_SUFFIXES) {
     for (const label of labels) {
-      const re = new RegExp(`[\\s\\-–]+${label}$`, "i");
-      if (re.test(name)) return { baseName: name.replace(re, "").trim(), sizeKey };
+      // Pattern A: "(Pequena 4 fatias)" — parenthetical containing the size label
+      const reA = new RegExp(`\\s*\\(${label}[^)]*\\)$`, "i");
+      if (reA.test(name)) return { baseName: name.replace(reA, "").trim(), sizeKey };
+      // Pattern B: " Média" / " Grande" — bare suffix after space/dash
+      const reB = new RegExp(`[\\s\\-–]+${label}$`, "i");
+      if (reB.test(name)) return { baseName: name.replace(reB, "").trim(), sizeKey };
     }
   }
   return { baseName: name, sizeKey: null };

@@ -84,6 +84,7 @@ export default function PDVPage() {
   const [companyId, setCompanyId]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
+  const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
 
   // Trocar Mesa
   const [showTrocarMesa, setShowTrocarMesa]     = useState(false);
@@ -102,7 +103,20 @@ export default function PDVPage() {
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
-      if (user.companyId) setCompanyId(user.companyId);
+      if (user.companyId) {
+        setCompanyId(user.companyId);
+        // Fetch pizza size configs for dynamic maxFlavors
+        fetch(`/api/pizza-size-configs/public?companyId=${user.companyId}`)
+          .then(r => r.ok ? r.json() : [])
+          .then((configs: any[]) => {
+            const map: Record<string, { maxFlavors: number }> = {};
+            if (Array.isArray(configs)) {
+              configs.forEach(c => { map[c.size] = { maxFlavors: c.maxFlavors ?? 2 }; });
+            }
+            setPizzaSizeConfigs(map);
+          })
+          .catch(() => {});
+      }
     } catch {}
     const tick = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(tick);
@@ -190,6 +204,22 @@ export default function PDVPage() {
   const fmt = (v?: number) => v != null
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
     : "—";
+
+  // Returns the minimum price of a product (lowest size price or salePrice)
+  function productMinPrice(product: Product): number {
+    if (product.sizes && product.sizes.length > 0) {
+      return Math.min(...product.sizes.map(s => Number(s.price)));
+    }
+    return Number(product.salePrice) || 0;
+  }
+
+  // Returns price label: "A partir de R$ X,XX" when multiple sizes, else "R$ X,XX"
+  function productPriceLabel(product: Product): string {
+    if (product.sizes && product.sizes.length > 1) {
+      return `A partir de ${fmt(productMinPrice(product))}`;
+    }
+    return fmt(productMinPrice(product));
+  }
 
   async function closePaidOrder(method: string, splits: { method: string; amount: string }[] | undefined, details: PdvOrderDetails) {
     if (cart.length === 0 || paymentSubmitting) return;
@@ -624,7 +654,7 @@ export default function PDVPage() {
                     )}
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
-                      <p className="text-blue-400 font-black text-base mt-2">{fmt(product.salePrice)}</p>
+                      <p className="text-blue-400 font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
                       <button
                         onClick={(e) => { e.stopPropagation(); addToCart(product); }}
                         className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 group-hover:bg-blue-500 active:scale-95 transition text-xs font-bold"
@@ -670,8 +700,8 @@ export default function PDVPage() {
                     </div>
 
                     <div className="w-[160px] xl:w-[200px] shrink-0 flex flex-col items-end pl-4">
-                      <span className="text-2xl xl:text-3xl font-black whitespace-nowrap">
-                        {fmt(product.salePrice)}
+                      <span className={`font-black whitespace-nowrap text-right leading-tight ${product.sizes && product.sizes.length > 1 ? "text-lg xl:text-xl" : "text-2xl xl:text-3xl"}`}>
+                        {productPriceLabel(product)}
                       </span>
                       {product.costPrice != null && (
                         <span className="text-zinc-600 text-xs mt-1">
@@ -723,7 +753,7 @@ export default function PDVPage() {
                   )}
                   <div className="p-2.5 flex flex-col flex-1">
                     <p className="font-bold text-xs leading-tight line-clamp-2 flex-1">{product.name}</p>
-                    <p className="text-blue-400 font-black text-sm mt-1.5">{fmt(product.salePrice)}</p>
+                    <p className="text-blue-400 font-black text-xs mt-1.5 leading-tight">{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); addToCart(product); }}
                       className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 active:scale-95 transition text-xs font-bold"
@@ -748,7 +778,7 @@ export default function PDVPage() {
                     {product.description && (
                       <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
                     )}
-                    <p className="text-blue-400 font-black text-base mt-1">{fmt(product.salePrice)}</p>
+                    <p className="text-blue-400 font-black text-sm mt-1 leading-tight">{productPriceLabel(product)}</p>
                   </div>
                   <button
                     onClick={() => addToCart(product)}
@@ -1166,6 +1196,7 @@ export default function PDVPage() {
                     label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "),
                     price: Number(s.price) || 0,
                   }))}
+                sizeConfigs={pizzaSizeConfigs}
                 onAdd={addPizzaToCart}
               />
             </div>

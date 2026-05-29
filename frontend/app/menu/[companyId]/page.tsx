@@ -21,9 +21,27 @@ type Product = {
   imageUrl: string | null;
   videoUrl?: string | null;
   hasVideo?: boolean;
+  sizes?: { size: string; price: number }[];
   category?: { name: string; categoryType?: string; displayColumns?: number };
   isActive: boolean;
 };
+
+/** Returns the minimum price across sizes (or salePrice when no sizes) */
+function productMinPrice(product: Product): number {
+  if (product.sizes && product.sizes.length > 0) {
+    return Math.min(...product.sizes.map(s => Number(s.price)));
+  }
+  return Number(product.salePrice) || 0;
+}
+
+/** "A partir de R$ X,XX" for multi-size products, else "R$ X,XX" */
+function productPriceLabel(product: Product, primaryColor?: string): string {
+  if (product.sizes && product.sizes.length > 1) {
+    const min = productMinPrice(product);
+    return `A partir de R$ ${min.toFixed(2).replace(".", ",")}`;
+  }
+  return `R$ ${Number(product.salePrice).toFixed(2).replace(".", ",")}`;
+}
 
 type CartItem = { cartKey: string; product: Product; quantity: number; notes: string; flavors?: Product[] };
 
@@ -365,12 +383,14 @@ export default function MenuPage() {
 
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
-    if (chosen.length < 2) { toast.error("Selecione ao menos 2 sabores"); return; }
+    if (chosen.length < 1) { toast.error("Selecione ao menos 1 sabor"); return; }
     const finalPrice = calcPizzaPrice(chosen);
     const base = chosen.find((f) => Number(f.salePrice) === Math.max(...chosen.map(f => Number(f.salePrice)))) || chosen[0];
-    const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+    const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
     const noteText = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
-    const composedName = `Pizza ${chosen.length} sabores: ${chosen.map((f) => f.name).join(" + ")}`;
+    const composedName = chosen.length === 1
+      ? `Pizza ${chosen[0].name}`
+      : `Pizza ${chosen.length} sabores: ${chosen.map((f) => f.name).join(" + ")}`;
     setCart((prev) => [...prev, {
       cartKey: `pizza-${Date.now()}`,
       product: { ...base, name: composedName, salePrice: finalPrice as any },
@@ -851,8 +871,8 @@ export default function MenuPage() {
                     </div>
                     <div className="p-2.5 flex flex-col gap-1 flex-1">
                       <p className="text-xs font-bold text-gray-900 line-clamp-2 leading-snug">{product.name}</p>
-                      <p className="text-sm font-black mt-auto" style={{ color: theme.primaryColor }}>
-                        R$ {Number(product.salePrice).toFixed(2)}
+                      <p className="text-xs font-black mt-auto leading-tight" style={{ color: theme.primaryColor }}>
+                        {productPriceLabel(product)}
                       </p>
                       {product.videoUrl && (
                         <button
@@ -893,8 +913,8 @@ export default function MenuPage() {
                       )}
                     </div>
                     <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
-                      <span className="font-black text-lg" style={{ color: theme.primaryColor }}>
-                        R$ {Number(product.salePrice).toFixed(2)}
+                      <span className={`font-black leading-tight ${product.sizes && product.sizes.length > 1 ? "text-sm" : "text-lg"}`} style={{ color: theme.primaryColor }}>
+                        {productPriceLabel(product)}
                       </span>
                       <div className="flex gap-1.5 flex-wrap">
                         {product.videoUrl && (
@@ -1042,11 +1062,11 @@ export default function MenuPage() {
               </button>
             </div>
             <div className="flex items-center gap-2 mb-5">
-              <span className="text-sm text-gray-500 shrink-0">Dividir em:</span>
-              {[2, 3, 4].filter((n) => n <= Math.max(2, globalMaxFlavors)).map((n) => (
+              <span className="text-sm text-gray-500 shrink-0">Sabores:</span>
+              {[1, 2, 3, 4].filter((n) => n <= Math.max(1, globalMaxFlavors)).map((n) => (
                 <button key={n} onClick={() => changeFlavorParts(n)}
                   className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                  {n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
+                  {n === 1 ? "1 sab." : n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
                 </button>
               ))}
             </div>
@@ -1058,7 +1078,7 @@ export default function MenuPage() {
             />
             <div className="space-y-3 mb-5">
               {Array.from({ length: flavorParts }).map((_, i) => {
-                const fraction = flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+                const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
                 return (
                   <div key={i} className="flex items-center gap-3">
                     <span className="text-xs font-black text-gray-400 w-8 text-center bg-gray-100 rounded-lg py-1 shrink-0">{fraction}</span>

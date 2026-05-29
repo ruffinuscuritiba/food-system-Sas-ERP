@@ -5,18 +5,20 @@ import { useMemo, useState } from "react";
 type Flavor = { id: string; name: string; price: number };
 type Border = { id: string; name: string; price: number };
 type SizeOption = { size: string; label: string; price: number };
+type SizeConfig = { maxFlavors: number };
 
 type Props = {
   flavors: Flavor[];
   borders: Border[];
-  sizes?: SizeOption[];   // real product sizes passed from parent
+  sizes?: SizeOption[];        // real product sizes passed from parent
+  sizeConfigs?: Record<string, SizeConfig>; // maxFlavors per size key
   onAdd: (pizza: any) => void;
 };
 
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
+export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Props) {
   // Use product sizes if provided, otherwise fall back to standard enum labels
   const sizeOptions: SizeOption[] = sizes && sizes.length > 0
     ? sizes
@@ -32,14 +34,24 @@ export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
   const [border, setBorder] = useState<Border | null>(null);
   const [notes, setNotes] = useState("");
 
+  // Dynamic limit: from sizeConfigs for the current size, fallback 2
+  const maxFlavors = sizeConfigs?.[selectedSize.size]?.maxFlavors ?? 2;
+
   function toggleFlavor(flavor: Flavor) {
     const exists = selectedFlavors.find(f => f.id === flavor.id);
     if (exists) {
       setSelectedFlavors(prev => prev.filter(f => f.id !== flavor.id));
       return;
     }
-    if (selectedFlavors.length >= 2) return; // max 2 flavors (meio a meio)
+    if (selectedFlavors.length >= maxFlavors) return;
     setSelectedFlavors(prev => [...prev, flavor]);
+  }
+
+  // When size changes, trim flavors if new limit is smaller
+  function changeSize(opt: SizeOption) {
+    setSelectedSize(opt);
+    const newMax = sizeConfigs?.[opt.size]?.maxFlavors ?? 2;
+    setSelectedFlavors(prev => prev.slice(0, newMax));
   }
 
   const pizzaPrice = useMemo(() => {
@@ -80,7 +92,7 @@ export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
           {sizeOptions.map(opt => (
             <button
               key={opt.size}
-              onClick={() => setSelectedSize(opt)}
+              onClick={() => changeSize(opt)}
               className={`py-3 rounded-2xl font-bold text-sm transition text-center ${
                 selectedSize.size === opt.size
                   ? "bg-green-500 text-white"
@@ -98,8 +110,12 @@ export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
 
       {/* Sabores */}
       <div>
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-1">
-          Sabores <span className="font-normal normal-case">(máx. 2 — meio a meio)</span>
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-1 flex items-center gap-2">
+          Sabores
+          <span className="font-normal normal-case text-zinc-500">
+            {selectedFlavors.length}/{maxFlavors} selecionado{maxFlavors > 1 ? "s" : ""}
+            {maxFlavors > 1 ? " — meio a meio" : ""}
+          </span>
         </p>
         {flavors.length === 0 ? (
           <p className="text-zinc-500 text-sm py-4 text-center">Nenhum sabor cadastrado nesta categoria</p>
@@ -107,7 +123,7 @@ export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
           <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
             {flavors.map(flavor => {
               const selected = selectedFlavors.some(f => f.id === flavor.id);
-              const disabled = !selected && selectedFlavors.length >= 2;
+              const disabled = !selected && selectedFlavors.length >= maxFlavors;
               return (
                 <button
                   key={flavor.id}

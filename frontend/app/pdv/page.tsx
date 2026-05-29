@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { PaymentModal } from "@/components/pdv/PaymentModal";
+import { PaymentModal, PdvOrderDetails } from "@/components/pdv/PaymentModal";
 import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import {
   LayoutDashboard,
@@ -41,9 +41,26 @@ interface Product {
   videoUrl?: string; hasVideo?: boolean;
   categoryId?: string; isActive: boolean;
   sizes?: ProductSize[];
+  orderProductId?: string;
+  notes?: string;
 }
 
 interface CartItem { product: Product; qty: number; }
+
+const PIZZA_SIZE_ORDER: Record<string, number> = {
+  BIG: 0,
+  FAMILIA: 1,
+  FAMÍLIA: 1,
+  GRANDE: 2,
+  MEDIA: 3,
+  MÉDIA: 3,
+  PEQUENA: 4,
+};
+
+function getPizzaSizeOrder(size: string) {
+  const normalized = size.toUpperCase();
+  return PIZZA_SIZE_ORDER[normalized] ?? 99;
+}
 
 export default function PDVPage() {
   const [categories, setCategories]             = useState<Category[]>([]);
@@ -56,6 +73,14 @@ export default function PDVPage() {
   const [showCart, setShowCart]                 = useState(false);
   const [showPayment, setShowPayment]           = useState(false);
   const [pizzaProduct, setPizzaProduct]         = useState<Product | null>(null);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [pdvOrderDetails, setPdvOrderDetails] = useState<PdvOrderDetails>({
+    orderType: "DINE_IN",
+    tableNumber: "",
+    customerName: "",
+    customerPhone: "",
+    address: "",
+  });
   const [companyId, setCompanyId]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
@@ -106,6 +131,12 @@ export default function PDVPage() {
         salePrice: pizza.price,
         categoryId: pizza.categoryId,
         isActive: true,
+        orderProductId: pizza.flavors?.[0]?.id,
+        notes: [
+          `Pizza ${pizza.sizeLabel || pizza.size}: ${pizza.name}`,
+          pizza.border ? `Borda: ${pizza.border.name}` : "",
+          pizza.notes || "",
+        ].filter(Boolean).join(" | "),
       },
       qty: 1,
     };
@@ -122,6 +153,11 @@ export default function PDVPage() {
 
   const cartCount = cart.reduce((a, i) => a + i.qty, 0);
   const cartTotal = cart.reduce((a, i) => a + (Number(i.product.salePrice) || 0) * i.qty, 0);
+  const canProceedToPayment =
+    cart.length > 0 &&
+    (pdvOrderDetails.orderType === "PICKUP" ||
+      (pdvOrderDetails.orderType === "DINE_IN" && Boolean(pdvOrderDetails.tableNumber?.trim())) ||
+      (pdvOrderDetails.orderType === "DELIVERY" && Boolean(pdvOrderDetails.address?.trim())));
 
   const filteredProducts = products.filter(p => {
     if (!p.isActive) return false;
@@ -137,6 +173,69 @@ export default function PDVPage() {
   const fmt = (v?: number) => v != null
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
     : "—";
+
+  async function closePaidOrder(method: string, splits: { method: string; amount: string }[] | undefined, details: PdvOrderDetails) {
+    if (cart.length === 0 || paymentSubmitting) return;
+
+    const paymentMethod = splits?.[0]?.method || method;
+    const serviceLabel =
+      details.orderType === "DINE_IN"
+        ? `Mesa ${details.tableNumber}`
+        : details.orderType === "DELIVERY"
+          ? `Entrega${details.address ? ` - ${details.address}` : ""}`
+          : "Retirada";
+
+    setPaymentSubmitting(true);
+    try {
+      const orderRes = await api.post("/orders", {
+        customerName: details.customerName || serviceLabel,
+        customerPhone: details.customerPhone || "",
+        deliveryAddress: details.address || "INTERNO",
+        orderType: details.orderType,
+        paymentMethod,
+        notes: [
+          serviceLabel,
+          splits ? `Pagamento dividido: ${splits.map(s => `${s.method} R$ ${s.amount}`).join(" + ")}` : "",
+        ].filter(Boolean).join(" | "),
+        items: cart.map(({ product, qty }) => ({
+          productId: product.orderProductId || product.id,
+          quantity: qty,
+          notes: product.notes || "",
+        })),
+        subtotal: cartTotal,
+        total: cartTotal,
+        deliveryFee: 0,
+      });
+
+      if (orderRes.data?.id) {
+        await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" }).catch(() => null);
+      }
+
+      toast.success(`Pedido fechado - ${serviceLabel}`, { duration: 3000 });
+      clearCart();
+      setShowPayment(false);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Erro ao fechar pedido";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  }
+
+  function openPayment() {
+    if (!canProceedToPayment) {
+      toast.error(
+        pdvOrderDetails.orderType === "DINE_IN"
+          ? "Informe o numero da mesa"
+          : pdvOrderDetails.orderType === "DELIVERY"
+            ? "Informe o endereco de entrega"
+            : "Adicione itens ao carrinho",
+      );
+      return;
+    }
+    setShowCart(false);
+    setShowPayment(true);
+  }
 
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
@@ -529,13 +628,75 @@ export default function PDVPage() {
 
             {cart.length > 0 && (
               <div className="border-t border-[#161b2d] p-5 space-y-3">
+                <div className="space-y-3 rounded-2xl border border-[#1d2336] bg-[#0b0f1b] p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Atendimento</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: "DINE_IN" as const, label: "Mesa" },
+                      { value: "DELIVERY" as const, label: "Delivery" },
+                      { value: "PICKUP" as const, label: "Retirada" },
+                    ].map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setPdvOrderDetails((prev) => ({ ...prev, orderType: item.value }))}
+                        className={`py-2.5 rounded-xl border text-xs font-black transition ${
+                          pdvOrderDetails.orderType === item.value
+                            ? "bg-green-600 border-green-600 text-white"
+                            : "bg-[#050816] border-[#1d2336] text-zinc-400"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {pdvOrderDetails.orderType === "DINE_IN" && (
+                    <input
+                      value={pdvOrderDetails.tableNumber ?? ""}
+                      onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, tableNumber: e.target.value }))}
+                      placeholder="Numero da mesa *"
+                      className="w-full rounded-xl border border-[#1d2336] bg-[#050816] px-4 py-3 text-sm text-white outline-none focus:border-green-500"
+                      inputMode="numeric"
+                    />
+                  )}
+
+                  {pdvOrderDetails.orderType !== "DINE_IN" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        value={pdvOrderDetails.customerName ?? ""}
+                        onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, customerName: e.target.value }))}
+                        placeholder="Cliente"
+                        className="min-w-0 rounded-xl border border-[#1d2336] bg-[#050816] px-3 py-3 text-sm text-white outline-none focus:border-green-500"
+                      />
+                      <input
+                        value={pdvOrderDetails.customerPhone ?? ""}
+                        onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, customerPhone: e.target.value }))}
+                        placeholder="Telefone"
+                        className="min-w-0 rounded-xl border border-[#1d2336] bg-[#050816] px-3 py-3 text-sm text-white outline-none focus:border-green-500"
+                      />
+                    </div>
+                  )}
+
+                  {pdvOrderDetails.orderType === "DELIVERY" && (
+                    <textarea
+                      value={pdvOrderDetails.address ?? ""}
+                      onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, address: e.target.value }))}
+                      placeholder="Endereco de entrega *"
+                      rows={2}
+                      className="w-full rounded-xl border border-[#1d2336] bg-[#050816] px-4 py-3 text-sm text-white outline-none resize-none focus:border-green-500"
+                    />
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between text-lg font-black">
                   <span>Total</span>
                   <span className="text-blue-400">{fmt(cartTotal)}</span>
                 </div>
                 <button
-                  onClick={() => { setShowCart(false); setShowPayment(true); }}
-                  className="w-full py-3 rounded-2xl bg-green-600 hover:bg-green-500 transition font-bold text-sm"
+                  onClick={openPayment}
+                  disabled={!canProceedToPayment}
+                  className="w-full py-3 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm"
                 >
                   Finalizar Pedido →
                 </button>
@@ -549,17 +710,9 @@ export default function PDVPage() {
       <PaymentModal
         open={showPayment}
         total={cartTotal}
-        onClose={() => setShowPayment(false)}
-        onConfirm={(method, received, splits) => {
-          const fmtTotal = cartTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-          if (splits) {
-            toast.success(`Pedido fechado! Dividido em ${splits.length} formas`, { duration: 3000 });
-          } else {
-            toast.success(`Pedido fechado — ${method} ${fmtTotal}`, { duration: 3000 });
-          }
-          clearCart();
-          setShowPayment(false);
-        }}
+        onClose={() => !paymentSubmitting && setShowPayment(false)}
+        orderDetails={pdvOrderDetails}
+        onConfirm={(method, _received, splits, details) => closePaidOrder(method, splits, details)}
       />
 
       {/* PIZZA BUILDER MODAL */}
@@ -578,11 +731,14 @@ export default function PDVPage() {
                   .filter(p => p.categoryId && pizzaCategories.has(p.categoryId || ""))
                   .map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={[]}
-                sizes={pizzaProduct.sizes?.map(s => ({
-                  size: s.size,
-                  label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "),
-                  price: Number(s.price) || 0,
-                }))}
+                sizes={pizzaProduct.sizes
+                  ?.slice()
+                  .sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size))
+                  .map(s => ({
+                    size: s.size,
+                    label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "),
+                    price: Number(s.price) || 0,
+                  }))}
                 onAdd={addPizzaToCart}
               />
             </div>

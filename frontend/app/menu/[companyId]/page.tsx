@@ -30,7 +30,7 @@ type CartItem = { cartKey: string; product: Product; quantity: number; notes: st
 type CustomerForm = {
   name: string;
   phone: string;
-  orderType: "DELIVERY" | "PICKUP";
+  orderType: "DELIVERY" | "PICKUP" | "DINE_IN";
   paymentMethod: "PIX" | "CASH" | "CREDIT_CARD" | "DEBIT_CARD";
   street: string;
   number: string;
@@ -52,6 +52,9 @@ type PixData = {
 export default function MenuPage() {
   const params = useParams<{ companyId: string }>();
   const companyId = params.companyId as string;
+  const initialTableNumber = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("table")
+    : null;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -62,7 +65,7 @@ export default function MenuPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [tableNumber, setTableNumber] = useState<string | null>(null);
+  const [tableNumber, setTableNumber] = useState<string | null>(initialTableNumber);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -101,7 +104,7 @@ export default function MenuPage() {
   const [flavorFilter, setFlavorFilter] = useState("");
 
   const [form, setForm] = useState<CustomerForm>({
-    name: "", phone: "", orderType: "DELIVERY", paymentMethod: "PIX",
+    name: "", phone: "", orderType: initialTableNumber ? "DINE_IN" : "DELIVERY", paymentMethod: "PIX",
     street: "", number: "", neighborhood: "", city: "", state: "", zipcode: "", complement: "",
   });
   const [onlineOrderId, setOnlineOrderId] = useState<string | null>(null);
@@ -109,12 +112,6 @@ export default function MenuPage() {
   const [pixData, setPixData]             = useState<PixData | null>(null);
   const [pixCountdown, setPixCountdown]   = useState(0);
   const [pixPaid, setPixPaid]             = useState(false);
-
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const t = p.get("table");
-    if (t) setTableNumber(t);
-  }, []);
 
   async function loadMenu(attempt = 1) {
     setLoading(true);
@@ -395,9 +392,30 @@ export default function MenuPage() {
     return matchCat && matchSearch;
   });
 
+  function resetOrderFlow() {
+    setCart([]);
+    setShowCheckout(false);
+    setShowCart(false);
+    setUsePoints(false);
+    setLoyaltyPoints(0);
+    setLoyaltyDiscount(0);
+    setCouponCode("");
+    setCouponDiscount(0);
+    setCouponId(null);
+    setCouponMsg(null);
+    setOrderSent(false);
+    setOrderId(null);
+    setPaymentUrl(null);
+    setOnlineOrderId(null);
+    setShowPixScreen(false);
+    setPixPaid(false);
+    setPixData(null);
+  }
+
   async function submitOrder() {
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
-    if (!tableNumber && form.orderType === "DELIVERY" && !form.street) { toast.error("Informe o endereço de entrega"); return; }
+    if (form.orderType === "DINE_IN" && !tableNumber?.trim()) { toast.error("Informe o numero da mesa"); return; }
+    if (form.orderType === "DELIVERY" && !form.street) { toast.error("Informe o endereco de entrega"); return; }
     if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
     setSubmitting(true);
 
@@ -405,9 +423,7 @@ export default function MenuPage() {
       const capturedFinalTotal = finalCartTotal;
       const cartSnapshot = cart.slice();
 
-      const addressLine = form.orderType === "DELIVERY"
-        ? [form.street, form.number, form.complement, form.neighborhood, form.city, form.state].filter(Boolean).join(", ")
-        : "";
+      const selectedOrderType = form.orderType;
 
       // Step 1 — create OnlineOrder
       const orderRes = await fetch(`${apiBaseUrl}/online-orders`, {
@@ -417,7 +433,7 @@ export default function MenuPage() {
           companyId,
           customerName:  form.name,
           customerPhone: form.phone,
-          orderType:     tableNumber ? "DINE_IN" : form.orderType,
+          orderType:     selectedOrderType,
           address:       form.street,
           addressNumber: form.number,
           neighborhood:  form.neighborhood,
@@ -437,7 +453,7 @@ export default function MenuPage() {
           deliveryFee:   0,
           total:         capturedFinalTotal,
           paymentMethod: form.paymentMethod,
-          notes:         tableNumber ? `Mesa ${tableNumber}` : undefined,
+          notes:         selectedOrderType === "DINE_IN" ? `Mesa ${tableNumber}` : undefined,
         }),
       });
 
@@ -461,16 +477,8 @@ export default function MenuPage() {
         cartSnapshot.map((i) => ({ name: i.product.name, price: Number(i.product.salePrice), quantity: i.quantity })));
 
       // Step 4 — clear cart / form state
-      setCart([]);
       setShowCheckout(false);
       setShowCart(false);
-      setUsePoints(false);
-      setLoyaltyPoints(0);
-      setLoyaltyDiscount(0);
-      setCouponCode("");
-      setCouponDiscount(0);
-      setCouponId(null);
-      setCouponMsg(null);
 
       // Step 5 — PIX flow: generate QR code and show payment screen
       if (form.paymentMethod === "PIX") {
@@ -500,6 +508,14 @@ export default function MenuPage() {
         }
       } else {
         // CASH / CARD — show confirmation screen
+        setCart([]);
+        setUsePoints(false);
+        setLoyaltyPoints(0);
+        setLoyaltyDiscount(0);
+        setCouponCode("");
+        setCouponDiscount(0);
+        setCouponId(null);
+        setCouponMsg(null);
         setOrderId(createdOrderId);
         setOrderSent(true);
       }
@@ -526,7 +542,7 @@ export default function MenuPage() {
             <h1 className="text-2xl font-black text-gray-900">Pagamento confirmado!</h1>
             <p className="text-gray-500 text-sm">Seu pedido foi recebido por <strong>{companyName}</strong> e já está sendo preparado.</p>
             <button
-              onClick={() => { setShowPixScreen(false); setPixPaid(false); setPixData(null); }}
+              onClick={resetOrderFlow}
               className="w-full py-3.5 rounded-2xl font-black text-white text-base transition"
               style={{ background: theme.primaryColor }}
             >
@@ -1158,17 +1174,24 @@ export default function MenuPage() {
               </div>
             )}
 
-            {!tableNumber && (
-              <div className="grid grid-cols-2 gap-3">
-                {(["DELIVERY", "PICKUP"] as const).map((type) => (
+            <div className="grid grid-cols-3 gap-2">
+                {(["DINE_IN", "DELIVERY", "PICKUP"] as const).map((type) => (
                   <button key={type} onClick={() => setForm((f) => ({ ...f, orderType: type }))}
                     className={`py-3 rounded-xl font-bold transition text-sm ${form.orderType === type ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                    {type === "DELIVERY" ? "Entrega" : "Retirada"}
+                    {type === "DINE_IN" ? "Mesa" : type === "DELIVERY" ? "Entrega" : "Retirada"}
                   </button>
                 ))}
-              </div>
+            </div>
+            {form.orderType === "DINE_IN" && (
+              <input
+                placeholder="Numero da mesa *"
+                value={tableNumber ?? ""}
+                onChange={(e) => setTableNumber(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                inputMode="numeric"
+              />
             )}
-            {!tableNumber && form.orderType === "DELIVERY" && (
+            {form.orderType === "DELIVERY" && (
               <div className="space-y-2">
                 {/* Rua com autocomplete Nominatim */}
                 <div className="flex gap-2">
@@ -1272,12 +1295,6 @@ export default function MenuPage() {
                 </div>
               </div>
             )}
-            {tableNumber && (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-500 text-sm">
-                Pedido para Mesa {tableNumber}
-              </div>
-            )}
-
             <select
               value={form.paymentMethod}
               onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as CustomerForm["paymentMethod"] }))}

@@ -42,6 +42,18 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
 
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
+      return res.status(200).json({
+        status: 'ok',
+        service: 'food-system-backend',
+        api: '/api',
+        timestamp: new Date().toISOString(),
+      })
+    }
+    return next()
+  })
+
   // Readiness gate: hold requests until Prisma is connected.
   // Returns 503 immediately if not ready (frontend interceptor retries 5xx).
   const prismaService = app.get(PrismaService)

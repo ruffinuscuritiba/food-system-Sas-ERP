@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal } from "lucide-react";
+import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal, UtensilsCrossed, Bike, PackageCheck } from "lucide-react";
 
 const METHODS = [
   { value: "PIX",         label: "PIX",       icon: <QrCode    size={16} /> },
@@ -11,21 +11,35 @@ const METHODS = [
 ];
 
 type SplitEntry = { method: string; amount: string };
+export type PdvOrderType = "DINE_IN" | "DELIVERY" | "PICKUP";
+export type PdvOrderDetails = {
+  orderType: PdvOrderType;
+  tableNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
+  address?: string;
+};
 
 type Props = {
   open: boolean;
   total: number;
   onClose: () => void;
-  onConfirm: (method: string, received: number, splits?: SplitEntry[]) => void;
+  orderDetails?: PdvOrderDetails;
+  onConfirm: (method: string, received: number, splits: SplitEntry[] | undefined, details: PdvOrderDetails) => void;
 };
 
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function PaymentModal({ open, total, onClose, onConfirm }: Props) {
+export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: Props) {
   const [split, setSplit]   = useState(false);
   const [method, setMethod] = useState("PIX");
   const [received, setReceived] = useState("");
+  const [orderType, setOrderType] = useState<PdvOrderType>("DINE_IN");
+  const [tableNumber, setTableNumber] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [splits, setSplits] = useState<SplitEntry[]>([
     { method: "PIX",  amount: "" },
     { method: "CASH", amount: "" },
@@ -43,11 +57,20 @@ export function PaymentModal({ open, total, onClose, onConfirm }: Props) {
   }, []);
 
   function handleConfirm() {
+    const details = orderDetails ?? {
+      orderType,
+      tableNumber: tableNumber.trim(),
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      address: address.trim(),
+    };
+    if (details.orderType === "DINE_IN" && !details.tableNumber?.trim()) return;
+    if (details.orderType === "DELIVERY" && !details.address?.trim()) return;
     if (split) {
       if (Math.abs(splitDiff) > 0.01) return; // amounts must match total
-      onConfirm("SPLIT", total, splits);
+      onConfirm("SPLIT", total, splits, details);
     } else {
-      onConfirm(method, parseFloat(received) || total);
+      onConfirm(method, parseFloat(received) || total, undefined, details);
     }
   }
 
@@ -69,6 +92,68 @@ export function PaymentModal({ open, total, onClose, onConfirm }: Props) {
         </div>
 
         <div className="p-6 space-y-5">
+          {!orderDetails && <div>
+            <p className="text-xs text-zinc-500 font-semibold uppercase mb-2">Tipo do pedido</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: "DINE_IN" as const, label: "Mesa", icon: <UtensilsCrossed size={15} /> },
+                { value: "DELIVERY" as const, label: "Entrega", icon: <Bike size={15} /> },
+                { value: "PICKUP" as const, label: "Retirada", icon: <PackageCheck size={15} /> },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setOrderType(item.value)}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-semibold transition ${
+                    orderType === item.value
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-green-600/40"
+                  }`}
+                >
+                  {item.icon} {item.label}
+                </button>
+              ))}
+            </div>
+          </div>}
+
+          {!orderDetails && orderType === "DINE_IN" && (
+            <div>
+              <p className="text-xs text-zinc-500 font-semibold uppercase mb-2">Mesa</p>
+              <input
+                value={tableNumber}
+                onChange={e => setTableNumber(e.target.value)}
+                placeholder="Numero da mesa"
+                className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
+              />
+            </div>
+          )}
+
+          {!orderDetails && orderType !== "DINE_IN" && (
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+                placeholder="Cliente"
+                className="bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
+              />
+              <input
+                value={customerPhone}
+                onChange={e => setCustomerPhone(e.target.value)}
+                placeholder="Telefone"
+                className="bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
+              />
+            </div>
+          )}
+
+          {!orderDetails && orderType === "DELIVERY" && (
+            <textarea
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              placeholder="Endereco de entrega"
+              rows={2}
+              className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none resize-none focus:border-green-500"
+            />
+          )}
 
           {/* Toggle: single / split */}
           <div className="flex gap-2">
@@ -194,7 +279,7 @@ export function PaymentModal({ open, total, onClose, onConfirm }: Props) {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={split && Math.abs(splitDiff) > 0.01}
+            disabled={(split && Math.abs(splitDiff) > 0.01) || (!orderDetails && orderType === "DINE_IN" && !tableNumber.trim()) || (!orderDetails && orderType === "DELIVERY" && !address.trim())}
             className="py-3.5 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm transition"
           >
             Confirmar Pagamento

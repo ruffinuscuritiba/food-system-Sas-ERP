@@ -7,12 +7,18 @@ import {
 import { PrismaService } from '@/database/prisma.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 
+const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
+const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
+
+type OnlineOrderType = typeof ORDER_TYPES[number];
+type OnlinePaymentMethodType = typeof PAYMENT_METHODS[number];
+
 export interface CreateOnlineOrderDto {
   companyId: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
-  orderType: 'DELIVERY' | 'DINE_IN' | 'PICKUP';
+  orderType: OnlineOrderType;
   address?: string;
   addressNumber?: string;
   neighborhood?: string;
@@ -31,7 +37,7 @@ export interface CreateOnlineOrderDto {
   deliveryFee?: number;
   discount?: number;
   total: number;
-  paymentMethod: 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'CASH';
+  paymentMethod: OnlinePaymentMethodType;
   notes?: string;
 }
 
@@ -69,6 +75,12 @@ export class OnlineOrdersService {
     const deliveryFee = Number(dto.deliveryFee ?? 0);
     const discount = Number(dto.discount ?? 0);
     const total = Number(dto.total);
+    const orderType = ORDER_TYPES.includes(dto.orderType)
+      ? dto.orderType
+      : 'DELIVERY';
+    const paymentMethod = PAYMENT_METHODS.includes(dto.paymentMethod)
+      ? dto.paymentMethod
+      : 'PIX';
 
     if (!isFinite(total) || total <= 0) {
       throw new BadRequestException('Valor total inválido.');
@@ -82,7 +94,7 @@ export class OnlineOrdersService {
         customerName:  dto.customerName.trim(),
         customerPhone: dto.customerPhone.trim(),
         customerEmail: dto.customerEmail?.trim() || null,
-        orderType:     dto.orderType,
+        orderType,
         address:       dto.address?.trim() || null,
         addressNumber: dto.addressNumber?.trim() || null,
         neighborhood:  dto.neighborhood?.trim() || null,
@@ -95,7 +107,7 @@ export class OnlineOrdersService {
         deliveryFee,
         discount,
         total,
-        paymentMethod: dto.paymentMethod,
+        paymentMethod,
         notes:         dto.notes?.trim() || null,
       },
     });
@@ -117,7 +129,7 @@ export class OnlineOrdersService {
 
         this.logger.log(
           `[OnlineOrder] id=${order.id} company=${dto.companyId} ` +
-          `total=${total} type=${dto.orderType} — socket events emitted`,
+          `total=${total} type=${orderType} — socket events emitted`,
         );
       } catch (err: any) {
         // Socket failure must never affect the already-created order

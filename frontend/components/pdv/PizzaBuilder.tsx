@@ -27,7 +27,6 @@ export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
         { size: "FAMILIA",      label: "Família",      price: 0 },
         { size: "EXTRA_GRANDE", label: "Extra Grande", price: 0 },
       ];
-
   const [selectedSize, setSelectedSize] = useState<SizeOption>(sizeOptions[0]);
   const [selectedFlavors, setSelectedFlavors] = useState<Flavor[]>([]);
   const [border, setBorder] = useState<Border | null>(null);
@@ -123,7 +122,9 @@ export function PizzaBuilder({ flavors, borders, sizes, onAdd }: Props) {
                   }`}
                 >
                   <p className="font-semibold text-sm leading-tight">{flavor.name}</p>
-                  <p className="text-xs mt-0.5 opacity-75">{fmt(flavor.price)}</p>
+                  <p className="text-xs mt-0.5 opacity-75">
+                    {fmt(selectedSize.price > 0 ? selectedSize.price : flavor.price)}
+                  </p>
                 </button>
               );
             })}

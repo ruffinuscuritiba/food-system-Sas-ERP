@@ -72,6 +72,31 @@ enum OrderType {
   PICKUP
 }
 
+enum OnlineOrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERING
+  COMPLETED
+  CANCELED
+}
+
+enum OnlinePaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  EXPIRED
+}
+
+enum OnlinePaymentMethod {
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  CASH
+}
+
 model Company {
   id String @id @default(cuid())
 
@@ -1284,7 +1309,7 @@ model OnlineOrder {
   customerName            String
   customerPhone           String
   customerEmail           String?
-  orderType               String   @default("DELIVERY")
+  orderType               OrderType @default(DELIVERY)
   address                 String?
   addressNumber           String?
   neighborhood            String?
@@ -1297,10 +1322,10 @@ model OnlineOrder {
   deliveryFee             Decimal  @default(0) @db.Decimal(10, 2)
   discount                Decimal  @default(0) @db.Decimal(10, 2)
   total                   Decimal  @db.Decimal(10, 2)
-  paymentMethod           String   @default("PIX")
+  paymentMethod           OnlinePaymentMethod @default(PIX)
   paymentGateway          String   @default("MERCADOPAGO")
-  paymentStatus           String   @default("PENDING")
-  orderStatus             String   @default("PENDING")
+  paymentStatus           OnlinePaymentStatus @default(PENDING)
+  orderStatus             OnlineOrderStatus   @default(PENDING)
   mercadopagoPaymentId    String?
   mercadopagoPreferenceId String?
   pixQrcode               String?

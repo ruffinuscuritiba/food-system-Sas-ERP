@@ -85,6 +85,20 @@ export default function PDVPage() {
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
 
+  // Trocar Mesa
+  const [showTrocarMesa, setShowTrocarMesa]     = useState(false);
+  const [tables, setTables]                     = useState<any[]>([]);
+  const [loadingTables, setLoadingTables]       = useState(false);
+
+  // Criar Cupom
+  const [showCriarCupom, setShowCriarCupom]     = useState(false);
+  const [cupomForm, setCupomForm]               = useState({
+    code: "", type: "PERCENTAGE" as "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_SHIPPING",
+    value: "", usageLimit: "", expiresAt: "",
+  });
+  const [cupomSaving, setCupomSaving]           = useState(false);
+  const [cupomCreated, setCupomCreated]         = useState<string | null>(null);
+
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -258,6 +272,66 @@ export default function PDVPage() {
     setShowPayment(true);
   }
 
+  async function openTrocarMesa() {
+    setShowTrocarMesa(true);
+    setLoadingTables(true);
+    try {
+      const r = await api.get("/tables");
+      setTables(Array.isArray(r.data) ? r.data : []);
+    } catch {
+      toast.error("Erro ao carregar mesas");
+    } finally {
+      setLoadingTables(false);
+    }
+  }
+
+  function trocarMesa(tableNumber: string) {
+    setPdvOrderDetails(p => ({ ...p, orderType: "DINE_IN", tableNumber }));
+    setShowTrocarMesa(false);
+    toast.success(`Mesa alterada para ${tableNumber}`);
+  }
+
+  function gerarCodigoCupom() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  }
+
+  function openCriarCupom() {
+    setCupomCreated(null);
+    setCupomForm({ code: gerarCodigoCupom(), type: "PERCENTAGE", value: "", usageLimit: "", expiresAt: "" });
+    setShowCriarCupom(true);
+  }
+
+  async function saveCupom() {
+    if (!cupomForm.value || Number(cupomForm.value) <= 0) {
+      toast.error("Informe o valor do desconto"); return;
+    }
+    if (!cupomForm.code.trim()) {
+      toast.error("Informe o código do cupom"); return;
+    }
+    setCupomSaving(true);
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const payload: any = {
+        companyId: user.companyId || companyId,
+        code:      cupomForm.code.trim().toUpperCase(),
+        type:      cupomForm.type,
+        value:     Number(cupomForm.value),
+        active:    true,
+      };
+      if (cupomForm.usageLimit) payload.usageLimit = Number(cupomForm.usageLimit);
+      if (cupomForm.expiresAt)  payload.expiresAt  = cupomForm.expiresAt;
+      await api.post("/coupons", payload);
+      setCupomCreated(payload.code);
+      toast.success(`Cupom ${payload.code} criado!`);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || "Erro ao criar cupom";
+      toast.error(Array.isArray(msg) ? msg.join(" | ") : String(msg));
+    } finally {
+      setCupomSaving(false);
+    }
+  }
+
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
 
@@ -383,22 +457,57 @@ export default function PDVPage() {
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            {/* Limpar — icon only on mobile */}
+          {/* MESA indicator + actions */}
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+
+            {/* Mesa indicator — shown when DINE_IN + table set */}
+            {pdvOrderDetails.orderType === "DINE_IN" && pdvOrderDetails.tableNumber && (
+              <div className="hidden sm:flex flex-col items-center justify-center h-10 md:h-[54px] px-3 md:px-4 rounded-2xl border border-[#1d2336] bg-[#0c101d] min-w-[72px]">
+                <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide leading-none">MESA</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                  <span className="font-black text-white text-base leading-none">{pdvOrderDetails.tableNumber}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Trocar Mesa */}
+            <button
+              onClick={openTrocarMesa}
+              title="Trocar mesa"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
+            >
+              <ArrowLeftRight size={15} className="shrink-0" />
+              <span className="hidden md:block text-[10px] font-bold leading-none">Trocar</span>
+              <span className="hidden md:block text-[10px] leading-none">Mesa</span>
+            </button>
+
+            {/* Criar Cupom */}
+            <button
+              onClick={openCriarCupom}
+              title="Criar cupom"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
+            >
+              <Receipt size={15} className="shrink-0" />
+              <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
+              <span className="hidden md:block text-[10px] leading-none">Cupom</span>
+            </button>
+
+            {/* Limpar Conta */}
             <button
               onClick={clearCart}
               title="Limpar conta"
-              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-2"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
             >
-              <Trash2 size={16} />
-              <span className="hidden md:block text-sm font-semibold">Limpar</span>
+              <Trash2 size={15} className="shrink-0" />
+              <span className="hidden md:block text-[10px] font-bold leading-none">Limpar</span>
+              <span className="hidden md:block text-[10px] leading-none">Conta</span>
             </button>
 
-            {/* Cart */}
+            {/* Carrinho */}
             <button
               onClick={() => setShowCart(true)}
-              className="h-10 md:h-[54px] px-3 md:px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-2 font-semibold relative"
+              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex items-center gap-2 font-semibold relative"
             >
               <ShoppingBag size={18} />
               <span className="hidden md:block text-sm">Carrinho</span>
@@ -790,6 +899,237 @@ export default function PDVPage() {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* ─── TROCAR MESA MODAL ─────────────────────────────────── */}
+      {showTrocarMesa && (
+        <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#050816] border border-[#1d2336] rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
+              <div>
+                <h2 className="text-xl font-black text-white flex items-center gap-2">
+                  <ArrowLeftRight size={20} className="text-blue-400" /> Trocar Mesa
+                </h2>
+                {pdvOrderDetails.tableNumber && (
+                  <p className="text-zinc-400 text-sm mt-0.5">
+                    Mesa atual: <span className="text-white font-bold">{pdvOrderDetails.tableNumber}</span>
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setShowTrocarMesa(false)} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5">
+              {/* Manual entry */}
+              <div className="mb-4">
+                <label className="block text-xs text-zinc-500 font-bold uppercase mb-2">Digite o número da mesa</label>
+                <div className="flex gap-2">
+                  <input
+                    id="trocar-mesa-input"
+                    type="text"
+                    placeholder="Ex: 12"
+                    defaultValue={pdvOrderDetails.tableNumber}
+                    className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById("trocar-mesa-input") as HTMLInputElement;
+                      const v = input?.value?.trim();
+                      if (!v) { toast.error("Digite o número da mesa"); return; }
+                      trocarMesa(v);
+                    }}
+                    className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm transition"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+
+              {/* Table list from API */}
+              {loadingTables ? (
+                <div className="flex items-center justify-center py-8 text-zinc-500">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
+                  Carregando mesas…
+                </div>
+              ) : tables.length > 0 ? (
+                <div>
+                  <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Ou escolha uma mesa disponível</p>
+                  <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto">
+                    {tables.map((t: any) => (
+                      <button
+                        key={t.id}
+                        onClick={() => trocarMesa(String(t.number))}
+                        className={`py-3 rounded-xl border text-sm font-bold transition ${
+                          String(t.number) === pdvOrderDetails.tableNumber
+                            ? "bg-blue-600 border-blue-600 text-white"
+                            : t.status === "FREE"
+                              ? "bg-[#0c101d] border-green-700/40 text-green-400 hover:border-green-600"
+                              : t.status === "OCCUPIED"
+                                ? "bg-[#0c101d] border-red-700/40 text-red-400 hover:border-red-600"
+                                : "bg-[#0c101d] border-yellow-700/40 text-yellow-400"
+                        }`}
+                        title={`Mesa ${t.number} — ${t.status}`}
+                      >
+                        {t.number}
+                        <div className="text-[8px] mt-0.5 opacity-60">
+                          {t.status === "FREE" ? "livre" : t.status === "OCCUPIED" ? "ocup." : "reserv."}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3 mt-3 text-[10px] text-zinc-600">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" />Livre</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />Ocupada</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" />Reservada</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── CRIAR CUPOM MODAL ─────────────────────────────────── */}
+      {showCriarCupom && (
+        <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#050816] border border-[#1d2336] rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
+              <h2 className="text-xl font-black text-white flex items-center gap-2">
+                <Receipt size={20} className="text-blue-400" /> Criar Cupom
+              </h2>
+              <button onClick={() => { setShowCriarCupom(false); setCupomCreated(null); }} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {cupomCreated ? (
+                /* ── SUCCESS STATE ── */
+                <div className="text-center py-4 space-y-4">
+                  <div className="text-5xl">🎉</div>
+                  <p className="text-white font-bold text-lg">Cupom criado com sucesso!</p>
+                  <div className="bg-[#0c101d] border border-blue-600/40 rounded-2xl px-6 py-4">
+                    <p className="text-xs text-zinc-500 mb-1">Código do cupom</p>
+                    <p className="text-3xl font-black text-blue-400 tracking-widest">{cupomCreated}</p>
+                  </div>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(cupomCreated); toast.success("Código copiado!"); }}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm transition"
+                  >
+                    Copiar código
+                  </button>
+                  <button
+                    onClick={() => { setCupomCreated(null); setCupomForm({ code: gerarCodigoCupom(), type: "PERCENTAGE", value: "", usageLimit: "", expiresAt: "" }); }}
+                    className="w-full py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white font-semibold text-sm transition"
+                  >
+                    Criar outro cupom
+                  </button>
+                </div>
+              ) : (
+                /* ── FORM STATE ── */
+                <div className="space-y-4">
+                  {/* Code */}
+                  <div>
+                    <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Código do cupom</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={cupomForm.code}
+                        onChange={e => setCupomForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                        className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm font-mono font-bold uppercase outline-none focus:border-blue-500 tracking-widest"
+                        placeholder="PROMO10"
+                      />
+                      <button
+                        onClick={() => setCupomForm(f => ({ ...f, code: gerarCodigoCupom() }))}
+                        title="Gerar código aleatório"
+                        className="px-3 py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white transition text-xs font-bold"
+                      >
+                        ↻
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Type */}
+                  <div>
+                    <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Tipo de desconto</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { v: "PERCENTAGE",  label: "%",            desc: "Percentual" },
+                        { v: "FIXED_AMOUNT",label: "R$",           desc: "Valor fixo" },
+                        { v: "FREE_SHIPPING",label: "🚚",          desc: "Frete grátis" },
+                      ] as const).map(opt => (
+                        <button
+                          key={opt.v}
+                          onClick={() => setCupomForm(f => ({ ...f, type: opt.v }))}
+                          className={`py-2.5 rounded-xl border text-xs font-semibold transition flex flex-col items-center gap-0.5 ${
+                            cupomForm.type === opt.v
+                              ? "bg-blue-600 border-blue-600 text-white"
+                              : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-blue-600/40"
+                          }`}
+                        >
+                          <span className="text-base">{opt.label}</span>
+                          <span className="text-[9px]">{opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Value */}
+                  {cupomForm.type !== "FREE_SHIPPING" && (
+                    <div>
+                      <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">
+                        {cupomForm.type === "PERCENTAGE" ? "Percentual de desconto (%)" : "Valor do desconto (R$)"}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={cupomForm.type === "PERCENTAGE" ? 100 : undefined}
+                        value={cupomForm.value}
+                        onChange={e => setCupomForm(f => ({ ...f, value: e.target.value }))}
+                        placeholder={cupomForm.type === "PERCENTAGE" ? "Ex: 10" : "Ex: 5.00"}
+                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Optional: usage limit + expiry */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Limite de usos</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={cupomForm.usageLimit}
+                        onChange={e => setCupomForm(f => ({ ...f, usageLimit: e.target.value }))}
+                        placeholder="Ilimitado"
+                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Validade</label>
+                      <input
+                        type="date"
+                        value={cupomForm.expiresAt}
+                        onChange={e => setCupomForm(f => ({ ...f, expiresAt: e.target.value }))}
+                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit */}
+                  <button
+                    onClick={saveCupom}
+                    disabled={cupomSaving}
+                    className="w-full py-3.5 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white font-black text-sm transition mt-2"
+                  >
+                    {cupomSaving ? "Criando…" : "Criar Cupom"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

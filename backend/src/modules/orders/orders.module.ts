@@ -10,6 +10,7 @@ import { StockModule } from '../stock/stock.module';
 
 import { SocketModule } from '../../socket/socket.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
+import { WhatsappAiModule } from '../whatsapp-ai/whatsapp-ai.module';
 
 @Module({
 
@@ -18,6 +19,7 @@ import { LoyaltyModule } from '../loyalty/loyalty.module';
     StockModule,
     SocketModule,
     LoyaltyModule,
+    WhatsappAiModule,
   ],
 
   controllers: [OrdersController],

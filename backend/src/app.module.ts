@@ -22,6 +22,7 @@ import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module
 import { PizzaSizeConfigsModule } from './modules/pizza-size-configs/pizza-size-configs.module'
 import { ComplementsModule } from './modules/complements/complements.module'
 import { OnlineOrdersModule } from './modules/online-orders/online-orders.module'
+import { WhatsappAiModule } from './modules/whatsapp-ai/whatsapp-ai.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -56,6 +57,7 @@ import { AppService } from './app.service'
     PizzaSizeConfigsModule,
     ComplementsModule,
     OnlineOrdersModule,
+    WhatsappAiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

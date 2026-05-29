@@ -620,6 +620,59 @@ export class WhatsappAiService {
     });
   }
 
+  /**
+   * Send a transactional order notification to the customer's phone.
+   * Finds the first active/connected WhatsApp connection for the company.
+   * Silently ignores if no connection or phone is available.
+   */
+  async sendOrderNotification(params: {
+    companyId: string;
+    customerPhone: string;
+    customerName?: string;
+    orderId: string;
+    orderType: string;
+    total: number;
+    items: { name: string; quantity: number }[];
+    status: 'CONFIRMED' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+  }) {
+    const phone = params.customerPhone?.replace(/\D/g, '');
+    if (!phone || phone.length < 8) return; // no phone to notify
+
+    let connection: any;
+    try {
+      connection = await (this.prisma as any).whatsappConnection.findFirst({
+        where: { companyId: params.companyId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch { return; } // table may not exist yet
+
+    if (!connection) return;
+
+    const statusMsg: Record<string, string> = {
+      CONFIRMED: '✅ Pedido confirmado! Estamos preparando.',
+      READY: '🟢 Seu pedido está pronto para retirada!',
+      OUT_FOR_DELIVERY: '🛵 Seu pedido saiu para entrega!',
+      DELIVERED: '🎉 Pedido entregue! Bom apetite!',
+      CANCELLED: '❌ Seu pedido foi cancelado.',
+    };
+
+    const greeting = params.customerName ? `Olá, *${params.customerName}*! ` : '';
+    const itemLines = params.items
+      .slice(0, 5)
+      .map(i => `  • ${i.quantity}x ${i.name}`)
+      .join('\n');
+    const totalFmt = `R$ ${Number(params.total).toFixed(2).replace('.', ',')}`;
+    const text = [
+      `${greeting}${statusMsg[params.status] ?? 'Status atualizado.'}`,
+      `📋 *Pedido #${params.orderId.slice(-6).toUpperCase()}*`,
+      itemLines,
+      `💰 *Total: ${totalFmt}*`,
+      params.orderType === 'DELIVERY' ? '📍 Modalidade: Entrega' : params.orderType === 'PICKUP' ? '📍 Modalidade: Retirada' : '',
+    ].filter(Boolean).join('\n');
+
+    await this.dispatchMessage(connection, phone, text);
+  }
+
   private async dispatchMessage(connection: any, phone: string, text: string) {
     try {
       if (connection.provider === 'EVOLUTION' && connection.apiUrl && connection.instanceName) {

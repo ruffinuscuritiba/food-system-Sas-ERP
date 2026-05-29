@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 
 import {
@@ -20,6 +21,9 @@ from "../../socket/socket.gateway";
 import { LoyaltyService }
 from "../loyalty/loyalty.service";
 
+import { WhatsappAiService }
+from "../whatsapp-ai/whatsapp-ai.service";
+
 @Injectable()
 export class OrdersService {
 
@@ -31,6 +35,9 @@ export class OrdersService {
     private socketGateway: SocketGateway,
 
     private loyaltyService: LoyaltyService,
+
+    @Optional()
+    private whatsappAiService?: WhatsappAiService,
   ) {}
 
   async create(data: any) {
@@ -578,6 +585,37 @@ export class OrdersService {
         order.companyId,
         dashboard,
       );
+
+    // WhatsApp customer notification (non-blocking, best-effort)
+    if (
+      this.whatsappAiService &&
+      order.customerPhone &&
+      [
+        'CONFIRMED',
+        'READY',
+        'OUT_FOR_DELIVERY',
+        'DELIVERED',
+        'CANCELLED',
+      ].includes(status)
+    ) {
+      setImmediate(async () => {
+        try {
+          await this.whatsappAiService!.sendOrderNotification({
+            companyId: order.companyId,
+            customerPhone: order.customerPhone ?? '',
+            customerName: order.customerName ?? undefined,
+            orderId: order.id,
+            orderType: order.orderType ?? 'DELIVERY',
+            total: Number(order.total),
+            items: order.items.map((i) => ({
+              name: (i as any).productName ?? 'Item',
+              quantity: Number(i.quantity),
+            })),
+            status: status as any,
+          });
+        } catch { /* silent */ }
+      });
+    }
 
     return updatedOrder;
   }

@@ -66,6 +66,75 @@ function getPizzaSizeOrder(size: string) {
   return PIZZA_SIZE_ORDER[normalized] ?? 99;
 }
 
+// ── Pizza deduplication ────────────────────────────────────────────────────────
+// Collapses "Calabresa Média" + "Calabresa Grande" into one virtual Product card.
+
+const PIZZA_SIZE_SUFFIXES: [string, string[]][] = [
+  ["EXTRA_GRANDE", ["Extra Grande", "Extra_Grande", "ExtraGrande"]],
+  ["FAMILIA",      ["Família", "Familia"]],
+  ["BIG",          ["Big"]],
+  ["GRANDE",       ["Grande"]],
+  ["MEDIA",        ["Média", "Media"]],
+  ["PEQUENA",      ["Pequena"]],
+];
+
+function stripSizeFromName(name: string): { baseName: string; sizeKey: string | null } {
+  for (const [sizeKey, labels] of PIZZA_SIZE_SUFFIXES) {
+    for (const label of labels) {
+      const re = new RegExp(`[\\s\\-–]+${label}$`, "i");
+      if (re.test(name)) return { baseName: name.replace(re, "").trim(), sizeKey };
+    }
+  }
+  return { baseName: name, sizeKey: null };
+}
+
+function buildDedupedPizzaProducts(prods: Product[]): Product[] {
+  type Group = {
+    displayName: string;
+    firstWithImage: Product | null;
+    firstDesc: string | undefined;
+    variants: { sizeKey: string | null; product: Product }[];
+  };
+  const map = new Map<string, Group>();
+
+  for (const p of prods) {
+    const { baseName, sizeKey } = stripSizeFromName(p.name);
+    const key = baseName.toLowerCase();
+    if (!map.has(key)) map.set(key, { displayName: baseName, firstWithImage: null, firstDesc: undefined, variants: [] });
+    const g = map.get(key)!;
+    g.variants.push({ sizeKey, product: p });
+    if (!g.firstWithImage && p.imageUrl) g.firstWithImage = p;
+    if (!g.firstDesc && p.description)  g.firstDesc = p.description;
+  }
+
+  return Array.from(map.values()).map(g => {
+    const first = g.variants[0].product;
+
+    // Merge sizes: use sizes[] if any variant has them, else infer from name suffix
+    let mergedSizes: ProductSize[] = [];
+    const hasSizesField = g.variants.some(v => (v.product.sizes?.length ?? 0) > 0);
+    if (hasSizesField) {
+      const seen = new Set<string>();
+      for (const { product: p } of g.variants)
+        for (const s of (p.sizes ?? []))
+          if (!seen.has(s.size)) { seen.add(s.size); mergedSizes.push(s); }
+    } else {
+      for (const { sizeKey, product: p } of g.variants)
+        if (sizeKey) mergedSizes.push({ size: sizeKey, price: Number(p.salePrice) || 0 });
+    }
+    mergedSizes.sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size));
+
+    return {
+      ...first,
+      name:        g.displayName,
+      description: g.firstDesc,
+      imageUrl:    g.firstWithImage?.imageUrl ?? first.imageUrl,
+      salePrice:   mergedSizes.length > 0 ? Math.min(...mergedSizes.map(s => s.price)) : Number(first.salePrice) || 0,
+      sizes:       mergedSizes.length > 0 ? mergedSizes : (first.sizes ?? []),
+    } as Product;
+  });
+}
+
 export default function PDVPage() {
   const [categories, setCategories]             = useState<Category[]>([]);
   const [products, setProducts]                 = useState<Product[]>([]);
@@ -207,8 +276,9 @@ export default function PDVPage() {
     ? null
     : categories.find(c => c.id === selectedCategory) ?? null;
 
-  const activeCategoryName = activeCategory?.name ?? (selectedCategory === "all" ? "Todos os Produtos" : "Produtos");
-  const activeIsBeverage = activeCategory?.categoryType === "bebidas";
+  const activeCategoryName    = activeCategory?.name ?? (selectedCategory === "all" ? "Todos os Produtos" : "Produtos");
+  const activeIsBeverage      = activeCategory?.categoryType === "bebidas";
+  const activeCategoryIsPizza = activeCategory != null && pizzaCategories.has(activeCategory.id);
 
   // Banner: first image of the first active product in the selected category
   const bannerImageUrl =
@@ -702,7 +772,10 @@ export default function PDVPage() {
             ) : (
               /* ── DEFAULT LIST ── */
               <div className="space-y-5">
-                {filteredProducts.map((product) => (
+                {(activeCategoryIsPizza
+                  ? buildDedupedPizzaProducts(filteredProducts)
+                  : filteredProducts
+                ).map((product) => (
                   <div
                     key={product.id}
                     className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6"

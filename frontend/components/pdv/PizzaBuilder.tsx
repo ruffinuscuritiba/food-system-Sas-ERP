@@ -184,24 +184,32 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
               : "grid-cols-5"
           }`}
         >
-          {sizeOptions.map(opt => (
-            <button
-              key={opt.size}
-              onClick={() => changeSize(opt)}
-              className={`py-3 rounded-2xl font-bold text-sm transition text-center ${
-                selectedSize.size === opt.size
-                  ? "bg-green-500 text-white"
-                  : "bg-[#161b2d] text-zinc-300 hover:bg-[#1d2336]"
-              }`}
-            >
-              <span className="block">{opt.label}</span>
-              {opt.price > 0 && (
-                <span className="block text-xs font-normal opacity-80 mt-0.5">
-                  {fmt(opt.price)}
-                </span>
-              )}
-            </button>
-          ))}
+          {sizeOptions.map(opt => {
+            const sizeFlavors = sizeConfigs?.[opt.size]?.maxFlavors;
+            return (
+              <button
+                key={opt.size}
+                onClick={() => changeSize(opt)}
+                className={`py-3 rounded-2xl font-bold text-sm transition text-center ${
+                  selectedSize.size === opt.size
+                    ? "bg-green-500 text-white"
+                    : "bg-[#161b2d] text-zinc-300 hover:bg-[#1d2336]"
+                }`}
+              >
+                <span className="block">{opt.label}</span>
+                {opt.price > 0 && (
+                  <span className="block text-xs font-normal opacity-80 mt-0.5">
+                    {fmt(opt.price)}
+                  </span>
+                )}
+                {sizeFlavors != null && (
+                  <span className="block text-xs font-normal opacity-60 mt-0.5">
+                    {sizeFlavors === 1 ? "1 sabor" : `até ${sizeFlavors} sabores`}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -799,6 +799,7 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
   const [searching, setSearching]       = useState(false);
   const [suggestions, setSuggestions]   = useState<any[]>([]);
   const [saving, setSaving]             = useState(false);
+  const debounceRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [form, setForm]                 = useState({
     name: "", description: "", salePrice: 0, costPrice: 0,
     eanCode: "", unit: "un", imageUrl: null as string | null,
@@ -963,7 +964,14 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
                     <input
                       autoFocus
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setSearchQuery(v);
+                        if (debounceRef.current) clearTimeout(debounceRef.current);
+                        if (v.trim().length >= 3) {
+                          debounceRef.current = setTimeout(() => searchProducts(v), 500);
+                        }
+                      }}
                       onKeyDown={(e) => e.key === "Enter" && searchProducts(searchQuery)}
                       placeholder="Ex: Coca-Cola 350ml ou 7894900011517"
                       className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-primary"

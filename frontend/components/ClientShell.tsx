@@ -32,6 +32,7 @@ import {
   Landmark,
   BarChart2,
   Eye,
+  MessageCircle,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -69,6 +70,12 @@ const MODULE_NAV: Record<string, NavItem> = {
     href: "/entregadores",
     label: "Entregadores",
     icon: <Bike size={16} />,
+    roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
+  },
+  "whatsapp-ia": {
+    href: "/whatsapp-ia",
+    label: "WhatsApp IA",
+    icon: <MessageCircle size={16} />,
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
 };

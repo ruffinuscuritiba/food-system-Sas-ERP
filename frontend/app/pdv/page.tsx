@@ -33,7 +33,7 @@ import {
   X,
 } from "lucide-react";
 
-interface Category { id: string; name: string; }
+interface Category { id: string; name: string; categoryType?: string; }
 interface ProductSize { size: string; price: number; }
 interface Product {
   id: string; name: string; description?: string;
@@ -166,9 +166,12 @@ export default function PDVPage() {
     return matchCat && matchSearch;
   });
 
-  const activeCategoryName = selectedCategory === "all"
-    ? "Todos os Produtos"
-    : categories.find(c => c.id === selectedCategory)?.name ?? "Produtos";
+  const activeCategory = selectedCategory === "all"
+    ? null
+    : categories.find(c => c.id === selectedCategory) ?? null;
+
+  const activeCategoryName = activeCategory?.name ?? (selectedCategory === "all" ? "Todos os Produtos" : "Produtos");
+  const activeIsBeverage = activeCategory?.categoryType === "bebidas";
 
   const fmt = (v?: number) => v != null
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
@@ -462,19 +465,49 @@ export default function PDVPage() {
               </div>
             </div>
 
-            {/* PRODUCTS LIST */}
-            <div className="space-y-5">
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
+            {/* PRODUCTS LIST / GRID */}
+            {loading ? (
+              <div className="space-y-5">
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="min-h-[160px] w-full rounded-[32px] bg-[#0b0f1b] animate-pulse" />
-                ))
-              ) : filteredProducts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
-                  <span className="text-5xl mb-4">🍽️</span>
-                  <p className="font-semibold text-lg">Nenhum produto nesta categoria</p>
-                </div>
-              ) : (
-                filteredProducts.map((product) => (
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+                <span className="text-5xl mb-4">🍽️</span>
+                <p className="font-semibold text-lg">Nenhum produto nesta categoria</p>
+              </div>
+            ) : activeIsBeverage ? (
+              /* ── BEVERAGES GRID — desktop 5 cols, tablet 3 ── */
+              <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-blue-600 transition group"
+                    onClick={() => addToCart(product)}
+                  >
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+                    ) : (
+                      <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-4xl">🥤</div>
+                    )}
+                    <div className="p-3 flex flex-col flex-1">
+                      <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
+                      <p className="text-blue-400 font-black text-base mt-2">{fmt(product.salePrice)}</p>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                        className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 group-hover:bg-blue-500 active:scale-95 transition text-xs font-bold"
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* ── DEFAULT LIST ── */
+              <div className="space-y-5">
+                {filteredProducts.map((product) => (
                   <div
                     key={product.id}
                     className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6"
@@ -522,47 +555,79 @@ export default function PDVPage() {
                       </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
 
           </section>
 
         </div>
 
-        {/* PRODUCTS — mobile only (full width list) */}
-        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712] px-3 py-3 space-y-3">
+        {/* PRODUCTS — mobile only (full width list or beverages grid) */}
+        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712] px-3 py-3">
           {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-2xl bg-[#0b0f1b] animate-pulse" />
-            ))
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-2xl bg-[#0b0f1b] animate-pulse" />
+              ))}
+            </div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
               <span className="text-4xl mb-3">🍽️</span>
               <p className="text-sm font-semibold">Nenhum produto nesta categoria</p>
             </div>
-          ) : (
-            filteredProducts.map(product => (
-              <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
-                {product.imageUrl
-                  ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
-                  : <div className="w-16 h-16 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>
-                }
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm leading-tight">{product.name}</p>
-                  {product.description && (
-                    <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
-                  )}
-                  <p className="text-blue-400 font-black text-base mt-1">{fmt(product.salePrice)}</p>
-                </div>
-                <button
+          ) : activeIsBeverage ? (
+            /* ── BEVERAGES GRID — mobile 2 cols ── */
+            <div className="grid grid-cols-2 gap-3">
+              {filteredProducts.map(product => (
+                <div
+                  key={product.id}
+                  className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col"
                   onClick={() => addToCart(product)}
-                  className="shrink-0 h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-sm font-bold"
                 >
-                  +
-                </button>
-              </div>
-            ))
+                  {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+                  ) : (
+                    <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-3xl">🥤</div>
+                  )}
+                  <div className="p-2.5 flex flex-col flex-1">
+                    <p className="font-bold text-xs leading-tight line-clamp-2 flex-1">{product.name}</p>
+                    <p className="text-blue-400 font-black text-sm mt-1.5">{fmt(product.salePrice)}</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                      className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 active:scale-95 transition text-xs font-bold"
+                    >
+                      + Adicionar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* ── DEFAULT LIST ── */
+            <div className="space-y-3">
+              {filteredProducts.map(product => (
+                <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
+                  {product.imageUrl
+                    ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                    : <div className="w-16 h-16 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>
+                  }
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm leading-tight">{product.name}</p>
+                    {product.description && (
+                      <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
+                    )}
+                    <p className="text-blue-400 font-black text-base mt-1">{fmt(product.salePrice)}</p>
+                  </div>
+                  <button
+                    onClick={() => addToCart(product)}
+                    className="shrink-0 h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-sm font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

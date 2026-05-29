@@ -67,31 +67,69 @@ function getPizzaSizeOrder(size: string) {
 }
 
 // ── Pizza deduplication ────────────────────────────────────────────────────────
-// Collapses "Calabresa Média" + "Calabresa Grande" into one virtual Product card.
+// "CALABRESA (Pequena 4 fatias)" + "CALABRESA (Média 6 fatias)" → 1 card "CALABRESA"
 
-const PIZZA_SIZE_SUFFIXES: [string, string[]][] = [
-  ["EXTRA_GRANDE", ["Extra Grande", "Extra_Grande", "ExtraGrande"]],
-  ["FAMILIA",      ["Família", "Familia"]],
-  ["BIG",          ["Big"]],
-  ["GRANDE",       ["Grande"]],
-  ["MEDIA",        ["Média", "Media"]],
-  ["PEQUENA",      ["Pequena"]],
-];
+// Maps the text found inside parens or as suffix → Prisma enum key
+const SIZE_LABEL_TO_KEY: Record<string, string> = {
+  "pequena":      "PEQUENA",
+  "média":        "MEDIA",
+  "media":        "MEDIA",
+  "grande":       "GRANDE",
+  "família":      "FAMILIA",
+  "familia":      "FAMILIA",
+  "big":          "BIG",
+  "extra grande": "EXTRA_GRANDE",
+  "extra_grande": "EXTRA_GRANDE",
+};
 
-function stripSizeFromName(name: string): { baseName: string; sizeKey: string | null } {
-  for (const [sizeKey, labels] of PIZZA_SIZE_SUFFIXES) {
-    for (const label of labels) {
-      // Pattern A: "(Pequena 4 fatias)" — parenthetical containing the size label
-      const reA = new RegExp(`\\s*\\(${label}[^)]*\\)$`, "i");
-      if (reA.test(name)) return { baseName: name.replace(reA, "").trim(), sizeKey };
-      // Pattern B: " Média" / " Grande" — bare suffix after space/dash
-      const reB = new RegExp(`[\\s\\-–]+${label}$`, "i");
-      if (reB.test(name)) return { baseName: name.replace(reB, "").trim(), sizeKey };
+/**
+ * Returns the base name and the size enum key for a product.
+ *
+ * Handles two formats:
+ *   A) "CALABRESA (Pequena 4 fatias)"  → baseName="CALABRESA", sizeKey="PEQUENA"
+ *   B) "Calabresa Média"               → baseName="Calabresa", sizeKey="MEDIA"
+ *   C) "Portuguesa"                    → baseName="Portuguesa", sizeKey=null (no change)
+ */
+function parseProductName(name: string): { baseName: string; sizeKey: string | null } {
+  // Format A: anything in parentheses at the end
+  const parenMatch = name.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    const base = parenMatch[1].trim();
+    const content = parenMatch[2].trim().toLowerCase();
+    if (base) {
+      // Try to detect size from paren content (first 1 or 2 words)
+      const w1 = content.split(/\s+/)[0];
+      const w2 = content.split(/\s+/).slice(0, 2).join(" ");
+      const sizeKey = SIZE_LABEL_TO_KEY[w2] ?? SIZE_LABEL_TO_KEY[w1] ?? null;
+      return { baseName: base, sizeKey };
     }
   }
+
+  // Format B: known size label as bare suffix
+  for (const [label, sizeKey] of Object.entries(SIZE_LABEL_TO_KEY)) {
+    // skip multi-word entries on the first pass (checked below)
+    if (label.includes(" ")) continue;
+    const re = new RegExp(`[\\s\\-–]+(${label})\\s*$`, "i");
+    if (re.test(name)) {
+      return { baseName: name.replace(re, "").trim(), sizeKey };
+    }
+  }
+  // multi-word suffixes (Extra Grande)
+  for (const [label, sizeKey] of Object.entries(SIZE_LABEL_TO_KEY)) {
+    if (!label.includes(" ")) continue;
+    const re = new RegExp(`[\\s\\-–]+(${label})\\s*$`, "i");
+    if (re.test(name)) {
+      return { baseName: name.replace(re, "").trim(), sizeKey };
+    }
+  }
+
   return { baseName: name, sizeKey: null };
 }
 
+/**
+ * Groups product variants by their base name and returns one merged Product per group.
+ * Safe no-op for products without size in their name.
+ */
 function buildDedupedPizzaProducts(prods: Product[]): Product[] {
   type Group = {
     displayName: string;
@@ -102,7 +140,7 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
   const map = new Map<string, Group>();
 
   for (const p of prods) {
-    const { baseName, sizeKey } = stripSizeFromName(p.name);
+    const { baseName, sizeKey } = parseProductName(p.name);
     const key = baseName.toLowerCase();
     if (!map.has(key)) map.set(key, { displayName: baseName, firstWithImage: null, firstDesc: undefined, variants: [] });
     const g = map.get(key)!;
@@ -113,27 +151,37 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
 
   return Array.from(map.values()).map(g => {
     const first = g.variants[0].product;
+    const seen = new Set<string>();
+    const mergedSizes: ProductSize[] = [];
 
-    // Merge sizes: use sizes[] if any variant has them, else infer from name suffix
-    let mergedSizes: ProductSize[] = [];
-    const hasSizesField = g.variants.some(v => (v.product.sizes?.length ?? 0) > 0);
-    if (hasSizesField) {
-      const seen = new Set<string>();
-      for (const { product: p } of g.variants)
-        for (const s of (p.sizes ?? []))
-          if (!seen.has(s.size)) { seen.add(s.size); mergedSizes.push(s); }
-    } else {
-      for (const { sizeKey, product: p } of g.variants)
-        if (sizeKey) mergedSizes.push({ size: sizeKey, price: Number(p.salePrice) || 0 });
+    for (const { sizeKey, product: p } of g.variants) {
+      // Prefer sizes[] on the product (most accurate source)
+      if (p.sizes && p.sizes.length > 0) {
+        for (const s of p.sizes) {
+          if (!seen.has(s.size)) {
+            seen.add(s.size);
+            mergedSizes.push({ size: s.size, price: Number(s.price) });
+          }
+        }
+      } else if (sizeKey && !seen.has(sizeKey)) {
+        // Fall back: infer size from name, use salePrice as price
+        seen.add(sizeKey);
+        mergedSizes.push({ size: sizeKey, price: Number(p.salePrice) || 0 });
+      }
     }
+
     mergedSizes.sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size));
+
+    const minPrice = mergedSizes.length > 0
+      ? Math.min(...mergedSizes.map(s => s.price))
+      : Number(first.salePrice) || 0;
 
     return {
       ...first,
       name:        g.displayName,
       description: g.firstDesc,
       imageUrl:    g.firstWithImage?.imageUrl ?? first.imageUrl,
-      salePrice:   mergedSizes.length > 0 ? Math.min(...mergedSizes.map(s => s.price)) : Number(first.salePrice) || 0,
+      salePrice:   minPrice,
       sizes:       mergedSizes.length > 0 ? mergedSizes : (first.sizes ?? []),
     } as Product;
   });

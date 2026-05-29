@@ -776,10 +776,7 @@ export default function PDVPage() {
             ) : (
               /* ── DEFAULT LIST ── */
               <div className="space-y-5">
-                {(activeCategoryIsPizza
-                  ? buildDedupedPizzaProducts(filteredProducts)
-                  : filteredProducts
-                ).map((product) => (
+                {buildDedupedPizzaProducts(filteredProducts).map((product) => (
                   <div
                     key={product.id}
                     className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6"
@@ -878,7 +875,7 @@ export default function PDVPage() {
           ) : (
             /* ── DEFAULT LIST ── */
             <div className="space-y-3">
-              {filteredProducts.map(product => (
+              {buildDedupedPizzaProducts(filteredProducts).map(product => (
                 <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />

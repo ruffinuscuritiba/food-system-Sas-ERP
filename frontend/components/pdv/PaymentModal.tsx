@@ -1,25 +1,22 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal, UtensilsCrossed, Bike, PackageCheck, Plus, Minus } from "lucide-react";
+import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal, Plus, Minus } from "lucide-react";
+import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
 
 const METHODS = [
-  { value: "PIX",         label: "PIX",        icon: <QrCode    size={16} /> },
-  { value: "CASH",        label: "Dinheiro",   icon: <Banknote  size={16} /> },
-  { value: "CREDIT_CARD", label: "Crédito",    icon: <CreditCard size={16} /> },
-  { value: "DEBIT_CARD",  label: "Débito",     icon: <CreditCard size={16} /> },
-  { value: "TRANSFER",    label: "Transferência", icon: <Banknote size={16} /> },
+  { value: "PIX",         label: "PIX",            icon: <QrCode     size={16} /> },
+  { value: "CASH",        label: "Dinheiro",        icon: <Banknote   size={16} /> },
+  { value: "CREDIT_CARD", label: "Crédito",         icon: <CreditCard size={16} /> },
+  { value: "DEBIT_CARD",  label: "Débito",          icon: <CreditCard size={16} /> },
+  { value: "TRANSFER",    label: "Transferência",   icon: <Banknote   size={16} /> },
 ];
 
 type SplitEntry = { method: string; amount: string };
+
+// Re-export for backward compatibility with imports across the app
 export type PdvOrderType = "DINE_IN" | "DELIVERY" | "PICKUP";
-export type PdvOrderDetails = {
-  orderType: PdvOrderType;
-  tableNumber?: string;
-  customerName?: string;
-  customerPhone?: string;
-  address?: string;
-};
+export type PdvOrderDetails = OrderDetails;
 
 type Props = {
   open: boolean;
@@ -33,18 +30,28 @@ const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: Props) {
-  const [split, setSplit]   = useState(false);
-  const [method, setMethod] = useState("PIX");
+  const [split, setSplit]     = useState(false);
+  const [method, setMethod]   = useState("PIX");
   const [received, setReceived] = useState("");
-  const [orderType, setOrderType] = useState<PdvOrderType>("DINE_IN");
-  const [tableNumber, setTableNumber] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [localDetails, setLocalDetails] = useState<PdvOrderDetails>({
+    orderType: "DINE_IN",
+    tableNumber: "",
+    customerName: "",
+    customerPhone: "",
+    address: "",
+    addressNumber: "",
+    complement: "",
+    bairro: "",
+    cidade: "",
+    cep: "",
+  });
   const [splits, setSplits] = useState<SplitEntry[]>([
     { method: "PIX",  amount: "" },
     { method: "CASH", amount: "" },
   ]);
+
+  // Use passed-in orderDetails if provided (PDV cart already has them), else use local state
+  const details: PdvOrderDetails = orderDetails ?? localDetails;
 
   const change = !split && method === "CASH"
     ? Math.max(0, (parseFloat(received) || 0) - total)
@@ -67,25 +74,23 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
     setSplits(prev => prev.filter((_, i) => i !== idx));
   }
 
-  // Auto-fill last split with remaining amount
   function autoFill(idx: number) {
     const otherSum = splits.reduce((a, s, i) => i === idx ? a : a + (parseFloat(s.amount) || 0), 0);
     const remaining = Math.max(0, total - otherSum);
     updateSplit(idx, { amount: remaining.toFixed(2) });
   }
 
+  function isValid(): boolean {
+    const d = details;
+    if (d.orderType === "DINE_IN" && !d.tableNumber?.trim()) return false;
+    if (d.orderType === "DELIVERY" && !d.address?.trim()) return false;
+    if (split && Math.abs(splitDiff) > 0.01) return false;
+    return true;
+  }
+
   function handleConfirm() {
-    const details = orderDetails ?? {
-      orderType,
-      tableNumber: tableNumber.trim(),
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
-      address: address.trim(),
-    };
-    if (details.orderType === "DINE_IN" && !details.tableNumber?.trim()) return;
-    if (details.orderType === "DELIVERY" && !details.address?.trim()) return;
+    if (!isValid()) return;
     if (split) {
-      if (Math.abs(splitDiff) > 0.01) return;
       onConfirm("SPLIT", total, splits, details);
     } else {
       onConfirm(method, parseFloat(received) || total, undefined, details);
@@ -110,66 +115,13 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
         </div>
 
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
-          {!orderDetails && <div>
-            <p className="text-xs text-zinc-500 font-semibold uppercase mb-2">Tipo do pedido</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: "DINE_IN" as const, label: "Mesa", icon: <UtensilsCrossed size={15} /> },
-                { value: "DELIVERY" as const, label: "Entrega", icon: <Bike size={15} /> },
-                { value: "PICKUP" as const, label: "Retirada", icon: <PackageCheck size={15} /> },
-              ].map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  onClick={() => setOrderType(item.value)}
-                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-semibold transition ${
-                    orderType === item.value
-                      ? "bg-green-600 border-green-600 text-white"
-                      : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-green-600/40"
-                  }`}
-                >
-                  {item.icon} {item.label}
-                </button>
-              ))}
-            </div>
-          </div>}
 
-          {!orderDetails && orderType === "DINE_IN" && (
-            <div>
-              <p className="text-xs text-zinc-500 font-semibold uppercase mb-2">Mesa</p>
-              <input
-                value={tableNumber}
-                onChange={e => setTableNumber(e.target.value)}
-                placeholder="Número da mesa"
-                className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
-              />
-            </div>
-          )}
-
-          {!orderDetails && orderType !== "DINE_IN" && (
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
-                placeholder="Cliente"
-                className="bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
-              />
-              <input
-                value={customerPhone}
-                onChange={e => setCustomerPhone(e.target.value)}
-                placeholder="Telefone"
-                className="bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
-              />
-            </div>
-          )}
-
-          {!orderDetails && orderType === "DELIVERY" && (
-            <textarea
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-              placeholder="Endereço de entrega"
-              rows={2}
-              className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none resize-none focus:border-green-500"
+          {/* Order details — only shown when not pre-filled by caller */}
+          {!orderDetails && (
+            <OrderDetailsForm
+              value={localDetails}
+              onChange={setLocalDetails}
+              compact
             />
           )}
 
@@ -324,7 +276,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
           </button>
           <button
             onClick={handleConfirm}
-            disabled={(split && Math.abs(splitDiff) > 0.01) || (!orderDetails && orderType === "DINE_IN" && !tableNumber.trim()) || (!orderDetails && orderType === "DELIVERY" && !address.trim())}
+            disabled={!isValid()}
             className="py-3.5 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm transition"
           >
             Confirmar Pagamento

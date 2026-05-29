@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { PaymentModal, PdvOrderDetails } from "@/components/pdv/PaymentModal";
+import { PaymentModal } from "@/components/pdv/PaymentModal";
 import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
+import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
+
+type PdvOrderDetails = OrderDetails;
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -32,6 +35,7 @@ import {
   EyeOff,
   X,
 } from "lucide-react";
+
 
 interface Category { id: string; name: string; categoryType?: string; }
 interface ProductSize { size: string; price: number; }
@@ -80,6 +84,11 @@ export default function PDVPage() {
     customerName: "",
     customerPhone: "",
     address: "",
+    addressNumber: "",
+    complement: "",
+    bairro: "",
+    cidade: "",
+    cep: "",
   });
   const [companyId, setCompanyId]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
@@ -185,7 +194,7 @@ export default function PDVPage() {
     cart.length > 0 &&
     (pdvOrderDetails.orderType === "PICKUP" ||
       (pdvOrderDetails.orderType === "DINE_IN" && Boolean(pdvOrderDetails.tableNumber?.trim())) ||
-      (pdvOrderDetails.orderType === "DELIVERY" && Boolean(pdvOrderDetails.address?.trim())));
+      (pdvOrderDetails.orderType === "DELIVERY" && Boolean((pdvOrderDetails.address ?? pdvOrderDetails.bairro)?.trim())));
 
   const filteredProducts = products.filter(p => {
     if (!p.isActive) return false;
@@ -251,10 +260,21 @@ export default function PDVPage() {
         ? `Pgto dividido: ${splits.map(s => `${s.method} R$${s.amount}`).join(" + ")}`
         : "";
 
+      // Build full delivery address string
+      const fullAddress = details.orderType === "DELIVERY"
+        ? [
+            details.address,
+            details.addressNumber,
+            details.complement,
+            details.bairro,
+            details.cidade,
+          ].filter(Boolean).join(", ")
+        : "INTERNO";
+
       const orderRes = await api.post("/orders", {
         customerName: details.customerName || serviceLabel,
         customerPhone: details.customerPhone || "",
-        deliveryAddress: details.address || "INTERNO",
+        deliveryAddress: fullAddress,
         orderType: details.orderType,
         paymentMethod,
         notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
@@ -316,9 +336,14 @@ export default function PDVPage() {
   }
 
   function trocarMesa(tableNumber: string) {
-    setPdvOrderDetails(p => ({ ...p, orderType: "DINE_IN", tableNumber }));
+    setPdvOrderDetails(p => ({
+      ...p,
+      orderType: "DINE_IN",
+      tableNumber,
+      address: "", addressNumber: "", complement: "", bairro: "", cidade: "", cep: "",
+    }));
     setShowTrocarMesa(false);
-    toast.success(`Mesa alterada para ${tableNumber}`);
+    toast.success(`Mesa ${tableNumber} selecionada`);
   }
 
   function gerarCodigoCupom() {
@@ -854,65 +879,12 @@ export default function PDVPage() {
 
             {cart.length > 0 && (
               <div className="border-t border-[#161b2d] p-5 space-y-3">
-                <div className="space-y-3 rounded-2xl border border-[#1d2336] bg-[#0b0f1b] p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-zinc-500">Atendimento</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { value: "DINE_IN" as const, label: "Mesa" },
-                      { value: "DELIVERY" as const, label: "Delivery" },
-                      { value: "PICKUP" as const, label: "Retirada" },
-                    ].map((item) => (
-                      <button
-                        key={item.value}
-                        type="button"
-                        onClick={() => setPdvOrderDetails((prev) => ({ ...prev, orderType: item.value }))}
-                        className={`py-2.5 rounded-xl border text-xs font-black transition ${
-                          pdvOrderDetails.orderType === item.value
-                            ? "bg-green-600 border-green-600 text-white"
-                            : "bg-[#050816] border-[#1d2336] text-zinc-400"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {pdvOrderDetails.orderType === "DINE_IN" && (
-                    <input
-                      value={pdvOrderDetails.tableNumber ?? ""}
-                      onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, tableNumber: e.target.value }))}
-                      placeholder="Numero da mesa *"
-                      className="w-full rounded-xl border border-[#1d2336] bg-[#050816] px-4 py-3 text-sm text-white outline-none focus:border-green-500"
-                      inputMode="numeric"
-                    />
-                  )}
-
-                  {pdvOrderDetails.orderType !== "DINE_IN" && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        value={pdvOrderDetails.customerName ?? ""}
-                        onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, customerName: e.target.value }))}
-                        placeholder="Cliente"
-                        className="min-w-0 rounded-xl border border-[#1d2336] bg-[#050816] px-3 py-3 text-sm text-white outline-none focus:border-green-500"
-                      />
-                      <input
-                        value={pdvOrderDetails.customerPhone ?? ""}
-                        onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, customerPhone: e.target.value }))}
-                        placeholder="Telefone"
-                        className="min-w-0 rounded-xl border border-[#1d2336] bg-[#050816] px-3 py-3 text-sm text-white outline-none focus:border-green-500"
-                      />
-                    </div>
-                  )}
-
-                  {pdvOrderDetails.orderType === "DELIVERY" && (
-                    <textarea
-                      value={pdvOrderDetails.address ?? ""}
-                      onChange={(e) => setPdvOrderDetails((prev) => ({ ...prev, address: e.target.value }))}
-                      placeholder="Endereco de entrega *"
-                      rows={2}
-                      className="w-full rounded-xl border border-[#1d2336] bg-[#050816] px-4 py-3 text-sm text-white outline-none resize-none focus:border-green-500"
-                    />
-                  )}
+                <div className="rounded-2xl border border-[#1d2336] bg-[#0b0f1b] p-4">
+                  <OrderDetailsForm
+                    value={pdvOrderDetails}
+                    onChange={setPdvOrderDetails}
+                    compact
+                  />
                 </div>
 
                 <div className="flex items-center justify-between text-lg font-black">

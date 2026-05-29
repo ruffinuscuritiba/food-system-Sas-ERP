@@ -586,7 +586,7 @@ export default function PDVPage() {
 
         {/* Mobile: categories horizontal scroll */}
         <div className="md:hidden shrink-0 flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide bg-[#050816] border-b border-[#161b2d]">
-          {[{ id: "all", name: "Todos" }, ...categories].map(cat => (
+          {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
@@ -596,7 +596,7 @@ export default function PDVPage() {
                   : "bg-[#0c101d] text-zinc-300"
               }`}
             >
-              {cat.name}
+              {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
             </button>
           ))}
         </div>
@@ -632,7 +632,7 @@ export default function PDVPage() {
                         : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
                     }`}
                   >
-                    {cat.name}
+                    {cat.categoryType === "bebidas" ? "Bebidas" : cat.name}
                   </button>
                 ))
               )}

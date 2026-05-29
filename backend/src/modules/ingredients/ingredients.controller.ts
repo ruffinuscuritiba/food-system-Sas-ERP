@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
 import { IngredientsService } from './ingredients.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -33,5 +33,17 @@ export class IngredientsController {
       cost,
       companyId: req.user.companyId,
     });
+  }
+
+  @Patch(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  update(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.ingredientsService.update(id, req.user.companyId, body);
+  }
+
+  @Delete(':id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.ingredientsService.remove(id, req.user.companyId);
   }
 }

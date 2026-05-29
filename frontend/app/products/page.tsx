@@ -493,7 +493,7 @@ export default function ProductsPage() {
                   }}
                   className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-blue-200"
                 >
-                  <Beer size={15} /> Bebida
+                  <Beer size={15} /> Conveniência
                 </button>
               )}
               <button

@@ -104,9 +104,10 @@ export default function KitchenBoard({
   handleDragEnd: (result: any) => void;
   containerRef: React.RefObject<any>;
 }) {
-  const pending   = orders.filter((o) => o.productionStatus === "PENDING");
-  const preparing = orders.filter((o) => o.productionStatus === "PREPARING");
-  const ready     = orders.filter((o) => o.productionStatus === "READY");
+  // Order.productionStatus não existe no schema — filtra por status
+  const pending   = orders.filter((o) => o.status === "PENDING" || o.status === "CONFIRMED");
+  const preparing = orders.filter((o) => o.status === "PREPARING");
+  const ready     = orders.filter((o) => o.status === "READY");
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>

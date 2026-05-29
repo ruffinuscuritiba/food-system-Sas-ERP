@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { Plus, Trash2, Save, X, Settings2, Pizza } from "lucide-react";
+import { Plus, Trash2, Save, X, Settings2, Pizza, Pencil, Check } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -411,13 +411,21 @@ function SizeConfigCard({
   const [maxFlavors, setMaxFlavors] = useState(config.maxFlavors);
   const [slices, setSlices]         = useState(config.slices);
   const [isActive, setIsActive]     = useState(config.isActive);
+  const [label, setLabel]           = useState(config.label);
+  const [editingLabel, setEditingLabel] = useState(false);
   const [dirty, setDirty]           = useState(false);
 
   function change<K extends keyof SizeConfig>(key: K, val: SizeConfig[K]) {
     if (key === "maxFlavors") setMaxFlavors(val as number);
     if (key === "slices")     setSlices(val as number);
     if (key === "isActive")   setIsActive(val as boolean);
+    if (key === "label")      setLabel(val as string);
     setDirty(true);
+  }
+
+  function confirmLabel() {
+    setEditingLabel(false);
+    if (label.trim() && label !== config.label) setDirty(true);
   }
 
   return (
@@ -432,7 +440,32 @@ function SizeConfigCard({
             <Pizza size={18} className="text-orange-500" />
           </div>
           <div>
-            <h3 className="font-black text-gray-900">{config.label}</h3>
+            {editingLabel ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  onBlur={confirmLabel}
+                  onKeyDown={(e) => { if (e.key === "Enter") confirmLabel(); if (e.key === "Escape") { setLabel(config.label); setEditingLabel(false); }}}
+                  className="border border-primary rounded-lg px-2 py-1 text-sm font-bold text-gray-900 outline-none w-32"
+                />
+                <button onClick={confirmLabel} className="text-primary">
+                  <Check size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-black text-gray-900">{label}</h3>
+                <button
+                  onClick={() => setEditingLabel(true)}
+                  className="text-gray-400 hover:text-primary transition"
+                  title="Editar nome do tamanho"
+                >
+                  <Pencil size={12} />
+                </button>
+              </div>
+            )}
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
               isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
             }`}>
@@ -450,7 +483,7 @@ function SizeConfigCard({
           </button>
           {dirty && (
             <button
-              onClick={() => { onSave({ maxFlavors, slices, isActive }); setDirty(false); }}
+              onClick={() => { onSave({ maxFlavors, slices, isActive, label: label.trim() || config.label }); setDirty(false); }}
               disabled={saving}
               className="flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 transition"
             >

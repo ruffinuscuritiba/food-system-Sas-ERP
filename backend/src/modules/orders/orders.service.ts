@@ -250,6 +250,7 @@ export class OrdersService {
         include: {
 
           items: true,
+          customer: true,
         },
       });
 
@@ -587,9 +588,10 @@ export class OrdersService {
       );
 
     // WhatsApp customer notification (non-blocking, best-effort)
+    const customerPhone = (order as any).customerPhone ?? order.customer?.phone;
     if (
       this.whatsappAiService &&
-      order.customerPhone &&
+      customerPhone &&
       [
         'CONFIRMED',
         'READY',
@@ -602,10 +604,10 @@ export class OrdersService {
         try {
           await this.whatsappAiService!.sendOrderNotification({
             companyId: order.companyId,
-            customerPhone: order.customerPhone ?? '',
-            customerName: order.customerName ?? undefined,
+            customerPhone: customerPhone,
+            customerName: order.customer?.name ?? undefined,
             orderId: order.id,
-            orderType: order.orderType ?? 'DELIVERY',
+            orderType: (order as any).orderType ?? 'DELIVERY',
             total: Number(order.total),
             items: order.items.map((i) => ({
               name: (i as any).productName ?? 'Item',

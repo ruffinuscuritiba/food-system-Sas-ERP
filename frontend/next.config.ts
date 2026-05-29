@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Build identifier shown in the sidebar (Vercel injects VERCEL_GIT_COMMIT_SHA automatically)
+  env: {
+    NEXT_PUBLIC_COMMIT_SHA:
+      process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+      process.env.COMMIT_SHA?.slice(0, 7) ||
+      "dev",
+  },
   // Necessário para rodar Next.js dentro de Docker (docker-compose local)
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   compiler: {

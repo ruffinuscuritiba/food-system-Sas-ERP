@@ -190,36 +190,54 @@ export default function PDVPage() {
 
     setPaymentSubmitting(true);
     try {
+      const orderItems = cart.map(({ product, qty }) => ({
+        productId: product.orderProductId || product.id,
+        quantity: qty,
+        notes: product.notes || "",
+      }));
+
+      // Validate all item IDs are real UUIDs/cuid before sending
+      const invalidItem = orderItems.find(i => !i.productId || i.productId.startsWith("pizza-"));
+      if (invalidItem) {
+        toast.error("Item inválido no carrinho. Remova e adicione novamente.");
+        return;
+      }
+
+      const splitNote = splits
+        ? `Pgto dividido: ${splits.map(s => `${s.method} R$${s.amount}`).join(" + ")}`
+        : "";
+
       const orderRes = await api.post("/orders", {
         customerName: details.customerName || serviceLabel,
         customerPhone: details.customerPhone || "",
         deliveryAddress: details.address || "INTERNO",
         orderType: details.orderType,
         paymentMethod,
-        notes: [
-          serviceLabel,
-          splits ? `Pagamento dividido: ${splits.map(s => `${s.method} R$ ${s.amount}`).join(" + ")}` : "",
-        ].filter(Boolean).join(" | "),
-        items: cart.map(({ product, qty }) => ({
-          productId: product.orderProductId || product.id,
-          quantity: qty,
-          notes: product.notes || "",
-        })),
+        notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
+        items: orderItems,
         subtotal: cartTotal,
         total: cartTotal,
         deliveryFee: 0,
       });
 
       if (orderRes.data?.id) {
-        await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" }).catch(() => null);
+        try {
+          await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" });
+        } catch (confirmErr: any) {
+          // Order was created but confirmation failed — show warning but don't rollback
+          const msg = confirmErr?.response?.data?.message || "Pedido criado mas não confirmado automaticamente.";
+          toast(`⚠️ ${Array.isArray(msg) ? msg.join(", ") : msg}`, { duration: 5000 });
+        }
       }
 
-      toast.success(`Pedido fechado - ${serviceLabel}`, { duration: 3000 });
+      toast.success(`Pedido fechado — ${serviceLabel}`, { duration: 3000 });
       clearCart();
       setShowPayment(false);
     } catch (error: any) {
       const message = error?.response?.data?.message || "Erro ao fechar pedido";
-      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      const detail = Array.isArray(message) ? message.join(" | ") : String(message);
+      console.error("[PDV] closePaidOrder error:", error?.response?.data);
+      toast.error(detail, { duration: 6000 });
     } finally {
       setPaymentSubmitting(false);
     }
@@ -252,13 +270,17 @@ export default function PDVPage() {
             F
           </div>
 
-          <div>
-            <h1 className="text-[20px] font-bold leading-none">
-              FoodSaaS-ERP - PDV
-            </h1>
-
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-[18px] font-bold leading-none">
+                FoodSaaS-ERP
+              </h1>
+              <span className="text-[9px] font-mono text-zinc-600 bg-[#0b0f1b] border border-[#1d2336] px-1.5 py-0.5 rounded-md shrink-0 select-none">
+                {process.env.NEXT_PUBLIC_COMMIT_SHA || "dev"}
+              </span>
+            </div>
             <p className="text-zinc-400 text-sm mt-1">
-              Sistema de Caixa
+              PDV / Caixa
             </p>
           </div>
         </div>

@@ -800,11 +800,26 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
   const [suggestions, setSuggestions]   = useState<any[]>([]);
   const [saving, setSaving]             = useState(false);
   const debounceRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [icmsRate, setIcmsRate]         = useState(0); // % ICMS — UI only, affects margin display
   const [form, setForm]                 = useState({
     name: "", description: "", salePrice: 0, costPrice: 0,
-    eanCode: "", unit: "un", imageUrl: null as string | null,
+    eanCode: "", sku: "", unit: "un", imageUrl: null as string | null,
     brand: "", categoryId,
   });
+
+  const UNIT_OPTIONS = ["un", "350ml", "473ml", "500ml", "600ml", "1L", "2L", "g", "100g", "kg"];
+  function cycleUnit(dir: 1 | -1) {
+    setForm(f => {
+      const idx = UNIT_OPTIONS.indexOf(f.unit);
+      const next = (idx + dir + UNIT_OPTIONS.length) % UNIT_OPTIONS.length;
+      return { ...f, unit: UNIT_OPTIONS[next] };
+    });
+  }
+
+  const costWithIcms = form.costPrice * (1 + icmsRate / 100);
+  const profitMargin = form.salePrice > 0
+    ? ((form.salePrice - costWithIcms) / form.salePrice) * 100
+    : 0;
 
   // Search Open Food Facts
   async function searchProducts(query: string) {
@@ -854,7 +869,9 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
     setForm((f) => ({
       ...f,
       name:     s.brand ? `${s.brand} ${s.name}`.trim() : s.name,
+      brand:    s.brand || "",
       eanCode:  s.ean,
+      sku:      s.ean ? `EAN-${s.ean}` : "",
       imageUrl: s.imageUrl,
       unit:     s.quantity || "un",
     }));
@@ -876,7 +893,9 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
       fd.append("companyId",   user.companyId);
       fd.append("productType", productType);
       if (form.description) fd.append("description", form.description);
-      if (form.eanCode)     fd.append("eanCode", form.eanCode);
+      if (form.eanCode)     fd.append("eanCode",  form.eanCode);
+      if (form.sku)         fd.append("sku",      form.sku);
+      if (form.brand)       fd.append("brand",    form.brand);
       if (form.imageUrl)    fd.append("imageUrl", form.imageUrl);
       fd.append("sizes", JSON.stringify([]));
       await api.post("/products", fd);
@@ -990,30 +1009,38 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
                 </p>
               </div>
 
-              {/* Suggestions */}
+              {/* Suggestions — card grid */}
               {suggestions.length > 0 && (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
                   {suggestions.map((s, i) => (
                     <button
                       key={i}
                       onClick={() => selectSuggestion(s)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary hover:bg-orange-50 transition text-left"
+                      className="flex flex-col rounded-xl border border-gray-100 hover:border-primary hover:bg-orange-50 transition text-left overflow-hidden group"
                     >
                       {s.imageUrl ? (
-                        <img src={s.imageUrl} alt={s.name} className="w-12 h-12 object-contain rounded-lg bg-gray-50 border border-gray-100 shrink-0" />
+                        <img src={s.imageUrl} alt={s.name} className="w-full h-24 object-contain bg-gray-50 border-b border-gray-100" />
                       ) : (
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
-                          <Beer size={20} className="text-gray-400" />
+                        <div className="w-full h-24 bg-gray-100 flex items-center justify-center border-b border-gray-100">
+                          <Beer size={28} className="text-gray-300" />
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900 truncate">{s.name}</p>
-                        {s.brand && <p className="text-xs text-gray-400">{s.brand}</p>}
-                        {s.ean && <p className="text-xs text-gray-300 font-mono">{s.ean}</p>}
+                      <div className="p-2 space-y-0.5">
+                        <p className="text-xs font-bold text-gray-900 line-clamp-2 leading-tight">{s.name}</p>
+                        {s.brand && (
+                          <p className="text-[10px] text-gray-400 truncate">{s.brand}</p>
+                        )}
+                        {s.ean && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase">EAN</span>
+                            <span className="text-[9px] font-mono text-blue-600 bg-blue-50 px-1 rounded">{s.ean}</span>
+                          </div>
+                        )}
+                        {s.quantity && (
+                          <p className="text-[9px] text-gray-400">{s.quantity}</p>
+                        )}
+                        <p className="text-[10px] font-bold text-primary group-hover:underline mt-1">Selecionar →</p>
                       </div>
-                      <span className="text-xs text-primary font-bold ml-auto shrink-0 bg-primary/5 px-2 py-1 rounded-lg border border-orange-100">
-                        Usar →
-                      </span>
                     </button>
                   ))}
                 </div>
@@ -1080,17 +1107,29 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
                 />
               </div>
 
-              {form.eanCode && (
+              {/* EAN / Barcode / SKU row — always visible */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">EAN / Código de barras</label>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">EAN / Cód. barras</label>
                   <input
                     value={form.eanCode}
                     onChange={(e) => setForm({ ...form, eanCode: e.target.value })}
-                    className={inp}
+                    placeholder="Ex: 7894900011517"
+                    className={inp + " font-mono"}
                   />
                 </div>
-              )}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">SKU interno</label>
+                  <input
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                    placeholder="Ex: BEB-001"
+                    className={inp + " font-mono"}
+                  />
+                </div>
+              </div>
 
+              {/* Pricing */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Preço de venda *</label>
@@ -1102,10 +1141,70 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
                 </div>
               </div>
 
+              {/* ICMS + Profit margin */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">ICMS (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={icmsRate}
+                    onChange={(e) => setIcmsRate(Number(e.target.value))}
+                    className={inp}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Margem de lucro</label>
+                  <div className={`${inp} flex items-center justify-between pointer-events-none select-none ${
+                    profitMargin < 0 ? "text-red-500" : profitMargin < 20 ? "text-orange-500" : "text-green-600"
+                  }`}>
+                    <span className="font-black text-base">{profitMargin.toFixed(1)}%</span>
+                    <span className="text-[10px] text-gray-400 font-normal">
+                      {icmsRate > 0 ? `c/ ICMS ${icmsRate}%` : "sem ICMS"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Unit selector with arrows */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Unidade</label>
-                  <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={inp} placeholder="un, L, 350ml…" />
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => cycleUnit(-1)}
+                      className="w-9 h-[42px] rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-500 transition shrink-0"
+                    >‹</button>
+                    <input
+                      value={form.unit}
+                      onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                      className={inp + " text-center font-bold"}
+                      placeholder="un"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => cycleUnit(1)}
+                      className="w-9 h-[42px] rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-500 transition shrink-0"
+                    >›</button>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {["un", "350ml", "500ml", "1L", "kg"].map(u => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => setForm({ ...form, unit: u })}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border transition ${
+                          form.unit === u
+                            ? "bg-primary text-white border-primary"
+                            : "text-gray-500 border-gray-200 hover:border-primary"
+                        }`}
+                      >{u}</button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>

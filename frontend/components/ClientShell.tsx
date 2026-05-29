@@ -254,7 +254,12 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                 <UtensilsCrossed size={16} className="text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-[13px] font-black text-white leading-tight truncate">{companyName}</h1>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h1 className="text-[13px] font-black text-white leading-tight truncate">{companyName}</h1>
+                  <span className="text-[9px] font-mono text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-md shrink-0 select-none">
+                    {process.env.NEXT_PUBLIC_COMMIT_SHA || "dev"}
+                  </span>
+                </div>
                 <p className="text-gray-400 text-[11px] mt-0.5 font-medium">
                   {ROLE_LABELS[user?.role || ""] || "Gestão"}
                 </p>

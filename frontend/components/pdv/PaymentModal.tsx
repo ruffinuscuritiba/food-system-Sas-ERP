@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal, UtensilsCrossed, Bike, PackageCheck } from "lucide-react";
+import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal, UtensilsCrossed, Bike, PackageCheck, Plus, Minus } from "lucide-react";
 
 const METHODS = [
-  { value: "PIX",         label: "PIX",       icon: <QrCode    size={16} /> },
-  { value: "CASH",        label: "Dinheiro",  icon: <Banknote  size={16} /> },
-  { value: "CREDIT_CARD", label: "Crédito",   icon: <CreditCard size={16} /> },
-  { value: "DEBIT_CARD",  label: "Débito",    icon: <CreditCard size={16} /> },
+  { value: "PIX",         label: "PIX",        icon: <QrCode    size={16} /> },
+  { value: "CASH",        label: "Dinheiro",   icon: <Banknote  size={16} /> },
+  { value: "CREDIT_CARD", label: "Crédito",    icon: <CreditCard size={16} /> },
+  { value: "DEBIT_CARD",  label: "Débito",     icon: <CreditCard size={16} /> },
+  { value: "TRANSFER",    label: "Transferência", icon: <Banknote size={16} /> },
 ];
 
 type SplitEntry = { method: string; amount: string };
@@ -56,6 +57,23 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
     setSplits(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
   }, []);
 
+  function addSplit() {
+    if (splits.length >= 3) return;
+    setSplits(prev => [...prev, { method: "DEBIT_CARD", amount: "" }]);
+  }
+
+  function removeSplit(idx: number) {
+    if (splits.length <= 2) return;
+    setSplits(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  // Auto-fill last split with remaining amount
+  function autoFill(idx: number) {
+    const otherSum = splits.reduce((a, s, i) => i === idx ? a : a + (parseFloat(s.amount) || 0), 0);
+    const remaining = Math.max(0, total - otherSum);
+    updateSplit(idx, { amount: remaining.toFixed(2) });
+  }
+
   function handleConfirm() {
     const details = orderDetails ?? {
       orderType,
@@ -67,7 +85,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
     if (details.orderType === "DINE_IN" && !details.tableNumber?.trim()) return;
     if (details.orderType === "DELIVERY" && !details.address?.trim()) return;
     if (split) {
-      if (Math.abs(splitDiff) > 0.01) return; // amounts must match total
+      if (Math.abs(splitDiff) > 0.01) return;
       onConfirm("SPLIT", total, splits, details);
     } else {
       onConfirm(method, parseFloat(received) || total, undefined, details);
@@ -78,10 +96,10 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#050816] border border-[#1d2336] rounded-3xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md bg-[#050816] border border-[#1d2336] rounded-3xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d] shrink-0">
           <div>
             <h2 className="text-xl font-black text-white">Pagamento</h2>
             <p className="text-zinc-400 text-sm mt-0.5">Total: <span className="text-blue-400 font-bold">{fmt(total)}</span></p>
@@ -91,7 +109,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {!orderDetails && <div>
             <p className="text-xs text-zinc-500 font-semibold uppercase mb-2">Tipo do pedido</p>
             <div className="grid grid-cols-3 gap-2">
@@ -122,7 +140,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
               <input
                 value={tableNumber}
                 onChange={e => setTableNumber(e.target.value)}
-                placeholder="Numero da mesa"
+                placeholder="Número da mesa"
                 className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500"
               />
             </div>
@@ -149,7 +167,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
             <textarea
               value={address}
               onChange={e => setAddress(e.target.value)}
-              placeholder="Endereco de entrega"
+              placeholder="Endereço de entrega"
               rows={2}
               className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none resize-none focus:border-green-500"
             />
@@ -218,15 +236,33 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
             </>
           )}
 
-          {/* Split payment */}
+          {/* Split payment — up to 3 */}
           {split && (
             <div className="space-y-3">
-              <p className="text-xs text-zinc-500 font-semibold uppercase">Divisão do total: {fmt(total)}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-zinc-500 font-semibold uppercase">Divisão — {fmt(total)}</p>
+                {splits.length < 3 && (
+                  <button
+                    onClick={addSplit}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition"
+                  >
+                    <Plus size={13} /> 3ª forma
+                  </button>
+                )}
+              </div>
+
               {splits.map((s, i) => (
                 <div key={i} className="bg-[#0c101d] border border-[#1d2336] rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-blue-600/30 text-blue-400 text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                    <span className="text-sm text-zinc-400 font-medium">Pagamento {i + 1}</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-blue-600/30 text-blue-400 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                      <span className="text-sm text-zinc-400 font-medium">Pagamento {i + 1}</span>
+                    </div>
+                    {i >= 2 && (
+                      <button onClick={() => removeSplit(i)} className="w-6 h-6 rounded-lg bg-red-900/30 text-red-400 hover:bg-red-700/40 flex items-center justify-center transition">
+                        <Minus size={12} />
+                      </button>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <select
@@ -238,13 +274,22 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
                         <option key={m.value} value={m.value}>{m.label}</option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      value={s.amount}
-                      onChange={e => updateSplit(i, { amount: e.target.value })}
-                      placeholder="R$ 0,00"
-                      className="bg-[#161b2d] border border-[#1d2336] text-white rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={s.amount}
+                        onChange={e => updateSplit(i, { amount: e.target.value })}
+                        placeholder="R$ 0,00"
+                        className="w-full bg-[#161b2d] border border-[#1d2336] text-white rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-blue-500 pr-12"
+                      />
+                      <button
+                        onClick={() => autoFill(i)}
+                        title="Preencher com o restante"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 hover:text-blue-300 font-bold bg-blue-600/10 px-1.5 py-0.5 rounded-md"
+                      >
+                        resto
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -270,7 +315,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
         </div>
 
         {/* Actions */}
-        <div className="px-6 pb-6 grid grid-cols-2 gap-3">
+        <div className="px-6 pb-6 pt-3 grid grid-cols-2 gap-3 shrink-0 border-t border-[#161b2d]">
           <button
             onClick={onClose}
             className="py-3.5 rounded-2xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white font-bold text-sm transition"

@@ -23,6 +23,10 @@ import { PizzaSizeConfigsModule } from './modules/pizza-size-configs/pizza-size-
 import { ComplementsModule } from './modules/complements/complements.module'
 import { OnlineOrdersModule } from './modules/online-orders/online-orders.module'
 import { WhatsappAiModule } from './modules/whatsapp-ai/whatsapp-ai.module'
+import { IngredientsModule } from './modules/ingredients/ingredients.module'
+import { RecipesModule } from './modules/recipes/recipes.module'
+import { StockModule } from './modules/stock/stock.module'
+import { DriversModule } from './modules/drivers/drivers.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -58,6 +62,10 @@ import { AppService } from './app.service'
     ComplementsModule,
     OnlineOrdersModule,
     WhatsappAiModule,
+    IngredientsModule,
+    RecipesModule,
+    StockModule,
+    DriversModule,
   ],
   controllers: [AppController],
   providers: [AppService],

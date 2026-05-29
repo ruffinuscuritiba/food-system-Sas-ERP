@@ -821,17 +821,15 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
     ? ((form.salePrice - costWithIcms) / form.salePrice) * 100
     : 0;
 
-  // Search Open Food Facts
+  // Search Open Food Facts via proxy (avoids CORS)
   async function searchProducts(query: string) {
     if (!query.trim()) return;
     setSearching(true);
     setSuggestions([]);
     try {
-      // Try EAN lookup first
+      // EAN/barcode lookup
       if (/^\d{8,14}$/.test(query.trim())) {
-        const r = await fetch(
-          `https://world.openfoodfacts.org/api/v0/product/${query.trim()}.json`
-        );
+        const r = await fetch(`/api/off/product/${query.trim()}`);
         const data = await r.json();
         if (data.status === 1 && data.product) {
           setSuggestions([mapOFFProduct(data.product)]);
@@ -839,11 +837,7 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
         }
       }
       // Name search
-      const r = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?` +
-        `search_terms=${encodeURIComponent(query)}&action=process&json=1&` +
-        `page_size=8&fields=product_name,brands,code,image_url,quantity,categories`
-      );
+      const r = await fetch(`/api/off/search?q=${encodeURIComponent(query)}`);
       const data = await r.json();
       if (Array.isArray(data.products)) {
         setSuggestions(data.products.map(mapOFFProduct).filter((p: any) => p.name));
@@ -895,7 +889,7 @@ function BeverageModal({ categoryId, categories, onClose, onCreated }: BeverageM
       if (form.description) fd.append("description", form.description);
       if (form.eanCode)     fd.append("eanCode",  form.eanCode);
       if (form.sku)         fd.append("sku",      form.sku);
-      if (form.brand)       fd.append("brand",    form.brand);
+      // brand is stored in product name — NOT sent separately (not in schema)
       if (form.imageUrl)    fd.append("imageUrl", form.imageUrl);
       fd.append("sizes", JSON.stringify([]));
       await api.post("/products", fd);

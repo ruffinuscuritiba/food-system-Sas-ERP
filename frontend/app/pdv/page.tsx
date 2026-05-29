@@ -210,6 +210,15 @@ export default function PDVPage() {
   const activeCategoryName = activeCategory?.name ?? (selectedCategory === "all" ? "Todos os Produtos" : "Produtos");
   const activeIsBeverage = activeCategory?.categoryType === "bebidas";
 
+  // Banner: first image of the first active product in the selected category
+  const bannerImageUrl =
+    products.find(
+      p => p.isActive &&
+           (selectedCategory === "all" || p.categoryId === selectedCategory) &&
+           p.imageUrl,
+    )?.imageUrl ??
+    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400";
+
   const fmt = (v?: number) => v != null
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
     : "—";
@@ -636,7 +645,7 @@ export default function PDVPage() {
             {/* HERO banner */}
             <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
               <img
-                src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400"
+                src={bannerImageUrl}
                 className="absolute inset-0 w-full h-full object-cover"
                 alt="hero"
               />

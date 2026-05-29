@@ -27,6 +27,7 @@ import { IngredientsModule } from './modules/ingredients/ingredients.module'
 import { RecipesModule } from './modules/recipes/recipes.module'
 import { StockModule } from './modules/stock/stock.module'
 import { DriversModule } from './modules/drivers/drivers.module'
+import { FinancialModule } from './modules/financial/financial.module'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 
@@ -66,6 +67,7 @@ import { AppService } from './app.service'
     RecipesModule,
     StockModule,
     DriversModule,
+    FinancialModule,
   ],
   controllers: [AppController],
   providers: [AppService],

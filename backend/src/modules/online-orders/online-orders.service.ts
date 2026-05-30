@@ -201,6 +201,25 @@ export class OnlineOrdersService {
     return order;
   }
 
+  /**
+   * Polling do cliente público — retorna apenas info de status.
+   * Sem endereço, itens ou dados pessoais. orderId é o "segredo" (cuid 25 chars).
+   */
+  async getPublicStatus(id: string) {
+    const order = await this.prisma.onlineOrder.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        orderStatus: true,
+        paymentStatus: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado.');
+    return order;
+  }
+
   async findOne(id: string, companyId: string) {
     const order = await this.prisma.onlineOrder.findFirst({
       where: { id, companyId },

@@ -664,6 +664,12 @@ export class OrdersService {
         updatedOrder,
       );
 
+    // Cliente público escutando /pedido/confirmado?orderId=X recebe atualização
+    this.socketGateway.emitOrderStatusChanged(id, {
+      status: updatedOrder.status,
+      source: 'PDV',
+    });
+
     const dashboard =
       await this.dashboard(
         order.companyId,
@@ -925,6 +931,8 @@ export class OrdersService {
       try {
         this.socketGateway.emitKitchenUpdate({ companyId, id, status, source: 'ONLINE' } as any);
         this.socketGateway.emitDashboardUpdate(companyId, {});
+        // Cliente público acompanhando /pedido/confirmado?orderId=X recebe agora
+        this.socketGateway.emitOrderStatusChanged(id, { status, source: 'ONLINE' });
       } catch { /* socket failure must not block */ }
 
       return { id: updated.id, source: 'ONLINE', status };

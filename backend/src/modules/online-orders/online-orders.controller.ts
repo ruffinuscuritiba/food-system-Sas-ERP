@@ -11,7 +11,17 @@ export class OnlineOrdersController {
     return this.service.create(dto);
   }
 
-  /** Public — customer checks order status */
+  /**
+   * Public — customer tracking page polls this to get current status.
+   * Retorna apenas info de status (sem dados sensíveis como endereço/itens).
+   * Não exige companyId — orderId (cuid 25 chars) já é o "segredo".
+   */
+  @Get(':id/public-status')
+  async getPublicStatus(@Param('id') id: string) {
+    return this.service.getPublicStatus(id);
+  }
+
+  /** Public — customer checks order status (com companyId) */
   @Get(':id')
   findOne(
     @Param('id') id: string,

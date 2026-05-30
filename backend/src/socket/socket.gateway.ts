@@ -1,8 +1,11 @@
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets'
 
 import { Server, Socket } from 'socket.io'
@@ -66,5 +69,40 @@ export class SocketGateway
 
   emitOnlineOrderPaid(companyId: string, data: unknown) {
     this.server.to(`company:${companyId}`).emit('onlineOrderPaid', data)
+  }
+
+  /**
+   * Cliente público entra na room do próprio pedido para receber atualizações
+   * de status em tempo real. Não precisa de token — orderId já é o "segredo".
+   * Cliente conecta ao socket → emite 'joinOrder' com orderId → recebe
+   * 'orderStatusChanged' quando a cozinha atualizar o pedido.
+   */
+  @SubscribeMessage('joinOrder')
+  handleJoinOrder(
+    @MessageBody() data: { orderId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (data?.orderId) {
+      client.join(`order:${data.orderId}`)
+      return { ok: true, joined: `order:${data.orderId}` }
+    }
+    return { ok: false }
+  }
+
+  /**
+   * Emit para a room específica do pedido (cliente público escutando).
+   * Usado em updateKitchenStatus e criação de OnlineOrder.
+   */
+  emitOrderStatusChanged(orderId: string, payload: {
+    status: string;
+    source?: string;
+    updatedAt?: string;
+    [k: string]: unknown;
+  }) {
+    this.server.to(`order:${orderId}`).emit('orderStatusChanged', {
+      orderId,
+      ...payload,
+      updatedAt: payload.updatedAt ?? new Date().toISOString(),
+    })
   }
 }

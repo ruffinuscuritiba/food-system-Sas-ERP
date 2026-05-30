@@ -1261,7 +1261,9 @@ model PizzaSizeConfig {
   id         String    @id @default(cuid())
   companyId  String
   company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  size       PizzaSize
+  // size: usa String (não enum) — migration 20260530170000 converteu enum→text
+  // para resolver erro Postgres 42883 (text = PizzaSize) no upsert.
+  size       String
   label      String    // "Pequena", "Média", "Grande", "Família", "Extra Grande"
   slices     Int       @default(8)
   maxFlavors Int       @default(1)

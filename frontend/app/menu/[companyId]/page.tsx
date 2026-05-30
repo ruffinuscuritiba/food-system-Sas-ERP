@@ -760,7 +760,7 @@ export default function MenuPage() {
           )}
           <button
             onClick={() => { setOrderSent(false); setOrderId(null); setPaymentUrl(null); }}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-2xl font-bold text-sm transition"
+            className="w-full bg-[var(--color-primary)] hover:opacity-90 text-white py-3 rounded-2xl font-bold text-sm transition"
           >
             Fazer novo pedido
           </button>
@@ -787,7 +787,7 @@ export default function MenuPage() {
         <p className="text-gray-400 text-sm max-w-xs">O servidor pode estar iniciando. Aguarde alguns segundos.</p>
         <button
           onClick={() => loadMenu(1)}
-          className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold transition"
+          className="flex items-center gap-2 bg-[var(--color-primary)] hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold transition"
         >
           <RefreshCw size={16} /> Tentar novamente
         </button>
@@ -1070,7 +1070,7 @@ export default function MenuPage() {
         <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
           <button
             onClick={() => setShowCart(true)}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-black text-base shadow-xl shadow-orange-500/40 flex items-center gap-3 transition max-w-sm w-full justify-between"
+            className="bg-[var(--color-primary)] hover:opacity-90 text-white px-8 py-4 rounded-2xl font-black text-base shadow-xl shadow-orange-500/40 flex items-center gap-3 transition max-w-sm w-full justify-between"
           >
             <span className="bg-white/20 rounded-xl px-2.5 py-0.5 text-sm font-black">{cartCount}</span>
             <span>Ver pedido</span>
@@ -1137,7 +1137,7 @@ export default function MenuPage() {
               <button
                 onClick={() => { setShowCart(false); setShowCheckout(true); }}
                 disabled={cart.length === 0}
-                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition"
+                className="w-full bg-[var(--color-primary)] hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition"
               >
                 Finalizar pedido <ChevronRight size={20} />
               </button>
@@ -1215,7 +1215,7 @@ export default function MenuPage() {
             )}
             <div className="flex gap-3">
               <button onClick={() => setShowFlavorModal(false)} className="flex-1 border border-gray-200 hover:bg-gray-50 transition py-3 rounded-xl font-semibold text-sm text-gray-600">Cancelar</button>
-              <button onClick={confirmFlavors} className="flex-1 bg-orange-500 hover:bg-orange-600 transition py-3 rounded-xl font-bold text-sm text-white">Adicionar</button>
+              <button onClick={confirmFlavors} className="flex-1 bg-[var(--color-primary)] hover:opacity-90 transition py-3 rounded-xl font-bold text-sm text-white">Adicionar</button>
             </div>
           </div>
         </div>
@@ -1457,7 +1457,7 @@ export default function MenuPage() {
               <button
                 onClick={submitOrder}
                 disabled={submitting}
-                className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base transition"
+                className="w-full bg-[var(--color-primary)] hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base transition"
               >
                 {submitting ? "Enviando..." : "Confirmar pedido"}
               </button>

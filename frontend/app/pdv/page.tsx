@@ -593,7 +593,7 @@ export default function PDVPage() {
 
         {/* LOGO */}
         <div className="h-[92px] shrink-0 border-b border-[#161b2d] flex items-center px-5 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-3xl font-black">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-3xl font-black">
             F
           </div>
 
@@ -728,7 +728,7 @@ export default function PDVPage() {
             <button
               onClick={openTrocarMesa}
               title="Trocar mesa"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
             >
               <ArrowLeftRight size={15} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Trocar</span>
@@ -739,7 +739,7 @@ export default function PDVPage() {
             <button
               onClick={openCriarCupom}
               title="Criar cupom"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
             >
               <Receipt size={15} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
@@ -750,7 +750,7 @@ export default function PDVPage() {
             <button
               onClick={clearCart}
               title="Limpar conta"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
             >
               <Trash2 size={15} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Limpar</span>
@@ -760,7 +760,7 @@ export default function PDVPage() {
             {/* Carrinho */}
             <button
               onClick={() => setShowCart(true)}
-              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition flex items-center gap-2 font-semibold relative"
+              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-2 font-semibold relative"
             >
               <ShoppingBag size={18} />
               <span className="hidden md:block text-sm">Carrinho</span>
@@ -781,7 +781,7 @@ export default function PDVPage() {
               onClick={() => setSelectedCategory(cat.id)}
               className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold transition ${
                 selectedCategory === cat.id
-                  ? "bg-blue-600 text-white"
+                  ? "bg-[var(--color-primary)] text-white"
                   : "bg-[#0c101d] text-zinc-300"
               }`}
             >
@@ -800,7 +800,7 @@ export default function PDVPage() {
                 onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
                   selectedCategory === "all"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-[var(--color-primary)] text-white"
                     : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
                 }`}
               >
@@ -817,7 +817,7 @@ export default function PDVPage() {
                     onClick={() => setSelectedCategory(cat.id)}
                     className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
                       selectedCategory === cat.id
-                        ? "bg-blue-600 text-white"
+                        ? "bg-[var(--color-primary)] text-white"
                         : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
                     }`}
                   >
@@ -881,7 +881,7 @@ export default function PDVPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
                         disabled={complementLoading}
-                        className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 group-hover:bg-blue-500 active:scale-95 transition text-xs font-bold disabled:opacity-50"
+                        className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50"
                       >
                         + Adicionar
                       </button>
@@ -935,7 +935,7 @@ export default function PDVPage() {
                       <button
                         onClick={() => openProductAdd(product)}
                         disabled={complementLoading}
-                        className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-base font-bold disabled:opacity-50"
+                        className="mt-4 h-[50px] px-8 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50"
                       >
                         ADICIONAR
                       </button>
@@ -981,7 +981,7 @@ export default function PDVPage() {
                     <p className="text-blue-400 font-black text-xs mt-1.5 leading-tight">{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
-                      className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 active:scale-95 transition text-xs font-bold"
+                      className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] active:scale-95 transition text-xs font-bold"
                     >
                       + Adicionar
                     </button>
@@ -1007,7 +1007,7 @@ export default function PDVPage() {
                   </div>
                   <button
                     onClick={() => openProductAdd(product)}
-                    className="shrink-0 h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-sm font-bold"
+                    className="shrink-0 h-10 px-4 rounded-xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-sm font-bold"
                   >
                     +
                   </button>
@@ -1156,7 +1156,7 @@ export default function PDVPage() {
                       if (!v) { toast.error("Digite o número da mesa"); return; }
                       trocarMesa(v);
                     }}
-                    className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm transition"
+                    className="px-5 py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition"
                   >
                     Confirmar
                   </button>
@@ -1179,7 +1179,7 @@ export default function PDVPage() {
                         onClick={() => trocarMesa(String(t.number))}
                         className={`py-3 rounded-xl border text-sm font-bold transition ${
                           String(t.number) === pdvOrderDetails.tableNumber
-                            ? "bg-blue-600 border-blue-600 text-white"
+                            ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white"
                             : t.status === "FREE"
                               ? "bg-[#0c101d] border-green-700/40 text-green-400 hover:border-green-600"
                               : t.status === "OCCUPIED"
@@ -1232,7 +1232,7 @@ export default function PDVPage() {
                   </div>
                   <button
                     onClick={() => { navigator.clipboard?.writeText(cupomCreated); toast.success("Código copiado!"); }}
-                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 font-bold text-sm transition"
+                    className="w-full py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition"
                   >
                     Copiar código
                   </button>
@@ -1280,7 +1280,7 @@ export default function PDVPage() {
                           onClick={() => setCupomForm(f => ({ ...f, type: opt.v }))}
                           className={`py-2.5 rounded-xl border text-xs font-semibold transition flex flex-col items-center gap-0.5 ${
                             cupomForm.type === opt.v
-                              ? "bg-blue-600 border-blue-600 text-white"
+                              ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white"
                               : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-blue-600/40"
                           }`}
                         >
@@ -1420,7 +1420,7 @@ function TopButton({
   subtitle,
 }: any) {
   return (
-    <button className="h-[54px] px-6 rounded-2xl bg-blue-600 hover:bg-blue-500 transition flex items-center gap-3">
+    <button className="h-[54px] px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 transition flex items-center gap-3">
       {icon}
 
       <div className="text-left leading-none">

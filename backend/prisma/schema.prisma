@@ -249,6 +249,9 @@ model Category {
   // ordem de exibição (drag-and-drop)
   sortOrder Int @default(0)
 
+  // White Label — banner exibido no topo do PDV ao selecionar esta categoria (Fase 5)
+  bannerImage String?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -795,6 +798,9 @@ model CompanyTheme {
 
   secondaryColor String @default("#0f172a")
 
+  // White Label — cor de destaque (CTAs secundários, badges)
+  accentColor String @default("#f97316")
+
   backgroundColor String @default("#020617")
 
   textColor String @default("#ffffff")
@@ -802,6 +808,18 @@ model CompanyTheme {
   logoUrl String?
 
   bannerUrl String?
+
+  // White Label — favicon próprio
+  faviconUrl String?
+
+  // White Label — fonte do sistema (Google Fonts name)
+  fontFamily String @default("Inter")
+
+  // White Label — raio de cantos (px) — afeta cards, botões, modais
+  borderRadius Int @default(16)
+
+  // White Label — variante visual do PDV: "dark" (atual) | "light" | "neutral"
+  pdvStyle String @default("dark")
 
   pizzaPricingMode String @default("MAX")
 

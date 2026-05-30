@@ -22,6 +22,8 @@ export class CategoriesService {
         categoryType:         data.categoryType ?? 'normal',
         displayColumns:       data.displayColumns ?? 4,
         sortOrder:            nextSort,
+        // White Label Fase 4 — banner por categoria (base64 ou URL)
+        ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
         company: { connect: { id: data.companyId } },
       },
     })
@@ -40,7 +42,7 @@ export class CategoriesService {
     })
   }
 
-  update(id: string, companyId: string, data: { name?: string; allowMultipleFlavors?: boolean; categoryType?: string; displayColumns?: number }) {
+  update(id: string, companyId: string, data: { name?: string; allowMultipleFlavors?: boolean; categoryType?: string; displayColumns?: number; bannerImage?: string | null }) {
     return this.prisma.category.update({
       where: { id, companyId },
       data: {
@@ -48,6 +50,7 @@ export class CategoriesService {
         ...(data.allowMultipleFlavors !== undefined && { allowMultipleFlavors: data.allowMultipleFlavors }),
         ...(data.categoryType         !== undefined && { categoryType:         data.categoryType }),
         ...(data.displayColumns       !== undefined && { displayColumns:       data.displayColumns }),
+        ...(data.bannerImage          !== undefined && { bannerImage:          data.bannerImage }),
       },
     })
   }

@@ -388,13 +388,17 @@ export default function PDVPage() {
   const activeIsBeverage      = activeCategory?.categoryType === "bebidas";
   const activeCategoryIsPizza = activeCategory != null && pizzaCategories.has(activeCategory.id);
 
-  // Banner: first image of the first active product in the selected category
+  // Banner — White Label Fase 5:
+  // 1º) bannerImage da categoria selecionada (admin define em /categories)
+  // 2º) primeira imagem de produto da categoria (fallback)
+  // 3º) imagem padrão Unsplash
   const bannerImageUrl =
+    (activeCategory as any)?.bannerImage ||
     products.find(
       p => p.isActive &&
            (selectedCategory === "all" || p.categoryId === selectedCategory) &&
            p.imageUrl,
-    )?.imageUrl ??
+    )?.imageUrl ||
     "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400";
 
   const fmt = (v?: number) => v != null

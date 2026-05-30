@@ -38,6 +38,7 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -206,16 +207,19 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   }
 
   if (isPublicPage) {
+    // Páginas públicas (login, cardápio digital, etc.) — ThemeProvider sem companyId
+    // (cardápio digital tem próprio fetch de tema via param da URL)
     return (
-      <>
+      <ThemeProvider>
         <Toaster position="top-right" />
         {children}
-      </>
+      </ThemeProvider>
     );
   }
 
   return (
-    <>
+    // Wrapper White Label — aplica CompanyTheme via CSS variables em <html>
+    <ThemeProvider>
       <Toaster position="top-right" />
 
       {/* Mobile top bar */}
@@ -382,7 +386,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           </button>
         </div>
       )}
-    </>
+    </ThemeProvider>
   );
 }
 

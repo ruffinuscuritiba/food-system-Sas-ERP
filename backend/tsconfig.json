@@ -20,6 +20,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "skipLibCheck": true,
     "strict": true,
     "noImplicitAny": false,

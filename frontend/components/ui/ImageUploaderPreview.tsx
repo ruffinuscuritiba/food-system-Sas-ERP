@@ -14,6 +14,8 @@ interface Props {
   onChange: (url: string | null) => void;
   maxDimension?: number;
   quality?: number;
+  /** Tamanho máximo do arquivo ORIGINAL antes da compressão. Default 5 MB. */
+  maxFileSizeMB?: number;
   className?: string;
 }
 
@@ -48,6 +50,7 @@ export function ImageUploaderPreview({
   onChange,
   maxDimension = 1200,
   quality = 0.82,
+  maxFileSizeMB = 5,
   className = "",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +61,13 @@ export function ImageUploaderPreview({
   async function handleFile(file: File) {
     if (!file.type.startsWith("image/")) {
       setError("Apenas imagens são aceitas (JPG, PNG, WEBP)");
+      return;
+    }
+    // A-02 — validação visual de tamanho antes do envio
+    const maxBytes = maxFileSizeMB * 1024 * 1024;
+    if (file.size > maxBytes) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      setError(`Imagem muito grande: ${sizeMB} MB. Máximo: ${maxFileSizeMB} MB. Reduza no celular ou use um app de compressão.`);
       return;
     }
     setLoading(true);
@@ -176,7 +186,14 @@ export function ImageUploaderPreview({
           onChange={handleChange}
         />
       </label>
-      {error && <p className="text-xs text-red-500 mt-1.5 px-1">{error}</p>}
+      {error && (
+        <div className="mt-2 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+          <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm text-red-700 font-medium">{error}</p>
+        </div>
+      )}
     </div>
   );
 }

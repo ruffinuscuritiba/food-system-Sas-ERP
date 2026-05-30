@@ -2,7 +2,7 @@
 import { apiBaseUrl } from "@/services/env";
 import { useEffect, useState, useCallback, useRef } from "react";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
@@ -85,6 +85,7 @@ type PixData = {
 export default function MenuPage() {
   const params = useParams<{ companyId: string }>();
   const companyId = params.companyId as string;
+  const router = useRouter();
   const initialTableNumber = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("table")
     : null;
@@ -593,7 +594,7 @@ export default function MenuPage() {
           setLoadingPayment(false);
         }
       } else {
-        // CASH / CARD — show confirmation screen
+        // CASH / CARD — redirect to real-time tracking page
         setCart([]);
         setUsePoints(false);
         setLoyaltyPoints(0);
@@ -602,8 +603,7 @@ export default function MenuPage() {
         setCouponDiscount(0);
         setCouponId(null);
         setCouponMsg(null);
-        setOrderId(createdOrderId);
-        setOrderSent(true);
+        router.push(`/pedido/confirmado?orderId=${createdOrderId}`);
       }
     } catch (e) {
       console.error(e);
@@ -1150,7 +1150,8 @@ export default function MenuPage() {
       {showFlavorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowFlavorModal(false)} />
-          <div className="relative bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl">
+          <div className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]">
+            <div className="overflow-y-auto flex-1 p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-xl font-black text-gray-900">Montar Pizza</h2>
@@ -1213,7 +1214,8 @@ export default function MenuPage() {
                 </div>
               </div>
             )}
-            <div className="flex gap-3">
+            </div>{/* fim scroll area */}
+            <div className="flex gap-3 p-6 pt-0 shrink-0 border-t border-gray-100">
               <button onClick={() => setShowFlavorModal(false)} className="flex-1 border border-gray-200 hover:bg-gray-50 transition py-3 rounded-xl font-semibold text-sm text-gray-600">Cancelar</button>
               <button onClick={confirmFlavors} className="flex-1 bg-[var(--color-primary)] hover:opacity-90 transition py-3 rounded-xl font-bold text-sm text-white">Adicionar</button>
             </div>

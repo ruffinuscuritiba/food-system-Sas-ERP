@@ -12,6 +12,13 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type OrderItemComplement = {
+  complementName: string;
+  optionName: string;
+  price: number;
+  quantity: number;
+};
+
 type OrderItem = {
   id: string;
   productName: string;
@@ -19,6 +26,7 @@ type OrderItem = {
   unitPrice: number;
   subtotal: number;
   notes?: string;
+  selectedComplements?: OrderItemComplement[];
 };
 
 type Customer = { id: string; name: string; phone: string };
@@ -104,19 +112,36 @@ function printOrder(order: Order, companyName: string) {
   const w = window.open("", "_blank");
   if (!w) return;
   const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-  const itemsHtml = items.map((item) => `
-    <div style="margin-bottom:10px;">
-      <b>${item.quantity}x ${item.productName}</b>
-      ${item.notes ? `<br/><i>Obs: ${item.notes}</i>` : ""}
-      <br/>R$ ${Number(item.subtotal).toFixed(2)}
-    </div>
-  `).join("");
+  const itemsHtml = items.map((item) => {
+    const complements = item.selectedComplements || [];
+    const complementsHtml = complements.map((c) =>
+      `<div style="margin-left:12px;font-size:13px;color:#555;">
+        + ${c.quantity}x ${c.optionName}${Number(c.price) > 0 ? ` (R$${Number(c.price).toFixed(2)})` : ""}
+      </div>`
+    ).join("");
+    return `
+      <div style="margin-bottom:10px;">
+        <b>${item.quantity}x ${item.productName}</b>
+        ${item.notes ? `<br/><i>Obs: ${item.notes}</i>` : ""}
+        ${complementsHtml}
+        <br/>R$ ${Number(item.subtotal).toFixed(2)}
+      </div>
+    `;
+  }).join("");
+
+  const typeLabels: Record<string, string> = { DELIVERY: "Delivery", PICKUP: "Retirada", DINE_IN: "Balcão" };
+  const typeLabel = typeLabels[order.orderType || "DINE_IN"] || "Balcão";
+  // I-01 — origem do pedido (PDV vs Cardápio Digital) — operador da cozinha distingue
+  const source = (order as any).source === "ONLINE" ? "ONLINE" : "PDV";
+  const sourceColor = source === "ONLINE" ? "#1d4ed8" : "#111";
 
   w.document.write(`
     <html><head><title>Pedido</title>
-    <style>body{font-family:Arial;width:300px;padding:20px}h1{text-align:center}.line{margin-bottom:10px}hr{margin:20px 0}</style>
+    <style>body{font-family:Arial;width:300px;padding:20px}h1{text-align:center}.line{margin-bottom:10px}hr{margin:20px 0}.type{font-weight:bold;font-size:16px;text-align:center;margin-bottom:8px}.source{display:inline-block;font-weight:900;font-size:14px;letter-spacing:1.5px;padding:3px 10px;border:2px solid ${sourceColor};color:${sourceColor};border-radius:4px;margin:0 auto 8px;text-align:center}.sourceWrap{text-align:center}</style>
     </head><body>
       <h1>${companyName}</h1><hr/>
+      <div class="sourceWrap"><span class="source">[${source}]</span></div>
+      <div class="type">${typeLabel}</div>
       <div class="line"><b>Cliente:</b> ${customerName(order)}</div>
       <div class="line"><b>Telefone:</b> ${customerPhone(order)}</div>
       ${order.deliveryAddress ? `<div class="line"><b>Endereço:</b> ${order.deliveryAddress}</div>` : ""}
@@ -221,7 +246,8 @@ export default function OrdersPage() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const response = await api.get("/orders");
+      // Endpoint unificado (Item 4 — Caminho 2): PDV + Cardápio Digital
+      const response = await api.get("/orders/kitchen");
       setOrders(Array.isArray(response.data) ? response.data : []);
     } catch {
       toast.error("Erro ao carregar pedidos");
@@ -239,9 +265,10 @@ export default function OrdersPage() {
     } catch {}
   }
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, source?: string) {
     try {
-      await api.patch(`/orders/${id}/status`, { status });
+      const src = (source as string) || "PDV";
+      await api.patch(`/orders/kitchen/${src}/${id}/status`, { status });
       toast.success("Status atualizado");
       fetchOrders();
     } catch {
@@ -345,7 +372,7 @@ export default function OrdersPage() {
 
               return (
                 <div
-                  key={order.id}
+                  key={`${(order as any).source ?? 'PDV'}-${order.id}`}
                   className={`bg-white rounded-2xl border-2 overflow-hidden transition ${timingBorderClass(order)}`}
                 >
                   {/* Header */}
@@ -368,6 +395,30 @@ export default function OrdersPage() {
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusInfo.color}`}>
                         {statusInfo.label}
                       </span>
+                      {/* Adapter Item 4 — fonte do pedido */}
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide ${
+                        (order as any).source === "ONLINE"
+                          ? "bg-blue-100 text-blue-700 border border-blue-200"
+                          : "bg-gray-100 text-gray-600 border border-gray-200"
+                      }`}>
+                        {(order as any).source === "ONLINE" ? "ONLINE" : "PDV"}
+                      </span>
+                      {/* Fase 2: badge de tipo de atendimento */}
+                      {order.orderType === "DELIVERY" && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                          🛵 Delivery
+                        </span>
+                      )}
+                      {order.orderType === "PICKUP" && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">
+                          🏠 Retirada
+                        </span>
+                      )}
+                      {(order.orderType === "DINE_IN" || !order.orderType) && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                          🍽️ Balcão
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
@@ -457,7 +508,7 @@ export default function OrdersPage() {
                     {/* Status select */}
                     <select
                       value={order.status}
-                      onChange={(e) => updateStatus(order.id, e.target.value)}
+                      onChange={(e) => updateStatus(order.id, e.target.value, (order as any).source)}
                       className="border border-gray-200 focus:border-primary text-gray-700 px-3 py-2 rounded-xl outline-none text-sm font-medium"
                     >
                       <option value="PENDING">Pendente</option>
@@ -472,7 +523,7 @@ export default function OrdersPage() {
                     {/* Despachar para entrega */}
                     {order.status === "READY" && (
                       <button
-                        onClick={() => updateStatus(order.id, "OUT_FOR_DELIVERY")}
+                        onClick={() => updateStatus(order.id, "OUT_FOR_DELIVERY", (order as any).source)}
                         className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
                       >
                         <Truck size={14} /> Despachar entrega
@@ -484,7 +535,7 @@ export default function OrdersPage() {
                       <button
                         onClick={() => {
                           if (!confirm("Finalizar este pedido?")) return;
-                          updateStatus(order.id, "DELIVERED");
+                          updateStatus(order.id, "DELIVERED", (order as any).source);
                         }}
                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
                       >

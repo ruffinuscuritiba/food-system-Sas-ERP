@@ -99,8 +99,19 @@ export class OrdersService {
             product.salePrice || 0,
           );
 
+        // Include complement prices in item subtotal
+        const complementsExtra =
+          Array.isArray(item.complements)
+            ? item.complements.reduce(
+                (s: number, c: any) =>
+                  s + Number(c.price ?? 0) * Number(c.quantity ?? 1),
+                0,
+              )
+            : 0;
+
         const itemSubtotal =
-          quantity * unitPrice;
+          quantity * unitPrice +
+          complementsExtra * quantity;
 
         subtotal +=
           itemSubtotal;
@@ -147,45 +158,115 @@ export class OrdersService {
 
         async (tx) => {
 
-          return tx.order.create({
+          // 1. Create the Order without nested items — no index-ordering dependency
+          const createdOrder =
+            await tx.order.create({
 
-            data: {
+              data: {
 
-              customerId:
-                data.customerId,
+                customerId:
+                  data.customerId,
 
-              paymentMethod:
-                data.paymentMethod,
+                paymentMethod:
+                  data.paymentMethod,
 
-              subtotal,
+                subtotal,
 
-              deliveryFee,
+                deliveryFee,
 
-              total,
+                total,
 
-              notes:
-                data.notes,
+                notes:
+                  data.notes,
 
-              status:
-                OrderStatus.PENDING,
+                status:
+                  OrderStatus.PENDING,
 
-              companyId:
-                data.companyId,
+                companyId:
+                  data.companyId,
 
-              items: {
+                // Fase 2: tipo de atendimento e dados do cliente
+                orderType:
+                  data.orderType || 'DINE_IN',
 
-                create:
-                  orderItemsData,
+                customerName:
+                  data.customerName || null,
+
+                customerPhone:
+                  data.customerPhone || null,
+
+                deliveryAddress:
+                  data.deliveryAddress || null,
               },
-            },
 
-            include: {
+              include: {
+                customer: true,
+              },
+            });
 
-              items: true,
+          // 2. Create each OrderItem individually so its id is known before
+          //    creating complements — eliminates createdOrder.items[i] dependency.
+          //    orderItemsData[i] and data.items[i] share the same index by
+          //    construction (both derived from the same data.items.map call).
+          const createdItems: any[] = [];
 
-              customer: true,
-            },
-          });
+          for (
+            let i = 0;
+            i < orderItemsData.length;
+            i++
+          ) {
+
+            const createdItem =
+              await tx.orderItem.create({
+
+                data: {
+                  ...orderItemsData[i],
+                  orderId: createdOrder.id,
+                },
+              });
+
+            createdItems.push(createdItem);
+
+            // 3. Create complements for THIS specific item immediately —
+            //    createdItem.id is deterministic, no array ordering involved.
+            const comps: any[] =
+              Array.isArray(data.items[i].complements)
+                ? data.items[i].complements
+                : [];
+
+            for (const comp of comps) {
+
+              await (tx as any).orderItemComplement.create({
+
+                data: {
+
+                  orderItemId:
+                    createdItem.id,
+
+                  complementOptionId:
+                    comp.complementOptionId,
+
+                  complementName:
+                    comp.complementName,
+
+                  optionName:
+                    comp.optionName,
+
+                  price:
+                    Number(comp.price ?? 0),
+
+                  quantity:
+                    Number(comp.quantity ?? 1),
+                },
+              });
+            }
+          }
+
+          // 4. Return the order with the same shape expected by callers
+          return {
+            ...createdOrder,
+            items: createdItems,
+          };
         },
 
         {
@@ -215,7 +296,7 @@ export class OrdersService {
     companyId: string,
   ) {
 
-    return this.prisma.order.findMany({
+    return (this.prisma as any).order.findMany({
 
       where: {
         companyId,
@@ -229,7 +310,12 @@ export class OrdersService {
 
         customer: true,
 
-        items: true,
+        items: {
+
+          include: {
+            selectedComplements: true,
+          },
+        },
       },
     });
   }
@@ -238,6 +324,7 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
     userId: string,
+    companyId: string,
   ) {
 
     const order =
@@ -245,6 +332,7 @@ export class OrdersService {
 
         where: {
           id,
+          companyId,
         },
 
         include: {
@@ -607,7 +695,7 @@ export class OrdersService {
             customerPhone: customerPhone,
             customerName: order.customer?.name ?? undefined,
             orderId: order.id,
-            orderType: (order as any).orderType ?? 'DELIVERY',
+            orderType: (order as any).orderType ?? 'DINE_IN',
             total: Number(order.total),
             items: order.items.map((i) => ({
               name: (i as any).productName ?? 'Item',
@@ -676,5 +764,172 @@ export class OrdersService {
 
       confirmedOrders,
     };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ADAPTER COZINHA/PEDIDOS — Caminho 2 do Item 4
+  // Unifica Order (PDV) + OnlineOrder (Cardápio Digital) em shape único.
+  // Não altera Order/OnlineOrder. Sem mexer em pagamento/webhook.
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /** Status operacional unificado — único enum que o frontend conhece. */
+  static readonly KITCHEN_STATUSES = [
+    'PENDING',
+    'CONFIRMED',
+    'PREPARING',
+    'READY',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED',
+    'CANCELLED',
+  ] as const;
+
+  /** OnlineOrderStatus → status operacional unificado. */
+  private mapOnlineStatusToKitchen(s: string): string {
+    switch (s) {
+      case 'DELIVERING': return 'OUT_FOR_DELIVERY';
+      case 'COMPLETED':  return 'DELIVERED';
+      case 'CANCELED':   return 'CANCELLED';
+      default:           return s; // PENDING, CONFIRMED, PREPARING, READY mantêm
+    }
+  }
+
+  /** Status operacional unificado → OnlineOrderStatus. */
+  private mapKitchenStatusToOnline(s: string): string {
+    switch (s) {
+      case 'OUT_FOR_DELIVERY': return 'DELIVERING';
+      case 'DELIVERED':        return 'COMPLETED';
+      case 'CANCELLED':        return 'CANCELED';
+      default:                 return s;
+    }
+  }
+
+  /** Lista unificada Order + OnlineOrder com shape único. */
+  async findAllForKitchen(companyId: string) {
+    const [pdvOrders, onlineOrdersRaw] = await Promise.all([
+      (this.prisma as any).order.findMany({
+        where: { companyId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          customer: true,
+          items: { include: { selectedComplements: true } },
+        },
+      }),
+      (this.prisma as any).onlineOrder.findMany({
+        where: { companyId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    // ── Normaliza PDV ───────────────────────────────────────────────────
+    const pdv = pdvOrders.map((o: any) => ({
+      id:                o.id,
+      source:            'PDV' as const,
+      status:            o.status,            // já no enum unificado
+      productionStatus:  o.productionStatus ?? null,
+      createdAt:         o.createdAt,
+      customerName:      o.customer?.name ?? o.customerName ?? null,
+      customerPhone:     o.customer?.phone ?? null,
+      customerAddress:   o.customer?.address ?? null,
+      orderType:         (o as any).orderType ?? 'DINE_IN',
+      total:             Number(o.total),
+      paymentMethod:     o.paymentMethod ?? null,
+      notes:             o.notes ?? null,
+      items: (o.items ?? []).map((it: any) => ({
+        productName:   it.productName,
+        quantity:      it.quantity,
+        notes:         it.notes ?? '',
+        unitPrice:     Number(it.unitPrice ?? 0),
+        subtotal:      Number(it.subtotal ?? 0),
+        selectedComplements: (it.selectedComplements ?? []).map((c: any) => ({
+          complementName: c.complementName,
+          optionName:     c.optionName,
+          price:          Number(c.price),
+          quantity:       c.quantity,
+        })),
+      })),
+    }));
+
+    // ── Normaliza OnlineOrder ───────────────────────────────────────────
+    const online = onlineOrdersRaw.map((o: any) => {
+      const rawItems: any[] = Array.isArray(o.items) ? o.items : [];
+      return {
+        id:                o.id,
+        source:            'ONLINE' as const,
+        // OnlineOrder usa `orderStatus`; PDV usa `status`. Normalizamos para `status`.
+        status:            this.mapOnlineStatusToKitchen(o.orderStatus),
+        productionStatus:  null,
+        createdAt:         o.createdAt,
+        customerName:      o.customerName ?? null,
+        customerPhone:     o.customerPhone ?? null,
+        customerAddress:   [o.address, o.addressNumber, o.neighborhood, o.city]
+                              .filter(Boolean).join(', ') || null,
+        orderType:         o.orderType ?? 'DELIVERY',
+        total:             Number(o.total),
+        paymentMethod:     o.paymentMethod ?? null,
+        notes:             o.notes ?? null,
+        items: rawItems.map((it: any) => ({
+          productName: it.productName,
+          quantity:    Number(it.quantity ?? 1),
+          notes:       it.notes ?? '',
+          unitPrice:   Number(it.unitPrice ?? 0),
+          subtotal:    Number(it.unitPrice ?? 0) * Number(it.quantity ?? 1),
+          // Online: complementos vêm dentro do item.complements (Json) — Fase A1
+          selectedComplements: Array.isArray(it.complements) ? it.complements.map((c: any) => ({
+            complementName: c.complementName,
+            optionName:     c.optionName,
+            price:          Number(c.price ?? 0),
+            quantity:       Number(c.quantity ?? 1),
+          })) : [],
+        })),
+      };
+    });
+
+    // Merge e reordena por createdAt desc
+    return [...pdv, ...online].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+
+  /** Atualiza status operacional roteando para a tabela correta — multiempresa preservado. */
+  async updateKitchenStatus(
+    source: string,
+    id: string,
+    status: string,
+    userId: string,
+    companyId: string,
+  ) {
+    const allowed = OrdersService.KITCHEN_STATUSES as readonly string[];
+    if (!allowed.includes(status)) {
+      throw new NotFoundException(`Status "${status}" inválido.`);
+    }
+
+    if (source === 'PDV') {
+      // Reusa fluxo existente (com transação Serializable, estoque, fidelidade)
+      return this.updateStatus(id, status as OrderStatus, userId, companyId);
+    }
+
+    if (source === 'ONLINE') {
+      const mapped = this.mapKitchenStatusToOnline(status);
+      const onlineOrder = await (this.prisma as any).onlineOrder.findFirst({
+        where: { id, companyId },
+        select: { id: true },
+      });
+      if (!onlineOrder) throw new NotFoundException('Pedido online não encontrado.');
+
+      const updated = await (this.prisma as any).onlineOrder.update({
+        where: { id },
+        data:  { orderStatus: mapped },
+      });
+
+      // Mantém cozinha em tempo real (mesmo socket dos PDVs)
+      try {
+        this.socketGateway.emitKitchenUpdate({ companyId, id, status, source: 'ONLINE' } as any);
+        this.socketGateway.emitDashboardUpdate(companyId, {});
+      } catch { /* socket failure must not block */ }
+
+      return { id: updated.id, source: 'ONLINE', status };
+    }
+
+    throw new NotFoundException(`Source "${source}" inválida.`);
   }
 }

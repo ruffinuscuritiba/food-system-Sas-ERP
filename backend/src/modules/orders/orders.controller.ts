@@ -31,6 +31,28 @@ export class OrdersController {
     return this.service.findAll(req.user.companyId);
   }
 
+  // ── Adapter Cozinha/Impressão (Item 4 — Caminho 2) ─────────────────────
+  // Lista unificada Order (PDV) + OnlineOrder (Cardápio Digital) com status normalizado.
+  @Get("kitchen")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "KITCHEN", "WAITER")
+  findAllForKitchen(@Request() req: any) {
+    return this.service.findAllForKitchen(req.user.companyId);
+  }
+
+  // PATCH /api/orders/kitchen/PDV/:id/status   |   /api/orders/kitchen/ONLINE/:id/status
+  @Patch("kitchen/:source/:id/status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "KITCHEN", "CASHIER")
+  updateKitchenStatus(
+    @Param("source") source: string,
+    @Param("id") id: string,
+    @Body("status") status: string,
+    @Request() req: any,
+  ) {
+    return this.service.updateKitchenStatus(source, id, status, req.user.id, req.user.companyId);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER")
@@ -49,7 +71,7 @@ export class OrdersController {
     @Body("status") status: OrderStatus,
     @Request() req: any
   ) {
-    return this.service.updateStatus(id, status, req.user.id);
+    return this.service.updateStatus(id, status, req.user.id, req.user.companyId);
   }
 
   @Patch(":id/production-status")
@@ -60,7 +82,7 @@ export class OrdersController {
     @Body("productionStatus") productionStatus: OrderStatus,
     @Request() req: any
   ) {
-    return this.service.updateStatus(id, productionStatus, req.user.id);
+    return this.service.updateStatus(id, productionStatus, req.user.id, req.user.companyId);
   }
 
   @Get("dashboard")

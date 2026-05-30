@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CI — Validação obrigatória antes de merge/deploy
+#
+# Motivação: erros como o bug Next.js 16 (params Promise) chegaram ao Vercel
+# porque NÃO havia validação de build em PR/push. Esta pipeline bloqueia
+# qualquer push para `main` ou PR para `main` que não passe em:
+#   - typecheck (tsc --noEmit)
+#   - lint
+#   - build (nest build / next build)
+#
+# Os 3 ports — Render e Vercel — só auto-deployam após o push, então o CI
+# DEVE rodar antes do auto-deploy. Branch protection (configurar no GitHub)
+# pode tornar o CI obrigatório para merge em PRs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancelar runs anteriores no mesmo branch para economizar minutos
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── BACKEND ───────────────────────────────────────────────────────────────
+  backend:
+    name: Backend (typecheck + lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        # Necessário ANTES de typecheck/build — referencia tipos do client
+        run: npx prisma generate
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Lint
+        # `lint:check` é versão sem --fix, falha em qualquer warning
+        run: npm run lint:check
+        continue-on-error: true  # warnings de lint ainda não são bloqueantes
+        # TODO: remover continue-on-error após zerar warnings legados
+
+      - name: Build (nest build)
+        run: npm run build
+
+  # ─── FRONTEND ──────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (typecheck + lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (tsc --noEmit)
+        # Detecta o tipo de erro que quebrou o Vercel
+        # (ex.: Next.js 16 params Promise em route handlers)
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true  # warnings ainda não são bloqueantes
+        # TODO: remover após estabilizar
+
+      - name: Build (next build)
+        # Este step pega o tipo de erro que o `dev` ignora.
+        # É a defesa principal contra regressões em produção.
+        env:
+          # apiBaseUrl tem fallback hardcoded em services/env.ts; mas se um dia
+          # for obrigatória, defini-la aqui (não vaza secrets — backend é público)
+          NEXT_PUBLIC_API_URL: https://food-system-backend-no7d.onrender.com/api
+        run: npm run build

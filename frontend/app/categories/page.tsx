@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
-import { Pencil, Trash2, Check, X, FolderKanban, Plus, Beer, UtensilsCrossed } from "lucide-react";
+import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical } from "lucide-react";
+
+// @hello-pangea/dnd é pesado e incompatível com SSR — carregamento dinâmico
+const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
+const Droppable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.Droppable),       { ssr: false }) as any;
+const Draggable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.Draggable),       { ssr: false }) as any;
 
 const CATEGORY_TYPE_OPTS = [
   { value: "normal",  label: "Normal",  icon: "🍽️",  desc: "Cardápio padrão" },
@@ -76,6 +82,27 @@ export default function CategoriesPage() {
       fetchCategories();
     } catch {
       toast.error("Erro ao atualizar categoria");
+    }
+  }
+
+  async function handleDragEnd(result: any) {
+    if (!result.destination) return;
+    if (result.destination.index === result.source.index) return;
+
+    const next = Array.from(categories);
+    const [moved] = next.splice(result.source.index, 1);
+    next.splice(result.destination.index, 0, moved);
+
+    // atualiza visualmente já — rollback se a API falhar
+    const previous = categories;
+    setCategories(next);
+
+    const payload = next.map((c, i) => ({ id: c.id, sortOrder: i + 1 }));
+    try {
+      await api.patch("/categories/reorder", { items: payload });
+    } catch {
+      setCategories(previous);
+      toast.error("Erro ao reordenar");
     }
   }
 
@@ -179,9 +206,32 @@ export default function CategoriesPage() {
             Nenhuma categoria cadastrada
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {categories.map((category) => (
-              <div key={category.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="categories-list">
+              {(dropProvided: any) => (
+                <div
+                  ref={dropProvided.innerRef}
+                  {...dropProvided.droppableProps}
+                  className="grid sm:grid-cols-2 md:grid-cols-3 gap-4"
+                >
+                  {categories.map((category, index) => (
+                    <Draggable key={category.id} draggableId={category.id} index={index}>
+                      {(dragProvided: any, snapshot: any) => (
+                        <div
+                          ref={dragProvided.innerRef}
+                          {...dragProvided.draggableProps}
+                          className={`bg-white rounded-2xl border shadow-sm p-5 transition ${
+                            snapshot.isDragging ? "border-primary shadow-lg ring-2 ring-orange-100" : "border-gray-100"
+                          }`}
+                        >
+                          {/* Drag handle */}
+                          <div
+                            {...dragProvided.dragHandleProps}
+                            className="flex items-center justify-end -mt-2 -mr-2 mb-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+                            title="Arrastar para reordenar"
+                          >
+                            <GripVertical size={16} />
+                          </div>
                 {editingId === category.id ? (
                   <div className="space-y-3">
                     <div className="flex gap-2 items-center">
@@ -271,9 +321,15 @@ export default function CategoriesPage() {
                     </div>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {dropProvided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
       </div>
     </main>

@@ -2,9 +2,15 @@
 
 import { api } from "@/services/api";
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon, GripVertical } from "lucide-react";
+
+// @hello-pangea/dnd — incompatível com SSR
+const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
+const Droppable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.Droppable),       { ssr: false }) as any;
+const Draggable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.Draggable),       { ssr: false }) as any;
 import { CurrencyInputBR } from "@/components/ui/CurrencyInputBR";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import Link from "next/link";
@@ -326,6 +332,27 @@ export default function ProductsPage() {
     catch { /* silent */ }
   }, []);
 
+  // ── Reordenar produtos (drag-and-drop) — apenas ordem; categoria não muda ──
+  async function handleProductsDragEnd(result: any) {
+    if (!result.destination) return;
+    if (result.destination.index === result.source.index) return;
+
+    const next = Array.from(products);
+    const [moved] = next.splice(result.source.index, 1);
+    next.splice(result.destination.index, 0, moved);
+
+    const previous = products;
+    setProducts(next);
+
+    const payload = next.map((p, i) => ({ id: p.id, sortOrder: i + 1 }));
+    try {
+      await api.patch("/products/reorder", { items: payload });
+    } catch {
+      setProducts(previous);
+      toast.error("Erro ao reordenar");
+    }
+  }
+
   useEffect(() => { fetchProducts(); fetchCategories(); }, [fetchProducts, fetchCategories]);
 
   // ── Sizes → payload ───────────────────────────────────────────────────────
@@ -630,9 +657,32 @@ export default function ProductsPage() {
               <p className="text-sm mt-1">Clique em "Novo produto" para começar</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
-              {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+            <DragDropContext onDragEnd={handleProductsDragEnd}>
+              <Droppable droppableId="products-list">
+                {(dropProvided: any) => (
+                  <div
+                    ref={dropProvided.innerRef}
+                    {...dropProvided.droppableProps}
+                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5"
+                  >
+                    {products.map((product, index) => (
+                      <Draggable key={product.id} draggableId={product.id} index={index}>
+                        {(dragProvided: any, snapshot: any) => (
+                          <div
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            className={`relative bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-200 group ${
+                              snapshot.isDragging ? "border-primary shadow-xl ring-2 ring-orange-100" : "border-gray-100 hover:shadow-md hover:-translate-y-0.5"
+                            }`}
+                          >
+                            {/* Drag handle */}
+                            <div
+                              {...dragProvided.dragHandleProps}
+                              className="absolute top-2 left-2 z-10 bg-white/90 hover:bg-white shadow-sm p-1 rounded-lg text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition"
+                              title="Arrastar para reordenar"
+                            >
+                              <GripVertical size={14} />
+                            </div>
                   <div className="relative h-44 bg-gray-100">
                     <img
                       src={product.imageUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"}
@@ -681,9 +731,15 @@ export default function ProductsPage() {
                       {product.sku && <span className="text-gray-300 text-xs font-mono">{product.sku}</span>}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {dropProvided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           )}
         </div>
       </main>

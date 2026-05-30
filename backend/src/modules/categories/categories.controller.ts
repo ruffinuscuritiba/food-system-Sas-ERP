@@ -21,18 +21,25 @@ export class CategoriesController {
     return this.service.create({ ...body, companyId: req.user.companyId });
   }
 
+  @Patch('reorder')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  reorder(@Body() body: { items: { id: string; sortOrder: number }[] }, @Request() req: any) {
+    return this.service.reorder(req.user.companyId, body?.items ?? []);
+  }
+
   @Patch(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   update(
     @Param('id') id: string,
     @Body() body: { name?: string; allowMultipleFlavors?: boolean; categoryType?: string; displayColumns?: number },
+    @Request() req: any,
   ) {
-    return this.service.update(id, body);
+    return this.service.update(id, req.user.companyId, body);
   }
 
   @Delete(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Param('id') id: string, @Request() req: any) {
+    return this.service.remove(id, req.user.companyId);
   }
 }

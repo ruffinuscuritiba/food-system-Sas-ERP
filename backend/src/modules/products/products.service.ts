@@ -1,4 +1,4 @@
-import { Injectable }
+import { Injectable, BadRequestException }
 from "@nestjs/common";
 
 import { PrismaService }
@@ -29,6 +29,11 @@ export class ProductsService {
         category: true,
         sizes: { orderBy: { size: 'asc' } },
       },
+
+      orderBy: [
+        { sortOrder: 'asc' },
+        { name:      'asc' },
+      ],
     });
   }
 
@@ -41,6 +46,13 @@ export class ProductsService {
       ? JSON.parse(rawSizes)
       : rawSizes;
 
+    // Próximo sortOrder dentro da empresa (drag-and-drop)
+    const maxSort = await this.prisma.product.aggregate({
+      where: { companyId: data.companyId },
+      _max: { sortOrder: true },
+    });
+    const nextSort = (maxSort._max.sortOrder ?? 0) + 1;
+
     const product =
       await this.prisma.product.create({
 
@@ -48,6 +60,8 @@ export class ProductsService {
 
           name:
             data.name,
+
+          sortOrder: nextSort,
 
           description:
             data.description,
@@ -181,7 +195,7 @@ export class ProductsService {
       : typeof rawSizes === 'string' ? JSON.parse(rawSizes) : rawSizes;
 
     if (sizes !== undefined) {
-      await this.prisma.productSize.deleteMany({ where: { productId: id } });
+      await this.prisma.productSize.deleteMany({ where: { productId: id, companyId: data.companyId } });
       if (sizes.length > 0) {
         await this.prisma.productSize.createMany({
           data: sizes.map((s) => ({
@@ -195,7 +209,7 @@ export class ProductsService {
     }
 
     return this.prisma.product.update({
-      where: { id },
+      where: { id, companyId: data.companyId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
@@ -240,16 +254,47 @@ export class ProductsService {
         sizes: { orderBy: { size: 'asc' } },
       },
 
-      orderBy: {
-        name: "asc",
-      },
+      orderBy: [
+        { sortOrder: "asc" },
+        { name:      "asc" },
+      ],
     });
   }
-  findTrash() {
+
+  async reorder(companyId: string, items: { id: string; sortOrder: number }[]) {
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new BadRequestException("items é obrigatório");
+    }
+
+    // Tenant guard: rejeita qualquer id que não pertença à empresa
+    const ids = items.map((i) => i.id);
+    const owned = await this.prisma.product.findMany({
+      where:  { id: { in: ids }, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (owned.length !== ids.length) {
+      throw new BadRequestException("Produto fora da empresa");
+    }
+
+    await this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.product.update({
+          where: { id: item.id, companyId },
+          data:  { sortOrder: item.sortOrder },
+        }),
+      ),
+    );
+
+    return { ok: true, updated: items.length };
+  }
+
+  findTrash(companyId: string) {
 
   return this.prisma.product.findMany({
 
     where: {
+
+      companyId,
 
       deletedAt: {
         not: null,
@@ -268,6 +313,7 @@ export class ProductsService {
 
 async restore(
   id: string,
+  companyId: string,
 ) {
 
   const product =
@@ -275,6 +321,7 @@ async restore(
 
       where: {
         id,
+        companyId,
       },
 
       data: {
@@ -315,6 +362,7 @@ async restore(
 }
   async remove(
   id: string,
+  companyId: string,
 ) {
 
   const product =
@@ -322,6 +370,7 @@ async restore(
 
       where: {
         id,
+        companyId,
       },
 
       data: {

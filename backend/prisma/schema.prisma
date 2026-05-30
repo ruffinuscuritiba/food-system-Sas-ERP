@@ -246,6 +246,9 @@ model Category {
   // colunas no grid (bebidas)
   displayColumns Int @default(4)
 
+  // ordem de exibição (drag-and-drop)
+  sortOrder Int @default(0)
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -259,6 +262,8 @@ model Category {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
+  @@index([companyId, sortOrder])
 
   @@index([name])
 }
@@ -306,6 +311,12 @@ model Product {
   videoUrl String?
   hasVideo Boolean @default(false)
 
+  // ordem de exibição (drag-and-drop)
+  sortOrder Int @default(0)
+
+  // futura área de destaque/promoção — não usado ainda
+  isFeatured Boolean @default(false)
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -329,6 +340,8 @@ model Product {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
+
+  @@index([companyId, sortOrder])
 
   @@index([categoryId])
 
@@ -387,6 +400,14 @@ model Order {
   customerId String?
 
   customer Customer? @relation(fields: [customerId], references: [id])
+
+  // Fase 2: tipo de atendimento — persiste o que o PDV/menu envia
+  orderType String @default("DINE_IN")
+
+  // Fase 2: dados do cliente (snapshot no momento do pedido)
+  customerName    String?
+  customerPhone   String?
+  deliveryAddress String?
 
   status OrderStatus @default(PENDING)
 
@@ -447,6 +468,8 @@ model Order {
   @@index([createdAt])
 
   @@index([driverId])
+
+  @@index([orderType])
 }
 
 model DriverProfile {

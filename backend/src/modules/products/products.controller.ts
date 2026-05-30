@@ -100,6 +100,17 @@ export class ProductsController {
     return this.service.create({ ...body, imageUrl, companyId: req.user.companyId });
   }
 
+  // IMPORTANTE: rota literal "reorder" precisa ficar ANTES de "@Patch(':id')" para não casar como id.
+  @Patch("reorder")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  reorder(
+    @Body() body: { items: { id: string; sortOrder: number }[] },
+    @Request() req: any,
+  ) {
+    return this.service.reorder(req.user.companyId, body?.items ?? []);
+  }
+
   @Patch(":id")
 
   @UseGuards(
@@ -121,6 +132,7 @@ export class ProductsController {
     @Param("id") id: string,
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any,
+    @Request() req: any,
   ) {
     let imageUrl: string | undefined = body.imageUrl;
 
@@ -128,7 +140,7 @@ export class ProductsController {
       imageUrl = await this.resolveImageUrl(file);
     }
 
-    return this.service.update(id, { ...body, ...(imageUrl !== undefined ? { imageUrl } : {}) });
+    return this.service.update(id, { ...body, companyId: req.user.companyId, ...(imageUrl !== undefined ? { imageUrl } : {}) });
   }
 
   /**
@@ -189,9 +201,9 @@ export class ProductsController {
   "ADMIN",
 )
 
-findTrash() {
+findTrash(@Request() req: any) {
 
-  return this.service.findTrash();
+  return this.service.findTrash(req.user.companyId);
 }
 
 @Patch("restore/:id")
@@ -209,10 +221,12 @@ findTrash() {
 restore(
   @Param("id")
   id: string,
+  @Request() req: any,
 ) {
 
   return this.service.restore(
     id,
+    req.user.companyId,
   );
 }
 
@@ -231,10 +245,12 @@ restore(
 remove(
   @Param("id")
   id: string,
+  @Request() req: any,
 ) {
 
   return this.service.remove(
     id,
+    req.user.companyId,
   );
 }
 }

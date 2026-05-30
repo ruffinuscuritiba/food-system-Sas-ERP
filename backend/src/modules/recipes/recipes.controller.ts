@@ -12,8 +12,7 @@ export class RecipesController {
   @Get(':productId')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   findByProduct(@Param('productId') productId: string, @Request() req: any) {
-    const companyId = req.user.role === 'SUPER_ADMIN' ? undefined : req.user.companyId;
-    return this.recipesService.findByProduct(productId, companyId);
+    return this.recipesService.findByProduct(productId, req.user.companyId);
   }
 
   @Post()

@@ -58,6 +58,7 @@ export class TablesService {
   async updateStatus(
     id: string,
     status: string,
+    companyId: string,
   ) {
 
     const table =
@@ -65,6 +66,7 @@ export class TablesService {
 
         where: {
           id,
+          companyId,
         },
 
         data: {
@@ -139,6 +141,7 @@ export class TablesService {
 
       where: {
         id: tableId,
+        companyId: body.companyId,
       },
 
       data: {
@@ -150,9 +153,13 @@ export class TablesService {
     return order;
   }
 
-  async findOrders() {
+  async findOrders(companyId: string) {
 
     return this.prisma.tableOrder.findMany({
+
+      where: {
+        companyId,
+      },
 
       include: {
         table: true,
@@ -170,15 +177,18 @@ export class TablesService {
     });
   }
 
-  async dashboard() {
+  async dashboard(companyId: string) {
 
     const totalTables =
-      await this.prisma.table.count();
+      await this.prisma.table.count({
+        where: { companyId },
+      });
 
     const occupiedTables =
       await this.prisma.table.count({
 
         where: {
+          companyId,
           status:
             TableStatus.OCCUPIED,
         },
@@ -188,13 +198,16 @@ export class TablesService {
       await this.prisma.table.count({
 
         where: {
+          companyId,
           status:
             TableStatus.FREE,
         },
       });
 
     const orders =
-      await this.prisma.tableOrder.findMany();
+      await this.prisma.tableOrder.findMany({
+        where: { companyId },
+      });
 
     let revenue = 0;
 

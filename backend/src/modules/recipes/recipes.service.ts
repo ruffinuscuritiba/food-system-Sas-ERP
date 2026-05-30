@@ -11,14 +11,14 @@ export class RecipesService {
 
   async findByProduct(
     productId: string,
-    companyId?: string,
+    companyId: string,
   ) {
 
     return this.prisma.recipe.findFirst({
 
       where: {
         productId,
-        ...(companyId ? { companyId } : {}),
+        companyId,
       },
 
       include: {

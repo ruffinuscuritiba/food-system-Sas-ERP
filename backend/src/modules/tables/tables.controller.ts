@@ -67,11 +67,14 @@ export class TablesController {
 
     @Body('status') status: string,
 
+    @Request() req: any,
+
   ) {
 
     return this.service.updateStatus(
       id,
       status,
+      req.user.companyId,
     );
   }
   @Patch(':id/order')
@@ -81,21 +84,23 @@ saveOrder(
 
   @Body() body: any,
 
+  @Request() req: any,
+
 ) {
 
   return this.service.saveOrder(
     id,
-    body,
+    { ...body, companyId: req.user.companyId },
   );
 }
 @Get('orders/history')
-findOrders() {
+findOrders(@Request() req: any) {
 
-  return this.service.findOrders();
+  return this.service.findOrders(req.user.companyId);
 }
 @Get('dashboard')
-dashboard() {
+dashboard(@Request() req: any) {
 
-  return this.service.dashboard();
+  return this.service.dashboard(req.user.companyId);
 }
 }

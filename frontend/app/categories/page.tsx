@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
-import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical } from "lucide-react";
+import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical, Image as ImageIcon } from "lucide-react";
+import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 
 // @hello-pangea/dnd é pesado e incompatível com SSR — carregamento dinâmico
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -27,6 +28,9 @@ export default function CategoriesPage() {
   const [editName, setEditName]                   = useState("");
   const [editAllowMulti, setEditAllowMulti]       = useState(false);
   const [editCategoryType, setEditCategoryType]   = useState("normal");
+  // Fase 5 White Label — banner por categoria
+  const [newBannerImage, setNewBannerImage]       = useState<string | null>(null);
+  const [editBannerImage, setEditBannerImage]     = useState<string | null>(null);
 
   async function fetchCategories() {
     try {
@@ -49,11 +53,13 @@ export default function CategoriesPage() {
         name: name.trim(),
         allowMultipleFlavors: newAllowMulti,
         categoryType: newCategoryType,
+        bannerImage: newBannerImage,
       });
       toast.success("Categoria criada");
       setName("");
       setNewAllowMulti(false);
       setNewCategoryType("normal");
+      setNewBannerImage(null);
       fetchCategories();
     } catch {
       toast.error("Erro ao criar categoria");
@@ -67,6 +73,7 @@ export default function CategoriesPage() {
     setEditName(category.name);
     setEditAllowMulti(category.allowMultipleFlavors ?? false);
     setEditCategoryType(category.categoryType ?? "normal");
+    setEditBannerImage(category.bannerImage ?? null);
   }
 
   async function saveEdit(id: string) {
@@ -76,6 +83,7 @@ export default function CategoriesPage() {
         name: editName.trim(),
         allowMultipleFlavors: editAllowMulti,
         categoryType: editCategoryType,
+        bannerImage: editBannerImage,  // pode ser null (remoção)
       });
       toast.success("Categoria atualizada");
       setEditingId(null);
@@ -192,6 +200,20 @@ export default function CategoriesPage() {
               <span className="text-xs font-semibold text-gray-600">Permite múltiplos sabores (pizza)</span>
             </label>
           )}
+
+          {/* Banner (Fase 5 White Label) — aparece no topo do PDV ao trocar para esta categoria */}
+          <div className="mt-4">
+            <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
+              <ImageIcon size={13} className="text-gray-400" />
+              Banner do PDV (opcional)
+            </p>
+            <p className="text-[11px] text-gray-400 mb-2">JPG, PNG ou WebP até 2 MB. Aparece no topo do PDV ao selecionar esta categoria.</p>
+            <ImageUploaderPreview
+              value={newBannerImage ?? undefined}
+              onChange={setNewBannerImage}
+              maxFileSizeMB={2}
+            />
+          </div>
         </div>
 
         {/* Lista */}
@@ -282,8 +304,45 @@ export default function CategoriesPage() {
                         <span className="text-xs text-gray-500">Multi-sabores</span>
                       </label>
                     )}
+
+                    {/* Banner (Fase 5) — upload / trocar / remover */}
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-500 mb-1.5 flex items-center gap-1">
+                        <ImageIcon size={12} className="text-gray-400" />
+                        Banner do PDV
+                      </p>
+                      <ImageUploaderPreview
+                        value={editBannerImage ?? undefined}
+                        onChange={setEditBannerImage}
+                        maxFileSizeMB={2}
+                      />
+                      {editBannerImage && (
+                        <button
+                          type="button"
+                          onClick={() => setEditBannerImage(null)}
+                          className="mt-2 text-[11px] text-red-500 hover:text-red-600 underline flex items-center gap-1"
+                        >
+                          <Trash2 size={11} /> Remover banner
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : (
+                  <div>
+                    {/* Banner thumbnail — visível somente quando categoria tem banner */}
+                    {category.bannerImage && (
+                      <div className="relative -mt-3 -mx-3 mb-3 rounded-xl overflow-hidden border border-gray-100">
+                        <img
+                          src={category.bannerImage}
+                          alt={`Banner ${category.name}`}
+                          className="w-full h-20 object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-1.5 right-1.5 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <ImageIcon size={9} /> Banner ativo
+                        </div>
+                      </div>
+                    )}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5">
@@ -303,6 +362,11 @@ export default function CategoriesPage() {
                             🍕 Multi-sabores
                           </span>
                         )}
+                        {!category.bannerImage && (
+                          <span className="text-xs font-semibold bg-gray-50 text-gray-400 border border-gray-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <ImageIcon size={10} /> Sem banner
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
@@ -319,6 +383,7 @@ export default function CategoriesPage() {
                         <Trash2 size={15} />
                       </button>
                     </div>
+                  </div>
                   </div>
                 )}
                         </div>

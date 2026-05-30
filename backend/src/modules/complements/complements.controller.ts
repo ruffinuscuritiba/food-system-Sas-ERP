@@ -50,6 +50,37 @@ export class ComplementsController {
     return this.service.create(dto, req.user.companyId);
   }
 
+  /** PATCH /api/complements/reorder — DnD de grupos (Fase B4) */
+  @Patch('reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  reorderGroups(
+    @Body() body: { items: { id: string; sortOrder: number }[] },
+    @Request() req: any,
+  ) {
+    return this.service.reorderGroups(req.user.companyId, body?.items ?? []);
+  }
+
+  /** POST /api/complements/:id/duplicate — duplica grupo + options (Fase B2) */
+  @Post(':id/duplicate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  duplicate(@Param('id') id: string, @Request() req: any) {
+    return this.service.duplicate(id, req.user.companyId);
+  }
+
+  /** PATCH /api/complements/:id/options/reorder — DnD de opções (Fase B4) */
+  @Patch(':id/options/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  reorderOptions(
+    @Param('id') id: string,
+    @Body() body: { items: { id: string; sortOrder: number }[] },
+    @Request() req: any,
+  ) {
+    return this.service.reorderOptions(id, req.user.companyId, body?.items ?? []);
+  }
+
   /** PATCH /api/complements/:id */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)

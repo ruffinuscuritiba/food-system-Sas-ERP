@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
-import { PizzaSize } from '@prisma/client';
+
+type PizzaSize = 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'FAMILIA' | 'EXTRA_GRANDE';
 
 export interface BorderSizeDto {
   size: PizzaSize;

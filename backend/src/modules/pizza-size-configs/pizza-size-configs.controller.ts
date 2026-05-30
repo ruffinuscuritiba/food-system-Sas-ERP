@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { PizzaSizeConfigsService } from './pizza-size-configs.service';
-// PizzaSize not yet in generated client - use string type
+
 type PizzaSize = 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'FAMILIA' | 'EXTRA_GRANDE';
 
 @Controller('pizza-size-configs')

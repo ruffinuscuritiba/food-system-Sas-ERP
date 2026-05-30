@@ -1221,14 +1221,8 @@ model ImportLog {
 }
 
 // ── Pizza Borders ─────────────────────────────────────────────────────────────
-
-enum PizzaSize {
-  PEQUENA
-  MEDIA
-  GRANDE
-  FAMILIA
-  EXTRA_GRANDE
-}
+// PizzaSize enum removido — todas as colunas foram convertidas para TEXT no banco
+// via migrations 20260526010000 e 20260527300000. String é o tipo correto.
 
 model PizzaBorder {
   id        String            @id @default(cuid())
@@ -1247,7 +1241,7 @@ model PizzaBorderSize {
   id           String      @id @default(cuid())
   pizzaBorderId String
   pizzaBorder  PizzaBorder @relation(fields: [pizzaBorderId], references: [id], onDelete: Cascade)
-  size         PizzaSize
+  size         String
   price        Decimal     @db.Decimal(10, 2)
 
   @@unique([pizzaBorderId, size])

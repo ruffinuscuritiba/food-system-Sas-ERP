@@ -144,7 +144,7 @@ export class ProductsService {
           ...(sizes.length > 0 && {
             sizes: {
               create: sizes.map((s) => ({
-                size: s.size as any,
+                size: s.size,
                 price: Number(s.price),
                 companyId: data.companyId,
               })),
@@ -200,7 +200,7 @@ export class ProductsService {
         await this.prisma.productSize.createMany({
           data: sizes.map((s) => ({
             productId: id,
-            size: s.size as any,
+            size: s.size,
             price: Number(s.price),
             companyId: data.companyId ?? '',
           })),

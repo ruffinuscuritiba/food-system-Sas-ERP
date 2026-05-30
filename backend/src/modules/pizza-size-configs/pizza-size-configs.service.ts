@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
-// PizzaSize not yet in generated client - use string type
+
 type PizzaSize = 'PEQUENA' | 'MEDIA' | 'GRANDE' | 'FAMILIA' | 'EXTRA_GRANDE';
 
 // Defaults criados quando a empresa ainda não tem configuração
@@ -26,19 +26,19 @@ export class PizzaSizeConfigsService {
    * Retorna as configs da empresa, criando os defaults se ainda não existirem.
    */
   async findAll(companyId: string) {
-    const existing = await (this.prisma as any).pizzaSizeConfig.findMany({
+    const existing = await this.prisma.pizzaSizeConfig.findMany({
       where: { companyId },
       orderBy: { sortOrder: 'asc' },
     });
 
     if (existing.length === 0) {
       // Cria defaults para a empresa
-      await (this.prisma as any).pizzaSizeConfig.createMany({
+      await this.prisma.pizzaSizeConfig.createMany({
         data: DEFAULT_SIZES.map((d) => ({ ...d, companyId })),
         skipDuplicates: true,
       });
 
-      return (this.prisma as any).pizzaSizeConfig.findMany({
+      return this.prisma.pizzaSizeConfig.findMany({
         where: { companyId },
         orderBy: { sortOrder: 'asc' },
       });
@@ -60,7 +60,7 @@ export class PizzaSizeConfigsService {
     // Garante que o registro existe antes de atualizar (upsert)
     const defaults = DEFAULT_SIZES.find((d) => d.size === size);
 
-    return (this.prisma as any).pizzaSizeConfig.upsert({
+    return this.prisma.pizzaSizeConfig.upsert({
       where: { companyId_size: { companyId, size } },
       create: {
         companyId,
@@ -84,7 +84,7 @@ export class PizzaSizeConfigsService {
    * Retorna o maxFlavors de um tamanho específico (para validação no pedido).
    */
   async getMaxFlavors(companyId: string, size: PizzaSize): Promise<number> {
-    const config = await (this.prisma as any).pizzaSizeConfig.findUnique({
+    const config = await this.prisma.pizzaSizeConfig.findUnique({
       where: { companyId_size: { companyId, size } },
     });
 

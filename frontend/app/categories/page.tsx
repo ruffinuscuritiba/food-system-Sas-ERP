@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
-import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical, Image as ImageIcon } from "lucide-react";
+import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical, Image as ImageIcon, Sparkles } from "lucide-react";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
+import { CATEGORY_BANNERS, type PresetBanner } from "@/lib/category-banners";
 
 // @hello-pangea/dnd é pesado e incompatível com SSR — carregamento dinâmico
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -31,6 +32,14 @@ export default function CategoriesPage() {
   // Fase 5 White Label — banner por categoria
   const [newBannerImage, setNewBannerImage]       = useState<string | null>(null);
   const [editBannerImage, setEditBannerImage]     = useState<string | null>(null);
+  // Modal de biblioteca de banners prontos — abre com target ("new" | "edit")
+  const [bannerPickerFor, setBannerPickerFor]     = useState<"new" | "edit" | null>(null);
+
+  function selectPresetBanner(b: PresetBanner) {
+    if (bannerPickerFor === "new")  setNewBannerImage(b.url);
+    if (bannerPickerFor === "edit") setEditBannerImage(b.url);
+    setBannerPickerFor(null);
+  }
 
   async function fetchCategories() {
     try {
@@ -203,11 +212,20 @@ export default function CategoriesPage() {
 
           {/* Banner (Fase 5 White Label) — aparece no topo do PDV ao trocar para esta categoria */}
           <div className="mt-4">
-            <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-              <ImageIcon size={13} className="text-gray-400" />
-              Banner do PDV (opcional)
-            </p>
-            <p className="text-[11px] text-gray-400 mb-2">JPG, PNG ou WebP até 2 MB. Aparece no topo do PDV ao selecionar esta categoria.</p>
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                <ImageIcon size={13} className="text-gray-400" />
+                Banner do PDV (opcional)
+              </p>
+              <button
+                type="button"
+                onClick={() => setBannerPickerFor("new")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/15 text-primary border border-primary/20 text-xs font-bold transition min-h-[32px]"
+              >
+                <Sparkles size={12} /> Escolher Banner Pronto
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-400 mb-2">JPG, PNG ou WebP até 2 MB — ou use a biblioteca de banners prontos.</p>
             <ImageUploaderPreview
               value={newBannerImage ?? undefined}
               onChange={setNewBannerImage}
@@ -305,12 +323,21 @@ export default function CategoriesPage() {
                       </label>
                     )}
 
-                    {/* Banner (Fase 5) — upload / trocar / remover */}
+                    {/* Banner (Fase 5) — upload / biblioteca / trocar / remover */}
                     <div>
-                      <p className="text-[11px] font-bold text-gray-500 mb-1.5 flex items-center gap-1">
-                        <ImageIcon size={12} className="text-gray-400" />
-                        Banner do PDV
-                      </p>
+                      <div className="flex items-center justify-between mb-1.5 gap-1.5 flex-wrap">
+                        <p className="text-[11px] font-bold text-gray-500 flex items-center gap-1">
+                          <ImageIcon size={12} className="text-gray-400" />
+                          Banner do PDV
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setBannerPickerFor("edit")}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 hover:bg-primary/15 text-primary border border-primary/20 text-[10px] font-bold transition"
+                        >
+                          <Sparkles size={10} /> Banner Pronto
+                        </button>
+                      </div>
                       <ImageUploaderPreview
                         value={editBannerImage ?? undefined}
                         onChange={setEditBannerImage}
@@ -397,6 +424,62 @@ export default function CategoriesPage() {
           </DragDropContext>
         )}
       </div>
+
+      {/* ─── Modal: Biblioteca de Banners Prontos ──────────────────────────── */}
+      {bannerPickerFor && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-primary" />
+                <h2 className="font-black text-gray-900">Escolher Banner Pronto</h2>
+              </div>
+              <button onClick={() => setBannerPickerFor(null)} className="text-gray-400 hover:text-gray-600 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4">
+              <p className="text-sm text-gray-500 mb-4">
+                Clique em um banner para aplicar à categoria. Você pode trocar a qualquer momento ou substituir por upload próprio.
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {CATEGORY_BANNERS.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => selectPresetBanner(b)}
+                    className="group relative rounded-xl overflow-hidden border-2 border-gray-100 hover:border-primary transition shadow-sm hover:shadow-md min-h-[120px]"
+                    title={`Aplicar banner ${b.category}`}
+                  >
+                    <img
+                      src={b.url}
+                      alt={`Banner ${b.category}`}
+                      className="w-full h-28 object-cover transition group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 text-white">
+                      <span className="text-base">{b.emoji}</span>
+                      <span className="text-xs font-black truncate">{b.category}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-100 sticky bottom-0 bg-white">
+              <button
+                onClick={() => setBannerPickerFor(null)}
+                className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 min-h-[44px]"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

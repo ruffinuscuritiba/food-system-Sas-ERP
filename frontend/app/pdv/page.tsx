@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { PaymentModal } from "@/components/pdv/PaymentModal";
 import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
+import { ComplementsModal } from "@/components/shared/ComplementsModal";
 
 type PdvOrderDetails = OrderDetails;
 import {
@@ -49,7 +50,33 @@ interface Product {
   notes?: string;
 }
 
-interface CartItem { product: Product; qty: number; }
+interface SelectedComplement {
+  complementOptionId: string;
+  complementName: string;
+  optionName: string;
+  price: number;
+  quantity: number;
+}
+
+interface ComplementOption {
+  id: string;
+  name: string;
+  price: number;
+  isActive: boolean;
+}
+
+interface ComplementGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  chargesExtra: boolean;
+  multipleChoice: boolean;
+  minOptions: number;
+  maxOptions: number;
+  options: ComplementOption[];
+}
+
+interface CartItem { product: Product; qty: number; complements?: SelectedComplement[]; }
 
 const PIZZA_SIZE_ORDER: Record<string, number> = {
   BIG: 0,
@@ -198,6 +225,10 @@ export default function PDVPage() {
   const [showCart, setShowCart]                 = useState(false);
   const [showPayment, setShowPayment]           = useState(false);
   const [pizzaProduct, setPizzaProduct]         = useState<Product | null>(null);
+  const [complementProduct, setComplementProduct] = useState<Product | null>(null);
+  const [loadedComplements, setLoadedComplements] = useState<ComplementGroup[]>([]);
+  const [complementSelections, setComplementSelections] = useState<Record<string, SelectedComplement[]>>({});
+  const [complementLoading, setComplementLoading] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [pdvOrderDetails, setPdvOrderDetails] = useState<PdvOrderDetails>({
     orderType: "DINE_IN",
@@ -267,19 +298,41 @@ export default function PDVPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const addToCart = useCallback((product: Product) => {
-    // Pizza category → open builder for meio a meio
+  const addCartItem = useCallback((product: Product, complements?: SelectedComplement[]) => {
+    setCart(prev => {
+      // Items with complements always create a new cart entry (selections differ)
+      if (complements && complements.length > 0) {
+        return [...prev, { product, qty: 1, complements }];
+      }
+      const ex = prev.find(i => i.product.id === product.id && !i.complements?.length);
+      if (ex) return prev.map(i =>
+        i.product.id === product.id && !i.complements?.length ? { ...i, qty: i.qty + 1 } : i
+      );
+      return [...prev, { product, qty: 1 }];
+    });
+    toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
+  }, []);
+
+  const openProductAdd = useCallback(async (product: Product) => {
     if (product.categoryId && pizzaCategories.has(product.categoryId)) {
       setPizzaProduct(product);
       return;
     }
-    setCart(prev => {
-      const ex = prev.find(i => i.product.id === product.id);
-      if (ex) return prev.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { product, qty: 1 }];
-    });
-    toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
-  }, [pizzaCategories]);
+    if (!companyId) { addCartItem(product); return; }
+    setComplementLoading(true);
+    try {
+      const res = await api.get(`/complements/public/product/${product.id}?companyId=${companyId}`);
+      const groups: ComplementGroup[] = Array.isArray(res.data) ? res.data : [];
+      if (groups.length === 0) { addCartItem(product); return; }
+      setLoadedComplements(groups);
+      setComplementSelections({});
+      setComplementProduct(product);
+    } catch {
+      addCartItem(product);
+    } finally {
+      setComplementLoading(false);
+    }
+  }, [pizzaCategories, companyId, addCartItem]);
 
   const addPizzaToCart = useCallback((pizza: any) => {
     const pizzaItem: CartItem = {
@@ -310,7 +363,10 @@ export default function PDVPage() {
   const clearCart = useCallback(() => { setCart([]); }, []);
 
   const cartCount = cart.reduce((a, i) => a + i.qty, 0);
-  const cartTotal = cart.reduce((a, i) => a + (Number(i.product.salePrice) || 0) * i.qty, 0);
+  const cartTotal = cart.reduce((a, { product, qty, complements }) => {
+    const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+    return a + ((Number(product.salePrice) || 0) + compExtra) * qty;
+  }, 0);
   const canProceedToPayment =
     cart.length > 0 &&
     (pdvOrderDetails.orderType === "PICKUP" ||
@@ -374,10 +430,17 @@ export default function PDVPage() {
 
     setPaymentSubmitting(true);
     try {
-      const orderItems = cart.map(({ product, qty }) => ({
+      const orderItems = cart.map(({ product, qty, complements }) => ({
         productId: product.orderProductId || product.id,
         quantity: qty,
         notes: product.notes || "",
+        complements: (complements || []).map(c => ({
+          complementOptionId: c.complementOptionId,
+          complementName: c.complementName,
+          optionName: c.optionName,
+          price: c.price,
+          quantity: c.quantity,
+        })),
       }));
 
       // Validate all item IDs are real UUIDs/cuid before sending
@@ -801,7 +864,7 @@ export default function PDVPage() {
                   <div
                     key={product.id}
                     className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-blue-600 transition group"
-                    onClick={() => addToCart(product)}
+                    onClick={() => openProductAdd(product)}
                   >
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
@@ -812,8 +875,9 @@ export default function PDVPage() {
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
                       <p className="text-blue-400 font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
                       <button
-                        onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                        className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 group-hover:bg-blue-500 active:scale-95 transition text-xs font-bold"
+                        onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
+                        disabled={complementLoading}
+                        className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 group-hover:bg-blue-500 active:scale-95 transition text-xs font-bold disabled:opacity-50"
                       >
                         + Adicionar
                       </button>
@@ -865,8 +929,9 @@ export default function PDVPage() {
                         </span>
                       )}
                       <button
-                        onClick={() => addToCart(product)}
-                        className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-base font-bold"
+                        onClick={() => openProductAdd(product)}
+                        disabled={complementLoading}
+                        className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-base font-bold disabled:opacity-50"
                       >
                         ADICIONAR
                       </button>
@@ -900,7 +965,7 @@ export default function PDVPage() {
                 <div
                   key={product.id}
                   className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col"
-                  onClick={() => addToCart(product)}
+                  onClick={() => openProductAdd(product)}
                 >
                   {product.imageUrl ? (
                     <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
@@ -911,7 +976,7 @@ export default function PDVPage() {
                     <p className="font-bold text-xs leading-tight line-clamp-2 flex-1">{product.name}</p>
                     <p className="text-blue-400 font-black text-xs mt-1.5 leading-tight">{productPriceLabel(product)}</p>
                     <button
-                      onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                      onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
                       className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 active:scale-95 transition text-xs font-bold"
                     >
                       + Adicionar
@@ -937,7 +1002,7 @@ export default function PDVPage() {
                     <p className="text-blue-400 font-black text-sm mt-1 leading-tight">{productPriceLabel(product)}</p>
                   </div>
                   <button
-                    onClick={() => addToCart(product)}
+                    onClick={() => openProductAdd(product)}
                     className="shrink-0 h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition text-sm font-bold"
                   >
                     +
@@ -987,24 +1052,37 @@ export default function PDVPage() {
                   <p className="text-sm font-medium">Carrinho vazio</p>
                 </div>
               ) : (
-                cart.map(({ product, qty }) => (
-                  <div key={product.id} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-center gap-3">
-                    {product.imageUrl
-                      ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0" />
-                      : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>
-                    }
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{product.name}</p>
-                      <p className="text-zinc-400 text-xs mt-0.5">{fmt(product.salePrice)} × {qty}</p>
+                cart.map(({ product, qty, complements }, idx) => {
+                  const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+                  const itemTotal = ((Number(product.salePrice) || 0) + compExtra) * qty;
+                  return (
+                    <div key={`${product.id}-${idx}`} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-start gap-3">
+                      {product.imageUrl
+                        ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 mt-0.5" />
+                        : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0 mt-0.5">🍽️</div>
+                      }
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{product.name}</p>
+                        <p className="text-zinc-400 text-xs mt-0.5">{fmt(Number(product.salePrice))} × {qty}</p>
+                        {complements && complements.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {complements.map((c, ci) => (
+                              <p key={ci} className="text-zinc-500 text-xs">
+                                + {c.quantity}x {c.optionName}{c.price > 0 ? ` (${fmt(c.price)})` : ""}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                        <span className="font-bold text-blue-400">{fmt(itemTotal)}</span>
+                        <button onClick={() => removeFromCart(product.id)} className="w-7 h-7 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-700/40 flex items-center justify-center transition">
+                          <X size={12} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-bold text-blue-400">{fmt((Number(product.salePrice) || 0) * qty)}</span>
-                      <button onClick={() => removeFromCart(product.id)} className="w-7 h-7 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-700/40 flex items-center justify-center transition">
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -1306,6 +1384,22 @@ export default function PDVPage() {
           </div>
         </div>
       )}
+
+      {/* COMPLEMENT MODAL (shared component) */}
+      <ComplementsModal
+        open={!!complementProduct}
+        productName={complementProduct?.name ?? ""}
+        productBasePrice={Number(complementProduct?.salePrice ?? 0)}
+        groups={loadedComplements as any}
+        loading={complementLoading}
+        theme="dark"
+        onClose={() => { setComplementProduct(null); setComplementSelections({}); }}
+        onConfirm={(sel) => {
+          addCartItem(complementProduct!, sel as any);
+          setComplementProduct(null);
+          setComplementSelections({});
+        }}
+      />
 
       {/* VIDEO MODAL */}
       {videoProduct && (

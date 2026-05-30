@@ -12,6 +12,7 @@ import {
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
+import { ComplementsModal, ComplementGroup, SelectedComplement } from "@/components/shared/ComplementsModal";
 
 type Product = {
   id: string;
@@ -43,7 +44,21 @@ function productPriceLabel(product: Product, primaryColor?: string): string {
   return `R$ ${Number(product.salePrice).toFixed(2).replace(".", ",")}`;
 }
 
-type CartItem = { cartKey: string; product: Product; quantity: number; notes: string; flavors?: Product[] };
+type CartComplement = {
+  complementOptionId: string;
+  complementName:     string;
+  optionName:         string;
+  price:              number;
+  quantity:           number;
+};
+type CartItem = {
+  cartKey: string;
+  product: Product;
+  quantity: number;
+  notes: string;
+  flavors?: Product[];
+  complements?: CartComplement[];
+};
 
 type CustomerForm = {
   name: string;
@@ -157,10 +172,13 @@ export default function MenuPage() {
       const list: Product[] = Array.isArray(menuData) ? menuData : (menuData.products || []);
       setProducts(list);
 
+      // Mantém a ordem em que aparecem nos produtos (que já vêm ordenados por sortOrder do backend).
+      // "Outros" fica sempre por último.
       const catNames = Array.from(new Set<string>(
         list.map((p) => p.category?.name?.trim() || "Outros")
       ));
-      setCategories(["Todos", ...catNames.sort((a, b) => a === "Outros" ? 1 : b === "Outros" ? -1 : a.localeCompare(b, "pt-BR"))]);
+      const ordered = [...catNames.filter((n) => n !== "Outros"), ...catNames.filter((n) => n === "Outros")];
+      setCategories(["Todos", ...ordered]);
 
       // Keep full category objects (with categoryType) from menu data
       const catObjs: any[] = [];
@@ -282,15 +300,50 @@ export default function MenuPage() {
     }
   }
 
-  function addToCart(product: Product) {
+  // ── Complementos: estado e fluxo ─────────────────────────────────────────────
+  const [compProduct,   setCompProduct]   = useState<Product | null>(null);
+  const [compGroups,    setCompGroups]    = useState<ComplementGroup[]>([]);
+  const [compLoading,   setCompLoading]   = useState(false);
+
+  function addProductDirect(product: Product, complements?: CartComplement[]) {
     setCart((prev) => {
-      const existing = prev.find((i) => i.cartKey === product.id);
-      if (existing) return prev.map((i) => i.cartKey === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      // Items com complementos sempre criam nova entrada (seleção difere)
+      if (complements && complements.length > 0) {
+        return [...prev, {
+          cartKey: `${product.id}-${Date.now()}`,
+          product, quantity: 1, notes: "", complements,
+        }];
+      }
+      const existing = prev.find((i) => i.cartKey === product.id && !i.complements?.length);
+      if (existing) return prev.map((i) =>
+        i.cartKey === product.id && !i.complements?.length
+          ? { ...i, quantity: i.quantity + 1 } : i
+      );
       return [...prev, { cartKey: product.id, product, quantity: 1, notes: "" }];
     });
     toast.success(`${product.name} adicionado!`);
     trackPixelAddToCart(Number(product.salePrice), product.name);
     trackGAAddToCart(product.name, Number(product.salePrice));
+  }
+
+  async function addToCart(product: Product) {
+    // Busca complementos do produto via endpoint público (multiempresa por query)
+    setCompLoading(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/complements/public/product/${product.id}?companyId=${companyId}`);
+      const groups: ComplementGroup[] = res.ok ? await res.json() : [];
+      if (groups.length === 0) {
+        addProductDirect(product);
+        return;
+      }
+      setCompGroups(groups);
+      setCompProduct(product);
+    } catch {
+      // Em erro de rede, adiciona direto (não bloqueia a venda)
+      addProductDirect(product);
+    } finally {
+      setCompLoading(false);
+    }
   }
 
   function updateQuantity(cartKey: string, delta: number) {
@@ -402,7 +455,10 @@ export default function MenuPage() {
     toast.success("Pizza montada adicionada!");
   }
 
-  const cartTotal = cart.reduce((acc, i) => acc + Number(i.product.salePrice) * i.quantity, 0);
+  const cartTotal = cart.reduce((acc, i) => {
+    const compExtra = (i.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+    return acc + (Number(i.product.salePrice) + compExtra) * i.quantity;
+  }, 0);
   const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount;
   const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
@@ -461,13 +517,23 @@ export default function MenuPage() {
           state:         form.state,
           zipcode:       form.zipcode,
           complement:    form.complement,
-          items: cartSnapshot.map((i) => ({
-            productId:   i.flavors ? i.flavors[0].id : i.product.id,
-            productName: i.product.name,
-            quantity:    i.quantity,
-            unitPrice:   Number(i.product.salePrice),
-            notes:       i.notes || "",
-          })),
+          items: cartSnapshot.map((i) => {
+            const compExtra = (i.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+            return {
+              productId:   i.flavors ? i.flavors[0].id : i.product.id,
+              productName: i.product.name,
+              quantity:    i.quantity,
+              unitPrice:   Number(i.product.salePrice) + compExtra,
+              notes:       i.notes || "",
+              complements: (i.complements || []).map((c) => ({
+                complementOptionId: c.complementOptionId,
+                complementName:     c.complementName,
+                optionName:         c.optionName,
+                price:              Number(c.price),
+                quantity:           c.quantity,
+              })),
+            };
+          }),
           subtotal:      cartTotal,
           discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount,
           deliveryFee:   0,
@@ -835,7 +901,8 @@ export default function MenuPage() {
       </div>
 
       {/* ─── Produtos ───────────────────────────────────────────────────────────── */}
-      <main className="max-w-2xl mx-auto px-4 py-6 pb-32">
+      {/* pb-44 (176px) cobre CTA flutuante (~80px) + safe-area iOS + margem confortável */}
+      <main className={`max-w-2xl mx-auto px-4 py-6 ${cartCount > 0 ? "pb-44" : "pb-12"}`} style={{ paddingBottom: cartCount > 0 ? "calc(11rem + env(safe-area-inset-bottom))" : undefined }}>
         {filtered.length === 0 ? (
           <p className="text-gray-400 text-center py-20">Nenhum produto disponível</p>
         ) : (() => {
@@ -974,9 +1041,33 @@ export default function MenuPage() {
         })()}
       </main>
 
+      {/* ─── Complementos modal ───────────────────────────────────────────────── */}
+      <ComplementsModal
+        open={!!compProduct}
+        productName={compProduct?.name ?? ""}
+        productBasePrice={Number(compProduct?.salePrice ?? 0)}
+        groups={compGroups}
+        loading={compLoading}
+        theme="light"
+        onClose={() => { setCompProduct(null); setCompGroups([]); }}
+        onConfirm={(sel: SelectedComplement[]) => {
+          if (!compProduct) return;
+          const mapped: CartComplement[] = sel.map((s) => ({
+            complementOptionId: s.complementOptionId,
+            complementName:     s.complementName,
+            optionName:         s.optionName,
+            price:              Number(s.price),
+            quantity:           s.quantity,
+          }));
+          addProductDirect(compProduct, mapped);
+          setCompProduct(null);
+          setCompGroups([]);
+        }}
+      />
+
       {/* ─── Botão flutuante de carrinho (mobile) ─────────────────────────────── */}
       {cartCount > 0 && (
-        <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4">
+        <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
           <button
             onClick={() => setShowCart(true)}
             className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-2xl font-black text-base shadow-xl shadow-orange-500/40 flex items-center gap-3 transition max-w-sm w-full justify-between"
@@ -1004,13 +1095,23 @@ export default function MenuPage() {
                 <p className="text-gray-400 text-center py-10">Carrinho vazio</p>
               ) : cart.map((item) => (
                 <div key={item.cartKey} className="flex items-center gap-4 bg-gray-50 rounded-xl p-4 border border-gray-100">
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-bold text-gray-900 text-sm">{item.product.name}</p>
                     {item.notes && item.flavors && (
                       <p className="text-orange-500 text-xs mt-0.5">{item.notes}</p>
                     )}
+                    {item.complements && item.complements.length > 0 && (
+                      <ul className="mt-1 space-y-0.5">
+                        {item.complements.map((c, idx) => (
+                          <li key={idx} className="text-[11px] text-gray-500">
+                            + {c.optionName}
+                            {Number(c.price) > 0 && <span className="text-orange-500 ml-1">(+R$ {Number(c.price).toFixed(2)})</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <p className="text-orange-500 font-bold text-sm mt-1">
-                      R$ {(Number(item.product.salePrice) * item.quantity).toFixed(2)}
+                      R$ {((Number(item.product.salePrice) + (item.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0)) * item.quantity).toFixed(2)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

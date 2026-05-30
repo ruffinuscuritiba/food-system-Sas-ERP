@@ -32,6 +32,13 @@ export interface CreateOnlineOrderDto {
     quantity: number;
     unitPrice: number;
     notes?: string;
+    complements?: Array<{
+      complementOptionId: string;
+      complementName:     string;
+      optionName:         string;
+      price:              number;
+      quantity:           number;
+    }>;
   }>;
   subtotal: number;
   deliveryFee?: number;
@@ -84,6 +91,60 @@ export class OnlineOrdersService {
 
     if (!isFinite(total) || total <= 0) {
       throw new BadRequestException('Valor total inválido.');
+    }
+
+    // ── 1b. Validação server-side de complementos (Fase A — Item 4) ────────
+    // Garante required / minOptions / maxOptions / multipleChoice mesmo
+    // que o frontend seja burlado. Tudo filtrado por companyId.
+    for (const item of dto.items) {
+      const groups: any[] = await (this.prisma as any).complement.findMany({
+        where: { productId: item.productId, companyId: dto.companyId, isActive: true },
+        include: { options: { where: { isActive: true } } },
+      });
+      if (groups.length === 0) continue;
+
+      // Indexa seleções recebidas por complementName (snapshot enviado pelo client)
+      const sentByGroup = new Map<string, Array<{ id: string; qty: number }>>();
+      for (const c of item.complements ?? []) {
+        const arr = sentByGroup.get(c.complementName) ?? [];
+        arr.push({ id: c.complementOptionId, qty: Number(c.quantity) || 1 });
+        sentByGroup.set(c.complementName, arr);
+      }
+
+      for (const g of groups) {
+        const sent  = sentByGroup.get(g.name) ?? [];
+        const count = sent.length;
+
+        if (g.required && count < Math.max(1, g.minOptions || 1)) {
+          throw new BadRequestException(
+            `Complemento "${g.name}" é obrigatório para "${item.productName}" (mínimo ${g.minOptions || 1}).`,
+          );
+        }
+        if (count > 0 && g.minOptions > 0 && count < g.minOptions) {
+          throw new BadRequestException(
+            `Selecione ao menos ${g.minOptions} em "${g.name}".`,
+          );
+        }
+        if (g.maxOptions > 0 && count > g.maxOptions) {
+          throw new BadRequestException(
+            `Máximo ${g.maxOptions} em "${g.name}" (recebido ${count}).`,
+          );
+        }
+        if (!g.multipleChoice && count > 1) {
+          throw new BadRequestException(
+            `"${g.name}" aceita apenas 1 escolha.`,
+          );
+        }
+        // Cada opção enviada precisa existir no grupo (anti-spoof de ID)
+        const validIds = new Set<string>(g.options.map((o: any) => o.id));
+        for (const s of sent) {
+          if (!validIds.has(s.id)) {
+            throw new BadRequestException(
+              `Opção inválida em "${g.name}".`,
+            );
+          }
+        }
+      }
     }
 
     // ── 2. Persist to database ─────────────────────────────────────────────

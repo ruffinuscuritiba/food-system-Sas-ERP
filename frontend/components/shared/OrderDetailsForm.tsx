@@ -17,6 +17,8 @@ export type OrderDetails = {
   bairro?: string;
   cidade?: string;
   cep?: string;
+  /** Taxa de entrega (string para preservar vírgula digitada pelo operador) */
+  deliveryFee?: string;
 };
 
 type Props = {
@@ -198,6 +200,18 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
               value={value.cidade ?? ""}
               onChange={e => set({ cidade: e.target.value })}
               placeholder="Cidade"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Taxa de entrega */}
+          <div>
+            <p className={labelCls}>Taxa de entrega (R$)</p>
+            <input
+              value={value.deliveryFee ?? ""}
+              onChange={e => set({ deliveryFee: e.target.value })}
+              placeholder="0,00"
+              inputMode="decimal"
               className={inputCls}
             />
           </div>

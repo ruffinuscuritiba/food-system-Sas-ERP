@@ -76,8 +76,13 @@ interface ComplementGroup {
   options: ComplementOption[];
 }
 
-// ✅ CORREÇÃO — CartItem agora carrega unitPrice (snapshot do preço no momento da adição).
-interface CartItem { product: Product; qty: number; unitPrice: number; complements?: SelectedComplement[]; }
+interface CartItem {
+  product: Product;
+  qty: number;
+  complements?: SelectedComplement[];
+  /** Preço unitário real (ex: preço do tamanho de pizza). Fallback: product.salePrice */
+  unitPrice?: number;
+}
 
 const PIZZA_SIZE_ORDER: Record<string, number> = {
   BIG: 0,
@@ -220,6 +225,7 @@ export default function PDVPage() {
     bairro: "",
     cidade: "",
     cep: "",
+    deliveryFee: "",
   });
   const [companyId, setCompanyId]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
@@ -275,18 +281,15 @@ export default function PDVPage() {
   }, []);
 
   const addCartItem = useCallback((product: Product, complements?: SelectedComplement[]) => {
-    // ✅ CORREÇÃO — snapshot do preço no momento da adição ao carrinho.
-    const unitPrice = Number(product.salePrice) || 0;
-
     setCart(prev => {
       if (complements && complements.length > 0) {
-        return [...prev, { product, qty: 1, unitPrice, complements }];
+        return [...prev, { product, qty: 1, complements }];
       }
       const ex = prev.find(i => i.product.id === product.id && !i.complements?.length);
       if (ex) return prev.map(i =>
         i.product.id === product.id && !i.complements?.length ? { ...i, qty: i.qty + 1 } : i
       );
-      return [...prev, { product, qty: 1, unitPrice }];
+      return [...prev, { product, qty: 1 }];
     });
     toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
   }, []);
@@ -317,6 +320,7 @@ export default function PDVPage() {
       product: {
         id: `pizza-${Date.now()}`,
         name: pizza.name,
+        // salePrice mantém o preço mínimo para fallback/exibição legada
         salePrice: pizza.price,
         categoryId: pizza.categoryId,
         isActive: true,
@@ -328,8 +332,8 @@ export default function PDVPage() {
         ].filter(Boolean).join(" | "),
       },
       qty: 1,
-      // ✅ CORREÇÃO — snapshot do preço da pizza montada.
-      unitPrice: Number(pizza.price) || 0,
+      // unitPrice carrega o preço real do tamanho selecionado pelo PizzaBuilder
+      unitPrice: pizza.price,
     };
     setCart(prev => [...prev, pizzaItem]);
     setPizzaProduct(null);
@@ -344,11 +348,20 @@ export default function PDVPage() {
 
   const cartCount = cart.reduce((a, i) => a + i.qty, 0);
 
-  // ✅ CORREÇÃO — total usa unitPrice do snapshot, não product.salePrice dinâmico.
-  const cartTotal = cart.reduce((a, { unitPrice, qty, complements }) => {
+  // unitPrice é a fonte de verdade; fallback para salePrice em itens simples.
+  // Estes dois cálculos (cartTotal aqui e useCart.total) devem usar a mesma fórmula.
+  const cartTotal = cart.reduce((a, { product, qty, complements, unitPrice }) => {
+    const base = unitPrice ?? (Number(product.salePrice) || 0);
     const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
-    return a + (unitPrice + compExtra) * qty;
+    return a + (base + compExtra) * qty;
   }, 0);
+
+  // Delivery fee: somente para DELIVERY; converte vírgula → ponto antes de parsear.
+  const parsedDeliveryFee = pdvOrderDetails.orderType === "DELIVERY"
+    ? parseFloat((pdvOrderDetails.deliveryFee ?? "").replace(",", ".")) || 0
+    : 0;
+
+  const orderTotal = cartTotal + parsedDeliveryFee;
 
   const canProceedToPayment =
     cart.length > 0 &&
@@ -411,12 +424,13 @@ export default function PDVPage() {
 
     setPaymentSubmitting(true);
     try {
-      // ✅ CORREÇÃO — payload inclui unitPrice (snapshot) por item.
-      const orderItems = cart.map(({ product, qty, unitPrice, complements }) => ({
+      const orderItems = cart.map(({ product, qty, complements, unitPrice }) => ({
         productId: product.orderProductId || product.id,
         quantity: qty,
-        unitPrice,
         notes: product.notes || "",
+        // unitPrice envia o preço real do tamanho ao backend;
+        // se ausente (item simples), o backend usa product.salePrice do banco como fallback.
+        unitPrice: unitPrice != null && unitPrice > 0 ? unitPrice : undefined,
         complements: (complements || []).map(c => ({
           complementOptionId: c.complementOptionId,
           complementName: c.complementName,
@@ -451,12 +465,14 @@ export default function PDVPage() {
         customerPhone: details.customerPhone || "",
         deliveryAddress: fullAddress,
         orderType: details.orderType,
+        // tableNumber enviado para o backend atualizar a mesa para OCCUPIED
+        tableNumber: details.orderType === "DINE_IN" ? details.tableNumber : undefined,
         paymentMethod,
         notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
         items: orderItems,
         subtotal: cartTotal,
-        total: cartTotal,
-        deliveryFee: 0,
+        deliveryFee: parsedDeliveryFee,
+        total: orderTotal,
       });
 
       if (orderRes.data?.id) {
@@ -564,108 +580,55 @@ export default function PDVPage() {
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
 
-      {/* SIDEBAR — hidden on mobile */}
+      {/* SIDEBAR */}
       <aside className="hidden md:flex w-[240px] bg-[#050816] border-r border-[#161b2d] flex-col overflow-hidden">
-
-        {/* LOGO */}
         <div className="h-[92px] shrink-0 border-b border-[#161b2d] flex items-center px-5 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-3xl font-black">
-            F
-          </div>
-
+          <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-3xl font-black">F</div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-[18px] font-bold leading-none">
-                FoodSaaS-ERP
-              </h1>
+              <h1 className="text-[18px] font-bold leading-none">FoodSaaS-ERP</h1>
               <span className="text-[9px] font-mono text-zinc-600 bg-[#0b0f1b] border border-[#1d2336] px-1.5 py-0.5 rounded-md shrink-0 select-none">
                 {process.env.NEXT_PUBLIC_COMMIT_SHA || "dev"}
               </span>
             </div>
-            <p className="text-zinc-400 text-sm mt-1">
-              PDV / Caixa
-            </p>
+            <p className="text-zinc-400 text-sm mt-1">PDV / Caixa</p>
           </div>
         </div>
-
-        {/* MENU */}
         <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
-
-            <MenuSection
-              title=""
-              items={[
-                { icon: <LayoutDashboard size={18} />, label: "Dashboard", href: "/", green: true },
-              ]}
-            />
-
-            <MenuSection
-              title="OPERAÇÃO"
-              items={[
-                { icon: <ShoppingCart size={18} />,   label: "Pedidos",    href: "/orders" },
-                { icon: <ChefHat size={18} />,        label: "Cozinha",    href: "/kitchen" },
-                { icon: <UtensilsCrossed size={18} />, label: "Mesas",     href: "/tables" },
-                { icon: <DollarSign size={18} />,     label: "PDV / Caixa", href: "/pdv", active: true },
-              ]}
-            />
-
-            <MenuSection
-              title="CARDÁPIO"
-              items={[
-                { icon: <Package size={18} />, label: "Produtos",        href: "/products" },
-                { icon: <Tags size={18} />,    label: "Categorias",      href: "/categories" },
-                { icon: <Pizza size={18} />,   label: "Bordas de Pizza", href: "/pizza-borders" },
-              ]}
-            />
-
-            <MenuSection
-              title="ESTOQUE"
-              items={[
-                { icon: <Boxes size={18} />,       label: "Movimentações", href: "/stock" },
-                { icon: <FlaskConical size={18} />, label: "Ingredientes",  href: "/ingredients" },
-                { icon: <BookOpen size={18} />,    label: "Receitas",       href: "/recipes" },
-              ]}
-            />
-
-            <MenuSection
-              title="IA"
-              items={[
-                { icon: <Sparkles size={18} />, label: "Cadastro por Imagem", href: "/cadastro-inteligente" },
-              ]}
-            />
-
-            <MenuSection
-              title="MARKETPLACE"
-              items={[
-                { icon: <Plug size={18} />, label: "Módulos de Integração", href: "/modulos" },
-              ]}
-            />
-
-            <MenuSection
-              title="CONFIGURAÇÕES"
-              items={[
-                { icon: <Palette size={18} />, label: "Tema / Visual",  href: "/theme" },
-                { icon: <QrCode size={18} />,  label: "QR Code Mesas",  href: "/tables/qrcode" },
-              ]}
-            />
-
-            <Link
-              href={companyId ? `/menu/${companyId}` : "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full h-[42px] rounded-2xl border border-green-700 text-green-400 flex items-center justify-between px-4 text-sm hover:bg-green-700/10 transition"
-            >
-              <span>Ver Cardápio Online</span>
-              <span>›</span>
-            </Link>
-
-          </div>
-
-        {/* FOOTER */}
+          <MenuSection title="" items={[{ icon: <LayoutDashboard size={18} />, label: "Dashboard", href: "/", green: true }]} />
+          <MenuSection title="OPERAÇÃO" items={[
+            { icon: <ShoppingCart size={18} />,   label: "Pedidos",     href: "/orders" },
+            { icon: <ChefHat size={18} />,        label: "Cozinha",     href: "/kitchen" },
+            { icon: <UtensilsCrossed size={18} />, label: "Mesas",      href: "/tables" },
+            { icon: <DollarSign size={18} />,     label: "PDV / Caixa", href: "/pdv", active: true },
+          ]} />
+          <MenuSection title="CARDÁPIO" items={[
+            { icon: <Package size={18} />, label: "Produtos",        href: "/products" },
+            { icon: <Tags size={18} />,    label: "Categorias",      href: "/categories" },
+            { icon: <Pizza size={18} />,   label: "Bordas de Pizza", href: "/pizza-borders" },
+          ]} />
+          <MenuSection title="ESTOQUE" items={[
+            { icon: <Boxes size={18} />,       label: "Movimentações", href: "/stock" },
+            { icon: <FlaskConical size={18} />, label: "Ingredientes",  href: "/ingredients" },
+            { icon: <BookOpen size={18} />,    label: "Receitas",       href: "/recipes" },
+          ]} />
+          <MenuSection title="IA" items={[
+            { icon: <Sparkles size={18} />, label: "Cadastro por Imagem", href: "/cadastro-inteligente" },
+          ]} />
+          <MenuSection title="MARKETPLACE" items={[
+            { icon: <Plug size={18} />, label: "Módulos de Integração", href: "/modulos" },
+          ]} />
+          <MenuSection title="CONFIGURAÇÕES" items={[
+            { icon: <Palette size={18} />, label: "Tema / Visual", href: "/theme" },
+            { icon: <QrCode size={18} />,  label: "QR Code Mesas", href: "/tables/qrcode" },
+          ]} />
+          <Link href={companyId ? `/menu/${companyId}` : "#"} target="_blank" rel="noopener noreferrer"
+            className="w-full h-[42px] rounded-2xl border border-green-700 text-green-400 flex items-center justify-between px-4 text-sm hover:bg-green-700/10 transition">
+            <span>Ver Cardápio Online</span><span>›</span>
+          </Link>
+        </div>
         <div className="shrink-0 border-t border-[#161b2d] p-5">
-          <button className="flex items-center gap-3 text-zinc-300">
-            <LogOut size={18} />
-            Sair
-          </button>
+          <button className="flex items-center gap-3 text-zinc-300"><LogOut size={18} />Sair</button>
         </div>
       </aside>
 
@@ -674,21 +637,12 @@ export default function PDVPage() {
 
         {/* HEADER */}
         <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-3 md:px-6 h-16 md:h-[92px] gap-2">
-
-          {/* Search */}
           <div className="flex-1 max-w-xs md:max-w-[420px] h-10 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-2xl flex items-center px-3 md:px-5 gap-2 md:gap-4">
             <Search size={16} className="text-zinc-400 shrink-0" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar produto..."
-              className="bg-transparent outline-none w-full text-sm"
-            />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto..."
+              className="bg-transparent outline-none w-full text-sm" />
           </div>
-
-          {/* MESA indicator + actions */}
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-
             {pdvOrderDetails.orderType === "DINE_IN" && pdvOrderDetails.tableNumber && (
               <div className="hidden sm:flex flex-col items-center justify-center h-10 md:h-[54px] px-3 md:px-4 rounded-2xl border border-[#1d2336] bg-[#0c101d] min-w-[72px]">
                 <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide leading-none">MESA</span>
@@ -698,41 +652,26 @@ export default function PDVPage() {
                 </div>
               </div>
             )}
-
-            <button
-              onClick={openTrocarMesa}
-              title="Trocar mesa"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
-            >
+            <button onClick={openTrocarMesa} title="Trocar mesa"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
               <ArrowLeftRight size={15} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Trocar</span>
               <span className="hidden md:block text-[10px] leading-none">Mesa</span>
             </button>
-
-            <button
-              onClick={openCriarCupom}
-              title="Criar cupom"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
-            >
+            <button onClick={openCriarCupom} title="Criar cupom"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
               <Receipt size={15} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
               <span className="hidden md:block text-[10px] leading-none">Cupom</span>
             </button>
-
-            <button
-              onClick={clearCart}
-              title="Limpar conta"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5"
-            >
+            <button onClick={clearCart} title="Limpar conta"
+              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
               <Trash2 size={15} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Limpar</span>
               <span className="hidden md:block text-[10px] leading-none">Conta</span>
             </button>
-
-            <button
-              onClick={() => setShowCart(true)}
-              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-2 font-semibold relative"
-            >
+            <button onClick={() => setShowCart(true)}
+              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-2 font-semibold relative">
               <ShoppingBag size={18} />
               <span className="hidden md:block text-sm">Carrinho</span>
               {cartCount > 0 && (
@@ -744,18 +683,13 @@ export default function PDVPage() {
           </div>
         </header>
 
-        {/* Mobile: categories horizontal scroll */}
+        {/* Mobile categories */}
         <div className="md:hidden shrink-0 flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide bg-[#050816] border-b border-[#161b2d]">
           {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
+            <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
               className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold transition ${
-                selectedCategory === cat.id
-                  ? "bg-[var(--color-primary)] text-white"
-                  : "bg-[#0c101d] text-zinc-300"
-              }`}
-            >
+                selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-300"
+              }`}>
               {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
             </button>
           ))}
@@ -763,68 +697,37 @@ export default function PDVPage() {
 
         {/* BODY */}
         <div className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
-
-          {/* CATEGORY COLUMN — desktop only */}
           <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto scrollbar-hide bg-[#050816]">
             <div className="space-y-4">
-              <button
-                onClick={() => setSelectedCategory("all")}
+              <button onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
-                  selectedCategory === "all"
-                    ? "bg-[var(--color-primary)] text-white"
-                    : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
-                }`}
-              >
-                Todos
-              </button>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[#0c101d] animate-pulse" />
-                ))
-              ) : (
-                categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
-                      selectedCategory === cat.id
-                        ? "bg-[var(--color-primary)] text-white"
-                        : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
-                    }`}
-                  >
-                    {cat.categoryType === "bebidas" ? "Bebidas" : cat.name}
-                  </button>
-                ))
-              )}
+                  selectedCategory === "all" ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
+                }`}>Todos</button>
+              {loading ? Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[#0c101d] animate-pulse" />
+              )) : categories.map((cat) => (
+                <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                  className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
+                    selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
+                  }`}>
+                  {cat.categoryType === "bebidas" ? "Bebidas" : cat.name}
+                </button>
+              ))}
             </div>
           </aside>
 
-          {/* PRODUCTS — desktop */}
           <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[#030712]">
-
             <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
-              <img
-                src={bannerImageUrl}
-                className="absolute inset-0 w-full h-full object-cover"
-                alt="hero"
-              />
+              <img src={bannerImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="hero" />
               <div className="absolute inset-0 bg-black/60" />
               <div className="relative z-10 p-10">
-                <h1 className="text-3xl xl:text-5xl font-black mb-2 leading-tight break-words max-w-[700px]">
-                  {activeCategoryName}
-                </h1>
-                <p className="text-base text-zinc-300">
-                  {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}
-                </p>
+                <h1 className="text-3xl xl:text-5xl font-black mb-2 leading-tight break-words max-w-[700px]">{activeCategoryName}</h1>
+                <p className="text-base text-zinc-300">{filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}</p>
               </div>
             </div>
 
             {loading ? (
-              <div className="space-y-5">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="min-h-[160px] w-full rounded-[32px] bg-[#0b0f1b] animate-pulse" />
-                ))}
-              </div>
+              <div className="space-y-5">{Array.from({ length: 3 }).map((_, i) => (<div key={i} className="min-h-[160px] w-full rounded-[32px] bg-[#0b0f1b] animate-pulse" />))}</div>
             ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
                 <span className="text-5xl mb-4">🍽️</span>
@@ -833,24 +736,15 @@ export default function PDVPage() {
             ) : activeIsBeverage ? (
               <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
                 {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-blue-600 transition group"
-                    onClick={() => openProductAdd(product)}
-                  >
-                    {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
-                    ) : (
-                      <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-4xl">🥤</div>
-                    )}
+                  <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-blue-600 transition group"
+                    onClick={() => openProductAdd(product)}>
+                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+                      : <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-4xl">🥤</div>}
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
                       <p className="text-blue-400 font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
-                        disabled={complementLoading}
-                        className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50"
-                      >
+                      <button onClick={(e) => { e.stopPropagation(); openProductAdd(product); }} disabled={complementLoading}
+                        className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50">
                         + Adicionar
                       </button>
                     </div>
@@ -860,50 +754,21 @@ export default function PDVPage() {
             ) : (
               <div className="space-y-5">
                 {buildDedupedPizzaProducts(filteredProducts).map((product) => (
-                  <div
-                    key={product.id}
-                    className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6"
-                  >
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] object-cover rounded-3xl shrink-0"
-                      />
-                    ) : (
-                      <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[#161b2d] flex items-center justify-center shrink-0 text-4xl">
-                        🍽️
-                      </div>
-                    )}
-
+                  <div key={product.id} className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[#0b0f1b] border border-[#161b2d] flex items-center px-6">
+                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] object-cover rounded-3xl shrink-0" />
+                      : <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[#161b2d] flex items-center justify-center shrink-0 text-4xl">🍽️</div>}
                     <div className="flex-1 px-5 xl:px-8 min-w-0 overflow-hidden">
-                      <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full">
-                        {product.name}
-                      </h2>
-                      {product.description && (
-                        <p className="text-zinc-400 text-sm xl:text-base leading-relaxed break-words max-w-full line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                      <div className="flex gap-3 mt-4">
-                        <VideoEyeBtn product={product} onOpen={setVideoProduct} />
-                      </div>
+                      <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full">{product.name}</h2>
+                      {product.description && <p className="text-zinc-400 text-sm xl:text-base leading-relaxed break-words max-w-full line-clamp-2">{product.description}</p>}
+                      <div className="flex gap-3 mt-4"><VideoEyeBtn product={product} onOpen={setVideoProduct} /></div>
                     </div>
-
                     <div className="w-[160px] xl:w-[200px] shrink-0 flex flex-col items-end pl-4">
                       <span className={`font-black whitespace-nowrap text-right leading-tight ${product.sizes && product.sizes.length > 1 ? "text-lg xl:text-xl" : "text-2xl xl:text-3xl"}`}>
                         {productPriceLabel(product)}
                       </span>
-                      {product.costPrice != null && (
-                        <span className="text-zinc-600 text-xs mt-1">
-                          Custo: {fmt(product.costPrice)}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => openProductAdd(product)}
-                        disabled={complementLoading}
-                        className="mt-4 h-[50px] px-8 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50"
-                      >
+                      {product.costPrice != null && <span className="text-zinc-600 text-xs mt-1">Custo: {fmt(product.costPrice)}</span>}
+                      <button onClick={() => openProductAdd(product)} disabled={complementLoading}
+                        className="mt-4 h-[50px] px-8 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50">
                         ADICIONAR
                       </button>
                     </div>
@@ -911,19 +776,13 @@ export default function PDVPage() {
                 ))}
               </div>
             )}
-
           </section>
-
         </div>
 
-        {/* PRODUCTS — mobile only */}
+        {/* PRODUCTS mobile */}
         <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712] px-3 py-3">
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-24 rounded-2xl bg-[#0b0f1b] animate-pulse" />
-              ))}
-            </div>
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-24 rounded-2xl bg-[#0b0f1b] animate-pulse" />))}</div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
               <span className="text-4xl mb-3">🍽️</span>
@@ -932,23 +791,14 @@ export default function PDVPage() {
           ) : activeIsBeverage ? (
             <div className="grid grid-cols-2 gap-3">
               {filteredProducts.map(product => (
-                <div
-                  key={product.id}
-                  className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col"
-                  onClick={() => openProductAdd(product)}
-                >
-                  {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
-                  ) : (
-                    <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-3xl">🥤</div>
-                  )}
+                <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col" onClick={() => openProductAdd(product)}>
+                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+                    : <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-3xl">🥤</div>}
                   <div className="p-2.5 flex flex-col flex-1">
                     <p className="font-bold text-xs leading-tight line-clamp-2 flex-1">{product.name}</p>
                     <p className="text-blue-400 font-black text-xs mt-1.5 leading-tight">{productPriceLabel(product)}</p>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
-                      className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] active:scale-95 transition text-xs font-bold"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
+                      className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] active:scale-95 transition text-xs font-bold">
                       + Adicionar
                     </button>
                   </div>
@@ -959,45 +809,29 @@ export default function PDVPage() {
             <div className="space-y-3">
               {buildDedupedPizzaProducts(filteredProducts).map(product => (
                 <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
-                  {product.imageUrl
-                    ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
-                    : <div className="w-16 h-16 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>
-                  }
+                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                    : <div className="w-16 h-16 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm leading-tight">{product.name}</p>
-                    {product.description && (
-                      <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
-                    )}
+                    {product.description && <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>}
                     <p className="text-blue-400 font-black text-sm mt-1 leading-tight">{productPriceLabel(product)}</p>
                   </div>
-                  <button
-                    onClick={() => openProductAdd(product)}
-                    className="shrink-0 h-10 px-4 rounded-xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-sm font-bold"
-                  >
-                    +
-                  </button>
+                  <button onClick={() => openProductAdd(product)}
+                    className="shrink-0 h-10 px-4 rounded-xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-sm font-bold">+</button>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* FOOTER — hidden on mobile */}
         <footer className="hidden md:flex h-[58px] border-t border-[#161b2d] items-center justify-between px-6">
-
-          <div className="flex items-center gap-3 text-zinc-400">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-            Sistema Online
-          </div>
-
+          <div className="flex items-center gap-3 text-zinc-400"><div className="w-3 h-3 rounded-full bg-green-500" />Sistema Online</div>
           <div className="flex items-center gap-10 text-zinc-400">
             <span>Operador: Caixa 01</span>
             <span>{now.toLocaleDateString("pt-BR")}</span>
             <span>{now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
-
         </footer>
-
       </main>
 
       {/* CART DRAWER */}
@@ -1006,14 +840,9 @@ export default function PDVPage() {
           <div className="flex-1 bg-black/60 hidden md:block" onClick={() => setShowCart(false)} />
           <aside className="w-full md:w-[380px] bg-[#050816] border-l border-[#161b2d] flex flex-col h-full">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
-              <h2 className="font-bold text-lg flex items-center gap-2">
-                <ShoppingBag size={20} className="text-blue-400" /> Carrinho
-              </h2>
-              <button onClick={() => setShowCart(false)} className="text-zinc-400 hover:text-white">
-                <X size={20} />
-              </button>
+              <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingBag size={20} className="text-blue-400" /> Carrinho</h2>
+              <button onClick={() => setShowCart(false)} className="text-zinc-400 hover:text-white"><X size={20} /></button>
             </div>
-
             <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-zinc-600 py-20">
@@ -1021,26 +850,23 @@ export default function PDVPage() {
                   <p className="text-sm font-medium">Carrinho vazio</p>
                 </div>
               ) : (
-                cart.map(({ product, qty, unitPrice, complements }, idx) => {
+                cart.map(({ product, qty, complements, unitPrice }, idx) => {
+                  // unitPrice é a fonte de verdade para exibição; fallback para salePrice
+                  const basePrice = unitPrice ?? (Number(product.salePrice) || 0);
                   const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
-                  // ✅ CORREÇÃO — itemTotal usa unitPrice (snapshot), não product.salePrice.
-                  const itemTotal = (unitPrice + compExtra) * qty;
+                  const itemTotal = (basePrice + compExtra) * qty;
                   return (
                     <div key={`${product.id}-${idx}`} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-start gap-3">
                       {product.imageUrl
                         ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 mt-0.5" />
-                        : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0 mt-0.5">🍽️</div>
-                      }
+                        : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0 mt-0.5">🍽️</div>}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm truncate">{product.name}</p>
-                        {/* ✅ CORREÇÃO — exibe unitPrice do snapshot, não product.salePrice. */}
-                        <p className="text-zinc-400 text-xs mt-0.5">{fmt(unitPrice)} × {qty}</p>
+                        <p className="text-zinc-400 text-xs mt-0.5">{fmt(basePrice)} × {qty}</p>
                         {complements && complements.length > 0 && (
                           <div className="mt-1 space-y-0.5">
                             {complements.map((c, ci) => (
-                              <p key={ci} className="text-zinc-500 text-xs">
-                                + {c.quantity}x {c.optionName}{c.price > 0 ? ` (${fmt(c.price)})` : ""}
-                              </p>
+                              <p key={ci} className="text-zinc-500 text-xs">+ {c.quantity}x {c.optionName}{c.price > 0 ? ` (${fmt(c.price)})` : ""}</p>
                             ))}
                           </div>
                         )}
@@ -1056,26 +882,23 @@ export default function PDVPage() {
                 })
               )}
             </div>
-
             {cart.length > 0 && (
               <div className="border-t border-[#161b2d] p-5 space-y-3">
                 <div className="rounded-2xl border border-[#1d2336] bg-[#0b0f1b] p-4">
-                  <OrderDetailsForm
-                    value={pdvOrderDetails}
-                    onChange={setPdvOrderDetails}
-                    compact
-                  />
+                  <OrderDetailsForm value={pdvOrderDetails} onChange={setPdvOrderDetails} compact />
                 </div>
-
+                {pdvOrderDetails.orderType === "DELIVERY" && parsedDeliveryFee > 0 && (
+                  <div className="flex items-center justify-between text-sm text-zinc-400">
+                    <span>Taxa entrega</span>
+                    <span>{fmt(parsedDeliveryFee)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-lg font-black">
                   <span>Total</span>
-                  <span className="text-blue-400">{fmt(cartTotal)}</span>
+                  <span className="text-blue-400">{fmt(orderTotal)}</span>
                 </div>
-                <button
-                  onClick={openPayment}
-                  disabled={!canProceedToPayment}
-                  className="w-full py-3 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm"
-                >
+                <button onClick={openPayment} disabled={!canProceedToPayment}
+                  className="w-full py-3 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
                   Finalizar Pedido →
                 </button>
               </div>
@@ -1084,79 +907,41 @@ export default function PDVPage() {
         </div>
       )}
 
-      {/* ─── TROCAR MESA MODAL ─────────────────────────────────── */}
+      {/* TROCAR MESA */}
       {showTrocarMesa && (
         <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#050816] border border-[#1d2336] rounded-3xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
               <div>
-                <h2 className="text-xl font-black text-white flex items-center gap-2">
-                  <ArrowLeftRight size={20} className="text-blue-400" /> Trocar Mesa
-                </h2>
-                {pdvOrderDetails.tableNumber && (
-                  <p className="text-zinc-400 text-sm mt-0.5">
-                    Mesa atual: <span className="text-white font-bold">{pdvOrderDetails.tableNumber}</span>
-                  </p>
-                )}
+                <h2 className="text-xl font-black text-white flex items-center gap-2"><ArrowLeftRight size={20} className="text-blue-400" /> Trocar Mesa</h2>
+                {pdvOrderDetails.tableNumber && <p className="text-zinc-400 text-sm mt-0.5">Mesa atual: <span className="text-white font-bold">{pdvOrderDetails.tableNumber}</span></p>}
               </div>
-              <button onClick={() => setShowTrocarMesa(false)} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center">
-                <X size={18} />
-              </button>
+              <button onClick={() => setShowTrocarMesa(false)} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center"><X size={18} /></button>
             </div>
-
             <div className="p-5">
               <div className="mb-4">
                 <label className="block text-xs text-zinc-500 font-bold uppercase mb-2">Digite o número da mesa</label>
                 <div className="flex gap-2">
-                  <input
-                    id="trocar-mesa-input"
-                    type="text"
-                    placeholder="Ex: 12"
-                    defaultValue={pdvOrderDetails.tableNumber}
-                    className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500"
-                  />
-                  <button
-                    onClick={() => {
-                      const input = document.getElementById("trocar-mesa-input") as HTMLInputElement;
-                      const v = input?.value?.trim();
-                      if (!v) { toast.error("Digite o número da mesa"); return; }
-                      trocarMesa(v);
-                    }}
-                    className="px-5 py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition"
-                  >
-                    Confirmar
-                  </button>
+                  <input id="trocar-mesa-input" type="text" placeholder="Ex: 12" defaultValue={pdvOrderDetails.tableNumber}
+                    className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
+                  <button onClick={() => { const input = document.getElementById("trocar-mesa-input") as HTMLInputElement; const v = input?.value?.trim(); if (!v) { toast.error("Digite o número da mesa"); return; } trocarMesa(v); }}
+                    className="px-5 py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition">Confirmar</button>
                 </div>
               </div>
-
               {loadingTables ? (
                 <div className="flex items-center justify-center py-8 text-zinc-500">
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
-                  Carregando mesas…
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />Carregando mesas…
                 </div>
               ) : tables.length > 0 ? (
                 <div>
                   <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Ou escolha uma mesa disponível</p>
                   <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto">
                     {tables.map((t: any) => (
-                      <button
-                        key={t.id}
-                        onClick={() => trocarMesa(String(t.number))}
-                        className={`py-3 rounded-xl border text-sm font-bold transition ${
-                          String(t.number) === pdvOrderDetails.tableNumber
-                            ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white"
-                            : t.status === "FREE"
-                              ? "bg-[#0c101d] border-green-700/40 text-green-400 hover:border-green-600"
-                              : t.status === "OCCUPIED"
-                                ? "bg-[#0c101d] border-red-700/40 text-red-400 hover:border-red-600"
-                                : "bg-[#0c101d] border-yellow-700/40 text-yellow-400"
-                        }`}
-                        title={`Mesa ${t.number} — ${t.status}`}
-                      >
+                      <button key={t.id} onClick={() => trocarMesa(String(t.number))}
+                        className={`py-3 rounded-xl border text-sm font-bold transition ${String(t.number) === pdvOrderDetails.tableNumber ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white" : t.status === "FREE" ? "bg-[#0c101d] border-green-700/40 text-green-400 hover:border-green-600" : t.status === "OCCUPIED" ? "bg-[#0c101d] border-red-700/40 text-red-400 hover:border-red-600" : "bg-[#0c101d] border-yellow-700/40 text-yellow-400"}`}
+                        title={`Mesa ${t.number} — ${t.status}`}>
                         {t.number}
-                        <div className="text-[8px] mt-0.5 opacity-60">
-                          {t.status === "FREE" ? "livre" : t.status === "OCCUPIED" ? "ocup." : "reserv."}
-                        </div>
+                        <div className="text-[8px] mt-0.5 opacity-60">{t.status === "FREE" ? "livre" : t.status === "OCCUPIED" ? "ocup." : "reserv."}</div>
                       </button>
                     ))}
                   </div>
@@ -1172,19 +957,14 @@ export default function PDVPage() {
         </div>
       )}
 
-      {/* ─── CRIAR CUPOM MODAL ─────────────────────────────────── */}
+      {/* CRIAR CUPOM */}
       {showCriarCupom && (
         <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#050816] border border-[#1d2336] rounded-3xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
-              <h2 className="text-xl font-black text-white flex items-center gap-2">
-                <Receipt size={20} className="text-blue-400" /> Criar Cupom
-              </h2>
-              <button onClick={() => { setShowCriarCupom(false); setCupomCreated(null); }} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center">
-                <X size={18} />
-              </button>
+              <h2 className="text-xl font-black text-white flex items-center gap-2"><Receipt size={20} className="text-blue-400" /> Criar Cupom</h2>
+              <button onClick={() => { setShowCriarCupom(false); setCupomCreated(null); }} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center"><X size={18} /></button>
             </div>
-
             <div className="p-6">
               {cupomCreated ? (
                 <div className="text-center py-4 space-y-4">
@@ -1194,109 +974,58 @@ export default function PDVPage() {
                     <p className="text-xs text-zinc-500 mb-1">Código do cupom</p>
                     <p className="text-3xl font-black text-blue-400 tracking-widest">{cupomCreated}</p>
                   </div>
-                  <button
-                    onClick={() => { navigator.clipboard?.writeText(cupomCreated); toast.success("Código copiado!"); }}
-                    className="w-full py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition"
-                  >
-                    Copiar código
-                  </button>
-                  <button
-                    onClick={() => { setCupomCreated(null); setCupomForm({ code: gerarCodigoCupom(), type: "PERCENTAGE", value: "", usageLimit: "", expiresAt: "" }); }}
-                    className="w-full py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white font-semibold text-sm transition"
-                  >
-                    Criar outro cupom
-                  </button>
+                  <button onClick={() => { navigator.clipboard?.writeText(cupomCreated); toast.success("Código copiado!"); }}
+                    className="w-full py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition">Copiar código</button>
+                  <button onClick={() => { setCupomCreated(null); setCupomForm({ code: gerarCodigoCupom(), type: "PERCENTAGE", value: "", usageLimit: "", expiresAt: "" }); }}
+                    className="w-full py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white font-semibold text-sm transition">Criar outro cupom</button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Código do cupom</label>
                     <div className="flex gap-2">
-                      <input
-                        value={cupomForm.code}
-                        onChange={e => setCupomForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                        className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm font-mono font-bold uppercase outline-none focus:border-blue-500 tracking-widest"
-                        placeholder="PROMO10"
-                      />
-                      <button
-                        onClick={() => setCupomForm(f => ({ ...f, code: gerarCodigoCupom() }))}
-                        title="Gerar código aleatório"
-                        className="px-3 py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white transition text-xs font-bold"
-                      >
-                        ↻
-                      </button>
+                      <input value={cupomForm.code} onChange={e => setCupomForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                        className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm font-mono font-bold uppercase outline-none focus:border-blue-500 tracking-widest" placeholder="PROMO10" />
+                      <button onClick={() => setCupomForm(f => ({ ...f, code: gerarCodigoCupom() }))} title="Gerar código aleatório"
+                        className="px-3 py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white transition text-xs font-bold">↻</button>
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Tipo de desconto</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {([
-                        { v: "PERCENTAGE",  label: "%",   desc: "Percentual" },
-                        { v: "FIXED_AMOUNT",label: "R$",  desc: "Valor fixo" },
-                        { v: "FREE_SHIPPING",label: "🚚", desc: "Frete grátis" },
-                      ] as const).map(opt => (
-                        <button
-                          key={opt.v}
-                          onClick={() => setCupomForm(f => ({ ...f, type: opt.v }))}
-                          className={`py-2.5 rounded-xl border text-xs font-semibold transition flex flex-col items-center gap-0.5 ${
-                            cupomForm.type === opt.v
-                              ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white"
-                              : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-blue-600/40"
-                          }`}
-                        >
-                          <span className="text-base">{opt.label}</span>
-                          <span className="text-[9px]">{opt.desc}</span>
+                      {([{ v: "PERCENTAGE", label: "%", desc: "Percentual" }, { v: "FIXED_AMOUNT", label: "R$", desc: "Valor fixo" }, { v: "FREE_SHIPPING", label: "🚚", desc: "Frete grátis" }] as const).map(opt => (
+                        <button key={opt.v} onClick={() => setCupomForm(f => ({ ...f, type: opt.v }))}
+                          className={`py-2.5 rounded-xl border text-xs font-semibold transition flex flex-col items-center gap-0.5 ${cupomForm.type === opt.v ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white" : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-blue-600/40"}`}>
+                          <span className="text-base">{opt.label}</span><span className="text-[9px]">{opt.desc}</span>
                         </button>
                       ))}
                     </div>
                   </div>
-
                   {cupomForm.type !== "FREE_SHIPPING" && (
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">
                         {cupomForm.type === "PERCENTAGE" ? "Percentual de desconto (%)" : "Valor do desconto (R$)"}
                       </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={cupomForm.type === "PERCENTAGE" ? 100 : undefined}
-                        value={cupomForm.value}
+                      <input type="number" min={0} max={cupomForm.type === "PERCENTAGE" ? 100 : undefined} value={cupomForm.value}
                         onChange={e => setCupomForm(f => ({ ...f, value: e.target.value }))}
                         placeholder={cupomForm.type === "PERCENTAGE" ? "Ex: 10" : "Ex: 5.00"}
-                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500"
-                      />
+                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
                     </div>
                   )}
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Limite de usos</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={cupomForm.usageLimit}
-                        onChange={e => setCupomForm(f => ({ ...f, usageLimit: e.target.value }))}
-                        placeholder="Ilimitado"
-                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                      />
+                      <input type="number" min={1} value={cupomForm.usageLimit} onChange={e => setCupomForm(f => ({ ...f, usageLimit: e.target.value }))}
+                        placeholder="Ilimitado" className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Validade</label>
-                      <input
-                        type="date"
-                        value={cupomForm.expiresAt}
-                        onChange={e => setCupomForm(f => ({ ...f, expiresAt: e.target.value }))}
-                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500"
-                      />
+                      <input type="date" value={cupomForm.expiresAt} onChange={e => setCupomForm(f => ({ ...f, expiresAt: e.target.value }))}
+                        className="w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                     </div>
                   </div>
-
-                  <button
-                    onClick={saveCupom}
-                    disabled={cupomSaving}
-                    className="w-full py-3.5 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white font-black text-sm transition mt-2"
-                  >
+                  <button onClick={saveCupom} disabled={cupomSaving}
+                    className="w-full py-3.5 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 text-white font-black text-sm transition mt-2">
                     {cupomSaving ? "Criando…" : "Criar Cupom"}
                   </button>
                 </div>
@@ -1306,39 +1035,21 @@ export default function PDVPage() {
         </div>
       )}
 
-      {/* PAYMENT MODAL */}
-      <PaymentModal
-        open={showPayment}
-        total={cartTotal}
-        onClose={() => !paymentSubmitting && setShowPayment(false)}
-        orderDetails={pdvOrderDetails}
-        onConfirm={(method, _received, splits, details) => closePaidOrder(method, splits, details)}
-      />
+      <PaymentModal open={showPayment} total={orderTotal} onClose={() => !paymentSubmitting && setShowPayment(false)}
+        orderDetails={pdvOrderDetails} onConfirm={(method, _received, splits, details) => closePaidOrder(method, splits, details)} />
 
-      {/* PIZZA BUILDER MODAL */}
       {pizzaProduct && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-[#050816] border border-[#1d2336] rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#161b2d]">
               <h2 className="font-black text-lg">🍕 Monte sua Pizza — {pizzaProduct.name}</h2>
-              <button onClick={() => setPizzaProduct(null)} className="text-zinc-400 hover:text-white">
-                <X size={20} />
-              </button>
+              <button onClick={() => setPizzaProduct(null)} className="text-zinc-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="p-6">
               <PizzaBuilder
-                flavors={filteredProducts
-                  .filter(p => p.categoryId && pizzaCategories.has(p.categoryId || ""))
-                  .map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
+                flavors={filteredProducts.filter(p => p.categoryId && pizzaCategories.has(p.categoryId || "")).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={[]}
-                sizes={pizzaProduct.sizes
-                  ?.slice()
-                  .sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size))
-                  .map(s => ({
-                    size: s.size,
-                    label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "),
-                    price: Number(s.price) || 0,
-                  }))}
+                sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0 }))}
                 sizeConfigs={pizzaSizeConfigs}
                 onAdd={addPizzaToCart}
               />
@@ -1347,56 +1058,21 @@ export default function PDVPage() {
         </div>
       )}
 
-      {/* COMPLEMENT MODAL */}
-      <ComplementsModal
-        open={!!complementProduct}
-        productName={complementProduct?.name ?? ""}
-        productBasePrice={Number(complementProduct?.salePrice ?? 0)}
-        groups={loadedComplements as any}
-        loading={complementLoading}
-        theme="dark"
+      <ComplementsModal open={!!complementProduct} productName={complementProduct?.name ?? ""} productBasePrice={Number(complementProduct?.salePrice ?? 0)}
+        groups={loadedComplements as any} loading={complementLoading} theme="dark"
         onClose={() => { setComplementProduct(null); setComplementSelections({}); }}
-        onConfirm={(sel) => {
-          addCartItem(complementProduct!, sel as any);
-          setComplementProduct(null);
-          setComplementSelections({});
-        }}
-      />
+        onConfirm={(sel) => { addCartItem(complementProduct!, sel as any); setComplementProduct(null); setComplementSelections({}); }} />
 
-      {/* VIDEO MODAL */}
-      {videoProduct && (
-        <VideoModal product={videoProduct} onClose={() => setVideoProduct(null)} />
-      )}
-
+      {videoProduct && <VideoModal product={videoProduct} onClose={() => setVideoProduct(null)} />}
     </div>
-  );
-}
-
-function TopButton({ icon, title, subtitle }: any) {
-  return (
-    <button className="h-[54px] px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 transition flex items-center gap-3">
-      {icon}
-      <div className="text-left leading-none">
-        <div className="font-semibold">{title}</div>
-        <div className="text-xs opacity-80 mt-1">{subtitle}</div>
-      </div>
-    </button>
   );
 }
 
 function VideoEyeBtn({ product, onOpen }: { product: Product; onOpen: (p: Product) => void }) {
   const active = !!(product.videoUrl);
   return (
-    <button
-      onClick={() => active && onOpen(product)}
-      title={active ? "Visualizar vídeo do produto" : "Sem vídeo cadastrado"}
-      disabled={!active}
-      className={`w-12 h-12 rounded-xl border flex items-center justify-center transition ${
-        active
-          ? "border-blue-600/40 text-blue-400 hover:bg-blue-600/20 cursor-pointer"
-          : "border-[#1d2336] text-zinc-600 opacity-40 cursor-not-allowed"
-      }`}
-    >
+    <button onClick={() => active && onOpen(product)} title={active ? "Visualizar vídeo do produto" : "Sem vídeo cadastrado"} disabled={!active}
+      className={`w-12 h-12 rounded-xl border flex items-center justify-center transition ${active ? "border-blue-600/40 text-blue-400 hover:bg-blue-600/20 cursor-pointer" : "border-[#1d2336] text-zinc-600 opacity-40 cursor-not-allowed"}`}>
       {active ? <Eye size={16} /> : <EyeOff size={16} />}
     </button>
   );
@@ -1405,25 +1081,18 @@ function VideoEyeBtn({ product, onOpen }: { product: Product; onOpen: (p: Produc
 function VideoModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-
   useEffect(() => {
     if (!isMobile || !videoRef.current) return;
     const el = videoRef.current as any;
     const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.webkitEnterFullscreen;
     if (req) req.call(el).catch(() => {});
   }, []);
-
   if (isMobile) {
     return (
       <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
         <div className="flex items-center justify-between px-5 pt-12 pb-4">
-          <div className="min-w-0">
-            <p className="text-xs text-zinc-400 mb-0.5">Visualizando</p>
-            <h3 className="font-bold text-white text-lg truncate">{product.name}</h3>
-          </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0">
-            <X size={20} />
-          </button>
+          <div className="min-w-0"><p className="text-xs text-zinc-400 mb-0.5">Visualizando</p><h3 className="font-bold text-white text-lg truncate">{product.name}</h3></div>
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0"><X size={20} /></button>
         </div>
         <div className="flex-1 flex items-center justify-center px-2 pb-8">
           <video ref={videoRef} src={product.videoUrl} controls autoPlay playsInline className="w-full max-h-full rounded-2xl object-contain" />
@@ -1431,22 +1100,14 @@ function VideoModal({ product, onClose }: { product: Product; onClose: () => voi
       </div>
     );
   }
-
   return (
     <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
       <div className="relative bg-[#0b0f1b] rounded-3xl overflow-hidden w-full max-w-3xl shadow-2xl border border-[#1d2336]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#161b2d]">
-          <div>
-            <p className="text-xs text-zinc-500 mb-0.5">Vídeo do produto</p>
-            <h3 className="font-bold text-white text-xl">{product.name}</h3>
-          </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition">
-            <X size={20} />
-          </button>
+          <div><p className="text-xs text-zinc-500 mb-0.5">Vídeo do produto</p><h3 className="font-bold text-white text-xl">{product.name}</h3></div>
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition"><X size={20} /></button>
         </div>
-        <div className="p-3">
-          <video ref={videoRef} src={product.videoUrl} controls autoPlay className="w-full max-h-[70vh] rounded-2xl bg-black object-contain" />
-        </div>
+        <div className="p-3"><video ref={videoRef} src={product.videoUrl} controls autoPlay className="w-full max-h-[70vh] rounded-2xl bg-black object-contain" /></div>
       </div>
     </div>
   );
@@ -1455,20 +1116,12 @@ function VideoModal({ product, onClose }: { product: Product; onClose: () => voi
 function MenuSection({ title, items }: any) {
   return (
     <div>
-      {title && (
-        <div className="text-[10px] font-bold tracking-[2px] text-zinc-500 mb-1.5 px-1">{title}</div>
-      )}
+      {title && <div className="text-[10px] font-bold tracking-[2px] text-zinc-500 mb-1.5 px-1">{title}</div>}
       <div className="space-y-1">
         {items.map((item: any) => (
-          <Link
-            key={item.label}
-            href={item.href ?? "#"}
-            className={`w-full h-[40px] rounded-xl px-3 flex items-center gap-2.5 text-sm transition ${
-              item.green ? "bg-green-700" : item.active ? "bg-blue-600" : "hover:bg-[#151c2d]"
-            }`}
-          >
-            {item.icon}
-            {item.label}
+          <Link key={item.label} href={item.href ?? "#"}
+            className={`w-full h-[40px] rounded-xl px-3 flex items-center gap-2.5 text-sm transition ${item.green ? "bg-green-700" : item.active ? "bg-blue-600" : "hover:bg-[#151c2d]"}`}>
+            {item.icon}{item.label}
           </Link>
         ))}
       </div>

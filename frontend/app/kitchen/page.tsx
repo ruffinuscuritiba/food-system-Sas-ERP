@@ -146,6 +146,7 @@ export default function KitchenPage() {
         updateStatus={updateStatus}
         handleDragEnd={handleDragEnd}
         containerRef={containerRef}
+        onPrint={printKitchenOrder}
       />
     </>
   );

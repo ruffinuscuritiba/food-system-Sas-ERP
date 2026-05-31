@@ -520,27 +520,62 @@ export class SmartImportService {
         ? Math.min(...item.sizes!.map(s => s.price))
         : (item.price ?? 0);
 
-      const product = await this.prisma.product.create({
-        data: {
-          name: item.name,
-          description: item.description ?? null,
-          salePrice: baseSalePrice,
-          costPrice: 0,
-          profitMargin: 0,
-          categoryId: item.categoryId ?? null,
-          companyId,
-          isActive: true,
-          trackStock: false,
-          unit: 'un',
-        },
+      // ── Upsert logic: find existing product by companyId + name to prevent
+      // duplicate creation on re-import of the same menu. No schema migration
+      // required — identification is done at the application layer.
+      const existing = await this.prisma.product.findFirst({
+        where: { companyId, name: item.name },
+        select: { id: true },
       });
 
+      let product: { id: string };
+
+      if (existing) {
+        // Product already exists — update fields and refresh ProductSize rows.
+        product = await this.prisma.product.update({
+          where: { id: existing.id },
+          data: {
+            description: item.description ?? null,
+            salePrice: baseSalePrice,
+            categoryId: item.categoryId ?? null,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+
+        // Remove stale sizes before recreating — required because
+        // ProductSize has @@unique([productId, size]) and labels may change.
+        if (hasSizes) {
+          await this.prisma.productSize.deleteMany({
+            where: { productId: product.id },
+          });
+        }
+      } else {
+        // Product does not exist — create it.
+        product = await this.prisma.product.create({
+          data: {
+            name: item.name,
+            description: item.description ?? null,
+            salePrice: baseSalePrice,
+            costPrice: 0,
+            profitMargin: 0,
+            categoryId: item.categoryId ?? null,
+            companyId,
+            isActive: true,
+            trackStock: false,
+            unit: 'un',
+          },
+          select: { id: true },
+        });
+      }
+
       // Create one ProductSize row per variant when sizes were provided.
+      // Runs for both new and updated products.
       if (hasSizes) {
         await this.prisma.productSize.createMany({
           data: item.sizes!.map(s => ({
             productId: product.id,
-            companyId,           // required — mirrors Product.companyId
+            companyId,
             size: s.size,
             price: s.price,
           })),

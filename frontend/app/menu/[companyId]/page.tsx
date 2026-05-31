@@ -438,6 +438,8 @@ export default function MenuPage() {
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
     if (chosen.length < 1) { toast.error("Selecione ao menos 1 sabor"); return; }
+    const uniqueIds = new Set(chosen.map((f) => f.id));
+    if (uniqueIds.size < chosen.length) { toast.error("Cada sabor deve ser diferente"); return; }
     const finalPrice = calcPizzaPrice(chosen);
     const base = chosen.find((f) => Number(f.salePrice) === Math.max(...chosen.map(f => Number(f.salePrice)))) || chosen[0];
     const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
@@ -1190,9 +1192,12 @@ export default function MenuPage() {
                       className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-orange-400"
                     >
                       <option value="">— Sabor {i + 1} —</option>
-                      {products.filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase())).map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} — R$ {Number(p.salePrice).toFixed(2)}</option>
-                      ))}
+                      {products
+                        .filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase()))
+                        .filter((p) => !flavorSlots.some((s, si) => si !== i && s?.id === p.id))
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>{p.name} — R$ {Number(p.salePrice).toFixed(2)}</option>
+                        ))}
                     </select>
                   </div>
                 );

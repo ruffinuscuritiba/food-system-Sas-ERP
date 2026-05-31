@@ -5,6 +5,7 @@ import {
   Droppable,
   Draggable,
 } from "@hello-pangea/dnd";
+import { Printer } from "lucide-react";
 
 function getOrderTime(createdAt: string) {
   const created = new Date(createdAt).getTime();
@@ -20,6 +21,7 @@ function Column({
   actionLabel,
   updateStatus,
   droppableId,
+  onPrint,
 }: any) {
   return (
     <div className={`
@@ -138,6 +140,12 @@ function Column({
                     >
                       {actionLabel}
                     </button>
+                    <button
+                      onClick={() => onPrint(order)}
+                      className="w-full mt-2 flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-500 py-2 rounded-xl text-sm font-medium transition"
+                    >
+                      <Printer size={14} /> Reimprimir
+                    </button>
                   </div>
                 )}
               </Draggable>
@@ -155,11 +163,13 @@ export default function KitchenBoard({
   updateStatus,
   handleDragEnd,
   containerRef,
+  onPrint,
 }: {
   orders: any[];
   updateStatus: (source: string, id: string, status: string) => void;
   handleDragEnd: (result: any) => void;
   containerRef: React.RefObject<any>;
+  onPrint: (order: any) => void;
 }) {
   // Order.productionStatus não existe no schema — filtra por status
   const pending   = orders.filter((o) => o.status === "PENDING" || o.status === "CONFIRMED");
@@ -191,6 +201,7 @@ export default function KitchenBoard({
             action="PREPARING"
             actionLabel="Iniciar"
             updateStatus={updateStatus}
+            onPrint={onPrint}
           />
           <Column
             title="Preparando"
@@ -200,6 +211,7 @@ export default function KitchenBoard({
             action="READY"
             actionLabel="Finalizar"
             updateStatus={updateStatus}
+            onPrint={onPrint}
           />
           <Column
             title="Prontos"
@@ -209,6 +221,7 @@ export default function KitchenBoard({
             action="PENDING"
             actionLabel="Reabrir"
             updateStatus={updateStatus}
+            onPrint={onPrint}
           />
         </div>
       </main>

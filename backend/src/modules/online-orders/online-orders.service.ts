@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { SocketGateway } from '@/socket/socket.gateway';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
@@ -55,6 +56,7 @@ export class OnlineOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly socketGateway: SocketGateway,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -192,6 +194,20 @@ export class OnlineOrdersService {
           `[OnlineOrder] id=${order.id} company=${dto.companyId} ` +
           `total=${total} type=${orderType} — socket events emitted`,
         );
+
+        // → New order confirmation email (fire-and-forget — never blocks the order)
+        if (order.customerEmail) {
+          this.notifications.send({
+            to: order.customerEmail,
+            type: 'NEW_ORDER',
+            data: {
+              orderId:      order.id.slice(-8).toUpperCase(),
+              customerName: order.customerName,
+              total:        Number(order.total).toFixed(2),
+              orderType:    order.orderType,
+            },
+          }).catch((e: any) => this.logger.warn(`[OnlineOrder] email failed: ${e?.message}`));
+        }
       } catch (err: any) {
         // Socket failure must never affect the already-created order
         this.logger.warn(`[OnlineOrder] socket emit failed: ${err?.message}`);

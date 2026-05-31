@@ -26,19 +26,33 @@ IMPORTANTE: Retorne SOMENTE JSON válido, no formato EXATO abaixo, com os VALORE
 {
   "items": [
     {
-      "name": "<nome real do prato>",
+      "name": "<nome base do produto, SEM o tamanho — ex: 'ALHO E ÓLEO'>",
       "description": "<descrição real ou null>",
-      "price": 29.90,
+      "price": null,
+      "sizes": [
+        { "size": "MÉDIA", "price": 29.90 },
+        { "size": "GRANDE", "price": 39.90 }
+      ],
       "category": "Lanches",
+      "confidence": 0.95
+    },
+    {
+      "name": "<produto sem variantes — ex: 'SUCO DE LARANJA'>",
+      "description": null,
+      "price": 8.00,
+      "sizes": [],
+      "category": "Bebidas",
       "confidence": 0.95
     }
   ]
 }
 
 Regras OBRIGATÓRIAS:
-- Cada item DEVE ter o campo "name" preenchido com o NOME REAL do produto (string não vazia)
+- Cada item DEVE ter o campo "name" preenchido com o NOME BASE do produto (string não vazia), SEM incluir o tamanho no nome
+- AGRUPE variantes do mesmo produto (ex: ALHO E ÓLEO MÉDIA + ALHO E ÓLEO GRANDE) em UM único item com o array "sizes"
+- Se o produto tiver tamanhos/variantes: coloque-os em "sizes" e deixe "price" como null
+- Se o produto NÃO tiver variantes: coloque o preço em "price" e deixe "sizes" como []
 - NÃO retorne placeholders como "nome do produto" — extraia o nome REAL
-- price: número decimal em reais (ex: 29.90), null se não houver
 - category: uma das opções [Lanches, Pizzas, Bebidas, Combos, Adicionais, Sobremesas, Massas, Porções, Pratos, Outros]
 - confidence: 0 a 1 indicando certeza da leitura daquele item
 - Os campos devem ficar no NÍVEL RAIZ de cada item (NÃO aninhe dentro de "data" ou outro objeto)
@@ -108,6 +122,7 @@ export class SmartImportService {
           name: d.name ?? '',
           description: d.description ?? null,
           price: d.price ?? null,
+          sizes: Array.isArray(d.sizes) ? d.sizes : [],
           category: d.category ?? null,
           suggestedCategoryId: d.suggestedCategoryId ?? null,
           quantity: d.quantity ?? null,
@@ -472,16 +487,44 @@ export class SmartImportService {
 
   async confirmMenuItems(
     sessionId: string,
-    items: Array<{ itemId: string; name: string; description?: string; price?: number; categoryId?: string }>,
+    items: Array<{
+      itemId: string;
+      name: string;
+      description?: string;
+      price?: number;
+      categoryId?: string;
+      // sizes is populated when the AI grouped variants (e.g. MÉDIA / GRANDE / BIG).
+      // Each entry must have `size` (label string) and `price` (decimal number).
+      //
+      // REQUIRES ProductSize model in schema.prisma:
+      //   model ProductSize {
+      //     id        String  @id @default(cuid())
+      //     productId String
+      //     size      String
+      //     price     Decimal
+      //     product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+      //   }
+      // Run `npx prisma migrate dev` before deploying if the model does not exist yet.
+      sizes?: Array<{ size: string; price: number }>;
+    }>,
     companyId: string,
   ) {
     const results: string[] = [];
+
     for (const item of items) {
+      const hasSizes = Array.isArray(item.sizes) && item.sizes.length > 0;
+
+      // When sizes exist, set salePrice to the lowest variant so the Product row
+      // stays valid. The real per-variant prices live in ProductSize.
+      const baseSalePrice = hasSizes
+        ? Math.min(...item.sizes!.map(s => s.price))
+        : (item.price ?? 0);
+
       const product = await this.prisma.product.create({
         data: {
           name: item.name,
           description: item.description ?? null,
-          salePrice: item.price ?? 0,
+          salePrice: baseSalePrice,
           costPrice: 0,
           profitMargin: 0,
           categoryId: item.categoryId ?? null,
@@ -491,16 +534,32 @@ export class SmartImportService {
           unit: 'un',
         },
       });
+
+      // Create one ProductSize row per variant when sizes were provided.
+      if (hasSizes) {
+        await this.prisma.productSize.createMany({
+          data: item.sizes!.map(s => ({
+            productId: product.id,
+            companyId,           // required — mirrors Product.companyId
+            size: s.size,
+            price: s.price,
+          })),
+        });
+      }
+
       await this.prisma.importItem.update({
         where: { id: item.itemId },
         data: { confirmed: true, savedId: product.id },
       });
+
       results.push(product.id);
     }
+
     await this.prisma.importSession.update({
       where: { id: sessionId },
       data: { status: 'DONE' },
     });
+
     return { created: results.length, productIds: results };
   }
 

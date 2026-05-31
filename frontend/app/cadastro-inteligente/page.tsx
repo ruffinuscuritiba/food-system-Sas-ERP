@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import {
   Sparkles, Upload, FileText, Image as ImageIcon, Loader2,
   CheckCircle2, XCircle, Trash2, ChevronDown, RefreshCw, Zap,
-  FileSpreadsheet, FileCode2, FileImage,
+  FileSpreadsheet, FileCode2, FileImage, Plus,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -16,11 +16,18 @@ type Phase = "idle" | "uploading" | "processing" | "review" | "done" | "error";
 
 interface SessionLog { level: string; message: string; createdAt: string }
 
+// FIX 1 — sizes adicionado à interface
+interface ProductSizeEntry {
+  size: string;
+  price: number;
+}
+
 interface MenuItem {
   itemId: string;
   name: string;
   description?: string;
   price?: number;
+  sizes: ProductSizeEntry[];   // ← novo campo; [] quando produto simples
   category?: string;
   suggestedCategoryId?: string;
   categoryId?: string;
@@ -137,7 +144,6 @@ function ProgressBar({ logs }: { logs: SessionLog[] }) {
 
   return (
     <div className="space-y-3">
-      {/* Step pills */}
       <div className="flex items-center gap-1">
         {STAGES.map((s, i) => {
           const done = i < idx;
@@ -164,16 +170,12 @@ function ProgressBar({ logs }: { logs: SessionLog[] }) {
           );
         })}
       </div>
-
-      {/* Progress bar */}
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-primary to-orange-400 rounded-full transition-all duration-700"
           style={{ width: `${pct}%` }}
         />
       </div>
-
-      {/* Current step label */}
       <p className="text-xs text-gray-500 text-center font-medium">
         {STAGES[idx].label}…
       </p>
@@ -285,25 +287,43 @@ export default function CadastroInteligentePage() {
     }
   }
 
+  // FIX 2 — buildReviewState lê e armazena sizes[]
   function buildReviewState(data: any) {
     const items: any[] = data.items ?? [];
-    // Decide menu vs invoice display by the tab's *endpoint*, not the tab key,
-    // so "pdf" and "spreadsheet" (which use the menu endpoint) render as menu.
     const tabConfig = TAB_CONFIG.find(t => t.key === tab);
     const isMenu = tabConfig?.endpoint === "menu";
 
     if (isMenu) {
-      setMenuItems(items.map((it: any) => ({
-        itemId: it.id,
-        name: it.data?.name ?? it.name ?? "",
-        description: it.data?.description ?? it.description ?? "",
-        price: it.data?.price ?? it.price ?? undefined,
-        category: it.data?.category ?? it.category ?? "",
-        suggestedCategoryId: it.data?.suggestedCategoryId ?? it.suggestedCategoryId ?? undefined,
-        categoryId: it.data?.suggestedCategoryId ?? it.suggestedCategoryId ?? "",
-        confidence: it.confidence ?? it.data?.confidence ?? undefined,
-        enabled: true,
-      })));
+      setMenuItems(items.map((it: any) => {
+        // sizes pode vir de dois lugares dependendo do flatten do getSession():
+        // - it.sizes (campo exposto diretamente pelo getSession corrigido)
+        // - it.data?.sizes (fallback se o flatten não estiver presente)
+        const rawSizes: any[] =
+          Array.isArray(it.sizes)      ? it.sizes :
+          Array.isArray(it.data?.sizes) ? it.data.sizes :
+          [];
+
+        const sizes: ProductSizeEntry[] = rawSizes
+          .filter((s: any) => s && s.size)
+          .map((s: any) => ({
+            size: String(s.size),
+            price: Number(s.price ?? 0),
+          }))
+          .filter((s) => s.price > 0);
+
+        return {
+          itemId: it.id,
+          name: it.data?.name ?? it.name ?? "",
+          description: it.data?.description ?? it.description ?? "",
+          price: it.data?.price ?? it.price ?? undefined,
+          sizes,                           // ← armazenado no estado
+          category: it.data?.category ?? it.category ?? "",
+          suggestedCategoryId: it.data?.suggestedCategoryId ?? it.suggestedCategoryId ?? undefined,
+          categoryId: it.data?.suggestedCategoryId ?? it.suggestedCategoryId ?? "",
+          confidence: it.confidence ?? it.data?.confidence ?? undefined,
+          enabled: true,
+        } satisfies MenuItem;
+      }));
     } else {
       setInvoiceItems(items.map((it: any) => ({
         itemId: it.id,
@@ -319,8 +339,7 @@ export default function CadastroInteligentePage() {
     }
   }
 
-  // ── Confirm ───────────────────────────────────────────────────────────────
-
+  // FIX 4 — confirmMenu envia sizes no payload
   async function confirmMenu() {
     const enabled = menuItems.filter(i => i.enabled);
     if (!enabled.length) { toast.error("Nenhum item selecionado"); return; }
@@ -330,8 +349,11 @@ export default function CadastroInteligentePage() {
           itemId: i.itemId,
           name: i.name,
           description: i.description || undefined,
-          price: i.price ? Number(i.price) : undefined,
+          // Se tem sizes, price é omitido — o backend usa o menor size como salePrice.
+          // Se não tem sizes, price é enviado normalmente (produto simples).
+          price: i.sizes.length === 0 && i.price ? Number(i.price) : undefined,
           categoryId: i.categoryId || undefined,
+          sizes: i.sizes.length > 0 ? i.sizes : undefined,  // ← enviado quando presente
         })),
       });
       setDoneMsg(`${data.created} produto(s) cadastrado(s) com sucesso!`);
@@ -447,7 +469,6 @@ export default function CadastroInteligentePage() {
       {/* ── PROCESSING ── */}
       {phase === "processing" && (
         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-5">
-          {/* Image/file preview */}
           {preview && (
             <div className="relative">
               <img src={preview} alt="preview" className="max-h-44 rounded-xl object-contain border border-gray-100 w-full" />
@@ -460,11 +481,7 @@ export default function CadastroInteligentePage() {
               <span className="truncate font-medium">{fileName}</span>
             </div>
           )}
-
-          {/* Progress */}
           <ProgressBar logs={logs} />
-
-          {/* Skeleton product cards */}
           <div className="space-y-2 pt-1">
             {[1, 2, 3].map(i => (
               <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 animate-pulse">
@@ -477,8 +494,6 @@ export default function CadastroInteligentePage() {
               </div>
             ))}
           </div>
-
-          {/* Log terminal — collapsible */}
           <details className="group">
             <summary className="text-xs text-gray-400 cursor-pointer select-none hover:text-gray-600 transition flex items-center gap-1.5">
               <ChevronDown size={12} className="group-open:rotate-180 transition-transform" />
@@ -498,9 +513,6 @@ export default function CadastroInteligentePage() {
 
       {/* ── REVIEW ── */}
       {phase === "review" && (() => {
-        // Use endpoint (not tab key) to decide menu vs invoice display —
-        // "pdf" and "spreadsheet" tabs go to the "menu" endpoint and must show
-        // the menu review table, not the invoice one.
         const isMenuTab = TAB_CONFIG.find(t => t.key === tab)?.endpoint === "menu";
         return (
           <div className="space-y-4">
@@ -576,6 +588,7 @@ export default function CadastroInteligentePage() {
 
 // ── Menu Review Table ─────────────────────────────────────────────────────────
 
+// FIX 3 — exibe e permite edição de sizes[]
 function MenuReviewTable({
   items, setItems, categories,
 }: {
@@ -587,6 +600,21 @@ function MenuReviewTable({
     setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
   }
 
+  function updateSize(itemIdx: number, sizeIdx: number, patch: Partial<ProductSizeEntry>) {
+    const sizes = items[itemIdx].sizes.map((s, i) => i === sizeIdx ? { ...s, ...patch } : s);
+    update(itemIdx, { sizes });
+  }
+
+  function addSize(itemIdx: number) {
+    const sizes = [...items[itemIdx].sizes, { size: "", price: 0 }];
+    update(itemIdx, { sizes });
+  }
+
+  function removeSize(itemIdx: number, sizeIdx: number) {
+    const sizes = items[itemIdx].sizes.filter((_, i) => i !== sizeIdx);
+    update(itemIdx, { sizes });
+  }
+
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
       <table className="w-full text-sm">
@@ -595,7 +623,8 @@ function MenuReviewTable({
             <th className="w-8 px-3 py-3"></th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600">Nome</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600 hidden md:table-cell">Descrição</th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-600">Preço</th>
+            {/* FIX 3a — coluna Preço / Tamanhos (condicional por linha) */}
+            <th className="text-left px-3 py-3 font-semibold text-gray-600">Preço / Tamanhos</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600 hidden md:table-cell">Categoria</th>
             <th className="text-center px-3 py-3 font-semibold text-gray-600">Conf.</th>
             <th className="w-8 px-2 py-3"></th>
@@ -604,27 +633,87 @@ function MenuReviewTable({
         <tbody className="divide-y divide-gray-50">
           {items.map((item, idx) => (
             <tr key={item.itemId} className={item.enabled ? "" : "opacity-40"}>
-              <td className="px-3 py-2">
+              <td className="px-3 py-2 align-top pt-3">
                 <input type="checkbox" checked={item.enabled} onChange={e => update(idx, { enabled: e.target.checked })}
                   className="accent-orange-500 w-4 h-4" />
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-2 align-top pt-3">
                 <input value={item.name} onChange={e => update(idx, { name: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   placeholder="Nome do produto" />
               </td>
-              <td className="px-3 py-2 hidden md:table-cell">
+              <td className="px-3 py-2 hidden md:table-cell align-top pt-3">
                 <input value={item.description ?? ""} onChange={e => update(idx, { description: e.target.value })}
                   className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
                   placeholder="Descrição" />
               </td>
-              <td className="px-3 py-2">
-                <input type="number" value={item.price ?? ""}
-                  onChange={e => update(idx, { price: e.target.value === "" ? undefined : Number(e.target.value) })}
-                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                  placeholder="0.00" step="0.01" />
+
+              {/* FIX 3b — célula de preço: simples OU lista de tamanhos editável */}
+              <td className="px-3 py-2 align-top pt-3">
+                {item.sizes.length === 0 ? (
+                  /* Produto simples — comportamento original */
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={item.price ?? ""}
+                      onChange={e => update(idx, { price: e.target.value === "" ? undefined : Number(e.target.value) })}
+                      className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary"
+                      placeholder="0.00"
+                      step="0.01"
+                    />
+                    {/* Botão para converter para produto com tamanhos */}
+                    <button
+                      type="button"
+                      title="Adicionar tamanhos"
+                      onClick={() => update(idx, { sizes: [{ size: "", price: item.price ?? 0 }], price: undefined })}
+                      className="text-gray-300 hover:text-primary transition"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  /* Produto com variantes — lista editável de tamanho + preço */
+                  <div className="space-y-1.5">
+                    {item.sizes.map((s, sIdx) => (
+                      <div key={sIdx} className="flex items-center gap-1.5">
+                        {/* Label do tamanho (ex: MÉDIA, GRANDE) */}
+                        <input
+                          value={s.size}
+                          onChange={e => updateSize(idx, sIdx, { size: e.target.value })}
+                          className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-primary uppercase"
+                          placeholder="Ex: G"
+                        />
+                        {/* Preço do tamanho */}
+                        <input
+                          type="number"
+                          value={s.price}
+                          onChange={e => updateSize(idx, sIdx, { price: Number(e.target.value) })}
+                          className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-primary"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeSize(idx, sIdx)}
+                          className="text-gray-300 hover:text-red-400 transition"
+                        >
+                          <XCircle size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    {/* Adicionar mais um tamanho */}
+                    <button
+                      type="button"
+                      onClick={() => addSize(idx)}
+                      className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary transition mt-0.5"
+                    >
+                      <Plus size={11} /> tamanho
+                    </button>
+                  </div>
+                )}
               </td>
-              <td className="px-3 py-2 hidden md:table-cell">
+
+              <td className="px-3 py-2 hidden md:table-cell align-top pt-3">
                 <div className="relative">
                   <select value={item.categoryId ?? ""} onChange={e => update(idx, { categoryId: e.target.value })}
                     className="w-full appearance-none border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary pr-7">
@@ -634,10 +723,10 @@ function MenuReviewTable({
                   <ChevronDown size={13} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
               </td>
-              <td className="px-3 py-2 text-center">
+              <td className="px-3 py-2 text-center align-top pt-3">
                 <ConfidenceBadge v={item.confidence} />
               </td>
-              <td className="px-2 py-2">
+              <td className="px-2 py-2 align-top pt-3">
                 <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-400">
                   <Trash2 size={14} />
                 </button>

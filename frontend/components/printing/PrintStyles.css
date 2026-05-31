@@ -1,0 +1,73 @@
+/*
+ * PrintStyles.css
+ *
+ * @media print rules for in-page printing (window.print() on the current page).
+ * Import this file in pages that embed a hidden #print-area div and call
+ * window.print() directly — as opposed to the popup approach used by printTicket().
+ *
+ * Currently used by: app/tables/qrcode/page.tsx (QR code sheet)
+ * Future use: receipt overlay within the PDV page
+ */
+
+/* ── 80mm thermal page setup ─────────────────────────────────────────────── */
+@media print {
+  @page {
+    margin: 4mm;
+    size: 80mm auto;
+  }
+
+  /* Hide all UI; only the print target is visible */
+  body > *:not(#print-area) {
+    display: none !important;
+  }
+
+  #print-area {
+    display: block !important;
+    width: 72mm;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+  }
+
+  /* Reset common Tailwind utilities that break print layout */
+  #print-area * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Typography */
+  #print-area h1 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+  #print-area h2 { font-size: 15px; }
+  #print-area hr { border: none; border-top: 1px dashed #999; margin: 8px 0; }
+
+  /* Helpers */
+  #print-area .print-center  { text-align: center; }
+  #print-area .print-bold    { font-weight: bold; }
+  #print-area .print-small   { font-size: 11px; color: #555; }
+  #print-area .print-type    { font-size: 15px; font-weight: bold; text-align: center; margin-bottom: 6px; }
+  #print-area .print-line    { margin-bottom: 6px; }
+  #print-area .print-total   { font-size: 15px; font-weight: bold; }
+
+  /* Source badge */
+  #print-area .print-source {
+    display: inline-block;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 2px solid #111;
+    color: #111;
+  }
+  #print-area .print-source-online {
+    border-color: #1d4ed8;
+    color: #1d4ed8;
+  }
+
+  /* Item block */
+  #print-area .print-item-name  { font-size: 14px; font-weight: bold; }
+  #print-area .print-item-obs   { font-size: 12px; font-style: italic; color: #555; }
+  #print-area .print-item-comp  { font-size: 12px; color: #444; margin-left: 10px; }
+  #print-area .print-item-price { font-size: 12px; color: #333; margin-top: 2px; }
+}

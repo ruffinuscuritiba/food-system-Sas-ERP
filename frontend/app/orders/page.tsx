@@ -9,6 +9,8 @@ import {
   ShoppingCart, Printer, Clock, Truck, CheckCircle2, History,
   Phone, User, MapPin, X, Save, ChevronRight, RefreshCw,
 } from "lucide-react";
+import { printTicket, type PrintableOrder } from "@/components/printing/printTicket";
+import { buildReceipt80mm } from "@/components/printing/Receipt80mm";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -109,53 +111,17 @@ function customerPhone(order: Order): string {
 // ── Print ─────────────────────────────────────────────────────────────────────
 
 function printOrder(order: Order, companyName: string) {
-  const w = window.open("", "_blank");
-  if (!w) return;
-  const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-  const itemsHtml = items.map((item) => {
-    const complements = item.selectedComplements || [];
-    const complementsHtml = complements.map((c) =>
-      `<div style="margin-left:12px;font-size:13px;color:#555;">
-        + ${c.quantity}x ${c.optionName}${Number(c.price) > 0 ? ` (R$${Number(c.price).toFixed(2)})` : ""}
-      </div>`
-    ).join("");
-    return `
-      <div style="margin-bottom:10px;">
-        <b>${item.quantity}x ${item.productName}</b>
-        ${item.notes ? `<br/><i>Obs: ${item.notes}</i>` : ""}
-        ${complementsHtml}
-        <br/>R$ ${Number(item.subtotal).toFixed(2)}
-      </div>
-    `;
-  }).join("");
-
-  const typeLabels: Record<string, string> = { DELIVERY: "Delivery", PICKUP: "Retirada", DINE_IN: "Balcão" };
-  const typeLabel = typeLabels[order.orderType || "DINE_IN"] || "Balcão";
-  // I-01 — origem do pedido (PDV vs Cardápio Digital) — operador da cozinha distingue
-  const source = (order as any).source === "ONLINE" ? "ONLINE" : "PDV";
-  const sourceColor = source === "ONLINE" ? "#1d4ed8" : "#111";
-
-  w.document.write(`
-    <html><head><title>Pedido</title>
-    <style>body{font-family:Arial;width:300px;padding:20px}h1{text-align:center}.line{margin-bottom:10px}hr{margin:20px 0}.type{font-weight:bold;font-size:16px;text-align:center;margin-bottom:8px}.source{display:inline-block;font-weight:900;font-size:14px;letter-spacing:1.5px;padding:3px 10px;border:2px solid ${sourceColor};color:${sourceColor};border-radius:4px;margin:0 auto 8px;text-align:center}.sourceWrap{text-align:center}</style>
-    </head><body>
-      <h1>${companyName}</h1><hr/>
-      <div class="sourceWrap"><span class="source">[${source}]</span></div>
-      <div class="type">${typeLabel}</div>
-      <div class="line"><b>Cliente:</b> ${customerName(order)}</div>
-      <div class="line"><b>Telefone:</b> ${customerPhone(order)}</div>
-      ${order.deliveryAddress ? `<div class="line"><b>Endereço:</b> ${order.deliveryAddress}</div>` : ""}
-      <div class="line"><b>Pagamento:</b> ${PAY_LABELS[order.paymentMethod] || order.paymentMethod}</div>
-      <hr/>${itemsHtml}<hr/>
-      ${Number(order.deliveryFee) > 0 ? `<div class="line"><b>Taxa entrega:</b> R$ ${Number(order.deliveryFee).toFixed(2)}</div>` : ""}
-      ${Number(order.driverFee) > 0 ? `<div class="line"><b>Taxa entregador:</b> R$ ${Number(order.driverFee).toFixed(2)}</div>` : ""}
-      <div class="line"><b>Total:</b> R$ ${Number(order.total).toFixed(2)}</div>
-      ${order.confirmedAt ? `<div class="line"><b>Aceito às:</b> ${new Date(order.confirmedAt).toLocaleTimeString("pt-BR")}</div>` : ""}
-      <hr/><h2>${STATUS_LABELS[order.status]?.label || order.status}</h2>
-    </body></html>
-  `);
-  w.document.close();
-  w.print();
+  const printable: PrintableOrder = {
+    ...(order as unknown as PrintableOrder),
+    // source vem do adapter Caminho 2 (campo extra não tipado em Order)
+    source:        (order as Order & { source?: string }).source,
+    // status traduzido para PT-BR — preserva comportamento anterior
+    status:        STATUS_LABELS[order.status]?.label || order.status,
+    // helpers locais preservam lógica de fallback existente
+    customerName:  customerName(order),
+    customerPhone: customerPhone(order),
+  };
+  printTicket(buildReceipt80mm(printable, { companyName }));
 }
 
 // ── Edit Notes Modal ──────────────────────────────────────────────────────────

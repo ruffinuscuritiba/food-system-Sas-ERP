@@ -94,10 +94,18 @@ export class OrdersService {
         const quantity =
           Number(item.quantity);
 
-        // ✅ CORREÇÃO — usa o unitPrice enviado pelo frontend (snapshot do carrinho).
-        // Fallback para product.salePrice caso o frontend não envie o campo.
+        // Usa o preço enviado pelo frontend quando válido (ex: tamanho de pizza
+        // selecionado pelo PizzaBuilder). Fallback para product.salePrice do banco
+        // para itens simples ou quando o frontend não envia unitPrice.
+        const sentUnitPrice =
+          item.unitPrice != null &&
+          Number(item.unitPrice) > 0
+            ? Number(item.unitPrice)
+            : null;
+
         const unitPrice =
-          Number(item.unitPrice ?? product.salePrice ?? 0);
+          sentUnitPrice ??
+          Number(product.salePrice || 0);
 
         // Include complement prices in item subtotal
         const complementsExtra =
@@ -158,7 +166,7 @@ export class OrdersService {
 
         async (tx) => {
 
-          // 1. Create the Order without nested items — no index-ordering dependency
+          // 1. Create the Order without nested items
           const createdOrder =
             await tx.order.create({
 
@@ -185,7 +193,6 @@ export class OrdersService {
                 companyId:
                   data.companyId,
 
-                // Fase 2: tipo de atendimento e dados do cliente
                 orderType:
                   data.orderType || 'DINE_IN',
 
@@ -197,6 +204,10 @@ export class OrdersService {
 
                 deliveryAddress:
                   data.deliveryAddress || null,
+
+                // Persiste o número da mesa quando informado pelo PDV
+                tableNumber:
+                  data.tableNumber ?? null,
               },
 
               include: {
@@ -204,10 +215,28 @@ export class OrdersService {
               },
             });
 
-          // 2. Create each OrderItem individually so its id is known before
-          //    creating complements — eliminates createdOrder.items[i] dependency.
-          //    orderItemsData[i] and data.items[i] share the same index by
-          //    construction (both derived from the same data.items.map call).
+          // 2a. DINE_IN: localizar a mesa pelo número e marcar como OCCUPIED
+          if (
+            (data.orderType === 'DINE_IN' || !data.orderType) &&
+            data.tableNumber
+          ) {
+            const table = await tx.table.findFirst({
+              where: {
+                companyId: data.companyId,
+                number: Number(data.tableNumber),
+              },
+              select: { id: true },
+            });
+
+            if (table) {
+              await tx.table.update({
+                where: { id: table.id },
+                data: { status: 'OCCUPIED' },
+              });
+            }
+          }
+
+          // 2b. Create each OrderItem individually
           const createdItems: any[] = [];
 
           for (
@@ -227,8 +256,7 @@ export class OrdersService {
 
             createdItems.push(createdItem);
 
-            // 3. Create complements for THIS specific item immediately —
-            //    createdItem.id is deterministic, no array ordering involved.
+            // 3. Create complements for THIS specific item
             const comps: any[] =
               Array.isArray(data.items[i].complements)
                 ? data.items[i].complements
@@ -262,7 +290,6 @@ export class OrdersService {
             }
           }
 
-          // 4. Return the order with the same shape expected by callers
           return {
             ...createdOrder,
             items: createdItems,
@@ -483,7 +510,6 @@ export class OrdersService {
               });
             }
 
-            // Hook de fidelidade após confirmação
             if (order.customerId) {
               await this.loyaltyService.processOrderReward(
                 order.customerId,
@@ -582,62 +608,12 @@ export class OrdersService {
 
           const timestamps: any = {};
 
-          if (
-            status ===
-            OrderStatus.CONFIRMED
-          ) {
-
-            timestamps.confirmedAt =
-              new Date();
-          }
-
-          if (
-            status ===
-            OrderStatus.PREPARING
-          ) {
-
-            timestamps.preparingAt =
-              new Date();
-          }
-
-          if (
-            status ===
-            OrderStatus.READY
-          ) {
-
-            timestamps.readyAt =
-              new Date();
-          }
-
-          if (
-            status ===
-            OrderStatus.OUT_FOR_DELIVERY
-          ) {
-
-            timestamps.outForDeliveryAt =
-              new Date();
-          }
-
-          if (
-            status ===
-            OrderStatus.DELIVERED
-          ) {
-
-            timestamps.deliveredAt =
-              new Date();
-
-            timestamps.completedAt =
-              new Date();
-          }
-
-          if (
-            status ===
-            OrderStatus.CANCELLED
-          ) {
-
-            timestamps.cancelledAt =
-              new Date();
-          }
+          if (status === OrderStatus.CONFIRMED)        { timestamps.confirmedAt      = new Date(); }
+          if (status === OrderStatus.PREPARING)        { timestamps.preparingAt      = new Date(); }
+          if (status === OrderStatus.READY)            { timestamps.readyAt          = new Date(); }
+          if (status === OrderStatus.OUT_FOR_DELIVERY) { timestamps.outForDeliveryAt = new Date(); }
+          if (status === OrderStatus.DELIVERED)        { timestamps.deliveredAt = new Date(); timestamps.completedAt = new Date(); }
+          if (status === OrderStatus.CANCELLED)        { timestamps.cancelledAt      = new Date(); }
 
           return tx.order.update({
 
@@ -647,7 +623,6 @@ export class OrdersService {
 
             data: {
               status,
-
               ...timestamps,
             },
           });
@@ -659,40 +634,21 @@ export class OrdersService {
         },
       );
 
-    this.socketGateway
-      .emitKitchenUpdate(
-        updatedOrder,
-      );
-
-    // Cliente público escutando /pedido/confirmado?orderId=X recebe atualização
-    this.socketGateway.emitOrderStatusChanged(id, {
-      status: updatedOrder.status,
-      source: 'PDV',
-    });
+    this.socketGateway.emitKitchenUpdate(updatedOrder);
+    this.socketGateway.emitOrderStatusChanged(id, { status: updatedOrder.status, source: 'PDV' });
 
     const dashboard =
       await this.dashboard(
         order.companyId,
       );
 
-    this.socketGateway
-      .emitDashboardUpdate(
-        order.companyId,
-        dashboard,
-      );
+    this.socketGateway.emitDashboardUpdate(order.companyId, dashboard);
 
-    // WhatsApp customer notification (non-blocking, best-effort)
     const customerPhone = (order as any).customerPhone ?? order.customer?.phone;
     if (
       this.whatsappAiService &&
       customerPhone &&
-      [
-        'CONFIRMED',
-        'READY',
-        'OUT_FOR_DELIVERY',
-        'DELIVERED',
-        'CANCELLED',
-      ].includes(status)
+      ['CONFIRMED', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].includes(status)
     ) {
       setImmediate(async () => {
         try {
@@ -716,12 +672,9 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async dashboard(
-    companyId: string,
-  ) {
+  async dashboard(companyId: string) {
 
     const today = new Date();
-
     today.setHours(0, 0, 0, 0);
 
     const orders =
@@ -729,77 +682,32 @@ export class OrdersService {
 
         where: {
           companyId,
-
-          createdAt: {
-            gte: today,
-          },
+          createdAt: { gte: today },
         },
       });
 
-    const totalOrders =
-      orders.length;
+    const totalOrders   = orders.length;
+    const totalRevenue  = orders.reduce((acc, order) => acc + Number(order.total), 0);
+    const pendingOrders = orders.filter((order) => order.status === OrderStatus.PENDING).length;
+    const confirmedOrders = orders.filter((order) => order.status === OrderStatus.CONFIRMED).length;
 
-    const totalRevenue =
-      orders.reduce(
-        (acc, order) =>
-          acc +
-          Number(order.total),
-        0,
-      );
-
-    const pendingOrders =
-      orders.filter(
-        (order) =>
-          order.status ===
-          OrderStatus.PENDING,
-      ).length;
-
-    const confirmedOrders =
-      orders.filter(
-        (order) =>
-          order.status ===
-          OrderStatus.CONFIRMED,
-      ).length;
-
-    return {
-      totalOrders,
-
-      totalRevenue,
-
-      pendingOrders,
-
-      confirmedOrders,
-    };
+    return { totalOrders, totalRevenue, pendingOrders, confirmedOrders };
   }
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // ADAPTER COZINHA/PEDIDOS — Caminho 2 do Item 4
-  // Unifica Order (PDV) + OnlineOrder (Cardápio Digital) em shape único.
-  // Não altera Order/OnlineOrder. Sem mexer em pagamento/webhook.
-  // ════════════════════════════════════════════════════════════════════════════
-
-  /** Status operacional unificado — único enum que o frontend conhece. */
   static readonly KITCHEN_STATUSES = [
-    'PENDING',
-    'CONFIRMED',
-    'PREPARING',
-    'READY',
-    'OUT_FOR_DELIVERY',
-    'DELIVERED',
-    'CANCELLED',
+    'PENDING', 'CONFIRMED', 'PREPARING', 'READY',
+    'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED',
   ] as const;
 
-  /** OnlineOrderStatus → status operacional unificado. */
   private mapOnlineStatusToKitchen(s: string): string {
     switch (s) {
       case 'DELIVERING': return 'OUT_FOR_DELIVERY';
       case 'COMPLETED':  return 'DELIVERED';
       case 'CANCELED':   return 'CANCELLED';
-      default:           return s; // PENDING, CONFIRMED, PREPARING, READY mantêm
+      default:           return s;
     }
   }
 
-  /** Status operacional unificado → OnlineOrderStatus. */
   private mapKitchenStatusToOnline(s: string): string {
     switch (s) {
       case 'OUT_FOR_DELIVERY': return 'DELIVERING';
@@ -809,16 +717,12 @@ export class OrdersService {
     }
   }
 
-  /** Lista unificada Order + OnlineOrder com shape único. */
   async findAllForKitchen(companyId: string) {
     const [pdvOrders, onlineOrdersRaw] = await Promise.all([
       (this.prisma as any).order.findMany({
         where: { companyId },
         orderBy: { createdAt: 'desc' },
-        include: {
-          customer: true,
-          items: { include: { selectedComplements: true } },
-        },
+        include: { customer: true, items: { include: { selectedComplements: true } } },
       }),
       (this.prisma as any).onlineOrder.findMany({
         where: { companyId },
@@ -826,26 +730,25 @@ export class OrdersService {
       }),
     ]);
 
-    // ── Normaliza PDV ───────────────────────────────────────────────────
     const pdv = pdvOrders.map((o: any) => ({
-      id:                o.id,
-      source:            'PDV' as const,
-      status:            o.status,            // já no enum unificado
-      productionStatus:  o.productionStatus ?? null,
-      createdAt:         o.createdAt,
-      customerName:      o.customer?.name ?? o.customerName ?? null,
-      customerPhone:     o.customer?.phone ?? null,
-      customerAddress:   o.customer?.address ?? null,
-      orderType:         (o as any).orderType ?? 'DINE_IN',
-      total:             Number(o.total),
-      paymentMethod:     o.paymentMethod ?? null,
-      notes:             o.notes ?? null,
+      id:               o.id,
+      source:           'PDV' as const,
+      status:           o.status,
+      productionStatus: o.productionStatus ?? null,
+      createdAt:        o.createdAt,
+      customerName:     o.customer?.name ?? o.customerName ?? null,
+      customerPhone:    o.customer?.phone ?? null,
+      customerAddress:  o.customer?.address ?? null,
+      orderType:        (o as any).orderType ?? 'DINE_IN',
+      total:            Number(o.total),
+      paymentMethod:    o.paymentMethod ?? null,
+      notes:            o.notes ?? null,
       items: (o.items ?? []).map((it: any) => ({
-        productName:   it.productName,
-        quantity:      it.quantity,
-        notes:         it.notes ?? '',
-        unitPrice:     Number(it.unitPrice ?? 0),
-        subtotal:      Number(it.subtotal ?? 0),
+        productName:  it.productName,
+        quantity:     it.quantity,
+        notes:        it.notes ?? '',
+        unitPrice:    Number(it.unitPrice ?? 0),
+        subtotal:     Number(it.subtotal ?? 0),
         selectedComplements: (it.selectedComplements ?? []).map((c: any) => ({
           complementName: c.complementName,
           optionName:     c.optionName,
@@ -855,31 +758,27 @@ export class OrdersService {
       })),
     }));
 
-    // ── Normaliza OnlineOrder ───────────────────────────────────────────
     const online = onlineOrdersRaw.map((o: any) => {
       const rawItems: any[] = Array.isArray(o.items) ? o.items : [];
       return {
-        id:                o.id,
-        source:            'ONLINE' as const,
-        // OnlineOrder usa `orderStatus`; PDV usa `status`. Normalizamos para `status`.
-        status:            this.mapOnlineStatusToKitchen(o.orderStatus),
-        productionStatus:  null,
-        createdAt:         o.createdAt,
-        customerName:      o.customerName ?? null,
-        customerPhone:     o.customerPhone ?? null,
-        customerAddress:   [o.address, o.addressNumber, o.neighborhood, o.city]
-                              .filter(Boolean).join(', ') || null,
-        orderType:         o.orderType ?? 'DELIVERY',
-        total:             Number(o.total),
-        paymentMethod:     o.paymentMethod ?? null,
-        notes:             o.notes ?? null,
+        id:               o.id,
+        source:           'ONLINE' as const,
+        status:           this.mapOnlineStatusToKitchen(o.orderStatus),
+        productionStatus: null,
+        createdAt:        o.createdAt,
+        customerName:     o.customerName ?? null,
+        customerPhone:    o.customerPhone ?? null,
+        customerAddress:  [o.address, o.addressNumber, o.neighborhood, o.city].filter(Boolean).join(', ') || null,
+        orderType:        o.orderType ?? 'DELIVERY',
+        total:            Number(o.total),
+        paymentMethod:    o.paymentMethod ?? null,
+        notes:            o.notes ?? null,
         items: rawItems.map((it: any) => ({
           productName: it.productName,
           quantity:    Number(it.quantity ?? 1),
           notes:       it.notes ?? '',
           unitPrice:   Number(it.unitPrice ?? 0),
           subtotal:    Number(it.unitPrice ?? 0) * Number(it.quantity ?? 1),
-          // Online: complementos vêm dentro do item.complements (Json) — Fase A1
           selectedComplements: Array.isArray(it.complements) ? it.complements.map((c: any) => ({
             complementName: c.complementName,
             optionName:     c.optionName,
@@ -890,13 +789,11 @@ export class OrdersService {
       };
     });
 
-    // Merge e reordena por createdAt desc
     return [...pdv, ...online].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }
 
-  /** Atualiza status operacional roteando para a tabela correta — multiempresa preservado. */
   async updateKitchenStatus(
     source: string,
     id: string,
@@ -910,7 +807,6 @@ export class OrdersService {
     }
 
     if (source === 'PDV') {
-      // Reusa fluxo existente (com transação Serializable, estoque, fidelidade)
       return this.updateStatus(id, status as OrderStatus, userId, companyId);
     }
 
@@ -927,11 +823,9 @@ export class OrdersService {
         data:  { orderStatus: mapped },
       });
 
-      // Mantém cozinha em tempo real (mesmo socket dos PDVs)
       try {
         this.socketGateway.emitKitchenUpdate({ companyId, id, status, source: 'ONLINE' } as any);
         this.socketGateway.emitDashboardUpdate(companyId, {});
-        // Cliente público acompanhando /pedido/confirmado?orderId=X recebe agora
         this.socketGateway.emitOrderStatusChanged(id, { status, source: 'ONLINE' });
       } catch { /* socket failure must not block */ }
 

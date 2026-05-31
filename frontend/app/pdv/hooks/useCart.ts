@@ -1,14 +1,21 @@
 import { useMemo, useState } from "react";
 import type { CartItem, Product } from "../types";
+import { getPriceForSize } from "../types";
 
 export function useCart() {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  function add(product: Product) {
+  function add(product: Product, size?: string) {
+    // ✅ CORREÇÃO — snapshot do preço no momento da adição.
+    // Se vier com tamanho, usa getPriceForSize; caso contrário, usa salePrice.
+    const unitPrice = size
+      ? getPriceForSize(product, size)
+      : Number(product.salePrice);
+
     setItems((prev) => {
       const ex = prev.find((i) => i.cartKey === product.id);
       if (ex) return prev.map((i) => i.cartKey === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { cartKey: product.id, product, quantity: 1, notes: "" }];
+      return [...prev, { cartKey: product.id, product, quantity: 1, notes: "", unitPrice }];
     });
   }
 
@@ -30,8 +37,9 @@ export function useCart() {
     setItems([]);
   }
 
+  // ✅ CORREÇÃO — total usa unitPrice do snapshot, não product.salePrice dinâmico.
   const total = useMemo(
-    () => items.reduce((a, i) => a + Number(i.product.salePrice) * i.quantity, 0),
+    () => items.reduce((a, i) => a + i.unitPrice * i.quantity, 0),
     [items]
   );
   const count = useMemo(

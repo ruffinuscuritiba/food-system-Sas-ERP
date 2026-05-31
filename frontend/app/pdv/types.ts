@@ -29,6 +29,10 @@ export type CartItem = {
   product: Product;
   quantity: number;
   notes: string;
+  // ✅ CORREÇÃO — snapshot do preço no momento da adição ao carrinho.
+  // Deve ser preenchido por useCart com getPriceForSize() ou product.salePrice.
+  // O backend usa este valor em item.unitPrice — nunca mais recalcula via salePrice.
+  unitPrice: number;
   flavors?: Product[];
   pizzaSize?: string;
   pizzaBorderId?: string;

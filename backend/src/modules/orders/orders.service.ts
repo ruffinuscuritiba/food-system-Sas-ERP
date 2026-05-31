@@ -94,10 +94,10 @@ export class OrdersService {
         const quantity =
           Number(item.quantity);
 
+        // ✅ CORREÇÃO — usa o unitPrice enviado pelo frontend (snapshot do carrinho).
+        // Fallback para product.salePrice caso o frontend não envie o campo.
         const unitPrice =
-          Number(
-            product.salePrice || 0,
-          );
+          Number(item.unitPrice ?? product.salePrice ?? 0);
 
         // Include complement prices in item subtotal
         const complementsExtra =

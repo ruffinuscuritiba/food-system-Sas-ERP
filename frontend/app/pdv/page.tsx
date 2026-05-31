@@ -76,7 +76,8 @@ interface ComplementGroup {
   options: ComplementOption[];
 }
 
-interface CartItem { product: Product; qty: number; complements?: SelectedComplement[]; }
+// ✅ CORREÇÃO — CartItem agora carrega unitPrice (snapshot do preço no momento da adição).
+interface CartItem { product: Product; qty: number; unitPrice: number; complements?: SelectedComplement[]; }
 
 const PIZZA_SIZE_ORDER: Record<string, number> = {
   BIG: 0,
@@ -94,9 +95,6 @@ function getPizzaSizeOrder(size: string) {
 }
 
 // ── Pizza deduplication ────────────────────────────────────────────────────────
-// "CALABRESA (Pequena 4 fatias)" + "CALABRESA (Média 6 fatias)" → 1 card "CALABRESA"
-
-// Maps the text found inside parens or as suffix → Prisma enum key
 const SIZE_LABEL_TO_KEY: Record<string, string> = {
   "pequena":      "PEQUENA",
   "média":        "MEDIA",
@@ -109,22 +107,12 @@ const SIZE_LABEL_TO_KEY: Record<string, string> = {
   "extra_grande": "EXTRA_GRANDE",
 };
 
-/**
- * Returns the base name and the size enum key for a product.
- *
- * Handles two formats:
- *   A) "CALABRESA (Pequena 4 fatias)"  → baseName="CALABRESA", sizeKey="PEQUENA"
- *   B) "Calabresa Média"               → baseName="Calabresa", sizeKey="MEDIA"
- *   C) "Portuguesa"                    → baseName="Portuguesa", sizeKey=null (no change)
- */
 function parseProductName(name: string): { baseName: string; sizeKey: string | null } {
-  // Format A: anything in parentheses at the end
   const parenMatch = name.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
   if (parenMatch) {
     const base = parenMatch[1].trim();
     const content = parenMatch[2].trim().toLowerCase();
     if (base) {
-      // Try to detect size from paren content (first 1 or 2 words)
       const w1 = content.split(/\s+/)[0];
       const w2 = content.split(/\s+/).slice(0, 2).join(" ");
       const sizeKey = SIZE_LABEL_TO_KEY[w2] ?? SIZE_LABEL_TO_KEY[w1] ?? null;
@@ -132,16 +120,13 @@ function parseProductName(name: string): { baseName: string; sizeKey: string | n
     }
   }
 
-  // Format B: known size label as bare suffix
   for (const [label, sizeKey] of Object.entries(SIZE_LABEL_TO_KEY)) {
-    // skip multi-word entries on the first pass (checked below)
     if (label.includes(" ")) continue;
     const re = new RegExp(`[\\s\\-–]+(${label})\\s*$`, "i");
     if (re.test(name)) {
       return { baseName: name.replace(re, "").trim(), sizeKey };
     }
   }
-  // multi-word suffixes (Extra Grande)
   for (const [label, sizeKey] of Object.entries(SIZE_LABEL_TO_KEY)) {
     if (!label.includes(" ")) continue;
     const re = new RegExp(`[\\s\\-–]+(${label})\\s*$`, "i");
@@ -153,10 +138,6 @@ function parseProductName(name: string): { baseName: string; sizeKey: string | n
   return { baseName: name, sizeKey: null };
 }
 
-/**
- * Groups product variants by their base name and returns one merged Product per group.
- * Safe no-op for products without size in their name.
- */
 function buildDedupedPizzaProducts(prods: Product[]): Product[] {
   type Group = {
     displayName: string;
@@ -182,7 +163,6 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
     const mergedSizes: ProductSize[] = [];
 
     for (const { sizeKey, product: p } of g.variants) {
-      // Prefer sizes[] on the product (most accurate source)
       if (p.sizes && p.sizes.length > 0) {
         for (const s of p.sizes) {
           if (!seen.has(s.size)) {
@@ -191,7 +171,6 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
           }
         }
       } else if (sizeKey && !seen.has(sizeKey)) {
-        // Fall back: infer size from name, use salePrice as price
         seen.add(sizeKey);
         mergedSizes.push({ size: sizeKey, price: Number(p.salePrice) || 0 });
       }
@@ -247,12 +226,10 @@ export default function PDVPage() {
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
 
-  // Trocar Mesa
   const [showTrocarMesa, setShowTrocarMesa]     = useState(false);
   const [tables, setTables]                     = useState<any[]>([]);
   const [loadingTables, setLoadingTables]       = useState(false);
 
-  // Criar Cupom
   const [showCriarCupom, setShowCriarCupom]     = useState(false);
   const [cupomForm, setCupomForm]               = useState({
     code: "", type: "PERCENTAGE" as "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_SHIPPING",
@@ -266,7 +243,6 @@ export default function PDVPage() {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       if (user.companyId) {
         setCompanyId(user.companyId);
-        // Fetch pizza size configs for dynamic maxFlavors
         fetch(`/api/pizza-size-configs/public?companyId=${user.companyId}`)
           .then(r => r.ok ? r.json() : [])
           .then((configs: any[]) => {
@@ -299,16 +275,18 @@ export default function PDVPage() {
   }, []);
 
   const addCartItem = useCallback((product: Product, complements?: SelectedComplement[]) => {
+    // ✅ CORREÇÃO — snapshot do preço no momento da adição ao carrinho.
+    const unitPrice = Number(product.salePrice) || 0;
+
     setCart(prev => {
-      // Items with complements always create a new cart entry (selections differ)
       if (complements && complements.length > 0) {
-        return [...prev, { product, qty: 1, complements }];
+        return [...prev, { product, qty: 1, unitPrice, complements }];
       }
       const ex = prev.find(i => i.product.id === product.id && !i.complements?.length);
       if (ex) return prev.map(i =>
         i.product.id === product.id && !i.complements?.length ? { ...i, qty: i.qty + 1 } : i
       );
-      return [...prev, { product, qty: 1 }];
+      return [...prev, { product, qty: 1, unitPrice }];
     });
     toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
   }, []);
@@ -350,6 +328,8 @@ export default function PDVPage() {
         ].filter(Boolean).join(" | "),
       },
       qty: 1,
+      // ✅ CORREÇÃO — snapshot do preço da pizza montada.
+      unitPrice: Number(pizza.price) || 0,
     };
     setCart(prev => [...prev, pizzaItem]);
     setPizzaProduct(null);
@@ -363,10 +343,13 @@ export default function PDVPage() {
   const clearCart = useCallback(() => { setCart([]); }, []);
 
   const cartCount = cart.reduce((a, i) => a + i.qty, 0);
-  const cartTotal = cart.reduce((a, { product, qty, complements }) => {
+
+  // ✅ CORREÇÃO — total usa unitPrice do snapshot, não product.salePrice dinâmico.
+  const cartTotal = cart.reduce((a, { unitPrice, qty, complements }) => {
     const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
-    return a + ((Number(product.salePrice) || 0) + compExtra) * qty;
+    return a + (unitPrice + compExtra) * qty;
   }, 0);
+
   const canProceedToPayment =
     cart.length > 0 &&
     (pdvOrderDetails.orderType === "PICKUP" ||
@@ -388,10 +371,6 @@ export default function PDVPage() {
   const activeIsBeverage      = activeCategory?.categoryType === "bebidas";
   const activeCategoryIsPizza = activeCategory != null && pizzaCategories.has(activeCategory.id);
 
-  // Banner — White Label Fase 5:
-  // 1º) bannerImage da categoria selecionada (admin define em /categories)
-  // 2º) primeira imagem de produto da categoria (fallback)
-  // 3º) imagem padrão Unsplash
   const bannerImageUrl =
     (activeCategory as any)?.bannerImage ||
     products.find(
@@ -405,7 +384,6 @@ export default function PDVPage() {
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
     : "—";
 
-  // Returns the minimum price of a product (lowest size price or salePrice)
   function productMinPrice(product: Product): number {
     if (product.sizes && product.sizes.length > 0) {
       return Math.min(...product.sizes.map(s => Number(s.price)));
@@ -413,7 +391,6 @@ export default function PDVPage() {
     return Number(product.salePrice) || 0;
   }
 
-  // Returns price label: "A partir de R$ X,XX" when multiple sizes, else "R$ X,XX"
   function productPriceLabel(product: Product): string {
     if (product.sizes && product.sizes.length > 1) {
       return `A partir de ${fmt(productMinPrice(product))}`;
@@ -434,9 +411,11 @@ export default function PDVPage() {
 
     setPaymentSubmitting(true);
     try {
-      const orderItems = cart.map(({ product, qty, complements }) => ({
+      // ✅ CORREÇÃO — payload inclui unitPrice (snapshot) por item.
+      const orderItems = cart.map(({ product, qty, unitPrice, complements }) => ({
         productId: product.orderProductId || product.id,
         quantity: qty,
+        unitPrice,
         notes: product.notes || "",
         complements: (complements || []).map(c => ({
           complementOptionId: c.complementOptionId,
@@ -447,7 +426,6 @@ export default function PDVPage() {
         })),
       }));
 
-      // Validate all item IDs are real UUIDs/cuid before sending
       const invalidItem = orderItems.find(i => !i.productId || i.productId.startsWith("pizza-"));
       if (invalidItem) {
         toast.error("Item inválido no carrinho. Remova e adicione novamente.");
@@ -458,7 +436,6 @@ export default function PDVPage() {
         ? `Pgto dividido: ${splits.map(s => `${s.method} R$${s.amount}`).join(" + ")}`
         : "";
 
-      // Build full delivery address string
       const fullAddress = details.orderType === "DELIVERY"
         ? [
             details.address,
@@ -486,7 +463,6 @@ export default function PDVPage() {
         try {
           await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" });
         } catch (confirmErr: any) {
-          // Order was created but confirmation failed — show warning but don't rollback
           const msg = confirmErr?.response?.data?.message || "Pedido criado mas não confirmado automaticamente.";
           toast(`⚠️ ${Array.isArray(msg) ? msg.join(", ") : msg}`, { duration: 5000 });
         }
@@ -713,7 +689,6 @@ export default function PDVPage() {
           {/* MESA indicator + actions */}
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
 
-            {/* Mesa indicator — shown when DINE_IN + table set */}
             {pdvOrderDetails.orderType === "DINE_IN" && pdvOrderDetails.tableNumber && (
               <div className="hidden sm:flex flex-col items-center justify-center h-10 md:h-[54px] px-3 md:px-4 rounded-2xl border border-[#1d2336] bg-[#0c101d] min-w-[72px]">
                 <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide leading-none">MESA</span>
@@ -724,7 +699,6 @@ export default function PDVPage() {
               </div>
             )}
 
-            {/* Trocar Mesa */}
             <button
               onClick={openTrocarMesa}
               title="Trocar mesa"
@@ -735,7 +709,6 @@ export default function PDVPage() {
               <span className="hidden md:block text-[10px] leading-none">Mesa</span>
             </button>
 
-            {/* Criar Cupom */}
             <button
               onClick={openCriarCupom}
               title="Criar cupom"
@@ -746,7 +719,6 @@ export default function PDVPage() {
               <span className="hidden md:block text-[10px] leading-none">Cupom</span>
             </button>
 
-            {/* Limpar Conta */}
             <button
               onClick={clearCart}
               title="Limpar conta"
@@ -757,7 +729,6 @@ export default function PDVPage() {
               <span className="hidden md:block text-[10px] leading-none">Conta</span>
             </button>
 
-            {/* Carrinho */}
             <button
               onClick={() => setShowCart(true)}
               className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-2 font-semibold relative"
@@ -831,7 +802,6 @@ export default function PDVPage() {
           {/* PRODUCTS — desktop */}
           <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[#030712]">
 
-            {/* HERO banner */}
             <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
               <img
                 src={bannerImageUrl}
@@ -849,7 +819,6 @@ export default function PDVPage() {
               </div>
             </div>
 
-            {/* PRODUCTS LIST / GRID */}
             {loading ? (
               <div className="space-y-5">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -862,7 +831,6 @@ export default function PDVPage() {
                 <p className="font-semibold text-lg">Nenhum produto nesta categoria</p>
               </div>
             ) : activeIsBeverage ? (
-              /* ── BEVERAGES GRID — desktop 5 cols, tablet 3 ── */
               <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
                 {filteredProducts.map((product) => (
                   <div
@@ -890,7 +858,6 @@ export default function PDVPage() {
                 ))}
               </div>
             ) : (
-              /* ── DEFAULT LIST ── */
               <div className="space-y-5">
                 {buildDedupedPizzaProducts(filteredProducts).map((product) => (
                   <div
@@ -949,7 +916,7 @@ export default function PDVPage() {
 
         </div>
 
-        {/* PRODUCTS — mobile only (full width list or beverages grid) */}
+        {/* PRODUCTS — mobile only */}
         <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712] px-3 py-3">
           {loading ? (
             <div className="space-y-3">
@@ -963,7 +930,6 @@ export default function PDVPage() {
               <p className="text-sm font-semibold">Nenhum produto nesta categoria</p>
             </div>
           ) : activeIsBeverage ? (
-            /* ── BEVERAGES GRID — mobile 2 cols ── */
             <div className="grid grid-cols-2 gap-3">
               {filteredProducts.map(product => (
                 <div
@@ -990,7 +956,6 @@ export default function PDVPage() {
               ))}
             </div>
           ) : (
-            /* ── DEFAULT LIST ── */
             <div className="space-y-3">
               {buildDedupedPizzaProducts(filteredProducts).map(product => (
                 <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
@@ -1056,9 +1021,10 @@ export default function PDVPage() {
                   <p className="text-sm font-medium">Carrinho vazio</p>
                 </div>
               ) : (
-                cart.map(({ product, qty, complements }, idx) => {
+                cart.map(({ product, qty, unitPrice, complements }, idx) => {
                   const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
-                  const itemTotal = ((Number(product.salePrice) || 0) + compExtra) * qty;
+                  // ✅ CORREÇÃO — itemTotal usa unitPrice (snapshot), não product.salePrice.
+                  const itemTotal = (unitPrice + compExtra) * qty;
                   return (
                     <div key={`${product.id}-${idx}`} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-start gap-3">
                       {product.imageUrl
@@ -1067,7 +1033,8 @@ export default function PDVPage() {
                       }
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm truncate">{product.name}</p>
-                        <p className="text-zinc-400 text-xs mt-0.5">{fmt(Number(product.salePrice))} × {qty}</p>
+                        {/* ✅ CORREÇÃO — exibe unitPrice do snapshot, não product.salePrice. */}
+                        <p className="text-zinc-400 text-xs mt-0.5">{fmt(unitPrice)} × {qty}</p>
                         {complements && complements.length > 0 && (
                           <div className="mt-1 space-y-0.5">
                             {complements.map((c, ci) => (
@@ -1138,7 +1105,6 @@ export default function PDVPage() {
             </div>
 
             <div className="p-5">
-              {/* Manual entry */}
               <div className="mb-4">
                 <label className="block text-xs text-zinc-500 font-bold uppercase mb-2">Digite o número da mesa</label>
                 <div className="flex gap-2">
@@ -1163,7 +1129,6 @@ export default function PDVPage() {
                 </div>
               </div>
 
-              {/* Table list from API */}
               {loadingTables ? (
                 <div className="flex items-center justify-center py-8 text-zinc-500">
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
@@ -1222,7 +1187,6 @@ export default function PDVPage() {
 
             <div className="p-6">
               {cupomCreated ? (
-                /* ── SUCCESS STATE ── */
                 <div className="text-center py-4 space-y-4">
                   <div className="text-5xl">🎉</div>
                   <p className="text-white font-bold text-lg">Cupom criado com sucesso!</p>
@@ -1244,9 +1208,7 @@ export default function PDVPage() {
                   </button>
                 </div>
               ) : (
-                /* ── FORM STATE ── */
                 <div className="space-y-4">
-                  {/* Code */}
                   <div>
                     <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Código do cupom</label>
                     <div className="flex gap-2">
@@ -1266,14 +1228,13 @@ export default function PDVPage() {
                     </div>
                   </div>
 
-                  {/* Type */}
                   <div>
                     <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Tipo de desconto</label>
                     <div className="grid grid-cols-3 gap-2">
                       {([
-                        { v: "PERCENTAGE",  label: "%",            desc: "Percentual" },
-                        { v: "FIXED_AMOUNT",label: "R$",           desc: "Valor fixo" },
-                        { v: "FREE_SHIPPING",label: "🚚",          desc: "Frete grátis" },
+                        { v: "PERCENTAGE",  label: "%",   desc: "Percentual" },
+                        { v: "FIXED_AMOUNT",label: "R$",  desc: "Valor fixo" },
+                        { v: "FREE_SHIPPING",label: "🚚", desc: "Frete grátis" },
                       ] as const).map(opt => (
                         <button
                           key={opt.v}
@@ -1291,7 +1252,6 @@ export default function PDVPage() {
                     </div>
                   </div>
 
-                  {/* Value */}
                   {cupomForm.type !== "FREE_SHIPPING" && (
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">
@@ -1309,7 +1269,6 @@ export default function PDVPage() {
                     </div>
                   )}
 
-                  {/* Optional: usage limit + expiry */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Limite de usos</label>
@@ -1333,7 +1292,6 @@ export default function PDVPage() {
                     </div>
                   </div>
 
-                  {/* Submit */}
                   <button
                     onClick={saveCupom}
                     disabled={cupomSaving}
@@ -1389,7 +1347,7 @@ export default function PDVPage() {
         </div>
       )}
 
-      {/* COMPLEMENT MODAL (shared component) */}
+      {/* COMPLEMENT MODAL */}
       <ComplementsModal
         open={!!complementProduct}
         productName={complementProduct?.name ?? ""}
@@ -1414,15 +1372,10 @@ export default function PDVPage() {
   );
 }
 
-function TopButton({
-  icon,
-  title,
-  subtitle,
-}: any) {
+function TopButton({ icon, title, subtitle }: any) {
   return (
     <button className="h-[54px] px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 transition flex items-center gap-3">
       {icon}
-
       <div className="text-left leading-none">
         <div className="font-semibold">{title}</div>
         <div className="text-xs opacity-80 mt-1">{subtitle}</div>
@@ -1431,158 +1384,94 @@ function TopButton({
   );
 }
 
-/** Botão de olho: ativo se o produto tem vídeo, desabilitado caso contrário */
-function VideoEyeBtn({
-  product,
-  onOpen,
-}: {
-  product: Product;
-  onOpen: (p: Product) => void;
-}) {
+function VideoEyeBtn({ product, onOpen }: { product: Product; onOpen: (p: Product) => void }) {
   const active = !!(product.videoUrl);
   return (
     <button
       onClick={() => active && onOpen(product)}
       title={active ? "Visualizar vídeo do produto" : "Sem vídeo cadastrado"}
       disabled={!active}
-      className={`
-        w-12 h-12 rounded-xl border flex items-center justify-center transition
-        ${active
+      className={`w-12 h-12 rounded-xl border flex items-center justify-center transition ${
+        active
           ? "border-blue-600/40 text-blue-400 hover:bg-blue-600/20 cursor-pointer"
           : "border-[#1d2336] text-zinc-600 opacity-40 cursor-not-allowed"
-        }
-      `}
+      }`}
     >
       {active ? <Eye size={16} /> : <EyeOff size={16} />}
     </button>
   );
 }
 
-/** Modal de vídeo — desktop: modal centralizado | mobile: fullscreen estilo reels */
-function VideoModal({
-  product,
-  onClose,
-}: {
-  product: Product;
-  onClose: () => void;
-}) {
+function VideoModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
-  // Tentar fullscreen nativo em iOS/Android
   useEffect(() => {
     if (!isMobile || !videoRef.current) return;
     const el = videoRef.current as any;
-    const req =
-      el.requestFullscreen ??
-      el.webkitRequestFullscreen ??
-      el.webkitEnterFullscreen;
+    const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.webkitEnterFullscreen;
     if (req) req.call(el).catch(() => {});
   }, []);
 
   if (isMobile) {
     return (
       <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-12 pb-4">
           <div className="min-w-0">
             <p className="text-xs text-zinc-400 mb-0.5">Visualizando</p>
             <h3 className="font-bold text-white text-lg truncate">{product.name}</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0"
-          >
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0">
             <X size={20} />
           </button>
         </div>
-        {/* Video fullscreen */}
         <div className="flex-1 flex items-center justify-center px-2 pb-8">
-          <video
-            ref={videoRef}
-            src={product.videoUrl}
-            controls
-            autoPlay
-            playsInline
-            className="w-full max-h-full rounded-2xl object-contain"
-          />
+          <video ref={videoRef} src={product.videoUrl} controls autoPlay playsInline className="w-full max-h-full rounded-2xl object-contain" />
         </div>
       </div>
     );
   }
 
-  // Desktop
   return (
-    <div
-      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-      onClick={onClose}
-    >
-      <div
-        className="relative bg-[#0b0f1b] rounded-3xl overflow-hidden w-full max-w-3xl shadow-2xl border border-[#1d2336]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
+    <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
+      <div className="relative bg-[#0b0f1b] rounded-3xl overflow-hidden w-full max-w-3xl shadow-2xl border border-[#1d2336]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#161b2d]">
           <div>
             <p className="text-xs text-zinc-500 mb-0.5">Vídeo do produto</p>
             <h3 className="font-bold text-white text-xl">{product.name}</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition"
-          >
+          <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition">
             <X size={20} />
           </button>
         </div>
-        {/* Video */}
         <div className="p-3">
-          <video
-            ref={videoRef}
-            src={product.videoUrl}
-            controls
-            autoPlay
-            className="w-full max-h-[70vh] rounded-2xl bg-black object-contain"
-          />
+          <video ref={videoRef} src={product.videoUrl} controls autoPlay className="w-full max-h-[70vh] rounded-2xl bg-black object-contain" />
         </div>
       </div>
     </div>
   );
 }
 
-function MenuSection({
-  title,
-  items,
-}: any) {
+function MenuSection({ title, items }: any) {
   return (
     <div>
-
       {title && (
-        <div className="text-[10px] font-bold tracking-[2px] text-zinc-500 mb-1.5 px-1">
-          {title}
-        </div>
+        <div className="text-[10px] font-bold tracking-[2px] text-zinc-500 mb-1.5 px-1">{title}</div>
       )}
-
       <div className="space-y-1">
-
         {items.map((item: any) => (
           <Link
             key={item.label}
             href={item.href ?? "#"}
             className={`w-full h-[40px] rounded-xl px-3 flex items-center gap-2.5 text-sm transition ${
-              item.green
-                ? "bg-green-700"
-                : item.active
-                ? "bg-blue-600"
-                : "hover:bg-[#151c2d]"
+              item.green ? "bg-green-700" : item.active ? "bg-blue-600" : "hover:bg-[#151c2d]"
             }`}
           >
             {item.icon}
             {item.label}
           </Link>
         ))}
-
       </div>
-
     </div>
   );
 }

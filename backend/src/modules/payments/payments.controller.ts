@@ -47,8 +47,13 @@ export class PaymentsController {
 
   /** Webhook for online orders (PIX) */
   @Post('webhook/online-order')
-  webhookOnlineOrder(@Body() body: any, @Query() query: any) {
-    return this.service.handleOnlineOrderWebhook(body, query);
+  webhookOnlineOrder(
+    @Body() body: any,
+    @Query() query: any,
+    @Headers('x-signature')   xSignature: string,
+    @Headers('x-request-id')  xRequestId: string,
+  ) {
+    return this.service.handleOnlineOrderWebhook(body, query, xSignature, xRequestId);
   }
 
   /** Webhook for subscription plans */

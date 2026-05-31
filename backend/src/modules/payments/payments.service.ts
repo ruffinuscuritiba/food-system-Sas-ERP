@@ -2,7 +2,9 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/database/prisma.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -244,9 +246,27 @@ export class PaymentsService {
 
   // ─── Webhook: online orders (idempotente) ───────────────────────────────────
 
-  async handleOnlineOrderWebhook(body: any, query: any): Promise<void> {
+  async handleOnlineOrderWebhook(
+    body: any,
+    query: any,
+    xSignature: string,
+    xRequestId: string,
+  ): Promise<void> {
     const mpPaymentId = body?.data?.id || query?.id;
     if (!mpPaymentId) return;
+
+    // ── Signature validation (official MP algorithm) ────────────────────────
+    // https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
+    const secret = this.config.get<string>('MP_WEBHOOK_SECRET');
+    if (secret) {
+      const valid = this.verifyMpSignature(String(mpPaymentId), xSignature ?? '', xRequestId ?? '', secret);
+      if (!valid) {
+        this.logger.warn(`[MP Webhook] Rejected — invalid signature for eventId=${mpPaymentId}`);
+        throw new UnauthorizedException('Invalid webhook signature.');
+      }
+    } else {
+      this.logger.warn('[MP Webhook] MP_WEBHOOK_SECRET not configured — signature check skipped (dev mode)');
+    }
 
     const eventId = String(mpPaymentId);
 
@@ -300,8 +320,24 @@ export class PaymentsService {
 
     if (paymentStatus === 'APPROVED') {
       await this.onlineOrders.updateOrderStatus(onlineOrderId, 'CONFIRMED');
+      // → Kitchen / dashboard (company room)
       this.socket.emitOnlineOrderPaid(companyId, { onlineOrderId, paymentStatus, orderStatus: 'CONFIRMED' });
-      this.logger.log(`OnlineOrder ${onlineOrderId} PAID — emitting to company ${companyId}`);
+      // → Customer tracking page (order room — /pedido/confirmado listens here)
+      this.socket.emitOrderStatusChanged(onlineOrderId, { status: 'CONFIRMED', source: 'PAYMENT' });
+      this.logger.log(`OnlineOrder ${onlineOrderId} PAID — emitting to company ${companyId} and order room`);
+
+      // → Payment confirmed email to customer (fire-and-forget)
+      this.onlineOrders.findOne(onlineOrderId, companyId).then((o) => {
+        if (!o.customerEmail) return;
+        return this.notifications.send({
+          to:   o.customerEmail,
+          type: 'ORDER_STATUS',
+          data: {
+            orderId: onlineOrderId.slice(-8).toUpperCase(),
+            status:  'Pagamento confirmado — pedido em preparo',
+          },
+        });
+      }).catch((e: any) => this.logger.warn(`[OnlineOrderWebhook] email failed: ${e?.message}`));
     }
 
     // Mark webhook as processed
@@ -456,5 +492,37 @@ export class PaymentsService {
     }
 
     this.logger.log(`Subscription activated: company=${companyId} plan=${plan}`);
+  }
+
+  // ─── MercadoPago webhook signature verification ────────────────────────────
+  // Official algorithm:
+  // 1. Parse x-signature header → ts and v1
+  // 2. Build manifest: "id:<dataId>;request-id:<xRequestId>;ts:<ts>;"
+  // 3. HMAC-SHA256(manifest, MP_WEBHOOK_SECRET) must equal v1
+  // Docs: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
+  private verifyMpSignature(
+    dataId: string,
+    xSignature: string,
+    xRequestId: string,
+    secret: string,
+  ): boolean {
+    if (!xSignature) return false;
+
+    // x-signature format: "ts=1704908010,v1=abc123..."
+    const parts: Record<string, string> = {};
+    for (const part of xSignature.split(',')) {
+      const [key, value] = part.split('=', 2);
+      if (key && value) parts[key.trim()] = value.trim();
+    }
+
+    const ts = parts['ts'];
+    const v1 = parts['v1'];
+    if (!ts || !v1) return false;
+
+    const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+    const computed = createHmac('sha256', secret).update(manifest).digest('hex');
+
+    // Constant-time comparison to prevent timing attacks
+    return timingSafeEqual(Buffer.from(computed), Buffer.from(v1));
   }
 }

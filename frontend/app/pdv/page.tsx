@@ -651,7 +651,8 @@ export default function PDVPage() {
           <div className="flex-1 max-w-xs md:max-w-[420px] h-10 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-2xl flex items-center px-3 md:px-5 gap-2 md:gap-4">
             <Search size={16} className="text-zinc-400 shrink-0" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto..."
-              className="bg-transparent outline-none w-full text-sm" />
+              className="bg-transparent outline-none w-full text-sm placeholder-zinc-500"
+              style={{ color: '#ffffff' }} />
           </div>
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
             {pdvOrderDetails.orderType === "DINE_IN" && pdvOrderDetails.tableNumber && (

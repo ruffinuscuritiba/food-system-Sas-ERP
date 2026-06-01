@@ -262,7 +262,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
             Nenhum sabor cadastrado nesta categoria
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto scrollbar-hide pr-1">
             {normalizedFlavors.map(norm => {
               const selected  = selectedNorms.some(n => n.displayName === norm.displayName);
               const disabled  = !selected && isComplete;
@@ -333,7 +333,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
           onChange={e => setNotes(e.target.value)}
           rows={2}
           placeholder="Ex: sem cebola, massa fina..."
-          className="w-full bg-[#161b2d] border border-[#1d2336] rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none resize-none focus:border-blue-500"
+          className="w-full bg-[#161b2d] border border-[#1d2336] rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none resize-none focus:border-blue-500"
         />
       </div>
 

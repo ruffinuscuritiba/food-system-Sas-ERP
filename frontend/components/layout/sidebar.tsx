@@ -22,6 +22,8 @@ import {
 
   LogOut,
 
+  History,
+
 } from "lucide-react";
 
 const links = [
@@ -66,6 +68,12 @@ const links = [
     href: "/customers",
     label: "Clientes",
     icon: Users,
+  },
+
+  {
+    href: "/historico-pedidos",
+    label: "Histórico de Pedidos",
+    icon: History,
   },
 ];
 

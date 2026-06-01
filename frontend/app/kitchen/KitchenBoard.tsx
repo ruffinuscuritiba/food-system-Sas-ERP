@@ -217,9 +217,9 @@ export default function KitchenBoard({
             title="Prontos"
             color="green"
             orders={ready}
-            droppableId="PENDING"
-            action="PENDING"
-            actionLabel="Reabrir"
+            droppableId="DELIVERED"
+            action="DELIVERED"
+            actionLabel="Entregue ✓"
             updateStatus={updateStatus}
             onPrint={onPrint}
           />

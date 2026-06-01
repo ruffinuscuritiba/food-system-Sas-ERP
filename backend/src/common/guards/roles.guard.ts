@@ -52,6 +52,14 @@ export class RolesGuard
       return false;
     }
 
+    // Role DEMO: somente leitura — GET/HEAD/OPTIONS passam, escrita é bloqueada.
+    // DemoGuard global já bloqueia POST/PATCH/DELETE antes, mas mantemos aqui
+    // como defesa em profundidade (dois layers independentes de proteção).
+    if (user.role === 'DEMO') {
+      const method: string = (request.method ?? 'GET').toUpperCase();
+      return ['GET', 'HEAD', 'OPTIONS'].includes(method);
+    }
+
     return requiredRoles.includes(
       user.role,
     );

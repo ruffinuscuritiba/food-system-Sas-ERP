@@ -173,7 +173,7 @@ export class OrdersService {
               data: {
 
                 customerId:
-                  data.customerId,
+                  data.customerId ?? null,
 
                 paymentMethod:
                   data.paymentMethod,

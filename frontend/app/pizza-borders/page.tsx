@@ -40,6 +40,14 @@ const SIZE_LABELS: Record<PizzaSize, string> = {
 
 const ALL_SIZES: PizzaSize[] = ["PEQUENA", "MEDIA", "GRANDE", "FAMILIA", "EXTRA_GRANDE"];
 
+const DEFAULT_SIZE_CONFIGS: SizeConfig[] = [
+  { id: "default-pequena",     size: "PEQUENA",     label: "Pequena",     slices: 4,  maxFlavors: 1, isActive: true, sortOrder: 0 },
+  { id: "default-media",       size: "MEDIA",       label: "Média",       slices: 6,  maxFlavors: 2, isActive: true, sortOrder: 1 },
+  { id: "default-grande",      size: "GRANDE",      label: "Grande",      slices: 8,  maxFlavors: 3, isActive: true, sortOrder: 2 },
+  { id: "default-familia",     size: "FAMILIA",     label: "Família",     slices: 16, maxFlavors: 4, isActive: true, sortOrder: 3 },
+  { id: "default-extra-grande",size: "EXTRA_GRANDE",label: "Extra Grande",slices: 12, maxFlavors: 4, isActive: true, sortOrder: 4 },
+];
+
 const emptyForm = (): { name: string; sizes: BorderSize[] } => ({
   name: "",
   sizes: ALL_SIZES.map((s) => ({ size: s, price: "" })),
@@ -58,15 +66,23 @@ export default function PizzaBordersPage() {
   const [activeTab, setActiveTab]     = useState<"borders" | "sizes">("sizes");
 
   async function load() {
-    try {
-      const [bordersRes, sizesRes] = await Promise.all([
-        api.get("/pizza-borders"),
-        api.get("/pizza-size-configs"),
-      ]);
-      setBorders(Array.isArray(bordersRes.data) ? bordersRes.data : []);
-      setSizeConfigs(Array.isArray(sizesRes.data) ? sizesRes.data : []);
-    } catch {
-      toast.error("Erro ao carregar dados");
+    const [bordersResult, sizesResult] = await Promise.allSettled([
+      api.get("/pizza-borders"),
+      api.get("/pizza-size-configs"),
+    ]);
+
+    if (bordersResult.status === "fulfilled") {
+      setBorders(Array.isArray(bordersResult.value.data) ? bordersResult.value.data : []);
+    } else {
+      toast.error("Erro ao carregar bordas");
+    }
+
+    if (sizesResult.status === "fulfilled") {
+      const data = sizesResult.value.data;
+      setSizeConfigs(Array.isArray(data) && data.length > 0 ? data : DEFAULT_SIZE_CONFIGS);
+    } else {
+      // Endpoint indisponível (ex: deploy em andamento) — usa defaults locais
+      setSizeConfigs(DEFAULT_SIZE_CONFIGS);
     }
   }
 

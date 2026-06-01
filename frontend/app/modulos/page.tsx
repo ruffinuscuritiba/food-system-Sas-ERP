@@ -14,6 +14,40 @@ import { BillingPeriod } from "@/components/modulos/PricingSelector";
 import { AnalyticsOrb } from "@/components/modulos/AnalyticsOrb";
 import type { Mod } from "@/components/modulos/ModuleCard";
 
+// ─── Static catalog ───────────────────────────────────────────────────────────
+// CompanyModule from /company/:id has no catalog fields (name, description, etc.)
+// This map provides them so cards render correctly regardless of backend join.
+const MODULE_CATALOG: Record<string, Partial<Mod>> = {
+  // Default modules (created at signup — uppercase slugs)
+  "TABLES":   { name: "Mesas",       icon: "🪑", category: "OPERACAO",    price: null, isFree: true,  description: "Gestão de mesas e comanda digital",            benefits: ["Abertura e fechamento de mesa", "Pedidos por mesa", "QR Code de mesa"],                       badge: null, badgeColor: null, isHighlighted: false, sortOrder: 1 },
+  "CASH":     { name: "Caixa",       icon: "💰", category: "FINANCEIRO",  price: null, isFree: true,  description: "Controle de abertura e fechamento de caixa",   benefits: ["Abertura/fechamento de caixa", "Sangria e suprimento", "Relatório diário"],                   badge: null, badgeColor: null, isHighlighted: false, sortOrder: 2 },
+  "FINANCIAL":{ name: "Financeiro",  icon: "📊", category: "FINANCEIRO",  price: null, isFree: true,  description: "Gestão financeira completa",                   benefits: ["Extrato financeiro", "Entradas e saídas", "Resumo por período"],                            badge: null, badgeColor: null, isHighlighted: false, sortOrder: 3 },
+  "STOCK":    { name: "Estoque",     icon: "📦", category: "OPERACAO",    price: null, isFree: true,  description: "Controle de estoque e movimentações",          benefits: ["Movimentações de estoque", "Alertas de mínimo", "Histórico completo"],                       badge: null, badgeColor: null, isHighlighted: false, sortOrder: 4 },
+  "RECIPES":  { name: "Receitas",    icon: "📋", category: "OPERACAO",    price: null, isFree: true,  description: "Fichas técnicas de produtos",                  benefits: ["Fichas técnicas", "CMV automático", "Custo por produto"],                                   badge: null, badgeColor: null, isHighlighted: false, sortOrder: 5 },
+  "DELIVERY": { name: "Delivery",    icon: "🛵", category: "OPERACAO",    price:   29, isFree: false, description: "Gestão de entregadores e zonas de entrega",    benefits: ["Zonas de entrega", "Gestão de entregadores", "Taxa automática por bairro"],                 badge: null, badgeColor: null, isHighlighted: false, sortOrder: 6 },
+  // Named slugs (from Module catalog)
+  "delivery":            { name: "Delivery",               icon: "🛵", category: "OPERACAO",    price:   29, isFree: false, description: "Gestão de entregadores e zonas de entrega",    benefits: ["Zonas de entrega", "Gestão de entregadores", "Rastreamento"],           badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 6 },
+  "cardapio-ia":         { name: "Cardápio IA",            icon: "🤖", category: "AUTOMACAO",   price:   49, isFree: false, description: "Atendimento inteligente no cardápio digital",  benefits: ["Chat IA no cardápio", "Sugestões automáticas", "Atendimento 24h"],     badge: "Popular",  badgeColor: "blue",   isHighlighted: true,  sortOrder: 7 },
+  "whatsapp-ia":         { name: "WhatsApp IA",            icon: "💬", category: "AUTOMACAO",   price:   79, isFree: false, description: "Atendimento automático via WhatsApp",          benefits: ["IA no WhatsApp", "Pedidos via chat", "Transferência para humano"],    badge: "Novo",     badgeColor: "purple", isHighlighted: true,  sortOrder: 8 },
+  "fidelidade":          { name: "Fidelidade",             icon: "⭐", category: "MARKETING",   price:   19, isFree: false, description: "Programa de fidelidade e cashback",            benefits: ["Pontos por compra", "Cashback automático", "Cupons de recompensa"],   badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 9 },
+  "cupons":              { name: "Cupons",                 icon: "🎁", category: "MARKETING",   price:    9, isFree: false, description: "Sistema de cupons de desconto",                benefits: ["Cupons de desconto", "Frete grátis", "Desconto percentual"],          badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 10 },
+  "meta-pixel":          { name: "Meta Pixel",             icon: "📱", category: "MARKETING",   price:    9, isFree: false, description: "Integração com Facebook/Instagram Ads",        benefits: ["Pixel do Facebook", "Rastreamento de conversões", "Retargeting"],    badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 11 },
+  "google-analytics":    { name: "Google Analytics",       icon: "📈", category: "MARKETING",   price:    9, isFree: false, description: "Analytics avançado do cardápio digital",       benefits: ["GA4 no cardápio", "Relatórios de tráfego", "Conversões"],            badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 12 },
+  "nfce":                { name: "NFC-e",                  icon: "🧾", category: "FINANCEIRO",  price:   59, isFree: false, description: "Emissão de nota fiscal eletrônica",            benefits: ["Emissão de NFC-e", "SEFAZ integrado", "Impressão automática"],        badge: "Em breve", badgeColor: "orange", isHighlighted: false, sortOrder: 13 },
+  "fluxo-caixa":         { name: "Fluxo de Caixa",         icon: "💸", category: "FINANCEIRO",  price:   29, isFree: false, description: "Projeção e análise do fluxo financeiro",       benefits: ["Projeção de caixa", "Análise de tendências", "Exportação Excel"],    badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 14 },
+  "dashboard-financeiro":{ name: "Dashboard Financeiro",   icon: "📉", category: "FINANCEIRO",  price:   29, isFree: false, description: "Painel financeiro visual e interativo",        benefits: ["KPIs em tempo real", "Gráficos de vendas", "Comparativo mensal"],     badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 15 },
+  "dre":                 { name: "DRE",                    icon: "📑", category: "FINANCEIRO",  price:   39, isFree: false, description: "Demonstrativo de resultado do exercício",      benefits: ["DRE automatizado", "CMV detalhado", "Margem por produto"],           badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 16 },
+  "pix-automatico":      { name: "Pix Automático",         icon: "⚡", category: "FINANCEIRO",  price:   19, isFree: false, description: "Geração automática de QR Code Pix",            benefits: ["QR Code Pix automático", "Confirmação em tempo real", "Webhook"],    badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 17 },
+  "relatorios-avancados":{ name: "Relatórios Avançados",   icon: "🔬", category: "FINANCEIRO",  price:   29, isFree: false, description: "BI completo com gráficos e análises",          benefits: ["Dashboard BI", "Relatórios PDF", "Análise por período"],             badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 18 },
+  "crm-whatsapp":        { name: "CRM WhatsApp",           icon: "📞", category: "MARKETING",   price:   49, isFree: false, description: "Relacionamento com clientes via WhatsApp",     benefits: ["Histórico de conversas", "Campanhas de marketing", "Segmentação"],  badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 19 },
+  "recuperacao-clientes":{ name: "Recuperação de Clientes",icon: "🔔", category: "MARKETING",   price:   29, isFree: false, description: "Reengajamento automático de clientes inativos",benefits: ["Campanhas de retorno", "Aniversariantes", "Clientes sem pedido"],   badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 20 },
+  "automacao-marketing": { name: "Automação de Marketing", icon: "🚀", category: "MARKETING",   price:   39, isFree: false, description: "Campanhas automáticas para clientes",          benefits: ["Campanhas automáticas", "Aniversariantes", "Reengajamento"],         badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 21 },
+  "multi-loja":          { name: "Multi-loja",             icon: "🏪", category: "OPERACAO",    price:   99, isFree: false, description: "Gestão de múltiplas unidades",                 benefits: ["Múltiplas unidades", "Gestão centralizada", "Relatórios consolidados"],badge:"Enterprise",badgeColor: "purple", isHighlighted: true,  sortOrder: 22 },
+  "ifood":               { name: "iFood",                  icon: "🍔", category: "AUTOMACAO",   price:   49, isFree: false, description: "Integração com o marketplace iFood",           benefits: ["Sincronização de cardápio", "Pedidos automáticos", "Status real-time"],badge:"Em breve", badgeColor: "orange", isHighlighted: false, sortOrder: 23 },
+  "99food":              { name: "99food",                  icon: "🛺", category: "AUTOMACAO",   price:   49, isFree: false, description: "Integração com o marketplace 99food",          benefits: ["Sincronização de cardápio", "Pedidos automáticos"],                   badge:"Em breve", badgeColor: "orange", isHighlighted: false, sortOrder: 24 },
+  "webhooks":            { name: "Webhooks",               icon: "🔗", category: "AUTOMACAO",   price:   19, isFree: false, description: "Notificações automáticas por webhook",         benefits: ["POST em URL configurada", "Eventos de pedido", "Payload JSON"],      badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 25 },
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ModulosPage() {
@@ -40,12 +74,33 @@ export default function ModulosPage() {
       // /company-module/company/:cid doesn't exist; read modules from /company
       const { data } = await api.get(`/company/${cid}`);
       const mods: any[] = Array.isArray(data?.modules) ? data.modules : [];
-      // Normalize so downstream code that reads `status` / `slug` still works
-      setModules(mods.map((m: any) => ({
-        ...m,
-        slug: m.moduleSlug ?? m.slug ?? m.module,
-        status: m.status ?? (m.active ? "ACTIVE" : "INACTIVE"),
-      })));
+      setModules(mods.map((m: any): Mod => {
+        const slug = (m.moduleSlug ?? m.slug ?? m.module ?? "") as string;
+        const cat  = MODULE_CATALOG[slug] ?? {};
+        return {
+          // Catalog defaults (fill missing fields so cards render correctly)
+          name:           "",
+          description:    "",
+          icon:           "📦",
+          category:       "OPERACAO",
+          price:          null,
+          isFree:         false,
+          badge:          null,
+          badgeColor:     null,
+          benefits:       [],
+          isHighlighted:  false,
+          sortOrder:      99,
+          // Override with static catalog when available
+          ...cat,
+          // API fields always win (id, status, dates)
+          id:             m.id ?? slug,
+          slug,
+          companyModuleId: m.id ?? null,
+          status:         (m.status ?? (m.active ? "ACTIVE" : "INACTIVE")) as Mod["status"],
+          trialEndsAt:    m.trialEndsAt ?? null,
+          activatedAt:    m.activatedAt ?? null,
+        };
+      }));
     } catch { toast.error("Erro ao carregar módulos"); }
     finally  { setLoading(false); }
   }

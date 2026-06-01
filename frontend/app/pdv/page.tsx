@@ -211,6 +211,7 @@ export default function PDVPage() {
   const [videoProduct, setVideoProduct]         = useState<Product | null>(null);
   const [cart, setCart]                         = useState<CartItem[]>([]);
   const [showCart, setShowCart]                 = useState(false);
+  const [discountAmount, setDiscountAmount]     = useState(0);
   const [showPayment, setShowPayment]           = useState(false);
   const [pizzaProduct, setPizzaProduct]         = useState<Product | null>(null);
   const [complementProduct, setComplementProduct] = useState<Product | null>(null);
@@ -368,7 +369,7 @@ export default function PDVPage() {
     ? parseFloat((pdvOrderDetails.deliveryFee ?? "").replace(",", ".")) || 0
     : 0;
 
-  const orderTotal = cartTotal + parsedDeliveryFee;
+  const orderTotal = Math.max(0, cartTotal + parsedDeliveryFee - discountAmount);
 
   const canProceedToPayment =
     cart.length > 0 &&
@@ -600,53 +601,57 @@ export default function PDVPage() {
   }
 
   return (
-    <div className="h-screen bg-black text-white flex overflow-hidden">
+    <div className="h-[calc(100vh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden">
 
       {/* CONTENT */}
       <main className="flex-1 flex flex-col">
 
         {/* HEADER */}
-        <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-3 md:px-6 h-16 md:h-[92px] gap-2">
-          <div className="flex-1 max-w-xs md:max-w-[420px] h-10 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-2xl flex items-center px-3 md:px-5 gap-2 md:gap-4">
-            <Search size={16} className="text-zinc-400 shrink-0" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto..."
-              className="bg-transparent outline-none w-full text-sm placeholder-zinc-500"
-              style={{ color: '#ffffff' }} />
+        <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
+          {/* Search */}
+          <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
+            <Search size={15} className="text-zinc-200 shrink-0" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
+              className="bg-transparent outline-none w-full text-sm text-white placeholder-zinc-400 min-w-0" />
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          {/* Buttons */}
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
             {pdvOrderDetails.orderType === "DINE_IN" && pdvOrderDetails.tableNumber && (
-              <div className="hidden sm:flex flex-col items-center justify-center h-10 md:h-[54px] px-3 md:px-4 rounded-2xl border border-[#1d2336] bg-[#0c101d] min-w-[72px]">
-                <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wide leading-none">MESA</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                  <span className="font-black text-white text-base leading-none">{pdvOrderDetails.tableNumber}</span>
+              <div className="hidden sm:flex flex-col items-center justify-center h-9 md:h-[54px] px-2.5 md:px-4 rounded-xl md:rounded-2xl border border-[#1d2336] bg-[#0c101d] min-w-[56px] md:min-w-[72px]">
+                <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wide leading-none">MESA</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                  <span className="font-black text-white text-sm leading-none">{pdvOrderDetails.tableNumber}</span>
                 </div>
               </div>
             )}
             <button onClick={openTrocarMesa} title="Trocar mesa"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
-              <ArrowLeftRight size={15} className="shrink-0" />
+              className="w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
+              <ArrowLeftRight size={14} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Trocar</span>
               <span className="hidden md:block text-[10px] leading-none">Mesa</span>
             </button>
+            {/* Criar Cupom — oculto em xs, visível em sm+ */}
             <button onClick={openCriarCupom} title="Criar cupom"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
-              <Receipt size={15} className="shrink-0" />
+              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
+              <Receipt size={14} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
               <span className="hidden md:block text-[10px] leading-none">Cupom</span>
             </button>
+            {/* Limpar — oculto em xs */}
             <button onClick={clearCart} title="Limpar conta"
-              className="h-10 md:h-[54px] px-3 md:px-5 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
-              <Trash2 size={15} className="shrink-0" />
+              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
+              <Trash2 size={14} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Limpar</span>
               <span className="hidden md:block text-[10px] leading-none">Conta</span>
             </button>
+            {/* Carrinho — sempre visível */}
             <button onClick={() => setShowCart(true)}
-              className="h-10 md:h-[54px] px-3 md:px-6 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-2 font-semibold relative">
-              <ShoppingBag size={18} />
+              className="h-9 md:h-[54px] px-2.5 sm:px-3 md:px-6 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 md:gap-2 font-semibold relative">
+              <ShoppingBag size={16} md-size={18} />
               <span className="hidden md:block text-sm">Carrinho</span>
               {cartCount > 0 && (
-                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 md:w-6 md:h-6 rounded-full bg-red-500 text-xs flex items-center justify-center font-bold">
+                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-[10px] flex items-center justify-center font-bold">
                   {cartCount}
                 </div>
               )}
@@ -751,25 +756,36 @@ export default function PDVPage() {
         </div>
 
         {/* PRODUCTS mobile */}
-        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712] px-3 py-3">
+        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712]">
+          {/* Mini-banner mobile — sempre visível, mostra categoria ativa */}
+          <div className="sticky top-0 z-10 bg-[#030712] px-3 py-2 border-b border-[#161b2d] flex items-center justify-between">
+            <span className="text-sm font-black text-white truncate">{activeCategoryName}</span>
+            <span className="text-xs text-zinc-500 shrink-0 ml-2">{filteredProducts.length} item{filteredProducts.length !== 1 ? "s" : ""}</span>
+          </div>
+
+          <div className="px-3 py-3">
           {loading ? (
-            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-24 rounded-2xl bg-[#0b0f1b] animate-pulse" />))}</div>
+            <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-20 rounded-2xl bg-[#0b0f1b] animate-pulse" />))}</div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
               <span className="text-4xl mb-3">🍽️</span>
               <p className="text-sm font-semibold">Nenhum produto nesta categoria</p>
             </div>
           ) : activeIsBeverage ? (
-            <div className="grid grid-cols-2 gap-3">
+            /* Grade 2-col para bebidas */
+            <div className="grid grid-cols-2 gap-2.5">
               {filteredProducts.map(product => (
-                <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col" onClick={() => openProductAdd(product)}>
-                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+                <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
+                  onClick={() => openProductAdd(product)}>
+                  {product.imageUrl
+                    ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
                     : <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-3xl">🥤</div>}
                   <div className="p-2.5 flex flex-col flex-1">
-                    <p className="font-bold text-xs leading-tight line-clamp-2 flex-1">{product.name}</p>
-                    <p className="text-blue-400 font-black text-xs mt-1.5 leading-tight">{productPriceLabel(product)}</p>
-                    <button onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
-                      className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] active:scale-95 transition text-xs font-bold">
+                    <p className="font-bold text-xs leading-tight line-clamp-2 flex-1 mb-1.5">{product.name}</p>
+                    <p className="text-blue-400 font-black text-xs leading-tight mb-2">{productPriceLabel(product)}</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
+                      className="w-full py-2 rounded-xl bg-[var(--color-primary)] active:scale-95 transition text-xs font-bold min-h-[36px]">
                       + Adicionar
                     </button>
                   </div>
@@ -777,22 +793,35 @@ export default function PDVPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
+            /* Lista compacta para produtos normais / pizza */
+            <div className="space-y-2.5">
               {buildDedupedPizzaProducts(filteredProducts).map(product => (
-                <div key={product.id} className="flex items-center gap-3 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-3">
-                  {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
-                    : <div className="w-16 h-16 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm leading-tight">{product.name}</p>
-                    {product.description && <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>}
-                    <p className="text-blue-400 font-black text-sm mt-1 leading-tight">{productPriceLabel(product)}</p>
+                <div key={product.id}
+                  className="flex items-center gap-2.5 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-2.5 active:opacity-80 transition">
+                  {/* Imagem */}
+                  {product.imageUrl
+                    ? <img src={product.imageUrl} alt={product.name} className="w-14 h-14 object-cover rounded-xl shrink-0" />
+                    : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>}
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="font-bold text-sm leading-tight truncate">{product.name}</p>
+                    {product.description && (
+                      <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
+                    )}
+                    <p className="text-[var(--color-primary)] font-black text-sm mt-0.5 leading-tight">{productPriceLabel(product)}</p>
                   </div>
-                  <button onClick={() => openProductAdd(product)}
-                    className="shrink-0 h-10 px-4 rounded-xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-sm font-bold">+</button>
+                  {/* Botão + sempre visível */}
+                  <button
+                    onClick={() => openProductAdd(product)}
+                    disabled={complementLoading}
+                    className="shrink-0 w-10 h-10 rounded-xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-lg font-black flex items-center justify-center disabled:opacity-50">
+                    +
+                  </button>
                 </div>
               ))}
             </div>
           )}
+          </div>
         </div>
 
         <footer className="hidden md:flex h-[58px] border-t border-[#161b2d] items-center justify-between px-6">
@@ -864,6 +893,13 @@ export default function PDVPage() {
                       <span>{fmt(parsedDeliveryFee)}</span>
                     </div>
                   )}
+
+                  {/* ── Desconto ──────────────────────────────── */}
+                  <DiscountRow
+                    subtotal={cartTotal + parsedDeliveryFee}
+                    onDiscount={setDiscountAmount}
+                  />
+
                   <div className="flex items-center justify-between text-lg font-black pb-2">
                     <span>Total</span>
                     <span className="text-blue-400">{fmt(orderTotal)}</span>
@@ -1091,3 +1127,51 @@ function VideoModal({ product, onClose }: { product: Product; onClose: () => voi
   );
 }
 
+// ── DiscountRow ────────────────────────────────────────────────────────────────
+function DiscountRow({ subtotal, onDiscount }: { subtotal: number; onDiscount: (v: number) => void }) {
+  const [enabled, setEnabled] = useState(false);
+  const [type, setType]       = useState<"PERCENTAGE" | "FIXED">("PERCENTAGE");
+  const [value, setValue]     = useState("");
+
+  function apply(newType: "PERCENTAGE" | "FIXED", newVal: string) {
+    const n = parseFloat(newVal.replace(",", ".")) || 0;
+    if (newType === "PERCENTAGE") onDiscount(subtotal * Math.min(n, 100) / 100);
+    else                          onDiscount(Math.min(n, subtotal));
+  }
+
+  function toggle() {
+    if (enabled) { setEnabled(false); setValue(""); onDiscount(0); }
+    else         { setEnabled(true); }
+  }
+
+  return (
+    <div className="border-t border-[#1d2336] pt-2">
+      <button type="button" onClick={toggle}
+        className={`flex items-center gap-2 text-xs font-bold transition ${enabled ? "text-green-400" : "text-zinc-500 hover:text-zinc-300"}`}>
+        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition ${enabled ? "bg-green-500 border-green-500" : "border-zinc-600"}`}>
+          {enabled && <span className="text-white text-[9px] leading-none">✓</span>}
+        </div>
+        Aplicar desconto
+      </button>
+      {enabled && (
+        <div className="mt-2 flex flex-col sm:flex-row gap-2">
+          <div className="flex rounded-xl overflow-hidden border border-[#1d2336] shrink-0">
+            {(["PERCENTAGE", "FIXED"] as const).map((t) => (
+              <button key={t} type="button"
+                onClick={() => { setType(t); apply(t, value); }}
+                className={`flex-1 px-3 py-1.5 text-xs font-bold transition ${type === t ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-400"}`}>
+                {t === "PERCENTAGE" ? "%" : "R$"}
+              </button>
+            ))}
+          </div>
+          <input type="number" min={0} max={type === "PERCENTAGE" ? 100 : undefined} step="0.01"
+            placeholder={type === "PERCENTAGE" ? "Ex: 10" : "Ex: 5,00"}
+            value={value}
+            onChange={(e) => { setValue(e.target.value); apply(type, e.target.value); }}
+            className="flex-1 min-w-0 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-3 py-1.5 text-xs outline-none focus:border-green-500 placeholder-zinc-600"
+          />
+        </div>
+      )}
+    </div>
+  );
+}

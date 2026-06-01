@@ -69,23 +69,23 @@ export default function ThemePage() {
 
   return (
     <main
-      className="min-h-screen p-8"
+      className="min-h-screen p-4 md:p-6"
       style={{ backgroundColor: theme.backgroundColor, color: theme.textColor }}
     >
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold">Tema / Visual</h1>
-          <p className="mt-2 opacity-70 text-sm">Personalize a aparência do seu cardápio público</p>
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-5">
+          <h1 className="text-2xl font-bold">Tema / Visual</h1>
+          <p className="mt-1 opacity-70 text-sm">Personalize a aparência do seu cardápio público</p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* ─── Configurações ─────────────────────────────── */}
-          <div className="space-y-8">
+          <div className="space-y-5">
 
             {/* Cores */}
-            <section className="rounded-3xl p-8 border" style={{ borderColor: theme.primaryColor }}>
-              <h2 className="text-2xl font-bold mb-6">Cores</h2>
-              <div className="space-y-5">
+            <section className="rounded-2xl p-5 border" style={{ borderColor: theme.primaryColor }}>
+              <h2 className="text-base font-bold mb-4">Cores</h2>
+              <div className="space-y-3">
                 {[
                   { label: "Cor Primária", key: "primaryColor" },
                   { label: "Cor Secundária", key: "secondaryColor" },
@@ -93,15 +93,15 @@ export default function ThemePage() {
                   { label: "Cor do Texto", key: "textColor" },
                 ].map(({ label, key }) => (
                   <div key={key}>
-                    <label className="block mb-2 text-sm font-medium">{label}</label>
-                    <div className="flex items-center gap-3">
+                    <label className="block mb-1 text-xs font-semibold opacity-70">{label}</label>
+                    <div className="flex items-center gap-2">
                       <input
                         type="color"
                         value={theme[key] || "#000000"}
                         onChange={(e) => setTheme({ ...theme, [key]: e.target.value })}
-                        className="h-12 w-20 rounded-xl cursor-pointer border-0"
+                        className="h-9 w-16 rounded-lg cursor-pointer border-0"
                       />
-                      <span className="font-mono text-sm opacity-60">{theme[key]}</span>
+                      <span className="font-mono text-xs opacity-60">{theme[key]}</span>
                     </div>
                   </div>
                 ))}
@@ -109,9 +109,9 @@ export default function ThemePage() {
             </section>
 
             {/* Imagens */}
-            <section className="rounded-3xl p-8 border" style={{ borderColor: theme.primaryColor }}>
-              <h2 className="text-2xl font-bold mb-6">Imagens</h2>
-              <div className="space-y-5">
+            <section className="rounded-2xl p-5 border" style={{ borderColor: theme.primaryColor }}>
+              <h2 className="text-base font-bold mb-4">Imagens</h2>
+              <div className="space-y-4">
                 <div>
                   <label className="block mb-2 text-sm font-medium">Logo</label>
                   <ImageUpload
@@ -130,9 +130,9 @@ export default function ThemePage() {
             </section>
 
             {/* Pizza Pricing */}
-            <section className="rounded-3xl p-8 border border-gray-200 bg-gray-50">
-              <h2 className="text-2xl font-bold mb-2">🍕 Pizza Meio a Meio</h2>
-              <p className="text-gray-500 text-sm mb-6">Como calcular o preço quando o cliente monta pizza com vários sabores</p>
+            <section className="rounded-2xl p-5 border border-gray-200 bg-gray-50">
+              <h2 className="text-base font-bold mb-1">🍕 Pizza Meio a Meio</h2>
+              <p className="text-gray-500 text-xs mb-4">Como calcular o preço quando o cliente monta pizza com vários sabores</p>
               <div className="space-y-3">
                 {[
                   { value: "MAX", label: "Cobrar o valor cheio", desc: "Cobra o preço do sabor mais caro (padrão do mercado)" },
@@ -164,9 +164,9 @@ export default function ThemePage() {
             </section>
 
             {/* Rastreamento */}
-            <section className="rounded-3xl p-8 border border-gray-200 bg-gray-50">
-              <h2 className="text-2xl font-bold mb-2">Rastreamento & Analytics</h2>
-              <p className="text-gray-500 text-sm mb-6">
+            <section className="rounded-2xl p-5 border border-gray-200 bg-gray-50">
+              <h2 className="text-base font-bold mb-1">Rastreamento & Analytics</h2>
+              <p className="text-gray-500 text-xs mb-4">
                 Configure as integrações de rastreamento para seu cardápio público.
               </p>
               <div className="space-y-5">
@@ -200,7 +200,7 @@ export default function ThemePage() {
             <button
               onClick={saveTheme}
               disabled={saving}
-              className="w-full py-4 rounded-2xl font-bold text-xl transition disabled:opacity-60"
+              className="w-full py-3 rounded-xl font-bold text-base transition disabled:opacity-60"
               style={{ backgroundColor: theme.primaryColor }}
             >
               {saving ? "Salvando..." : "Salvar Tema"}
@@ -208,7 +208,7 @@ export default function ThemePage() {
           </div>
 
           {/* ─── Preview ───────────────────────────────────── */}
-          <div className="rounded-3xl overflow-hidden border sticky top-8 self-start" style={{ borderColor: theme.primaryColor }}>
+          <div className="rounded-2xl overflow-hidden border sticky top-6 self-start" style={{ borderColor: theme.primaryColor }}>
             <div className="relative h-56">
               <img
                 src={theme.bannerUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591"}
@@ -255,17 +255,17 @@ export default function ThemePage() {
       </div>
 
       {/* ─── PDV / Admin Theme ──────────────────────────────────── */}
-      <div className="mt-16 border-t border-gray-200 pt-12">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Tema PDV / Caixa</h2>
-          <p className="mt-1 text-sm text-gray-500">
+      <div className="mt-8 border-t border-gray-200 pt-6">
+        <div className="mb-5">
+          <h2 className="text-xl font-bold text-gray-900">Tema PDV / Caixa</h2>
+          <p className="mt-0.5 text-sm text-gray-500">
             Personaliza o visual da tela de PDV. Salvo automaticamente — abra o PDV em outra aba para ver em tempo real.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* ── Left: controls ── */}
-          <div className="space-y-8">
+          <div className="space-y-5">
 
             {/* Presets */}
             <section className="rounded-3xl overflow-hidden border border-gray-200 shadow-sm">

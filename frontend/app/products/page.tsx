@@ -332,17 +332,20 @@ export default function ProductsPage() {
     catch { /* silent */ }
   }, []);
 
-  // ── Reordenar produtos (drag-and-drop) — apenas ordem; categoria não muda ──
-  async function handleProductsDragEnd(result: any) {
+  // ── Reordenar dentro de uma categoria (drag-and-drop per-category) ──────────
+  async function handleCatDragEnd(catId: string, result: any) {
     if (!result.destination) return;
     if (result.destination.index === result.source.index) return;
 
-    const next = Array.from(products);
+    const catProducts = products.filter((p) => (p.categoryId ?? "none") === catId);
+    const others      = products.filter((p) => (p.categoryId ?? "none") !== catId);
+
+    const next = Array.from(catProducts);
     const [moved] = next.splice(result.source.index, 1);
     next.splice(result.destination.index, 0, moved);
 
     const previous = products;
-    setProducts(next);
+    setProducts([...others, ...next]);
 
     const payload = next.map((p, i) => ({ id: p.id, sortOrder: i + 1 }));
     try {
@@ -645,9 +648,9 @@ export default function ProductsPage() {
 
           {/* ── Grid de produtos ──────────────────────────────────────────── */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-64 animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 h-44 animate-pulse" />
               ))}
             </div>
           ) : products.length === 0 ? (
@@ -657,89 +660,103 @@ export default function ProductsPage() {
               <p className="text-sm mt-1">Clique em "Novo produto" para começar</p>
             </div>
           ) : (
-            <DragDropContext onDragEnd={handleProductsDragEnd}>
-              <Droppable droppableId="products-list">
-                {(dropProvided: any) => (
-                  <div
-                    ref={dropProvided.innerRef}
-                    {...dropProvided.droppableProps}
-                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5"
-                  >
-                    {products.map((product, index) => (
-                      <Draggable key={product.id} draggableId={product.id} index={index}>
-                        {(dragProvided: any, snapshot: any) => (
+            /* ── Agrupado por categoria ──────────────────────────────────── */
+            <>
+              {(() => {
+                // Build ordered groups: categories in sortOrder, then uncategorized
+                const groups: { id: string; name: string; items: any[] }[] = [];
+                categories.forEach((cat) => {
+                  const items = products.filter((p) => p.categoryId === cat.id);
+                  if (items.length > 0) groups.push({ id: cat.id, name: cat.name, items });
+                });
+                const uncategorized = products.filter(
+                  (p) => !p.categoryId || !categories.find((c) => c.id === p.categoryId)
+                );
+                if (uncategorized.length > 0)
+                  groups.push({ id: "none", name: "Sem categoria", items: uncategorized });
+
+                return groups.map(({ id: catId, name: catName, items: catProducts }) => (
+                  <div key={catId} className="mb-8">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest">{catName}</h2>
+                      <div className="flex-1 h-px bg-gray-200" />
+                      <span className="text-xs text-gray-400">{catProducts.length} produto{catProducts.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <DragDropContext onDragEnd={(r) => handleCatDragEnd(catId, r)}>
+                      <Droppable droppableId={`cat-${catId}`}>
+                        {(dropProvided: any) => (
                           <div
-                            ref={dragProvided.innerRef}
-                            {...dragProvided.draggableProps}
-                            className={`relative bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-200 group ${
-                              snapshot.isDragging ? "border-primary shadow-xl ring-2 ring-orange-100" : "border-gray-100 hover:shadow-md hover:-translate-y-0.5"
-                            }`}
+                            ref={dropProvided.innerRef}
+                            {...dropProvided.droppableProps}
+                            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3"
                           >
-                            {/* Drag handle */}
-                            <div
-                              {...dragProvided.dragHandleProps}
-                              className="absolute top-2 left-2 z-10 bg-white/90 hover:bg-white shadow-sm p-1 rounded-lg text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition"
-                              title="Arrastar para reordenar"
-                            >
-                              <GripVertical size={14} />
-                            </div>
-                  <div className="relative h-44 bg-gray-100">
-                    <img
-                      src={product.imageUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"}
-                      onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"; }}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      alt={product.name}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition" />
-                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <button onClick={() => openEdit(product)} className="bg-white/95 hover:bg-white shadow-sm p-1.5 rounded-lg transition" title="Editar">
-                        <Pencil size={13} className="text-gray-600" />
-                      </button>
-                      <button onClick={() => deleteProduct(product)} className="bg-white/95 hover:bg-red-50 shadow-sm p-1.5 rounded-lg transition" title="Excluir">
-                        <Trash2 size={13} className="text-red-500" />
-                      </button>
-                    </div>
-                    {product.category?.name && (
-                      <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">
-                        {product.category.name}
-                      </span>
-                    )}
-                    {product.sizes?.length > 0 && (
-                      <span className="absolute bottom-2 right-2 bg-white/95 text-orange-500 text-[10px] font-black px-2 py-0.5 rounded-full shadow flex items-center gap-1">
-                        <Pizza size={9} /> {product.sizes.length} tam.
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h2 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">{product.name}</h2>
-                    {product.description && (
-                      <p className="text-gray-400 text-xs mt-1 line-clamp-2">{product.description}</p>
-                    )}
-                    <div className="flex items-center justify-between mt-3 flex-wrap gap-1">
-                      {product.sizes?.length > 0 ? (
-                        <div className="flex gap-1 flex-wrap">
-                          {product.sizes.slice(0, 2).map((ps: any) => (
-                            <span key={ps.size} className="text-[10px] bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded-lg border border-orange-100">
-                              {ps.size}: R${fmtBRL(Number(ps.price))}
-                            </span>
-                          ))}
-                          {product.sizes.length > 2 && <span className="text-[10px] text-gray-400">+{product.sizes.length - 2}</span>}
-                        </div>
-                      ) : (
-                        <p className="text-orange-500 text-base font-black">R$ {fmtBRL(Number(product.salePrice))}</p>
-                      )}
-                      {product.sku && <span className="text-gray-300 text-xs font-mono">{product.sku}</span>}
-                    </div>
-                  </div>
+                            {catProducts.map((product: any, index: number) => (
+                              <Draggable key={product.id} draggableId={product.id} index={index}>
+                                {(dragProvided: any, snapshot: any) => (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    className={`relative bg-white rounded-xl border shadow-sm overflow-hidden transition-all duration-200 group ${
+                                      snapshot.isDragging ? "border-primary shadow-xl ring-2 ring-orange-100" : "border-gray-100 hover:shadow-md hover:-translate-y-0.5"
+                                    }`}
+                                  >
+                                    {/* Drag handle */}
+                                    <div
+                                      {...dragProvided.dragHandleProps}
+                                      className="absolute top-1.5 left-1.5 z-10 bg-white/90 hover:bg-white shadow-sm p-0.5 rounded-md text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition"
+                                      title="Arrastar para reordenar"
+                                    >
+                                      <GripVertical size={12} />
+                                    </div>
+                                    {/* Image */}
+                                    <div className="relative h-28 bg-gray-100">
+                                      <img
+                                        src={product.imageUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"}
+                                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"; }}
+                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        alt={product.name}
+                                      />
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition" />
+                                      <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                        <button onClick={() => openEdit(product)} className="bg-white/95 hover:bg-white shadow-sm p-1 rounded-md transition" title="Editar">
+                                          <Pencil size={11} className="text-gray-600" />
+                                        </button>
+                                        <button onClick={() => deleteProduct(product)} className="bg-white/95 hover:bg-red-50 shadow-sm p-1 rounded-md transition" title="Excluir">
+                                          <Trash2 size={11} className="text-red-500" />
+                                        </button>
+                                      </div>
+                                      {product.sizes?.length > 0 && (
+                                        <span className="absolute bottom-1.5 right-1.5 bg-white/95 text-orange-500 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow flex items-center gap-0.5">
+                                          <Pizza size={8} /> {product.sizes.length}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* Info */}
+                                    <div className="p-2.5">
+                                      <h2 className="font-bold text-gray-900 text-xs leading-snug line-clamp-2">{product.name}</h2>
+                                      <div className="flex items-center justify-between mt-1.5 flex-wrap gap-1">
+                                        {product.sizes?.length > 0 ? (
+                                          <span className="text-[10px] text-orange-500 font-bold">
+                                            A partir de R$ {fmtBRL(Math.min(...product.sizes.map((s: any) => Number(s.price))))}
+                                          </span>
+                                        ) : (
+                                          <p className="text-orange-500 text-sm font-black">R$ {fmtBRL(Number(product.salePrice))}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {dropProvided.placeholder}
                           </div>
                         )}
-                      </Draggable>
-                    ))}
-                    {dropProvided.placeholder}
+                      </Droppable>
+                    </DragDropContext>
                   </div>
-                )}
-              </Droppable>
-            </DragDropContext>
+                ));
+              })()}
+            </>
           )}
         </div>
       </main>

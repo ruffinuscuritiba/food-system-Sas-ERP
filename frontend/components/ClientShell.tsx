@@ -33,6 +33,7 @@ import {
   BarChart2,
   Eye,
   MessageCircle,
+  History,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -127,10 +128,11 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "Configurações",
     items: [
-      { href: "/financeiro",    label: "Financeiro",              icon: <Landmark size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/bi",            label: "Relatórios / BI",         icon: <BarChart2 size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/theme",         label: "Tema / Visual",           icon: <Palette size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
-      { href: "/tables/qrcode", label: "QR Code Mesas",           icon: <QrCode size={16} />,   roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/financeiro",        label: "Financeiro",              icon: <Landmark size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/bi",               label: "Relatórios / BI",         icon: <BarChart2 size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/theme",            label: "Tema / Visual",           icon: <Palette size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/tables/qrcode",    label: "QR Code Mesas",           icon: <QrCode size={16} />,   roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/historico-pedidos",label: "Histórico de Pedidos",    icon: <History size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
 ];
@@ -213,6 +215,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     return roles.includes(user?.role || "");
   }
 
+  const isPdv = pathname === "/pdv";
+
   if (isPublicPage) {
     // Páginas públicas (login, cardápio digital, etc.) — ThemeProvider sem companyId
     // (cardápio digital tem próprio fetch de tema via param da URL)
@@ -230,14 +234,14 @@ export default function ClientShell({ children }: { children: React.ReactNode })
       <Toaster position="top-right" />
 
       {/* Mobile top bar */}
-      <div className={`md:hidden fixed inset-x-0 z-40 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm ${impersonating ? "top-9" : "top-0"}`}>
+      <div className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${impersonating ? "top-9" : "top-0"} ${isPdv ? "bg-[#050816] border-b border-[#161b2d]" : "bg-white border-b border-gray-100 shadow-sm"}`}>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-orange-500 rounded-xl flex items-center justify-center shadow-md shadow-orange-200">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isPdv ? "bg-[var(--color-primary)]" : "bg-orange-500 shadow-md shadow-orange-200"}`}>
             <UtensilsCrossed size={15} className="text-white" />
           </div>
-          <span className="font-bold text-gray-900 text-sm truncate max-w-[180px]">{companyName}</span>
+          <span className={`font-bold text-sm truncate max-w-[180px] ${isPdv ? "text-white" : "text-gray-900"}`}>{companyName}</span>
         </div>
-        <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition">
+        <button onClick={() => setSidebarOpen(true)} className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${isPdv ? "bg-[#0c101d] text-zinc-300 hover:bg-[#161b2d]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
           <Menu size={18} />
         </button>
       </div>
@@ -252,7 +256,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <aside className={`
           fixed inset-y-0 left-0 z-50 w-60 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0
           transition-transform duration-300 ease-in-out
-          md:relative md:translate-x-0 md:z-auto
+          md:relative md:translate-x-0 md:z-auto md:h-screen
           ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:shadow-sm"}
           top-0
         `}>
@@ -281,7 +285,10 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+          <nav
+            className="flex-1 min-h-0 overflow-y-scroll px-3 py-3 space-y-0.5 [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
+            style={{ scrollbarWidth: "thin", scrollbarColor: "#475569 transparent" }}
+          >
             {NAV_SECTIONS.map((section, si) => {
               const visible = section.items.filter((item) => canSee(item.roles));
               if (visible.length === 0) return null;

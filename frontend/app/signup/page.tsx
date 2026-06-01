@@ -6,6 +6,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -86,18 +87,18 @@ export default function SignupPage() {
             onChange={(e) => set("email", e.target.value)}
             className="w-full bg-slate-800 border border-slate-700 focus:border-green-500 transition text-white p-4 rounded-2xl outline-none"
           />
-          <input
-            type="password"
-            placeholder="Senha (mín. 6 caracteres) *"
+          <PasswordInput
             value={form.password}
-            onChange={(e) => set("password", e.target.value)}
+            onChange={(v) => set("password", v)}
+            placeholder="Senha (mín. 6 caracteres) *"
+            autoComplete="new-password"
             className="w-full bg-slate-800 border border-slate-700 focus:border-green-500 transition text-white p-4 rounded-2xl outline-none"
           />
-          <input
-            type="password"
-            placeholder="Confirmar senha *"
+          <PasswordInput
             value={form.confirmPassword}
-            onChange={(e) => set("confirmPassword", e.target.value)}
+            onChange={(v) => set("confirmPassword", v)}
+            placeholder="Confirmar senha *"
+            autoComplete="new-password"
             className="w-full bg-slate-800 border border-slate-700 focus:border-green-500 transition text-white p-4 rounded-2xl outline-none"
           />
 

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/auth.store'
 import { Loader2, UtensilsCrossed } from 'lucide-react'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -91,11 +92,9 @@ export default function LoginPage() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Senha</label>
-              <input
-                type="password"
-                placeholder="••••••••"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
                 onKeyDown={(e) => e.key === 'Enter' && login()}
                 className="w-full border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-gray-900 px-4 py-3 rounded-xl outline-none text-sm"
               />

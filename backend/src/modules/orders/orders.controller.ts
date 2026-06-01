@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from "@nestjs/common";
@@ -23,6 +24,17 @@ export class OrdersController {
   constructor(
     private readonly service: OrdersService,
   ) {}
+
+  /** PDV — lookup cliente recorrente por telefone */
+  @Get("customer-lookup")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER")
+  customerLookup(
+    @Query("phone") phone: string,
+    @Request() req: any,
+  ) {
+    return this.service.customerLookup(phone, req.user.companyId);
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)

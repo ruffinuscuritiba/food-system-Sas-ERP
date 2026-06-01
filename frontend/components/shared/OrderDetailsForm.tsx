@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, UtensilsCrossed, Bike, PackageCheck } from "lucide-react";
+import { Loader2, UtensilsCrossed, Bike, PackageCheck, User } from "lucide-react";
+import { apiBaseUrl } from "@/services/env";
 
 export type PdvOrderType = "DINE_IN" | "DELIVERY" | "PICKUP";
 
@@ -11,7 +12,7 @@ export type OrderDetails = {
   customerName?: string;
   customerPhone?: string;
   // Address fields (used for DELIVERY)
-  address?: string;       // full street line (rua + número)
+  address?: string;
   addressNumber?: string;
   complement?: string;
   bairro?: string;
@@ -21,21 +22,37 @@ export type OrderDetails = {
   deliveryFee?: string;
 };
 
+type LastOrder = {
+  name: string;
+  deliveryAddress: string;
+  total: number;
+  createdAt: string;
+};
+
 type Props = {
   value: OrderDetails;
   onChange: (v: OrderDetails) => void;
   /** compact = less spacing (used inside PaymentModal) */
   compact?: boolean;
+  /** companyId enables customer phone lookup */
+  companyId?: string;
+  /** JWT token for authenticated lookup */
+  token?: string;
 };
 
-export function OrderDetailsForm({ value, onChange, compact }: Props) {
-  const [cepLoading, setCepLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+export function OrderDetailsForm({ value, onChange, compact, companyId, token }: Props) {
+  const [cepLoading,    setCepLoading]    = useState(false);
+  const [phoneLoading,  setPhoneLoading]  = useState(false);
+  const [lastOrder,     setLastOrder]     = useState<LastOrder | null>(null);
+  const cepDebounce   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPhone     = useRef<string>("");
 
   function set(patch: Partial<OrderDetails>) {
     onChange({ ...value, ...patch });
   }
 
+  // ── CEP autocomplete ───────────────────────────────────────────────────────
   async function fetchCep(raw: string) {
     const cep = raw.replace(/\D/g, "");
     if (cep.length !== 8) return;
@@ -47,8 +64,8 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
       if (d.erro) return;
       set({
         address: d.logradouro || value.address,
-        bairro: d.bairro || value.bairro,
-        cidade: d.localidade || value.cidade,
+        bairro:  d.bairro     || value.bairro,
+        cidade:  d.localidade || value.cidade,
       });
     } catch { /* silent */ }
     finally { setCepLoading(false); }
@@ -56,17 +73,60 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
 
   function onCepChange(v: string) {
     set({ cep: v });
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchCep(v), 600);
+    if (cepDebounce.current) clearTimeout(cepDebounce.current);
+    cepDebounce.current = setTimeout(() => fetchCep(v), 600);
   }
 
-  const gap = compact ? "space-y-3" : "space-y-4";
+  // ── Phone lookup ───────────────────────────────────────────────────────────
+  async function lookupPhone(phone: string) {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 8 || !companyId) return;
+    if (digits === lastPhone.current) return;
+    lastPhone.current = digits;
+
+    setPhoneLoading(true);
+    setLastOrder(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const r = await fetch(
+        `${apiBaseUrl}/orders/customer-lookup?phone=${encodeURIComponent(digits)}`,
+        { headers },
+      );
+      if (!r.ok) return;
+      const data: LastOrder = await r.json();
+      if (!data || !data.name) return;
+
+      setLastOrder(data);
+      // Auto-fill name if empty
+      set({
+        customerName:  value.customerName?.trim() ? value.customerName : data.name,
+        // Pre-fill full delivery address into the address field (operator can refine)
+        ...(value.address ? {} : { address: data.deliveryAddress || "" }),
+      });
+    } catch { /* silent */ }
+    finally { setPhoneLoading(false); }
+  }
+
+  function onPhoneChange(v: string) {
+    set({ customerPhone: v });
+    if (phoneDebounce.current) clearTimeout(phoneDebounce.current);
+    phoneDebounce.current = setTimeout(() => lookupPhone(v), 500);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const gap      = compact ? "space-y-3" : "space-y-4";
   const inputCls = "w-full bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500 placeholder-zinc-600";
   const labelCls = "block text-xs text-zinc-500 font-semibold uppercase mb-1.5 tracking-wide";
 
+  function fmtDate(iso: string) {
+    try { return new Date(iso).toLocaleDateString("pt-BR"); }
+    catch { return ""; }
+  }
+
   return (
     <div className={gap}>
-      {/* Order type selector */}
+      {/* Tipo de atendimento */}
       <div>
         <p className={labelCls}>Tipo de atendimento</p>
         <div className="grid grid-cols-3 gap-2">
@@ -91,7 +151,7 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
         </div>
       </div>
 
-      {/* DINE_IN: table number */}
+      {/* DINE_IN: número da mesa */}
       {value.orderType === "DINE_IN" && (
         <div>
           <p className={labelCls}>Mesa *</p>
@@ -105,11 +165,37 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
         </div>
       )}
 
-      {/* DELIVERY / PICKUP: customer info */}
+      {/* DELIVERY / PICKUP: telefone PRIMEIRO, depois nome */}
       {value.orderType !== "DINE_IN" && (
-        <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2 sm:col-span-1">
-            <p className={labelCls}>Cliente</p>
+        <>
+          {/* Telefone */}
+          <div>
+            <p className={labelCls}>
+              Telefone *
+              {phoneLoading && <Loader2 size={11} className="inline ml-1.5 animate-spin text-green-400" />}
+            </p>
+            <input
+              value={value.customerPhone ?? ""}
+              onChange={e => onPhoneChange(e.target.value)}
+              placeholder="(00) 00000-0000"
+              inputMode="tel"
+              className={inputCls}
+            />
+            {/* Último pedido */}
+            {lastOrder && (
+              <div className="mt-1.5 flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                <User size={12} className="text-green-400 shrink-0" />
+                <span className="text-xs text-green-300 font-semibold truncate">{lastOrder.name}</span>
+                <span className="text-xs text-zinc-500 ml-auto shrink-0">
+                  Último: R$ {Number(lastOrder.total).toFixed(2).replace(".", ",")} · {fmtDate(lastOrder.createdAt)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Nome */}
+          <div>
+            <p className={labelCls}>Nome *</p>
             <input
               value={value.customerName ?? ""}
               onChange={e => set({ customerName: e.target.value })}
@@ -117,38 +203,12 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
               className={inputCls}
             />
           </div>
-          <div className="col-span-2 sm:col-span-1">
-            <p className={labelCls}>Telefone</p>
-            <input
-              value={value.customerPhone ?? ""}
-              onChange={e => set({ customerPhone: e.target.value })}
-              placeholder="(00) 00000-0000"
-              inputMode="tel"
-              className={inputCls}
-            />
-          </div>
-        </div>
+        </>
       )}
 
-      {/* DELIVERY: full address */}
+      {/* DELIVERY: endereço completo */}
       {value.orderType === "DELIVERY" && (
         <>
-          {/* CEP */}
-          <div>
-            <p className={labelCls}>
-              CEP
-              {cepLoading && <Loader2 size={11} className="inline ml-1.5 animate-spin text-blue-400" />}
-            </p>
-            <input
-              value={value.cep ?? ""}
-              onChange={e => onCepChange(e.target.value)}
-              placeholder="00000-000"
-              inputMode="numeric"
-              maxLength={9}
-              className={inputCls}
-            />
-          </div>
-
           {/* Rua + Número */}
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
@@ -161,7 +221,7 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
               />
             </div>
             <div>
-              <p className={labelCls}>Número</p>
+              <p className={labelCls}>Número *</p>
               <input
                 value={value.addressNumber ?? ""}
                 onChange={e => set({ addressNumber: e.target.value })}
@@ -195,11 +255,27 @@ export function OrderDetailsForm({ value, onChange, compact }: Props) {
 
           {/* Cidade */}
           <div>
-            <p className={labelCls}>Cidade</p>
+            <p className={labelCls}>Cidade *</p>
             <input
               value={value.cidade ?? ""}
               onChange={e => set({ cidade: e.target.value })}
               placeholder="Cidade"
+              className={inputCls}
+            />
+          </div>
+
+          {/* CEP */}
+          <div>
+            <p className={labelCls}>
+              CEP
+              {cepLoading && <Loader2 size={11} className="inline ml-1.5 animate-spin text-blue-400" />}
+            </p>
+            <input
+              value={value.cep ?? ""}
+              onChange={e => onCepChange(e.target.value)}
+              placeholder="00000-000"
+              inputMode="numeric"
+              maxLength={9}
               className={inputCls}
             />
           </div>

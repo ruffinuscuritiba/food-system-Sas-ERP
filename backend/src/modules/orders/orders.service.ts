@@ -315,6 +315,33 @@ export class OrdersService {
     return order;
   }
 
+  async customerLookup(phone: string, companyId: string) {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 8) return null;
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        companyId,
+        status: { not: 'CANCELLED' as any },
+        OR: [
+          { customerPhone: { contains: digits } },
+          { customer: { phone: { contains: digits } } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { customer: true },
+    });
+
+    if (!order) return null;
+
+    return {
+      name:            order.customer?.name || order.customerName || '',
+      deliveryAddress: order.deliveryAddress || '',
+      total:           Number(order.total),
+      createdAt:       order.createdAt,
+    };
+  }
+
   findAll(
     companyId: string,
   ) {

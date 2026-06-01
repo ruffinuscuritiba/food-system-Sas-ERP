@@ -142,6 +142,8 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
       const data: CustomerLookup = await r.json();
       if (!data) return;
 
+      console.log("LOOKUP RESPONSE", data);
+
       if (data.name)        setFoundName(data.name);
       if (data.lastOrder)   setLastOrder(data.lastOrder);
 
@@ -155,8 +157,32 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
       if (data.cidade)      patch.cidade        = data.cidade;
       if (data.cep)         patch.cep           = data.cep;
       if (Object.keys(patch).length > 0) set(patch);
+
+      // Auto-enrich: se rua presente mas bairro/cidade ausentes, busca Nominatim
+      if (data.rua && (!data.bairro || !data.cidade)) {
+        enrichFromNominatim(data.rua);
+      }
     } catch { /* silent */ }
     finally { setPhoneLoading(false); }
+  }
+
+  // Enriquece bairro/cidade/cep via Nominatim quando voltam vazios do lookup
+  async function enrichFromNominatim(rua: string) {
+    try {
+      const r = await fetch(`/api/address/search?q=${encodeURIComponent(rua)}`);
+      if (!r.ok) return;
+      const suggestions: AddressSuggestion[] = await r.json();
+      if (suggestions.length === 0) return;
+      const best = suggestions[0];
+      const patch: Partial<OrderDetails> = {};
+      if (best.bairro) patch.bairro = best.bairro;
+      if (best.cidade) patch.cidade = best.cidade;
+      if (best.cep)    patch.cep    = best.cep;
+      if (Object.keys(patch).length > 0) {
+        console.log("NOMINATIM ENRICH", patch);
+        set(patch);
+      }
+    } catch { /* silent */ }
   }
 
   function onPhoneChange(v: string) {

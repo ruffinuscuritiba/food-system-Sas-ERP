@@ -145,7 +145,7 @@ export function ModuleCard({ mod, billing, loading, menuOpen, onToggleMenu, onTr
 
         {/* Benefits */}
         <ul className="space-y-2 flex-1 mb-5">
-          {mod.benefits.slice(0, 4).map((b, i) => (
+          {(mod.benefits || []).slice(0, 4).map((b, i) => (
             <motion.li
               key={i}
               initial={{ opacity: 0, x: -8 }}

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
@@ -11,22 +10,6 @@ import { ComplementsModal } from "@/components/shared/ComplementsModal";
 
 type PdvOrderDetails = OrderDetails;
 import {
-  LayoutDashboard,
-  ShoppingCart,
-  ChefHat,
-  UtensilsCrossed,
-  DollarSign,
-  Package,
-  Tags,
-  Pizza,
-  Boxes,
-  FlaskConical,
-  BookOpen,
-  Sparkles,
-  Plug,
-  Palette,
-  QrCode,
-  LogOut,
   Search,
   ArrowLeftRight,
   Receipt,
@@ -619,58 +602,6 @@ export default function PDVPage() {
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
 
-      {/* SIDEBAR */}
-      <aside className="hidden md:flex w-[240px] bg-[#050816] border-r border-[#161b2d] flex-col overflow-hidden">
-        <div className="h-[92px] shrink-0 border-b border-[#161b2d] flex items-center px-5 gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-3xl font-black">F</div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-[18px] font-bold leading-none">FoodSaaS-ERP</h1>
-              <span className="text-[9px] font-mono text-zinc-600 bg-[#0b0f1b] border border-[#1d2336] px-1.5 py-0.5 rounded-md shrink-0 select-none">
-                {process.env.NEXT_PUBLIC_COMMIT_SHA || "dev"}
-              </span>
-            </div>
-            <p className="text-zinc-400 text-sm mt-1">PDV / Caixa</p>
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
-          <MenuSection title="" items={[{ icon: <LayoutDashboard size={18} />, label: "Dashboard", href: "/", green: true }]} />
-          <MenuSection title="OPERAÇÃO" items={[
-            { icon: <ShoppingCart size={18} />,   label: "Pedidos",     href: "/orders" },
-            { icon: <ChefHat size={18} />,        label: "Cozinha",     href: "/kitchen" },
-            { icon: <UtensilsCrossed size={18} />, label: "Mesas",      href: "/tables" },
-            { icon: <DollarSign size={18} />,     label: "PDV / Caixa", href: "/pdv", active: true },
-          ]} />
-          <MenuSection title="CARDÁPIO" items={[
-            { icon: <Package size={18} />, label: "Produtos",        href: "/products" },
-            { icon: <Tags size={18} />,    label: "Categorias",      href: "/categories" },
-            { icon: <Pizza size={18} />,   label: "Bordas de Pizza", href: "/pizza-borders" },
-          ]} />
-          <MenuSection title="ESTOQUE" items={[
-            { icon: <Boxes size={18} />,       label: "Movimentações", href: "/stock" },
-            { icon: <FlaskConical size={18} />, label: "Ingredientes",  href: "/ingredients" },
-            { icon: <BookOpen size={18} />,    label: "Receitas",       href: "/recipes" },
-          ]} />
-          <MenuSection title="IA" items={[
-            { icon: <Sparkles size={18} />, label: "Cadastro por Imagem", href: "/cadastro-inteligente" },
-          ]} />
-          <MenuSection title="MARKETPLACE" items={[
-            { icon: <Plug size={18} />, label: "Módulos de Integração", href: "/modulos" },
-          ]} />
-          <MenuSection title="CONFIGURAÇÕES" items={[
-            { icon: <Palette size={18} />, label: "Tema / Visual", href: "/theme" },
-            { icon: <QrCode size={18} />,  label: "QR Code Mesas", href: "/tables/qrcode" },
-          ]} />
-          <Link href={companyId ? `/menu/${companyId}` : "#"} target="_blank" rel="noopener noreferrer"
-            className="w-full h-[42px] rounded-2xl border border-green-700 text-green-400 flex items-center justify-between px-4 text-sm hover:bg-green-700/10 transition">
-            <span>Ver Cardápio Online</span><span>›</span>
-          </Link>
-        </div>
-        <div className="shrink-0 border-t border-[#161b2d] p-5">
-          <button className="flex items-center gap-3 text-zinc-300"><LogOut size={18} />Sair</button>
-        </div>
-      </aside>
-
       {/* CONTENT */}
       <main className="flex-1 flex flex-col">
 
@@ -1160,18 +1091,3 @@ function VideoModal({ product, onClose }: { product: Product; onClose: () => voi
   );
 }
 
-function MenuSection({ title, items }: any) {
-  return (
-    <div>
-      {title && <div className="text-[10px] font-bold tracking-[2px] text-zinc-500 mb-1.5 px-1">{title}</div>}
-      <div className="space-y-1">
-        {items.map((item: any) => (
-          <Link key={item.label} href={item.href ?? "#"}
-            className={`w-full h-[40px] rounded-xl px-3 flex items-center gap-2.5 text-sm transition ${item.green ? "bg-green-700" : item.active ? "bg-blue-600" : "hover:bg-[#151c2d]"}`}>
-            {item.icon}{item.label}
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}

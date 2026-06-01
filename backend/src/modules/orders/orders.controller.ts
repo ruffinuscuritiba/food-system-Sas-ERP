@@ -36,6 +36,38 @@ export class OrdersController {
     return this.service.customerLookup(phone, req.user.companyId);
   }
 
+  /** PDV — salva/atualiza endereço do cliente para autofill futuro */
+  @Patch("customer-address")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER")
+  customerAddressSave(
+    @Body() body: {
+      phone: string;
+      name?: string;
+      rua?: string;
+      numero?: string;
+      complemento?: string;
+      bairro?: string;
+      cidade?: string;
+      cep?: string;
+    },
+    @Request() req: any,
+  ) {
+    return this.service.customerAddressSave(
+      body.phone,
+      body.name || '',
+      {
+        rua:         body.rua         || '',
+        numero:      body.numero      || '',
+        complemento: body.complemento || '',
+        bairro:      body.bairro      || '',
+        cidade:      body.cidade      || '',
+        cep:         body.cep         || '',
+      },
+      req.user.companyId,
+    );
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER", "KITCHEN")

@@ -319,6 +319,12 @@ export class OrdersService {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 8) return null;
 
+    // 1. Busca Customer diretamente por telefone
+    const customer = await this.prisma.customer.findFirst({
+      where: { companyId, phone: { contains: digits } },
+    });
+
+    // 2. Busca último pedido não-cancelado pelo telefone
     const order = await this.prisma.order.findFirst({
       where: {
         companyId,
@@ -332,14 +338,73 @@ export class OrdersService {
       include: { customer: true },
     });
 
-    if (!order) return null;
+    if (!customer && !order) return null;
+
+    const name = customer?.name || order?.customer?.name || (order as any)?.customerName || '';
+
+    // Endereço: tenta JSON desagregado (novo formato), cai em string legada
+    let rua = '', numero = '', complemento = '', bairro = '', cidade = '', cep = '';
+    const rawAddress = customer?.address || order?.deliveryAddress || '';
+    if (rawAddress) {
+      try {
+        const parsed = JSON.parse(rawAddress);
+        rua         = parsed.rua         || '';
+        numero      = parsed.numero      || '';
+        complemento = parsed.complemento || '';
+        bairro      = parsed.bairro      || '';
+        cidade      = parsed.cidade      || '';
+        cep         = parsed.cep         || '';
+      } catch {
+        rua = rawAddress; // legado: string plana vai para rua
+      }
+    }
 
     return {
-      name:            order.customer?.name || order.customerName || '',
-      deliveryAddress: order.deliveryAddress || '',
-      total:           Number(order.total),
-      createdAt:       order.createdAt,
+      name,
+      rua,
+      numero,
+      complemento,
+      bairro,
+      cidade,
+      cep,
+      lastOrder: order
+        ? { total: Number(order.total), createdAt: order.createdAt }
+        : null,
     };
+  }
+
+  async customerAddressSave(
+    phone: string,
+    name: string,
+    address: { rua: string; numero: string; complemento: string; bairro: string; cidade: string; cep: string },
+    companyId: string,
+  ) {
+    const digits = phone?.replace(/\D/g, '');
+    if (!digits || digits.length < 8) return null;
+
+    const addressJson = JSON.stringify({
+      rua:         address.rua         || '',
+      numero:      address.numero      || '',
+      complemento: address.complemento || '',
+      bairro:      address.bairro      || '',
+      cidade:      address.cidade      || '',
+      cep:         address.cep         || '',
+    });
+
+    const existing = await this.prisma.customer.findFirst({
+      where: { companyId, phone: { contains: digits } },
+    });
+
+    if (existing) {
+      return this.prisma.customer.update({
+        where: { id: existing.id },
+        data: { name: name || existing.name, address: addressJson },
+      });
+    }
+
+    return this.prisma.customer.create({
+      data: { companyId, phone: digits, name: name || 'Cliente', address: addressJson },
+    });
   }
 
   findAll(

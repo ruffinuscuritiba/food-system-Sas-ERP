@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, UtensilsCrossed, Bike, PackageCheck, User } from "lucide-react";
+import { Loader2, UtensilsCrossed, Bike, PackageCheck, User, Clock, MapPin, X } from "lucide-react";
 import { apiBaseUrl } from "@/services/env";
 
 export type PdvOrderType = "DINE_IN" | "DELIVERY" | "PICKUP";
@@ -11,7 +11,6 @@ export type OrderDetails = {
   tableNumber?: string;
   customerName?: string;
   customerPhone?: string;
-  // Address fields (used for DELIVERY)
   address?: string;
   addressNumber?: string;
   complement?: string;
@@ -22,37 +21,51 @@ export type OrderDetails = {
   deliveryFee?: string;
 };
 
-type LastOrder = {
+type CustomerLookup = {
   name: string;
-  deliveryAddress: string;
-  total: number;
-  createdAt: string;
+  rua: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  cep: string;
+  lastOrder: { total: number; createdAt: string } | null;
+};
+
+type AddressSuggestion = {
+  rua: string;
+  bairro: string;
+  cidade: string;
+  cep: string;
 };
 
 type Props = {
   value: OrderDetails;
   onChange: (v: OrderDetails) => void;
-  /** compact = less spacing (used inside PaymentModal) */
   compact?: boolean;
-  /** companyId enables customer phone lookup */
   companyId?: string;
-  /** JWT token for authenticated lookup */
   token?: string;
 };
 
 export function OrderDetailsForm({ value, onChange, compact, companyId, token }: Props) {
-  const [cepLoading,    setCepLoading]    = useState(false);
-  const [phoneLoading,  setPhoneLoading]  = useState(false);
-  const [lastOrder,     setLastOrder]     = useState<LastOrder | null>(null);
+  const [cepLoading,       setCepLoading]       = useState(false);
+  const [phoneLoading,     setPhoneLoading]      = useState(false);
+  const [ruaSuggestions,   setRuaSuggestions]    = useState<AddressSuggestion[]>([]);
+  const [ruaLoading,       setRuaLoading]        = useState(false);
+  const [showSuggestions,  setShowSuggestions]   = useState(false);
+  const [lastOrder,        setLastOrder]         = useState<{ total: number; createdAt: string } | null>(null);
+  const [foundName,        setFoundName]         = useState("");
+
   const cepDebounce   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ruaDebounce   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPhone     = useRef<string>("");
 
   function set(patch: Partial<OrderDetails>) {
     onChange({ ...value, ...patch });
   }
 
-  // ── CEP autocomplete ───────────────────────────────────────────────────────
+  // ── CEP autocomplete (secundário) ──────────────────────────────────────────
   async function fetchCep(raw: string) {
     const cep = raw.replace(/\D/g, "");
     if (cep.length !== 8) return;
@@ -77,6 +90,37 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
     cepDebounce.current = setTimeout(() => fetchCep(v), 600);
   }
 
+  // ── Rua autocomplete (principal) ───────────────────────────────────────────
+  async function fetchRuaSuggestions(term: string) {
+    if (term.length < 4) { setRuaSuggestions([]); return; }
+    setRuaLoading(true);
+    try {
+      const r = await fetch(`/api/address/search?q=${encodeURIComponent(term)}`);
+      if (!r.ok) return;
+      const data: AddressSuggestion[] = await r.json();
+      setRuaSuggestions(data);
+      setShowSuggestions(data.length > 0);
+    } catch { /* silent */ }
+    finally { setRuaLoading(false); }
+  }
+
+  function onRuaChange(v: string) {
+    set({ address: v });
+    if (ruaDebounce.current) clearTimeout(ruaDebounce.current);
+    ruaDebounce.current = setTimeout(() => fetchRuaSuggestions(v), 500);
+  }
+
+  function selectRuaSuggestion(s: AddressSuggestion) {
+    set({
+      address: s.rua,
+      bairro:  s.bairro  || value.bairro,
+      cidade:  s.cidade  || value.cidade,
+      cep:     s.cep     || value.cep,
+    });
+    setShowSuggestions(false);
+    setRuaSuggestions([]);
+  }
+
   // ── Phone lookup ───────────────────────────────────────────────────────────
   async function lookupPhone(phone: string) {
     const digits = phone.replace(/\D/g, "");
@@ -86,6 +130,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
 
     setPhoneLoading(true);
     setLastOrder(null);
+    setFoundName("");
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -94,22 +139,32 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
         { headers },
       );
       if (!r.ok) return;
-      const data: LastOrder = await r.json();
-      if (!data || !data.name) return;
+      const data: CustomerLookup = await r.json();
+      if (!data) return;
 
-      setLastOrder(data);
-      // Auto-fill name if empty
-      set({
-        customerName:  value.customerName?.trim() ? value.customerName : data.name,
-        // Pre-fill full delivery address into the address field (operator can refine)
-        ...(value.address ? {} : { address: data.deliveryAddress || "" }),
-      });
+      if (data.name)        setFoundName(data.name);
+      if (data.lastOrder)   setLastOrder(data.lastOrder);
+
+      // Preenche todos os campos disponíveis sem sobrescrever o que o operador já digitou
+      const patch: Partial<OrderDetails> = {};
+      if (data.name    && !value.customerName?.trim())  patch.customerName  = data.name;
+      if (data.rua     && !value.address?.trim())       patch.address       = data.rua;
+      if (data.numero  && !value.addressNumber?.trim()) patch.addressNumber = data.numero;
+      if (data.complemento && !value.complement?.trim()) patch.complement   = data.complemento;
+      if (data.bairro  && !value.bairro?.trim())        patch.bairro        = data.bairro;
+      if (data.cidade  && !value.cidade?.trim())        patch.cidade        = data.cidade;
+      if (data.cep     && !value.cep?.trim())           patch.cep           = data.cep;
+      if (Object.keys(patch).length > 0) set(patch);
     } catch { /* silent */ }
     finally { setPhoneLoading(false); }
   }
 
   function onPhoneChange(v: string) {
     set({ customerPhone: v });
+    if (v.replace(/\D/g, "") !== lastPhone.current) {
+      setLastOrder(null);
+      setFoundName("");
+    }
     if (phoneDebounce.current) clearTimeout(phoneDebounce.current);
     phoneDebounce.current = setTimeout(() => lookupPhone(v), 500);
   }
@@ -165,10 +220,10 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
         </div>
       )}
 
-      {/* DELIVERY / PICKUP: telefone PRIMEIRO, depois nome */}
+      {/* DELIVERY / PICKUP: campos de cliente */}
       {value.orderType !== "DINE_IN" && (
         <>
-          {/* Telefone */}
+          {/* 1. Telefone */}
           <div>
             <p className={labelCls}>
               Telefone *
@@ -181,19 +236,33 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
               inputMode="tel"
               className={inputCls}
             />
-            {/* Último pedido */}
-            {lastOrder && (
-              <div className="mt-1.5 flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
-                <User size={12} className="text-green-400 shrink-0" />
-                <span className="text-xs text-green-300 font-semibold truncate">{lastOrder.name}</span>
-                <span className="text-xs text-zinc-500 ml-auto shrink-0">
-                  Último: R$ {Number(lastOrder.total).toFixed(2).replace(".", ",")} · {fmtDate(lastOrder.createdAt)}
-                </span>
+            {/* Último pedido / cliente encontrado */}
+            {(lastOrder || foundName) && (
+              <div className="mt-1.5 flex items-start gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+                <User size={12} className="text-green-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  {foundName && (
+                    <p className="text-xs text-green-300 font-semibold truncate">{foundName}</p>
+                  )}
+                  {lastOrder && (
+                    <p className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
+                      <Clock size={10} className="shrink-0" />
+                      Último pedido: R$ {Number(lastOrder.total).toFixed(2).replace(".", ",")} — {fmtDate(lastOrder.createdAt)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setLastOrder(null); setFoundName(""); lastPhone.current = ""; }}
+                  className="text-zinc-600 hover:text-zinc-400 shrink-0"
+                >
+                  <X size={12} />
+                </button>
               </div>
             )}
           </div>
 
-          {/* Nome */}
+          {/* 2. Nome */}
           <div>
             <p className={labelCls}>Nome *</p>
             <input
@@ -206,19 +275,45 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
         </>
       )}
 
-      {/* DELIVERY: endereço completo */}
+      {/* DELIVERY: endereço */}
       {value.orderType === "DELIVERY" && (
         <>
-          {/* Rua + Número */}
+          {/* 3. Rua + Número */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2">
-              <p className={labelCls}>Rua / Logradouro *</p>
+            <div className="col-span-2 relative">
+              <p className={labelCls}>
+                Rua / Logradouro *
+                {ruaLoading && <Loader2 size={11} className="inline ml-1.5 animate-spin text-blue-400" />}
+              </p>
               <input
                 value={value.address ?? ""}
-                onChange={e => set({ address: e.target.value })}
+                onChange={e => onRuaChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onFocus={() => ruaSuggestions.length > 0 && setShowSuggestions(true)}
                 placeholder="Ex: Rua das Flores"
                 className={inputCls}
+                autoComplete="off"
               />
+              {showSuggestions && ruaSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-[#0c101d] border border-[#1d2336] rounded-xl shadow-xl z-50 overflow-hidden max-h-48 overflow-y-auto">
+                  {ruaSuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onMouseDown={() => selectRuaSuggestion(s)}
+                      className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-[#1d2336] transition text-xs border-b border-[#1d2336] last:border-0"
+                    >
+                      <MapPin size={11} className="text-blue-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-white font-semibold truncate">{s.rua}</p>
+                        {(s.bairro || s.cidade) && (
+                          <p className="text-zinc-500 truncate">{[s.bairro, s.cidade].filter(Boolean).join(", ")}</p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <p className={labelCls}>Número *</p>
@@ -231,7 +326,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
             </div>
           </div>
 
-          {/* Complemento + Bairro */}
+          {/* 4. Complemento + Bairro */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <p className={labelCls}>Complemento</p>
@@ -253,7 +348,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
             </div>
           </div>
 
-          {/* Cidade */}
+          {/* 5. Cidade */}
           <div>
             <p className={labelCls}>Cidade *</p>
             <input
@@ -264,7 +359,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
             />
           </div>
 
-          {/* CEP */}
+          {/* 6. CEP (secundário — preenche se digitado) */}
           <div>
             <p className={labelCls}>
               CEP
@@ -280,7 +375,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
             />
           </div>
 
-          {/* Taxa de entrega */}
+          {/* 7. Taxa de entrega */}
           <div>
             <p className={labelCls}>Taxa de entrega (R$)</p>
             <input

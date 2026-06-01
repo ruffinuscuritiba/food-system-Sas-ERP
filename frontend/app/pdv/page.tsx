@@ -150,7 +150,17 @@ function parseProductName(name: string): { baseName: string; sizeKey: string | n
  * tratados como a mesma chave canônica da PizzaSizeConfig.
  */
 function normalizeSizeKey(raw: string): string {
-  return raw.trim().replace(/\s+\d+.*$/, "").toUpperCase();
+  return raw
+    .trim()
+    .replace(/\s+\d+.*$/, "")
+    .replace(/[àáâãä]/gi, "a")
+    .replace(/[èéêë]/gi, "e")
+    .replace(/[ìíîï]/gi, "i")
+    .replace(/[òóôõö]/gi, "o")
+    .replace(/[ùúûü]/gi, "u")
+    .replace(/ç/gi, "c")
+    .replace(/[ñ]/gi, "n")
+    .toUpperCase();
 }
 
 function buildDedupedPizzaProducts(prods: Product[]): Product[] {
@@ -496,6 +506,21 @@ export default function PDVPage() {
       }
 
       toast.success(`Pedido fechado — ${serviceLabel}`, { duration: 3000 });
+
+      // Salva endereço desagregado do cliente para autofill futuro (fire-and-forget)
+      if (details.orderType === "DELIVERY" && details.customerPhone?.replace(/\D/g, "").length >= 8) {
+        api.patch("/orders/customer-address", {
+          phone:       details.customerPhone,
+          name:        details.customerName || "",
+          rua:         details.address      || "",
+          numero:      details.addressNumber || "",
+          complemento: details.complement   || "",
+          bairro:      details.bairro        || "",
+          cidade:      details.cidade        || "",
+          cep:         details.cep           || "",
+        }).catch(() => {});
+      }
+
       clearCart();
       setShowPayment(false);
     } catch (error: any) {

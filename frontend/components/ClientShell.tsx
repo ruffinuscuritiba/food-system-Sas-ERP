@@ -162,6 +162,14 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     if (imp) { try { setImpersonating(JSON.parse(imp)); } catch {} }
   }, [loadAuth]);
 
+  // Mantém o backend do Render acordado enquanto o app está aberto (pinga a cada 13 min)
+  useEffect(() => {
+    const ping = () => fetch("/api/warmup", { cache: "no-store" }).catch(() => {});
+    ping();
+    const id = setInterval(ping, 13 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     if (!user?.companyId) return;
     // /company already returns the modules relation — single call,

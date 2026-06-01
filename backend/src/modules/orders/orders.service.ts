@@ -204,10 +204,6 @@ export class OrdersService {
 
                 deliveryAddress:
                   data.deliveryAddress || null,
-
-                // Persiste o número da mesa quando informado pelo PDV
-                tableNumber:
-                  data.tableNumber ?? null,
               },
 
               include: {

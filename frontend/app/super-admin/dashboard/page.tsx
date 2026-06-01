@@ -58,6 +58,7 @@ export default function SuperAdminDashboard() {
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState("")
   const [seeding, setSeeding] = useState(false)
+  const [initingDemos, setInitingDemos] = useState(false)
   const [fixingModules, setFixingModules] = useState<string | null>(null)
   const [showCloneModal, setShowCloneModal] = useState(false)
   const [cloneTarget, setCloneTarget] = useState<Company | null>(null)
@@ -214,6 +215,22 @@ export default function SuperAdminDashboard() {
     }
   }
 
+  async function initDemos() {
+    if (!window.confirm("Criar/resetar as 3 empresas de demonstração comercial?\n\n• Demo BASIC — demo-basic@foodsaas.demo\n• Demo PRO — demo-pro@foodsaas.demo\n• Demo ENTERPRISE — demo-enterprise@foodsaas.demo\n\nIsso também executa o Seed de dados antes de clonar o cardápio.")) return
+    setInitingDemos(true)
+    try {
+      const { data } = await saApi.post("/super-admin/demo/init")
+      const lines = data.demos.map((d: any) => `${d.plan}: ${d.email} / senha no backend`).join("\n")
+      alert(`✅ ${data.message}\n\n${lines}`)
+      await load()
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Erro ao inicializar demos comerciais"
+      alert(`Erro: ${msg}`)
+    } finally {
+      setInitingDemos(false)
+    }
+  }
+
   function logout() {
     localStorage.removeItem("sa_token")
     router.push("/super-admin/login")
@@ -293,8 +310,17 @@ export default function SuperAdminDashboard() {
               onClick={runSeed}
               disabled={seeding}
               className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+              title="Cria/restaura a empresa-base de seed com 45 produtos (company-seed-001)"
             >
-              {seeding ? "Gerando..." : "🌱 Seed Demo"}
+              {seeding ? "Gerando..." : "🌱 Seed Base"}
+            </button>
+            <button
+              onClick={initDemos}
+              disabled={initingDemos}
+              className="bg-violet-700 hover:bg-violet-600 disabled:opacity-50 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+              title="Cria/reseta as 3 empresas de demonstração comercial (Basic, Pro, Enterprise)"
+            >
+              {initingDemos ? "Criando demos..." : "🎯 Init Demos"}
             </button>
             <button
               onClick={() => setShowModal(true)}

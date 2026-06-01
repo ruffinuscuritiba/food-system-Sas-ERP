@@ -51,7 +51,7 @@ export default function SignupPage() {
       localStorage.setItem("user", JSON.stringify(data.user));
       document.cookie = `token=${data.accessToken}; path=/`;
       toast.success("Conta criada com sucesso!");
-      router.push("/");
+      router.push("/pdv");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Erro ao criar conta");
     } finally {

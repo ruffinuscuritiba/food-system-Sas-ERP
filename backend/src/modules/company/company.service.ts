@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from 'src/database/prisma.service';
+
+const VALID_PLANS = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
+type Plan = typeof VALID_PLANS[number];
 
 @Injectable()
 export class CompanyService {
@@ -67,6 +70,35 @@ export class CompanyService {
       data: {
         isBlocked: false,
       },
+    });
+  }
+
+  /** Retorna plano + módulos ativos para a página /assinatura */
+  async getSubscription(companyId: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      include: { modules: true },
+    });
+    if (!company) throw new NotFoundException('Empresa não encontrada');
+    return {
+      plan:               company.plan || 'BASIC',
+      subscriptionStatus: company.subscriptionStatus,
+      dueDate:            company.dueDate,
+      modules:            company.modules,
+    };
+  }
+
+  /** Atualiza apenas o plano. Nenhum dado de módulo é removido. */
+  async updatePlan(companyId: string, plan: string) {
+    if (!(VALID_PLANS as readonly string[]).includes(plan)) {
+      throw new BadRequestException(
+        `Plano inválido. Valores aceitos: ${VALID_PLANS.join(', ')}`,
+      );
+    }
+    return this.prisma.company.update({
+      where: { id: companyId },
+      data:  { plan },
+      select: { id: true, name: true, plan: true, subscriptionStatus: true },
     });
   }
 }

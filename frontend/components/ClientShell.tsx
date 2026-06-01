@@ -30,6 +30,8 @@ import {
   Bike,
   MapPin,
   Landmark,
+  CreditCard,
+  Megaphone,
   BarChart2,
   Eye,
   MessageCircle,
@@ -116,7 +118,8 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "IA",
     items: [
-      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/cadastro-inteligente", label: "Cadastro por Imagem",  icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/marketing",            label: "Marketing Digital",    icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {
@@ -133,6 +136,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/theme",            label: "Tema / Visual",           icon: <Palette size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
       { href: "/tables/qrcode",    label: "QR Code Mesas",           icon: <QrCode size={16} />,   roles: ["SUPER_ADMIN","ADMIN"] },
       { href: "/historico-pedidos",label: "Histórico de Pedidos",    icon: <History size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/assinatura",       label: "Assinatura",              icon: <CreditCard size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
     ],
   },
 ];
@@ -366,6 +370,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+
+      {/* ─── DEMO read-only banner ─────────────────────────────────── */}
+      {user?.role === "DEMO" && (
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-violet-600 text-white flex items-center justify-center px-4 py-1.5 shadow-md">
+          <Sparkles size={13} className="shrink-0 mr-2" />
+          <span className="text-xs font-bold">
+            Conta de Demonstração — somente leitura. Alterações não são salvas.
+          </span>
+          <span className="mx-3 opacity-40">|</span>
+          <span className="text-xs opacity-80 capitalize">{user.companyId?.includes("enterprise") ? "Enterprise" : user.companyId?.includes("pro") ? "Pro" : "Basic"}</span>
+        </div>
+      )}
 
       {/* ─── Impersonation top bar — visible at all times during demo ─── */}
       {impersonating && (

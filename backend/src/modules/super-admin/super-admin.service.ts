@@ -344,4 +344,111 @@ export class SuperAdminService {
 
     return { categories: CATEGORIES.length, products: PRODUCTS.length, companyId: COMPANY_ID }
   }
+
+  /**
+   * Cria (ou atualiza) as 3 empresas de demonstração com usuários DEMO.
+   * Reutiliza o catálogo de produtos/categorias do runDemoSeed().
+   * Não remove nenhum dado existente.
+   */
+  async initDemoCompanies() {
+    const bcrypt = await import('bcrypt');
+    const secret = this.configService.get<string>('JWT_SECRET') || 'secret';
+
+    const DEMOS = [
+      {
+        id:       'demo-basic-001',
+        name:     'Demo BASIC — FoodSaaS',
+        email:    'demo-basic@foodsaas.demo',
+        password: 'DemoBasic@123',
+        plan:     'BASIC',
+        modules:  ['TABLES', 'CASH', 'STOCK'],
+      },
+      {
+        id:       'demo-pro-001',
+        name:     'Demo PRO — FoodSaaS',
+        email:    'demo-pro@foodsaas.demo',
+        password: 'DemoPro@123',
+        plan:     'PRO',
+        modules:  ['TABLES', 'CASH', 'STOCK', 'FINANCIAL', 'RECIPES', 'DELIVERY'],
+      },
+      {
+        id:       'demo-enterprise-001',
+        name:     'Demo ENTERPRISE — FoodSaaS',
+        email:    'demo-enterprise@foodsaas.demo',
+        password: 'DemoEnterprise@123',
+        plan:     'ENTERPRISE',
+        modules:  ['TABLES', 'CASH', 'STOCK', 'FINANCIAL', 'RECIPES', 'DELIVERY', 'BI', 'AI', 'LOYALTY'],
+      },
+    ];
+
+    const results: any[] = [];
+
+    for (const demo of DEMOS) {
+      // 1. Empresa
+      await this.prisma.company.upsert({
+        where:  { id: demo.id },
+        update: { name: demo.name, plan: demo.plan, subscriptionStatus: 'ACTIVE', isBlocked: false },
+        create: {
+          id: demo.id, name: demo.name, email: demo.email,
+          plan: demo.plan, subscriptionStatus: 'ACTIVE', isBlocked: false,
+        },
+      });
+
+      // 2. Usuário DEMO (upsert por email)
+      const hashed = await bcrypt.hash(demo.password, 10);
+      const existing = await this.prisma.user.findUnique({ where: { email: demo.email } });
+      if (!existing) {
+        await this.prisma.user.create({
+          data: {
+            name: `Usuário ${demo.plan}`,
+            email: demo.email,
+            password: hashed,
+            role: 'DEMO' as any,
+            isActive: true,
+            companyId: demo.id,
+          },
+        });
+      }
+
+      // 3. Módulos
+      for (const mod of demo.modules) {
+        const existingMod = await this.prisma.companyModule.findFirst({
+          where: { companyId: demo.id, module: mod },
+        });
+        if (!existingMod) {
+          await this.prisma.companyModule.create({
+            data: { module: mod, active: true, companyId: demo.id },
+          });
+        }
+      }
+
+      // 4. Copiar cardápio do seed principal (se vazio)
+      const prodCount = await this.prisma.product.count({ where: { companyId: demo.id } });
+      if (prodCount === 0) {
+        await this.cloneMenu('company-seed-001', demo.id).catch(() => null);
+      }
+
+      // 5. Gerar token para retorno
+      const user = await this.prisma.user.findUnique({ where: { email: demo.email } });
+      const token = user
+        ? await this.jwtService.signAsync(
+            { sub: user.id, email: user.email, companyId: demo.id, role: 'DEMO' },
+            { secret, expiresIn: '365d' },
+          )
+        : null;
+
+      results.push({
+        plan:     demo.plan,
+        email:    demo.email,
+        password: demo.password,
+        token,
+        companyId: demo.id,
+      });
+    }
+
+    return {
+      message: '3 empresas de demonstração criadas/atualizadas.',
+      demos:   results,
+    };
+  }
 }

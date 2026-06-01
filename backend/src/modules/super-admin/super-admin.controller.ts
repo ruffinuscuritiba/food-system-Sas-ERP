@@ -85,4 +85,15 @@ export class SuperAdminController {
   fixModules(@Param('id') id: string) {
     return this.service.fixModules(id)
   }
+
+  /**
+   * POST /api/super-admin/demo/init
+   * Cria (ou atualiza) as 3 empresas de demonstração com usuários DEMO.
+   * Retorna as credenciais e tokens JWT de cada conta.
+   */
+  @Post('demo/init')
+  @UseGuards(SuperAdminGuard)
+  initDemoCompanies() {
+    return this.service.initDemoCompanies()
+  }
 }

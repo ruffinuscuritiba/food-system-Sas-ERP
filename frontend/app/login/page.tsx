@@ -31,7 +31,7 @@ export default function LoginPage() {
       localStorage.setItem('token', accessToken)
       localStorage.setItem('user', JSON.stringify(user))
       toast.success('Login realizado')
-      router.push('/')
+      router.push('/pdv')
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Erro ao fazer login')
     } finally {

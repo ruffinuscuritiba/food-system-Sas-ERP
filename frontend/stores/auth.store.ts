@@ -29,6 +29,8 @@ type AuthStore = {
   isKitchen: () => boolean;
 
   isCashier: () => boolean;
+
+  isDemo: () => boolean;
 };
 
 export const useAuthStore =
@@ -157,6 +159,10 @@ export const useAuthStore =
         user?.role ===
         "CASHIER"
       );
+    },
+
+    isDemo: () => {
+      return get().user?.role === "DEMO";
     },
   }));
 

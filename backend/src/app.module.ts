@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { APP_GUARD } from '@nestjs/core'
 import { ConfigModule } from '@nestjs/config'
 
 import { PrismaModule } from './database/prisma.module'
@@ -27,9 +28,11 @@ import { IngredientsModule } from './modules/ingredients/ingredients.module'
 import { RecipesModule } from './modules/recipes/recipes.module'
 import { StockModule } from './modules/stock/stock.module'
 import { DriversModule } from './modules/drivers/drivers.module'
-import { FinancialModule } from './modules/financial/financial.module'
+import { FinancialModule }  from './modules/financial/financial.module'
+import { MarketingModule }  from './modules/marketing/marketing.module'
 import { AppController } from './app.controller'
-import { AppService } from './app.service'
+import { AppService }    from './app.service'
+import { DemoGuard }     from './common/guards/demo.guard'
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch
 // (will be re-enabled after backend cleanup):
@@ -68,8 +71,13 @@ import { AppService } from './app.service'
     StockModule,
     DriversModule,
     FinancialModule,
+    MarketingModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // DemoGuard aplicado globalmente — bloqueia POST/PATCH/DELETE para role DEMO
+    { provide: APP_GUARD, useClass: DemoGuard },
+  ],
 })
 export class AppModule {}

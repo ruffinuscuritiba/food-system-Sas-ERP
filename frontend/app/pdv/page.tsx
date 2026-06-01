@@ -249,6 +249,7 @@ export default function PDVPage() {
     deliveryFee: "",
   });
   const [companyId, setCompanyId]               = useState<string>("");
+  const [authToken, setAuthToken]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
@@ -267,6 +268,8 @@ export default function PDVPage() {
 
   useEffect(() => {
     try {
+      const tok = localStorage.getItem("token") || "";
+      if (tok) setAuthToken(tok);
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       if (user.companyId) {
         setCompanyId(user.companyId);
@@ -880,6 +883,7 @@ export default function PDVPage() {
               <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingBag size={20} className="text-blue-400" /> Carrinho</h2>
               <button onClick={() => setShowCart(false)} className="text-zinc-400 hover:text-white"><X size={20} /></button>
             </div>
+            {/* Área scrollável: itens + formulário */}
             <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-zinc-600 py-20">
@@ -887,55 +891,61 @@ export default function PDVPage() {
                   <p className="text-sm font-medium">Carrinho vazio</p>
                 </div>
               ) : (
-                cart.map(({ product, qty, complements, unitPrice }, idx) => {
-                  // unitPrice é a fonte de verdade para exibição; fallback para salePrice
-                  const basePrice = unitPrice ?? (Number(product.salePrice) || 0);
-                  const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
-                  const itemTotal = (basePrice + compExtra) * qty;
-                  return (
-                    <div key={`${product.id}-${idx}`} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-start gap-3">
-                      {product.imageUrl
-                        ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 mt-0.5" />
-                        : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0 mt-0.5">🍽️</div>}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{product.name}</p>
-                        <p className="text-zinc-400 text-xs mt-0.5">{fmt(basePrice)} × {qty}</p>
-                        {complements && complements.length > 0 && (
-                          <div className="mt-1 space-y-0.5">
-                            {complements.map((c, ci) => (
-                              <p key={ci} className="text-zinc-500 text-xs">+ {c.quantity}x {c.optionName}{c.price > 0 ? ` (${fmt(c.price)})` : ""}</p>
-                            ))}
-                          </div>
-                        )}
+                <>
+                  {cart.map(({ product, qty, complements, unitPrice }, idx) => {
+                    const basePrice = unitPrice ?? (Number(product.salePrice) || 0);
+                    const compExtra = (complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+                    const itemTotal = (basePrice + compExtra) * qty;
+                    return (
+                      <div key={`${product.id}-${idx}`} className="bg-[#0b0f1b] rounded-2xl p-4 flex items-start gap-3">
+                        {product.imageUrl
+                          ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 mt-0.5" />
+                          : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0 mt-0.5">🍽️</div>}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{product.name}</p>
+                          <p className="text-zinc-400 text-xs mt-0.5">{fmt(basePrice)} × {qty}</p>
+                          {complements && complements.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {complements.map((c, ci) => (
+                                <p key={ci} className="text-zinc-500 text-xs">+ {c.quantity}x {c.optionName}{c.price > 0 ? ` (${fmt(c.price)})` : ""}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                          <span className="font-bold text-blue-400">{fmt(itemTotal)}</span>
+                          <button onClick={() => removeFromCart(product.id)} className="w-7 h-7 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-700/40 flex items-center justify-center transition">
+                            <X size={12} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0 mt-0.5">
-                        <span className="font-bold text-blue-400">{fmt(itemTotal)}</span>
-                        <button onClick={() => removeFromCart(product.id)} className="w-7 h-7 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-700/40 flex items-center justify-center transition">
-                          <X size={12} />
-                        </button>
-                      </div>
+                    );
+                  })}
+
+                  {/* Formulário dentro do scroll */}
+                  <div className="rounded-2xl border border-[#1d2336] bg-[#0b0f1b] p-4">
+                    <OrderDetailsForm value={pdvOrderDetails} onChange={setPdvOrderDetails} compact companyId={companyId} token={authToken} />
+                  </div>
+
+                  {pdvOrderDetails.orderType === "DELIVERY" && parsedDeliveryFee > 0 && (
+                    <div className="flex items-center justify-between text-sm text-zinc-400">
+                      <span>Taxa entrega</span>
+                      <span>{fmt(parsedDeliveryFee)}</span>
                     </div>
-                  );
-                })
+                  )}
+                  <div className="flex items-center justify-between text-lg font-black pb-2">
+                    <span>Total</span>
+                    <span className="text-blue-400">{fmt(orderTotal)}</span>
+                  </div>
+                </>
               )}
             </div>
+
+            {/* Botão fixo no rodapé — sempre visível */}
             {cart.length > 0 && (
-              <div className="border-t border-[#161b2d] p-5 space-y-3">
-                <div className="rounded-2xl border border-[#1d2336] bg-[#0b0f1b] p-4">
-                  <OrderDetailsForm value={pdvOrderDetails} onChange={setPdvOrderDetails} compact />
-                </div>
-                {pdvOrderDetails.orderType === "DELIVERY" && parsedDeliveryFee > 0 && (
-                  <div className="flex items-center justify-between text-sm text-zinc-400">
-                    <span>Taxa entrega</span>
-                    <span>{fmt(parsedDeliveryFee)}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between text-lg font-black">
-                  <span>Total</span>
-                  <span className="text-blue-400">{fmt(orderTotal)}</span>
-                </div>
+              <div className="border-t border-[#161b2d] p-4">
                 <button onClick={openPayment} disabled={!canProceedToPayment}
-                  className="w-full py-3 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
+                  className="w-full py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
                   Finalizar Pedido →
                 </button>
               </div>

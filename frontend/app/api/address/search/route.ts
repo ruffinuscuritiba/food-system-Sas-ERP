@@ -17,8 +17,13 @@ export async function GET(req: NextRequest) {
       .filter(r => r.address?.road)
       .map(r => ({
         rua:    r.address.road || '',
-        bairro: r.address.suburb || r.address.neighbourhood || r.address.city_district || '',
-        cidade: r.address.city || r.address.town || r.address.municipality || '',
+        bairro: r.address.suburb
+               || r.address.neighbourhood
+               || r.address.quarter
+               || r.address.city_district
+               || r.address.village
+               || '',
+        cidade: r.address.city || r.address.town || r.address.municipality || r.address.county || '',
         cep:    (r.address.postcode || '').replace(/[^0-9]/g, ''),
       }))
 

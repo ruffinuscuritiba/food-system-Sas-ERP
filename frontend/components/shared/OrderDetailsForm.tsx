@@ -145,15 +145,15 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
       if (data.name)        setFoundName(data.name);
       if (data.lastOrder)   setLastOrder(data.lastOrder);
 
-      // Preenche todos os campos disponíveis sem sobrescrever o que o operador já digitou
+      // Sobrescreve todos os campos com os dados do cliente encontrado
       const patch: Partial<OrderDetails> = {};
-      if (data.name    && !value.customerName?.trim())  patch.customerName  = data.name;
-      if (data.rua     && !value.address?.trim())       patch.address       = data.rua;
-      if (data.numero  && !value.addressNumber?.trim()) patch.addressNumber = data.numero;
-      if (data.complemento && !value.complement?.trim()) patch.complement   = data.complemento;
-      if (data.bairro  && !value.bairro?.trim())        patch.bairro        = data.bairro;
-      if (data.cidade  && !value.cidade?.trim())        patch.cidade        = data.cidade;
-      if (data.cep     && !value.cep?.trim())           patch.cep           = data.cep;
+      if (data.name)        patch.customerName  = data.name;
+      if (data.rua)         patch.address       = data.rua;
+      if (data.numero)      patch.addressNumber = data.numero;
+      if (data.complemento) patch.complement    = data.complemento;
+      if (data.bairro)      patch.bairro        = data.bairro;
+      if (data.cidade)      patch.cidade        = data.cidade;
+      if (data.cep)         patch.cep           = data.cep;
       if (Object.keys(patch).length > 0) set(patch);
     } catch { /* silent */ }
     finally { setPhoneLoading(false); }

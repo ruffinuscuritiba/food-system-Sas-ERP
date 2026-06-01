@@ -143,6 +143,16 @@ function parseProductName(name: string): { baseName: string; sizeKey: string | n
   return { baseName: name, sizeKey: null };
 }
 
+/**
+ * Normaliza a chave de tamanho removendo sufixos numéricos como " 12 FATIAS", " 8 fatias".
+ * "BIG 12 FATIAS" → "BIG", "GRANDE 8 fatias" → "GRANDE", "GRANDE" → "GRANDE".
+ * Garante que ProductSize criados com sufixo (ex: via Smart Import) sejam
+ * tratados como a mesma chave canônica da PizzaSizeConfig.
+ */
+function normalizeSizeKey(raw: string): string {
+  return raw.trim().replace(/\s+\d+.*$/, "").toUpperCase();
+}
+
 function buildDedupedPizzaProducts(prods: Product[]): Product[] {
   type Group = {
     displayName: string;
@@ -170,9 +180,10 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
     for (const { sizeKey, product: p } of g.variants) {
       if (p.sizes && p.sizes.length > 0) {
         for (const s of p.sizes) {
-          if (!seen.has(s.size)) {
-            seen.add(s.size);
-            mergedSizes.push({ size: s.size, price: Number(s.price) });
+          const normalizedKey = normalizeSizeKey(s.size);
+          if (!seen.has(normalizedKey)) {
+            seen.add(normalizedKey);
+            mergedSizes.push({ size: normalizedKey, price: Number(s.price) });
           }
         }
       } else if (sizeKey && !seen.has(sizeKey)) {

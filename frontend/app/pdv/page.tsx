@@ -757,10 +757,21 @@ export default function PDVPage() {
 
         {/* PRODUCTS mobile */}
         <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712]">
-          {/* Mini-banner mobile — sempre visível, mostra categoria ativa */}
-          <div className="sticky top-0 z-10 bg-[#030712] px-3 py-2 border-b border-[#161b2d] flex items-center justify-between">
-            <span className="text-sm font-black text-white truncate">{activeCategoryName}</span>
-            <span className="text-xs text-zinc-500 shrink-0 ml-2">{filteredProducts.length} item{filteredProducts.length !== 1 ? "s" : ""}</span>
+
+          {/* Banner mobile — imagem da categoria + nome */}
+          <div className="relative h-28 w-full overflow-hidden shrink-0">
+            <img
+              src={bannerImageUrl}
+              className="absolute inset-0 w-full h-full object-cover"
+              alt={activeCategoryName}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+              <h2 className="text-lg font-black text-white leading-tight">{activeCategoryName}</h2>
+              <p className="text-zinc-400 text-xs mt-0.5">
+                {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""}
+              </p>
+            </div>
           </div>
 
           <div className="px-3 py-3">
@@ -785,7 +796,8 @@ export default function PDVPage() {
                     <p className="text-blue-400 font-black text-xs leading-tight mb-2">{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
-                      className="w-full py-2 rounded-xl bg-[var(--color-primary)] active:scale-95 transition text-xs font-bold min-h-[36px]">
+                      style={{ backgroundColor: "var(--color-primary, #16a34a)" }}
+                      className="w-full py-2 rounded-xl text-white active:scale-95 transition text-xs font-bold min-h-[36px]">
                       + Adicionar
                     </button>
                   </div>
@@ -797,24 +809,27 @@ export default function PDVPage() {
             <div className="space-y-2.5">
               {buildDedupedPizzaProducts(filteredProducts).map(product => (
                 <div key={product.id}
-                  className="flex items-center gap-2.5 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-2.5 active:opacity-80 transition">
+                  className="w-full flex items-center gap-2.5 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-2.5 active:opacity-80 transition overflow-hidden">
                   {/* Imagem */}
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-14 h-14 object-cover rounded-xl shrink-0" />
                     : <div className="w-14 h-14 rounded-xl bg-[#161b2d] flex items-center justify-center text-2xl shrink-0">🍽️</div>}
                   {/* Info */}
-                  <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm leading-tight truncate">{product.name}</p>
                     {product.description && (
-                      <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{product.description}</p>
+                      <p className="text-zinc-500 text-xs mt-0.5 truncate">{product.description}</p>
                     )}
-                    <p className="text-[var(--color-primary)] font-black text-sm mt-0.5 leading-tight">{productPriceLabel(product)}</p>
+                    <p className="font-black text-sm mt-0.5 leading-tight" style={{ color: "var(--color-primary, #16a34a)" }}>
+                      {productPriceLabel(product)}
+                    </p>
                   </div>
-                  {/* Botão + sempre visível */}
+                  {/* Botão + — cor via inline style para garantir resolução em produção */}
                   <button
                     onClick={() => openProductAdd(product)}
                     disabled={complementLoading}
-                    className="shrink-0 w-10 h-10 rounded-xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-lg font-black flex items-center justify-center disabled:opacity-50">
+                    style={{ backgroundColor: "var(--color-primary, #16a34a)" }}
+                    className="shrink-0 w-11 h-11 rounded-xl text-white text-xl font-black flex items-center justify-center active:scale-95 transition disabled:opacity-50">
                     +
                   </button>
                 </div>

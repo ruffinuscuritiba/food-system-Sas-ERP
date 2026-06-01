@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   '/pagamento/sucesso',
   '/pagamento/cancelado',
   '/pedido',
+  '/super-admin',
 ]
 
 export function middleware(request: NextRequest) {

@@ -28,8 +28,9 @@ import { IngredientsModule } from './modules/ingredients/ingredients.module'
 import { RecipesModule } from './modules/recipes/recipes.module'
 import { StockModule } from './modules/stock/stock.module'
 import { DriversModule } from './modules/drivers/drivers.module'
-import { FinancialModule }  from './modules/financial/financial.module'
-import { MarketingModule }  from './modules/marketing/marketing.module'
+import { FinancialModule }    from './modules/financial/financial.module'
+import { MarketingModule }    from './modules/marketing/marketing.module'
+import { SuperAdminModule }   from './modules/super-admin/super-admin.module'
 import { AppController } from './app.controller'
 import { AppService }    from './app.service'
 import { DemoGuard }     from './common/guards/demo.guard'
@@ -72,6 +73,7 @@ import { DemoGuard }     from './common/guards/demo.guard'
     DriversModule,
     FinancialModule,
     MarketingModule,
+    SuperAdminModule,
   ],
   controllers: [AppController],
   providers: [

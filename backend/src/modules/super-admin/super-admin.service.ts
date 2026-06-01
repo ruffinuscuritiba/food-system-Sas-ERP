@@ -30,13 +30,32 @@ export class SuperAdminService {
     return { accessToken, email }
   }
 
-  async listCompanies() {
+  async listCompanies(showArchived = false) {
     return this.prisma.company.findMany({
+      where: showArchived ? undefined : { archivedAt: null },
       include: {
         modules: true,
         _count: { select: { users: true, orders: true } },
       },
       orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  async archiveCompany(id: string) {
+    const company = await this.prisma.company.findUnique({ where: { id } })
+    if (!company) throw new NotFoundException('Empresa não encontrada')
+    return this.prisma.company.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+    })
+  }
+
+  async restoreCompany(id: string) {
+    const company = await this.prisma.company.findUnique({ where: { id } })
+    if (!company) throw new NotFoundException('Empresa não encontrada')
+    return this.prisma.company.update({
+      where: { id },
+      data: { archivedAt: null },
     })
   }
 
@@ -179,12 +198,13 @@ export class SuperAdminService {
   }
 
   async getStats() {
-    const [total, active, blocked] = await Promise.all([
-      this.prisma.company.count(),
-      this.prisma.company.count({ where: { isBlocked: false, subscriptionStatus: 'ACTIVE' } }),
-      this.prisma.company.count({ where: { isBlocked: true } }),
+    const [total, active, blocked, archived] = await Promise.all([
+      this.prisma.company.count({ where: { archivedAt: null } }),
+      this.prisma.company.count({ where: { archivedAt: null, isBlocked: false, subscriptionStatus: 'ACTIVE' } }),
+      this.prisma.company.count({ where: { archivedAt: null, isBlocked: true } }),
+      this.prisma.company.count({ where: { archivedAt: { not: null } } }),
     ])
-    return { total, active, blocked }
+    return { total, active, blocked, archived }
   }
 
   async runDemoSeed() {
@@ -346,13 +366,21 @@ export class SuperAdminService {
   }
 
   /**
-   * Cria (ou atualiza) as 3 empresas de demonstração com usuários DEMO.
-   * Reutiliza o catálogo de produtos/categorias do runDemoSeed().
-   * Não remove nenhum dado existente.
+   * Cria (ou recria) as 3 empresas de demonstração comercial com usuários DEMO.
+   * - Idempotente: pode ser chamado múltiplas vezes sem efeitos colaterais.
+   * - Garante seed principal antes de clonar cardápio.
+   * - Reseta módulos de cada demo para garantir isolamento correto por plano.
+   *
+   * BASIC      → TABLES, CASH (sem stock/financial/recipes)
+   * PRO        → TABLES, CASH, FINANCIAL, STOCK, RECIPES, DELIVERY
+   * ENTERPRISE → todos os módulos (plan=ENTERPRISE tem wildcard no ModuleGuard)
    */
   async initDemoCompanies() {
     const bcrypt = await import('bcrypt');
     const secret = this.configService.get<string>('JWT_SECRET') || 'secret';
+
+    // Garante que o seed principal existe antes de clonar
+    await this.runDemoSeed();
 
     const DEMOS = [
       {
@@ -361,7 +389,8 @@ export class SuperAdminService {
         email:    'demo-basic@foodsaas.demo',
         password: 'DemoBasic@123',
         plan:     'BASIC',
-        modules:  ['TABLES', 'CASH', 'STOCK'],
+        // Somente módulos do plano BASIC — financial/stock/recipes são bloqueados pelo ModuleGuard
+        modules:  ['TABLES', 'CASH'],
       },
       {
         id:       'demo-pro-001',
@@ -369,7 +398,7 @@ export class SuperAdminService {
         email:    'demo-pro@foodsaas.demo',
         password: 'DemoPro@123',
         plan:     'PRO',
-        modules:  ['TABLES', 'CASH', 'STOCK', 'FINANCIAL', 'RECIPES', 'DELIVERY'],
+        modules:  ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
       },
       {
         id:       'demo-enterprise-001',
@@ -377,30 +406,35 @@ export class SuperAdminService {
         email:    'demo-enterprise@foodsaas.demo',
         password: 'DemoEnterprise@123',
         plan:     'ENTERPRISE',
-        modules:  ['TABLES', 'CASH', 'STOCK', 'FINANCIAL', 'RECIPES', 'DELIVERY', 'BI', 'AI', 'LOYALTY'],
+        // ENTERPRISE tem wildcard no ModuleGuard — lista aqui garante visibilidade no sidebar
+        modules:  ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY',
+                   'BI', 'AI', 'LOYALTY', 'MARKETING', 'SMART_IMPORT', 'WHATSAPP'],
       },
     ];
 
     const results: any[] = [];
 
     for (const demo of DEMOS) {
-      // 1. Empresa
+      // 1. Empresa — garante arquivamento nulo e status ativo
       await this.prisma.company.upsert({
         where:  { id: demo.id },
-        update: { name: demo.name, plan: demo.plan, subscriptionStatus: 'ACTIVE', isBlocked: false },
+        update: {
+          name: demo.name, plan: demo.plan,
+          subscriptionStatus: 'ACTIVE', isBlocked: false, archivedAt: null,
+        },
         create: {
           id: demo.id, name: demo.name, email: demo.email,
           plan: demo.plan, subscriptionStatus: 'ACTIVE', isBlocked: false,
         },
       });
 
-      // 2. Usuário DEMO (upsert por email)
+      // 2. Usuário DEMO (cria apenas se não existir)
       const hashed = await bcrypt.hash(demo.password, 10);
-      const existing = await this.prisma.user.findUnique({ where: { email: demo.email } });
-      if (!existing) {
+      const existingUser = await this.prisma.user.findUnique({ where: { email: demo.email } });
+      if (!existingUser) {
         await this.prisma.user.create({
           data: {
-            name: `Usuário ${demo.plan}`,
+            name: `Demo ${demo.plan}`,
             email: demo.email,
             password: hashed,
             role: 'DEMO' as any,
@@ -410,25 +444,40 @@ export class SuperAdminService {
         });
       }
 
-      // 3. Módulos
+      // 3. Módulos — reseta tudo e reaplica somente os corretos para o plano
+      // Garante isolamento: demo basic não herda módulos de runs anteriores
+      await this.prisma.companyModule.updateMany({
+        where: { companyId: demo.id },
+        data:  { active: false, status: 'INACTIVE' },
+      });
+
       for (const mod of demo.modules) {
-        const existingMod = await this.prisma.companyModule.findFirst({
-          where: { companyId: demo.id, module: mod },
+        const cmId = `cm-${mod.toLowerCase()}-${demo.id}`;
+        await this.prisma.companyModule.upsert({
+          where:  { id: cmId },
+          update: {
+            active: true, status: 'ACTIVE', activatedAt: new Date(),
+            module: mod.toUpperCase(), moduleSlug: mod.toLowerCase(),
+          },
+          create: {
+            id:          cmId,
+            module:      mod.toUpperCase(),
+            active:      true,
+            moduleSlug:  mod.toLowerCase(),
+            status:      'ACTIVE',
+            activatedAt: new Date(),
+            companyId:   demo.id,
+          },
         });
-        if (!existingMod) {
-          await this.prisma.companyModule.create({
-            data: { module: mod, active: true, companyId: demo.id },
-          });
-        }
       }
 
-      // 4. Copiar cardápio do seed principal (se vazio)
+      // 4. Cardápio — clona do seed se empresa ainda não tem produtos
       const prodCount = await this.prisma.product.count({ where: { companyId: demo.id } });
       if (prodCount === 0) {
         await this.cloneMenu('company-seed-001', demo.id).catch(() => null);
       }
 
-      // 5. Gerar token para retorno
+      // 5. Token de demonstração (365 dias)
       const user = await this.prisma.user.findUnique({ where: { email: demo.email } });
       const token = user
         ? await this.jwtService.signAsync(
@@ -438,9 +487,9 @@ export class SuperAdminService {
         : null;
 
       results.push({
-        plan:     demo.plan,
-        email:    demo.email,
-        password: demo.password,
+        plan:      demo.plan,
+        email:     demo.email,
+        password:  demo.password,
         token,
         companyId: demo.id,
       });

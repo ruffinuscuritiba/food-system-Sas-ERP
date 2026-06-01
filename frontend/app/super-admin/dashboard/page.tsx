@@ -11,6 +11,7 @@ interface Company {
   plan: string
   subscriptionStatus: string
   isBlocked: boolean
+  archivedAt: string | null
   createdAt: string
   _count: { users: number; orders: number }
 }
@@ -19,6 +20,7 @@ interface Stats {
   total: number
   active: number
   blocked: number
+  archived: number
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -38,10 +40,12 @@ const PLAN_COLORS: Record<string, string> = {
 export default function SuperAdminDashboard() {
   const router = useRouter()
   const [companies, setCompanies] = useState<Company[]>([])
-  const [stats, setStats] = useState<Stats>({ total: 0, active: 0, blocked: 0 })
+  const [stats, setStats] = useState<Stats>({ total: 0, active: 0, blocked: 0, archived: 0 })
   const [loading, setLoading] = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [blocking, setBlocking] = useState<string | null>(null)
+  const [archiving, setArchiving] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [entering, setEntering] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -68,13 +72,13 @@ export default function SuperAdminDashboard() {
       return
     }
     load()
-  }, [])
+  }, [showArchived])
 
   async function load() {
     setLoading(true)
     try {
       const [companiesRes, statsRes] = await Promise.all([
-        saApi.get("/super-admin/companies"),
+        saApi.get(`/super-admin/companies?showArchived=${showArchived}`),
         saApi.get("/super-admin/stats"),
       ])
       setCompanies(companiesRes.data)
@@ -120,6 +124,31 @@ export default function SuperAdminDashboard() {
       await load()
     } finally {
       setBlocking(null)
+    }
+  }
+
+  async function archiveCompany(id: string, name: string) {
+    if (!window.confirm(`Arquivar "${name}"? A empresa ficará oculta da listagem padrão. Os dados serão preservados.`)) return
+    setArchiving(id)
+    try {
+      await saApi.patch(`/super-admin/companies/${id}/archive`)
+      await load()
+    } catch {
+      alert("Erro ao arquivar empresa.")
+    } finally {
+      setArchiving(null)
+    }
+  }
+
+  async function restoreCompany(id: string) {
+    setArchiving(id)
+    try {
+      await saApi.patch(`/super-admin/companies/${id}/restore`)
+      await load()
+    } catch {
+      alert("Erro ao restaurar empresa.")
+    } finally {
+      setArchiving(null)
     }
   }
 
@@ -190,6 +219,12 @@ export default function SuperAdminDashboard() {
     router.push("/super-admin/login")
   }
 
+  function statusBadge(c: Company) {
+    if (c.archivedAt) return <span className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-700 text-gray-400">Arquivado</span>
+    if (c.isBlocked) return <span className="px-2 py-1 rounded-lg text-xs font-medium bg-red-900 text-red-300">Bloqueado</span>
+    return <span className="px-2 py-1 rounded-lg text-xs font-medium bg-green-900 text-green-300">Ativo</span>
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -219,7 +254,7 @@ export default function SuperAdminDashboard() {
 
       <main className="p-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
             <p className="text-gray-400 text-sm">Total de Restaurantes</p>
             <p className="text-4xl font-bold text-white mt-1">{stats.total}</p>
@@ -232,11 +267,27 @@ export default function SuperAdminDashboard() {
             <p className="text-gray-400 text-sm">Bloqueados</p>
             <p className="text-4xl font-bold text-red-400 mt-1">{stats.blocked}</p>
           </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+            <p className="text-gray-400 text-sm">Arquivados</p>
+            <p className="text-4xl font-bold text-gray-400 mt-1">{stats.archived}</p>
+          </div>
         </div>
 
         {/* Actions bar */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold">Restaurantes</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold">Restaurantes</h2>
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition ${
+                showArchived
+                  ? "bg-gray-700 border-gray-500 text-white"
+                  : "bg-transparent border-gray-700 text-gray-400 hover:text-white hover:border-gray-500"
+              }`}
+            >
+              {showArchived ? "Ocultar Arquivadas" : "Mostrar Arquivadas"}
+            </button>
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={runSeed}
@@ -271,7 +322,12 @@ export default function SuperAdminDashboard() {
             </thead>
             <tbody>
               {companies.map((c) => (
-                <tr key={c.id} className="border-b border-gray-800 hover:bg-gray-800/50 transition">
+                <tr
+                  key={c.id}
+                  className={`border-b border-gray-800 transition ${
+                    c.archivedAt ? "opacity-50 hover:opacity-70" : "hover:bg-gray-800/50"
+                  }`}
+                >
                   <td className="px-6 py-4 font-medium">{c.name}</td>
                   <td className="px-6 py-4 text-gray-400">{c.email}</td>
                   <td className="px-6 py-4">
@@ -284,51 +340,72 @@ export default function SuperAdminDashboard() {
                   <td className="px-6 py-4 text-gray-400">
                     {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${c.isBlocked ? "bg-red-900 text-red-300" : "bg-green-900 text-green-300"}`}>
-                      {c.isBlocked ? "Bloqueado" : "Ativo"}
-                    </span>
-                  </td>
+                  <td className="px-6 py-4">{statusBadge(c)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        onClick={() => enterStore(c.id)}
-                        disabled={entering === c.id}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 text-white"
-                      >
-                        {entering === c.id ? "..." : "Entrar na Loja"}
-                      </button>
-                      <button
-                        onClick={() => toggleBlock(c.id)}
-                        disabled={blocking === c.id}
-                        className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
-                          c.isBlocked
-                            ? "bg-green-600 hover:bg-green-700 text-white"
-                            : "bg-orange-600 hover:bg-orange-700 text-white"
-                        }`}
-                      >
-                        {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}
-                      </button>
-                      <button
-                        onClick={() => fixModules(c.id)}
-                        disabled={fixingModules === c.id}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-teal-700 hover:bg-teal-600 text-white"
-                      >
-                        {fixingModules === c.id ? "..." : "Fix Módulos"}
-                      </button>
-                      <button
-                        onClick={() => { setCloneTarget(c); setCloneSourceId(""); setCloneResult(null); setShowCloneModal(true) }}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition bg-amber-700 hover:bg-amber-600 text-white"
-                      >
-                        📋 Clonar Cardápio
-                      </button>
-                      <button
-                        onClick={() => deleteCompany(c.id, c.name)}
-                        disabled={deleting === c.id}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
-                      >
-                        {deleting === c.id ? "..." : "Excluir"}
-                      </button>
+                      {!c.archivedAt && (
+                        <>
+                          <button
+                            onClick={() => enterStore(c.id)}
+                            disabled={entering === c.id}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            {entering === c.id ? "..." : "Entrar na Loja"}
+                          </button>
+                          <button
+                            onClick={() => toggleBlock(c.id)}
+                            disabled={blocking === c.id}
+                            className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
+                              c.isBlocked
+                                ? "bg-green-600 hover:bg-green-700 text-white"
+                                : "bg-orange-600 hover:bg-orange-700 text-white"
+                            }`}
+                          >
+                            {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}
+                          </button>
+                          <button
+                            onClick={() => fixModules(c.id)}
+                            disabled={fixingModules === c.id}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-teal-700 hover:bg-teal-600 text-white"
+                          >
+                            {fixingModules === c.id ? "..." : "Fix Módulos"}
+                          </button>
+                          <button
+                            onClick={() => { setCloneTarget(c); setCloneSourceId(""); setCloneResult(null); setShowCloneModal(true) }}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition bg-amber-700 hover:bg-amber-600 text-white"
+                          >
+                            📋 Clonar
+                          </button>
+                          <button
+                            onClick={() => archiveCompany(c.id, c.name)}
+                            disabled={archiving === c.id}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
+                          >
+                            {archiving === c.id ? "..." : "Arquivar"}
+                          </button>
+                        </>
+                      )}
+                      {c.archivedAt && (
+                        <>
+                          <span className="text-xs text-gray-500">
+                            Arquivado em {new Date(c.archivedAt).toLocaleDateString("pt-BR")}
+                          </span>
+                          <button
+                            onClick={() => restoreCompany(c.id)}
+                            disabled={archiving === c.id}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-green-700 hover:bg-green-600 text-white"
+                          >
+                            {archiving === c.id ? "..." : "Restaurar"}
+                          </button>
+                          <button
+                            onClick={() => deleteCompany(c.id, c.name)}
+                            disabled={deleting === c.id}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-red-900 hover:bg-red-800 text-red-300 hover:text-red-200"
+                          >
+                            {deleting === c.id ? "..." : "Excluir"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -336,7 +413,7 @@ export default function SuperAdminDashboard() {
               {companies.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                    Nenhum restaurante cadastrado
+                    {showArchived ? "Nenhuma empresa arquivada" : "Nenhum restaurante cadastrado"}
                   </td>
                 </tr>
               )}
@@ -373,7 +450,7 @@ export default function SuperAdminDashboard() {
                   >
                     <option value="">Selecione a empresa de origem...</option>
                     {companies
-                      .filter((c) => c.id !== cloneTarget.id)
+                      .filter((c) => c.id !== cloneTarget.id && !c.archivedAt)
                       .map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name} ({c._count.orders} pedidos)

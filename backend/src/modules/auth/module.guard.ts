@@ -10,11 +10,18 @@ import { PrismaService } from 'src/database/prisma.service';
 /**
  * Módulos incluídos nativamente por plano (sem precisar de CompanyModule ativo).
  * Plano OU módulo avulso ativo → acesso liberado.
+ *
+ * BASIC      → operações core (PDV, Pedidos, Produtos, Categorias, Caixa, Mesas)
+ * PRO        → Basic + Financeiro, Estoque, Receitas, Delivery
+ * ENTERPRISE → tudo (wildcard *)
+ * PROFESSIONAL / DELIVERY → aliases para PRO (empresas legadas)
  */
 const PLAN_INCLUDES: Record<string, string[]> = {
-  BASIC:      ['TABLES', 'CASH', 'STOCK'],
-  PRO:        ['TABLES', 'CASH', 'STOCK', 'FINANCIAL', 'RECIPES', 'DELIVERY'],
-  ENTERPRISE: ['*'],  // tudo liberado
+  BASIC:        ['TABLES', 'CASH'],
+  PRO:          ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
+  PROFESSIONAL: ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
+  ENTERPRISE:   ['*'],
+  DELIVERY:     ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
 };
 
 @Injectable()

@@ -3,9 +3,12 @@ import { IngredientsService } from './ingredients.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
+import { ModuleGuard } from 'src/modules/auth/module.guard';
+import { Module } from 'src/modules/auth/module.decorator';
 
 @Controller('ingredients')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
+@Module('STOCK')
 export class IngredientsController {
   constructor(private readonly ingredientsService: IngredientsService) {}
 

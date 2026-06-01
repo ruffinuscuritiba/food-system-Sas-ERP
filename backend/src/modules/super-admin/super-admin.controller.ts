@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common'
 import { SuperAdminService } from './super-admin.service'
@@ -28,8 +29,8 @@ export class SuperAdminController {
 
   @Get('companies')
   @UseGuards(SuperAdminGuard)
-  listCompanies() {
-    return this.service.listCompanies()
+  listCompanies(@Query('showArchived') showArchived?: string) {
+    return this.service.listCompanies(showArchived === 'true')
   }
 
   @Post('companies')
@@ -51,6 +52,18 @@ export class SuperAdminController {
   @UseGuards(SuperAdminGuard)
   toggleBlock(@Param('id') id: string) {
     return this.service.toggleBlock(id)
+  }
+
+  @Patch('companies/:id/archive')
+  @UseGuards(SuperAdminGuard)
+  archiveCompany(@Param('id') id: string) {
+    return this.service.archiveCompany(id)
+  }
+
+  @Patch('companies/:id/restore')
+  @UseGuards(SuperAdminGuard)
+  restoreCompany(@Param('id') id: string) {
+    return this.service.restoreCompany(id)
   }
 
   @Post('companies/:id/impersonate')

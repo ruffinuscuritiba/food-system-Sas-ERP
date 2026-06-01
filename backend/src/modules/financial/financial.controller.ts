@@ -3,9 +3,12 @@ import { FinancialService } from './financial.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
+import { ModuleGuard } from 'src/modules/auth/module.guard';
+import { Module } from 'src/modules/auth/module.decorator';
 
 @Controller('financial')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
+@Module('FINANCIAL')
 export class FinancialController {
   constructor(private service: FinancialService) {}
 

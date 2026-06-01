@@ -178,6 +178,8 @@ model Company {
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
+  archivedAt DateTime?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt

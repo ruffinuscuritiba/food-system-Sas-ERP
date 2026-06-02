@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { PrismaService } from '@/database/prisma.service';
+import { PrismaService }    from '@/database/prisma.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
-import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { UpdateSettingsDto }   from './dto/update-settings.dto';
+import { WhisperService }   from './services/whisper.service';
+import { ClaudeCartService, CartStatus, StructuredResponse } from './services/claude-cart.service';
 
 const log = new Logger('WhatsappAiService');
 
@@ -206,7 +208,11 @@ ${cartCtx || 'Carrinho vazio.'}
 
 @Injectable()
 export class WhatsappAiService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma:       PrismaService,
+    private whisper:      WhisperService,
+    private claudeCart:   ClaudeCartService,
+  ) {}
 
   // ── CONNECTIONS ────────────────────────────────────────────────────────────
 
@@ -331,11 +337,31 @@ export class WhatsappAiService {
     const rawPhone: string = data?.key?.remoteJid ?? '';
     const phone = rawPhone.replace('@s.whatsapp.net', '').replace('@c.us', '');
     const name: string = data?.pushName ?? data?.key?.remoteJid ?? phone;
-    const text: string =
+
+    let text: string =
       data?.message?.conversation ??
       data?.message?.extendedTextMessage?.text ??
       data?.message?.imageMessage?.caption ??
       '';
+
+    // ── Suporte a áudio (PTT e audioMessage) via Whisper ──────────────────
+    const audioMsg = data?.message?.audioMessage ?? data?.message?.pttMessage;
+    if (!text.trim() && audioMsg?.url) {
+      try {
+        const connection = await (this.prisma as any).whatsappConnection.findUnique({
+          where: { id: connectionId },
+        });
+        const headers: Record<string, string> = connection?.apiToken ? { apikey: String(connection.apiToken) } : {};
+        const transcript = await this.whisper.transcribeFromUrl(
+          audioMsg.url,
+          audioMsg.mimetype ?? 'audio/ogg',
+          headers,
+        );
+        if (transcript) text = `[Áudio] ${transcript}`;
+      } catch (err: any) {
+        log.warn(`Evolution audio transcription failed: ${err?.message}`);
+      }
+    }
 
     if (!phone || !text.trim()) return { ok: true };
     await this.processIncoming(connectionId, phone, name, text.trim());
@@ -347,14 +373,41 @@ export class WhatsappAiService {
     const entries = body?.entry ?? [];
     for (const entry of entries) {
       for (const change of entry?.changes ?? []) {
-        const msgs = change?.value?.messages ?? [];
+        const msgs     = change?.value?.messages ?? [];
         const contacts = change?.value?.contacts ?? [];
         for (const msg of msgs) {
-          if (msg.type !== 'text') continue;
           const phone: string = msg.from ?? '';
-          const text: string = msg?.text?.body ?? '';
-          const name: string = contacts.find((c: any) => c.wa_id === phone)?.profile?.name ?? phone;
-          if (!phone || !text.trim()) continue;
+          const name: string  = contacts.find((c: any) => c.wa_id === phone)?.profile?.name ?? phone;
+          if (!phone) continue;
+
+          let text = '';
+
+          if (msg.type === 'text') {
+            text = msg?.text?.body ?? '';
+          } else if (msg.type === 'audio') {
+            // ── Suporte a áudio via Whisper ────────────────────────────────
+            try {
+              const connection = await (this.prisma as any).whatsappConnection.findUnique({
+                where: { id: connectionId },
+              });
+              const token = connection?.apiToken ?? '';
+              if (token && msg.audio?.id) {
+                const mediaUrl = await this.whisper.fetchMetaMediaUrl(msg.audio.id, token);
+                if (mediaUrl) {
+                  const transcript = await this.whisper.transcribeFromUrl(
+                    mediaUrl,
+                    msg.audio?.mime_type ?? 'audio/ogg',
+                    { Authorization: `Bearer ${token}` },
+                  );
+                  if (transcript) text = `[Áudio] ${transcript}`;
+                }
+              }
+            } catch (err: any) {
+              log.warn(`Cloud API audio transcription failed: ${err?.message}`);
+            }
+          }
+
+          if (!text.trim()) continue;
           await this.processIncoming(connectionId, phone, name, text.trim());
         }
       }
@@ -469,9 +522,15 @@ export class WhatsappAiService {
       aiMessages.unshift({ role: 'model', text: settings.greetingMessage });
     }
 
+    // Modo CLAUDE → resposta JSON estruturada (ClaudeCartService)
+    const aiProvider = settings.aiProvider ?? 'GEMINI';
+    if (aiProvider === 'CLAUDE') {
+      await this.runClaudeStructuredResponse(connection, settings, conv, userText, products, categories);
+      return;
+    }
+
     // Call AI provider with fake typing simulation (delay before sending)
     let rawResponse = '';
-    const aiProvider = settings.aiProvider ?? 'GEMINI';
     const aiModel = settings.aiModel ?? 'gemini-1.5-flash';
 
     if (aiProvider === 'ANTHROPIC') {
@@ -558,6 +617,150 @@ export class WhatsappAiService {
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
 
       await this.dispatchMessage(connection, conv.customerPhone, cleanText);
+    }
+  }
+
+  // ── CLAUDE STRUCTURED MODE ────────────────────────────────────────────────
+
+  /**
+   * Motor de IA com resposta estruturada JSON.
+   * Usa ClaudeCartService (claude-sonnet-4-6) para gerar:
+   *   { resposta_para_o_cliente, status_carrinho }
+   *
+   * O backend lê o JSON, atualiza WhatsappConversation.context.cart,
+   * cria o Order quando finalizado=true e envia resposta_para_o_cliente
+   * de volta para o WhatsApp do cliente.
+   */
+  private async runClaudeStructuredResponse(
+    connection: any,
+    settings:   any,
+    conv:       any,
+    userText:   string,
+    products:   any[],
+    categories: any[],
+  ) {
+    const companyId = connection.companyId;
+
+    // Reconstruir contexto do carrinho atual
+    const ctx: any   = conv.context ?? {};
+    const currentCart: CartStatus = {
+      itens:          ctx.cart ?? [],
+      etapa:          ctx.etapa ?? 'SAUDACAO',
+      finalizado:     ctx.finalizado ?? false,
+      endereco:       ctx.endereco ?? null,
+      telefone:       ctx.telefone ?? null,
+      formaPagamento: ctx.formaPagamento ?? null,
+    };
+
+    // Histórico de conversa (últimas 20 mensagens) para Claude
+    const historyRaw = await (this.prisma as any).whatsappMessage.findMany({
+      where: { conversationId: conv.id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    historyRaw.reverse();
+
+    const conversationHistory: { role: 'user' | 'assistant'; content: string }[] = historyRaw
+      .filter((m: any) => m.role !== 'SYSTEM')
+      .map((m: any) => ({
+        role:    m.role === 'USER' ? 'user' : 'assistant',
+        content: m.content,
+      }));
+
+    // Cardápio e nome da empresa
+    const menuCtx    = buildMenuContext(products, categories);
+    const company    = await this.prisma.company.findUnique({ where: { id: companyId }, select: { name: true } });
+    const companyName = company?.name ?? 'nossa loja';
+    const attendantName = settings.attendantName ?? 'Atendente';
+
+    // Chamar Claude com resposta estruturada
+    let structured: StructuredResponse;
+    try {
+      structured = await this.claudeCart.chat({
+        companyName,
+        attendantName,
+        menuContext: menuCtx,
+        currentCart,
+        conversationHistory,
+      });
+    } catch (err: any) {
+      log.error(`ClaudeCartService error: ${err?.message}`);
+      const fallback = 'Desculpe, tive um problema temporário. Pode repetir sua mensagem? 🙏';
+      await this.saveMessage(conv.id, companyId, 'ASSISTANT', fallback);
+      await this.dispatchMessage(connection, conv.customerPhone, fallback);
+      return;
+    }
+
+    const { resposta_para_o_cliente, status_carrinho } = structured;
+
+    // ── Processar status_carrinho ────────────────────────────────────────────
+
+    // 1. Atualizar contexto no banco
+    const newCtx = {
+      ...ctx,
+      cart:           status_carrinho.itens,
+      etapa:          status_carrinho.etapa,
+      finalizado:     status_carrinho.finalizado,
+      endereco:       status_carrinho.endereco   ?? ctx.endereco,
+      telefone:       status_carrinho.telefone   ?? ctx.telefone,
+      formaPagamento: status_carrinho.formaPagamento ?? ctx.formaPagamento,
+    };
+    await (this.prisma as any).whatsappConversation.update({
+      where: { id: conv.id },
+      data:  { context: newCtx },
+    });
+
+    // 2. Criar pedido quando finalizado = true
+    if (status_carrinho.finalizado && status_carrinho.itens.length > 0 && !ctx.finalizado) {
+      try {
+        const productMap = new Map(products.map((p) => [p.id, p]));
+        const cartForOrder = status_carrinho.itens.map((i) => {
+          const prod = productMap.get(i.productId);
+          return {
+            productId: i.productId,
+            name:      prod?.name ?? i.nome,
+            price:     prod ? Number(prod.salePrice ?? 0) : i.preco,
+            qty:       i.quantidade,
+          };
+        });
+
+        const orderId = await this.createOrderFromCart(
+          companyId,
+          cartForOrder,
+          {
+            deliveryType: status_carrinho.endereco ? 'DELIVERY' : 'PICKUP',
+            address:      status_carrinho.endereco ?? '',
+            phone:        status_carrinho.telefone ?? conv.customerPhone,
+          },
+          conv.customerPhone,
+        );
+
+        await (this.prisma as any).whatsappConversation.update({
+          where: { id: conv.id },
+          data:  { orderId, status: 'CLOSED' },
+        });
+
+        log.log(`WhatsApp pedido criado via Claude JSON: orderId=${orderId} conv=${conv.id}`);
+      } catch (err: any) {
+        log.warn(`Claude structured — falha ao criar pedido: ${err?.message}`);
+      }
+    }
+
+    // 3. Transferir para humano se solicitado na resposta
+    if (resposta_para_o_cliente.includes('TRANSFERIR_HUMANO')) {
+      await (this.prisma as any).whatsappConversation.update({
+        where: { id: conv.id },
+        data:  { mode: 'HUMAN', status: 'TRANSFERRED' },
+      });
+    }
+
+    // ── Salvar + enviar resposta ao cliente ──────────────────────────────────
+    const cleanReply = resposta_para_o_cliente.replace('TRANSFERIR_HUMANO', '').trim();
+    if (cleanReply) {
+      await this.saveMessage(conv.id, companyId, 'ASSISTANT', cleanReply);
+      const delay = settings.typingDelay ?? 0;
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+      await this.dispatchMessage(connection, conv.customerPhone, cleanReply);
     }
   }
 

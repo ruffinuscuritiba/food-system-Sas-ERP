@@ -24,6 +24,9 @@ from "../loyalty/loyalty.service";
 import { WhatsappAiService }
 from "../whatsapp-ai/whatsapp-ai.service";
 
+import { OrderNotificationService }
+from "../whatsapp-ai/services/order-notification.service";
+
 @Injectable()
 export class OrdersService {
 
@@ -38,6 +41,9 @@ export class OrdersService {
 
     @Optional()
     private whatsappAiService?: WhatsappAiService,
+
+    @Optional()
+    private orderNotificationService?: OrderNotificationService,
   ) {}
 
   async create(data: any) {
@@ -733,27 +739,39 @@ export class OrdersService {
     this.socketGateway.emitDashboardUpdate(order.companyId, dashboard);
 
     const customerPhone = (order as any).customerPhone ?? order.customer?.phone;
-    if (
-      this.whatsappAiService &&
-      customerPhone &&
-      ['CONFIRMED', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].includes(status)
-    ) {
+    const customerName  = (order as any).customerName  ?? order.customer?.name;
+    const notifyStatuses = ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
+
+    if (this.orderNotificationService && customerPhone && notifyStatuses.includes(status)) {
       setImmediate(async () => {
         try {
-          await this.whatsappAiService!.sendOrderNotification({
-            companyId: order.companyId,
-            customerPhone: customerPhone,
-            customerName: order.customer?.name ?? undefined,
-            orderId: order.id,
-            orderType: (order as any).orderType ?? 'DINE_IN',
-            total: Number(order.total),
-            items: order.items.map((i) => ({
-              name: (i as any).productName ?? 'Item',
-              quantity: Number(i.quantity),
-            })),
-            status: status as any,
-          });
-        } catch { /* silent */ }
+          if (status === 'CONFIRMED') {
+            // Notificação rica de confirmação (itens, total, pagamento, endereço)
+            await this.orderNotificationService!.notifyOrderConfirmed({
+              companyId:     order.companyId,
+              orderId:       order.id,
+              customerPhone,
+              customerName:  customerName ?? undefined,
+              items:         order.items.map((i) => ({
+                name:      (i as any).productName ?? 'Item',
+                quantity:  Number(i.quantity),
+                unitPrice: Number((i as any).unitPrice ?? 0),
+              })),
+              total:         Number(order.total),
+              paymentMethod: String(order.paymentMethod ?? 'PIX'),
+              address:       (order as any).deliveryAddress ?? undefined,
+            });
+          } else {
+            // Notificação curta de mudança de status (PREPARING, READY, etc.)
+            await this.orderNotificationService!.notifyStatusChange({
+              companyId:     order.companyId,
+              orderId:       order.id,
+              customerPhone,
+              customerName:  customerName ?? undefined,
+              newStatus:     status as any,
+            });
+          }
+        } catch { /* silent — nunca bloqueia o fluxo principal */ }
       });
     }
 

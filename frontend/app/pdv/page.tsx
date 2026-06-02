@@ -392,13 +392,9 @@ export default function PDVPage() {
   const activeIsBeverage      = activeCategory?.categoryType === "bebidas";
   const activeCategoryIsPizza = activeCategory != null && pizzaCategories.has(activeCategory.id);
 
+  // Usa apenas banner dedicado da categoria; product thumbnails causam zoom excessivo como hero
   const bannerImageUrl =
     (activeCategory as any)?.bannerImage ||
-    products.find(
-      p => p.isActive &&
-           (selectedCategory === "all" || p.categoryId === selectedCategory) &&
-           p.imageUrl,
-    )?.imageUrl ||
     "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400";
 
   const fmt = (v?: number) => v != null
@@ -762,10 +758,10 @@ export default function PDVPage() {
           <div className="relative h-28 w-full overflow-hidden shrink-0">
             <img
               src={bannerImageUrl}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-center"
               alt={activeCategoryName}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
               <h2 className="text-lg font-black text-white leading-tight">{activeCategoryName}</h2>
               <p className="text-zinc-400 text-xs mt-0.5">
@@ -789,7 +785,7 @@ export default function PDVPage() {
                 <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>
                   {product.imageUrl
-                    ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
+                    ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[#161b2d] p-2" />
                     : <div className="w-full aspect-square bg-[#161b2d] flex items-center justify-center text-3xl">🥤</div>}
                   <div className="p-2.5 flex flex-col flex-1">
                     <p className="font-bold text-xs leading-tight line-clamp-2 flex-1 mb-1.5">{product.name}</p>

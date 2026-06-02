@@ -805,7 +805,7 @@ export default function PDVPage() {
             </div>
           ) : activeIsBeverage ? (
             /* Grade 2-col para bebidas */
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
               {filteredProducts.map(product => (
                 <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>

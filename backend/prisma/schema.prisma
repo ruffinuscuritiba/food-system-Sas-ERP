@@ -1169,6 +1169,15 @@ model Module {
   @@index([slug])
 }
 
+// ── Preços dos planos (gerenciável pelo Super Admin) ───────────────────────────
+model PlanConfig {
+  plan      String   @id       // "BASIC" | "PRO" | "ENTERPRISE"
+  price     Decimal  @db.Decimal(10, 2)
+  label     String
+  tagline   String?
+  updatedAt DateTime @updatedAt
+}
+
 // ─── Smart Import (cadastro inteligente por imagem/PDF/XML) ─────────────────
 enum ImportType {
   MENU

@@ -197,6 +197,59 @@ export class SuperAdminService {
     return { categories: sourceCats.length, products: sourceProds.length }
   }
 
+  // ── Precificação ─────────────────────────────────────────────────────────
+
+  async getPlanConfig() {
+    const configs = await this.prisma.planConfig.findMany({ orderBy: { plan: 'asc' } });
+    if (configs.length === 0) {
+      // Seed de primeira execução
+      const defaults = [
+        { plan: 'BASIC',      price: 149, label: 'Basic',      tagline: 'Para começar com o essencial' },
+        { plan: 'PRO',        price: 249, label: 'Pro',         tagline: 'Para operações em crescimento' },
+        { plan: 'ENTERPRISE', price: 399, label: 'Enterprise',  tagline: 'Tudo liberado, sem limites' },
+      ];
+      for (const d of defaults) {
+        await this.prisma.planConfig.upsert({
+          where: { plan: d.plan },
+          update: {},
+          create: { plan: d.plan, price: d.price, label: d.label, tagline: d.tagline },
+        });
+      }
+      return this.prisma.planConfig.findMany({ orderBy: { plan: 'asc' } });
+    }
+    return configs;
+  }
+
+  async updatePlanConfig(plan: string, data: { price?: number; label?: string; tagline?: string }) {
+    return this.prisma.planConfig.upsert({
+      where: { plan },
+      update: {
+        ...(data.price !== undefined && { price: data.price }),
+        ...(data.label             && { label: data.label }),
+        ...(data.tagline !== undefined && { tagline: data.tagline }),
+      },
+      create: { plan, price: data.price ?? 0, label: data.label ?? plan, tagline: data.tagline },
+    });
+  }
+
+  async listModuleCatalog() {
+    return this.prisma.module.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+      select: { id: true, slug: true, name: true, category: true, price: true, isFree: true, description: true },
+    });
+  }
+
+  async updateModulePrice(slug: string, price: number, isFree = false) {
+    const mod = await this.prisma.module.findUnique({ where: { slug } });
+    if (!mod) throw new NotFoundException(`Módulo "${slug}" não encontrado`);
+    return this.prisma.module.update({
+      where: { slug },
+      data:  { price, isFree },
+      select: { id: true, slug: true, name: true, price: true, isFree: true },
+    });
+  }
+
   async getStats() {
     const [total, active, blocked, archived] = await Promise.all([
       this.prisma.company.count({ where: { archivedAt: null } }),

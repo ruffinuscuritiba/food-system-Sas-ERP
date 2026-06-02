@@ -109,4 +109,36 @@ export class SuperAdminController {
   initDemoCompanies() {
     return this.service.initDemoCompanies()
   }
+
+  // ── Precificação ────────────────────────────────────────────────────────────
+
+  @Get('plan-config')
+  @UseGuards(SuperAdminGuard)
+  getPlanConfig() {
+    return this.service.getPlanConfig()
+  }
+
+  @Patch('plan-config/:plan')
+  @UseGuards(SuperAdminGuard)
+  updatePlanConfig(
+    @Param('plan') plan: string,
+    @Body() body: { price?: number; label?: string; tagline?: string },
+  ) {
+    return this.service.updatePlanConfig(plan, body)
+  }
+
+  @Get('modules')
+  @UseGuards(SuperAdminGuard)
+  listModuleCatalog() {
+    return this.service.listModuleCatalog()
+  }
+
+  @Patch('modules/:slug/price')
+  @UseGuards(SuperAdminGuard)
+  updateModulePrice(
+    @Param('slug') slug: string,
+    @Body() body: { price: number; isFree?: boolean },
+  ) {
+    return this.service.updateModulePrice(slug, body.price, body.isFree)
+  }
 }

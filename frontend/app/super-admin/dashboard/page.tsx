@@ -307,6 +307,12 @@ export default function SuperAdminDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => window.location.href = "/super-admin/pricing"}
+              className="bg-gray-700 hover:bg-gray-600 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+            >
+              💰 Preços
+            </button>
+            <button
               onClick={runSeed}
               disabled={seeding}
               className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 transition rounded-xl px-5 py-2.5 text-sm font-semibold"

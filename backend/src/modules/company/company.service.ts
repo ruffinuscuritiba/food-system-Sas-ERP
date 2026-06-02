@@ -73,18 +73,33 @@ export class CompanyService {
     });
   }
 
-  /** Retorna plano + módulos ativos para a página /assinatura */
+  /** Retorna plano + módulos ativos + preços de plano para a página /assinatura */
   async getSubscription(companyId: string) {
-    const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
-      include: { modules: true },
-    });
+    const [company, planConfigs] = await Promise.all([
+      this.prisma.company.findUnique({ where: { id: companyId }, include: { modules: true } }),
+      this.prisma.planConfig.findMany().catch(() => []),
+    ]);
     if (!company) throw new NotFoundException('Empresa não encontrada');
+
+    const fallback = {
+      BASIC:      { price: 149, label: 'Basic',      tagline: 'Para começar com o essencial' },
+      PRO:        { price: 249, label: 'Pro',         tagline: 'Para operações em crescimento' },
+      ENTERPRISE: { price: 399, label: 'Enterprise',  tagline: 'Tudo liberado, sem limites' },
+    } as Record<string, { price: number; label: string; tagline: string }>;
+
+    const planPrices = planConfigs.length > 0
+      ? planConfigs.reduce((acc: any, c: any) => ({
+          ...acc,
+          [c.plan]: { price: Number(c.price), label: c.label, tagline: c.tagline },
+        }), {})
+      : fallback;
+
     return {
       plan:               company.plan || 'BASIC',
       subscriptionStatus: company.subscriptionStatus,
       dueDate:            company.dueDate,
       modules:            company.modules,
+      planPrices,
     };
   }
 

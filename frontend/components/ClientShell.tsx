@@ -59,6 +59,7 @@ type NavItem = {
   label: string;
   icon: React.ReactNode;
   roles: string[];
+  moduleSlug?: string;  // slug do módulo obrigatório — usado para filtrar sidebar de DEMO
 };
 
 // Module slug → nav item(s) shown below Módulos de Integração when active
@@ -75,7 +76,7 @@ const MODULE_NAV: Record<string, NavItem> = {
     icon: <Bike size={16} />,
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
-  "whatsapp-ia": {
+  "whatsapp": {
     href: "/whatsapp-ia",
     label: "WhatsApp IA",
     icon: <MessageCircle size={16} />,
@@ -95,7 +96,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
       { href: "/orders",  label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
       { href: "/kitchen", label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
-      { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
+      { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables" },
     ],
   },
   {
@@ -110,16 +111,16 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "Estoque",
     items: [
-      { href: "/stock",       label: "Movimentações", icon: <Layers size={16} />,       roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/ingredients", label: "Ingredientes",  icon: <FlaskConical size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/recipes",     label: "Receitas",      icon: <BookOpen size={16} />,     roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/stock",       label: "Movimentações", icon: <Layers size={16} />,       roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "stock" },
+      { href: "/ingredients", label: "Ingredientes",  icon: <FlaskConical size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "stock" },
+      { href: "/recipes",     label: "Receitas",      icon: <BookOpen size={16} />,     roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "recipes" },
     ],
   },
   {
     title: "IA",
     items: [
-      { href: "/cadastro-inteligente", label: "Cadastro por Imagem",  icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/marketing",            label: "Marketing Digital",    icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/cadastro-inteligente", label: "Cadastro por Imagem",  icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "smart_import" },
+      { href: "/marketing",            label: "Marketing Digital",    icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing" },
     ],
   },
   {
@@ -131,12 +132,12 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "Configurações",
     items: [
-      { href: "/financeiro",        label: "Financeiro",              icon: <Landmark size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/bi",               label: "Relatórios / BI",         icon: <BarChart2 size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/theme",            label: "Tema / Visual",           icon: <Palette size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
-      { href: "/tables/qrcode",    label: "QR Code Mesas",           icon: <QrCode size={16} />,   roles: ["SUPER_ADMIN","ADMIN"] },
-      { href: "/historico-pedidos",label: "Histórico de Pedidos",    icon: <History size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/assinatura",       label: "Assinatura",              icon: <CreditCard size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/financeiro",         label: "Financeiro",           icon: <Landmark size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "financial" },
+      { href: "/bi",                 label: "Relatórios / BI",      icon: <BarChart2 size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "bi" },
+      { href: "/theme",              label: "Tema / Visual",        icon: <Palette size={16} />,    roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/tables/qrcode",      label: "QR Code Mesas",        icon: <QrCode size={16} />,     roles: ["SUPER_ADMIN","ADMIN"],           moduleSlug: "tables" },
+      { href: "/historico-pedidos",  label: "Histórico de Pedidos", icon: <History size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/assinatura",         label: "Assinatura",           icon: <CreditCard size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
     ],
   },
 ];
@@ -216,7 +217,17 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   function canSee(roles: string[]) {
     if (roles.length === 0) return true;
-    return roles.includes(user?.role || "");
+    // DEMO herda visibilidade de ADMIN — escrita bloqueada pelo backend (DemoGuard + RolesGuard)
+    const effectiveRole = user?.role === "DEMO" ? "ADMIN" : (user?.role || "");
+    return roles.includes(effectiveRole);
+  }
+
+  // Filtragem adicional por módulo — só ativa para DEMO, transparente para demais roles.
+  // Garante que itens com moduleSlug só aparecem quando o módulo está em activeSlugs.
+  function canAccessModule(moduleSlug?: string): boolean {
+    if (!moduleSlug) return true;
+    if (user?.role !== "DEMO") return true;
+    return activeSlugs.includes(moduleSlug);
   }
 
   const isPdv = pathname === "/pdv";
@@ -294,7 +305,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
             style={{ scrollbarWidth: "thin", scrollbarColor: "#475569 transparent" }}
           >
             {NAV_SECTIONS.map((section, si) => {
-              const visible = section.items.filter((item) => canSee(item.roles));
+              const visible = section.items.filter((item) => canSee(item.roles) && canAccessModule(item.moduleSlug));
               if (visible.length === 0) return null;
               const isMarketplace = section.title === "Marketplace";
               // Module-based items unlocked by contracted modules

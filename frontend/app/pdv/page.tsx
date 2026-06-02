@@ -682,10 +682,6 @@ export default function PDVPage() {
         <div className="md:hidden shrink-0 bg-[#050816] border-b border-[#161b2d]">
           <div
             className="px-3 py-2 overflow-x-scroll scrollbar-hide touch-pan-x"
-            style={{
-              maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-              WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
-            }}
           >
             <div className="flex gap-2 min-w-max pr-8">
               {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (

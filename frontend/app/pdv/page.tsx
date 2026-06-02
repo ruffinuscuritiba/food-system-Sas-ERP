@@ -259,50 +259,55 @@ export default function PDVPage() {
   const mobileRef      = useRef<HTMLDivElement>(null);
   const wrapperRef     = useRef<HTMLDivElement>(null);
 
-  type ChildDebug = { tag: string; offW: number; scrollW: number; minW: string; w: string };
+  type ElDebug = { label: string; offW: number; scrollW: number; minW: string; w: string; cls: string };
   type AncestorDebug = {
-    innerW: number; docClientW: number;
-    mainW: number;
-    children: ChildDebug[];
-    mobileW: number; wrapperW: number;
+    innerW: number; bodyOffW: number; bodyScrollW: number;
+    ancestors: ElDebug[];
     gridW: number; cardW: number; cols: string; disp: string;
   };
   const [ancestorDebug, setAncestorDebug] = useState<AncestorDebug | null>(null);
   const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
 
   useEffect(() => {
-    const grid     = gridRef.current;
-    const main     = mainRef.current;
-    const header   = headerRef.current;
-    const cats     = categoriesRef.current;
-    const desktop  = desktopRef.current;
-    const mobile   = mobileRef.current;
-    const wrapper  = wrapperRef.current;
-    const card     = grid?.firstElementChild as HTMLElement | null;
-    const cs       = grid ? getComputedStyle(grid) : null;
+    const grid = gridRef.current;
+    const main = mainRef.current;
+    const card = grid?.firstElementChild as HTMLElement | null;
+    const cs   = grid ? getComputedStyle(grid) : null;
 
-    const measure = (el: HTMLElement | null, tag: string): ChildDebug => {
-      if (!el) return { tag, offW: -1, scrollW: -1, minW: "?", w: "?" };
-      const s = getComputedStyle(el);
-      return { tag, offW: el.offsetWidth, scrollW: el.scrollWidth, minW: s.minWidth, w: s.width };
+    const measure = (el: Element | null, label: string): ElDebug => {
+      const h = el as HTMLElement | null;
+      if (!h) return { label, offW: -1, scrollW: -1, minW: "?", w: "?", cls: "?" };
+      const s = getComputedStyle(h);
+      return {
+        label,
+        offW: h.offsetWidth,
+        scrollW: h.scrollWidth,
+        minW: s.minWidth,
+        w: s.width,
+        cls: h.className?.toString().slice(0, 40) ?? "?",
+      };
     };
 
+    // Walk up from main to body
+    const chain: ElDebug[] = [];
+    let cur: Element | null = main;
+    let depth = 0;
+    while (cur && depth < 8) {
+      const label = depth === 0 ? "main" : `anc${depth}`;
+      chain.push(measure(cur, label));
+      cur = cur.parentElement;
+      depth++;
+    }
+
     const debug: AncestorDebug = {
-      innerW:     window.innerWidth,
-      docClientW: document.documentElement.clientWidth,
-      mainW:      main?.offsetWidth ?? -1,
-      children: [
-        measure(header,  "header"),
-        measure(cats,    "cats"),
-        measure(desktop, "desktop"),
-        measure(mobile,  "mobile"),
-      ],
-      mobileW:    mobile?.offsetWidth  ?? -1,
-      wrapperW:   wrapper?.offsetWidth ?? -1,
-      gridW:      grid?.offsetWidth    ?? -1,
-      cardW:      card?.offsetWidth    ?? -1,
-      cols:       cs?.gridTemplateColumns ?? "?",
-      disp:       cs?.display ?? "?",
+      innerW:      window.innerWidth,
+      bodyOffW:    document.body.offsetWidth,
+      bodyScrollW: document.body.scrollWidth,
+      ancestors:   chain,
+      gridW:       grid?.offsetWidth ?? -1,
+      cardW:       card?.offsetWidth ?? -1,
+      cols:        cs?.gridTemplateColumns ?? "?",
+      disp:        cs?.display ?? "?",
     };
     setAncestorDebug(debug);
     if (grid && cs) {
@@ -851,12 +856,11 @@ export default function PDVPage() {
           <div ref={wrapperRef} className="px-3 py-3">
           {ancestorDebug && (
             <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 1.7 }}>
-              <p>innerW={ancestorDebug.innerW} docCW={ancestorDebug.docClientW} mainW={ancestorDebug.mainW}</p>
-              {ancestorDebug.children.map(c => (
-                <p key={c.tag}>{c.tag}: offW={c.offW} scrollW={c.scrollW} minW={c.minW} w={c.w}</p>
+              <p>innerW={ancestorDebug.innerW} body={ancestorDebug.bodyOffW} bodyScroll={ancestorDebug.bodyScrollW}</p>
+              {ancestorDebug.ancestors.map((a, i) => (
+                <p key={i}>{a.label}: off={a.offW} scr={a.scrollW} w={a.w} min={a.minW}</p>
               ))}
-              <p>wrapperW={ancestorDebug.wrapperW} gridW={ancestorDebug.gridW} cardW={ancestorDebug.cardW}</p>
-              <p>cols={ancestorDebug.cols}</p>
+              <p>gridW={ancestorDebug.gridW} cardW={ancestorDebug.cardW} cols={ancestorDebug.cols}</p>
             </div>
           )}
           <p style={{ color: "lime", fontSize: 9, padding: "2px 4px" }}>

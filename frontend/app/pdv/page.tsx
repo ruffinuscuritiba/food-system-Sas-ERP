@@ -250,6 +250,22 @@ export default function PDVPage() {
   const [cupomSaving, setCupomSaving]           = useState(false);
   const [cupomCreated, setCupomCreated]         = useState<string | null>(null);
 
+  // DEBUG TEMPORÁRIO — remover após diagnóstico
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    const cs = getComputedStyle(el);
+    setGridDebug({
+      gridWidth: el.offsetWidth,
+      cardWidth: card?.offsetWidth ?? -1,
+      cols: cs.gridTemplateColumns,
+      display: cs.display,
+    });
+  }, [selectedCategory, loading]);
+
   useEffect(() => {
     try {
       const tok = localStorage.getItem("token") || "";
@@ -805,7 +821,13 @@ export default function PDVPage() {
             </div>
           ) : activeIsBeverage ? (
             /* Grade 2-col para bebidas */
-            <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+            <>
+            {gridDebug && (
+              <p style={{ color: "orange", fontSize: 9, padding: "2px 0", wordBreak: "break-all" }}>
+                gridW={gridDebug.gridWidth} cardW={gridDebug.cardWidth} cols="{gridDebug.cols}" disp={gridDebug.display}
+              </p>
+            )}
+            <div ref={gridRef} className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
               {filteredProducts.map(product => (
                 <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>
@@ -825,6 +847,7 @@ export default function PDVPage() {
                 </div>
               ))}
             </div>
+            </>
           ) : (
             /* Lista compacta para produtos normais / pizza */
             <div className="space-y-2.5">

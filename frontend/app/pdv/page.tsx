@@ -253,33 +253,54 @@ export default function PDVPage() {
   // DEBUG TEMPORÁRIO — remover após diagnóstico
   const gridRef        = useRef<HTMLDivElement>(null);
   const mainRef        = useRef<HTMLElement>(null);
+  const headerRef      = useRef<HTMLElement>(null);
+  const categoriesRef  = useRef<HTMLDivElement>(null);
+  const desktopRef     = useRef<HTMLDivElement>(null);
   const mobileRef      = useRef<HTMLDivElement>(null);
   const wrapperRef     = useRef<HTMLDivElement>(null);
 
+  type ChildDebug = { tag: string; offW: number; scrollW: number; minW: string; w: string };
   type AncestorDebug = {
     innerW: number; docClientW: number;
-    mainW: number; mobileW: number; wrapperW: number;
+    mainW: number;
+    children: ChildDebug[];
+    mobileW: number; wrapperW: number;
     gridW: number; cardW: number; cols: string; disp: string;
   };
   const [ancestorDebug, setAncestorDebug] = useState<AncestorDebug | null>(null);
   const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
 
   useEffect(() => {
-    const grid    = gridRef.current;
-    const main    = mainRef.current;
-    const mobile  = mobileRef.current;
-    const wrapper = wrapperRef.current;
-    const card    = grid?.firstElementChild as HTMLElement | null;
-    const cs      = grid ? getComputedStyle(grid) : null;
+    const grid     = gridRef.current;
+    const main     = mainRef.current;
+    const header   = headerRef.current;
+    const cats     = categoriesRef.current;
+    const desktop  = desktopRef.current;
+    const mobile   = mobileRef.current;
+    const wrapper  = wrapperRef.current;
+    const card     = grid?.firstElementChild as HTMLElement | null;
+    const cs       = grid ? getComputedStyle(grid) : null;
+
+    const measure = (el: HTMLElement | null, tag: string): ChildDebug => {
+      if (!el) return { tag, offW: -1, scrollW: -1, minW: "?", w: "?" };
+      const s = getComputedStyle(el);
+      return { tag, offW: el.offsetWidth, scrollW: el.scrollWidth, minW: s.minWidth, w: s.width };
+    };
 
     const debug: AncestorDebug = {
       innerW:     window.innerWidth,
       docClientW: document.documentElement.clientWidth,
-      mainW:      main?.offsetWidth   ?? -1,
-      mobileW:    mobile?.offsetWidth ?? -1,
+      mainW:      main?.offsetWidth ?? -1,
+      children: [
+        measure(header,  "header"),
+        measure(cats,    "cats"),
+        measure(desktop, "desktop"),
+        measure(mobile,  "mobile"),
+      ],
+      mobileW:    mobile?.offsetWidth  ?? -1,
       wrapperW:   wrapper?.offsetWidth ?? -1,
-      gridW:      grid?.offsetWidth   ?? -1,
-      cardW:      card?.offsetWidth   ?? -1,
+      gridW:      grid?.offsetWidth    ?? -1,
+      cardW:      card?.offsetWidth    ?? -1,
       cols:       cs?.gridTemplateColumns ?? "?",
       disp:       cs?.display ?? "?",
     };
@@ -649,7 +670,7 @@ export default function PDVPage() {
       <main ref={mainRef} className="flex-1 flex flex-col">
 
         {/* HEADER */}
-        <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
+        <header ref={headerRef} className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
           {/* Search */}
           <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
             <Search size={15} className="text-zinc-200 shrink-0" />
@@ -702,7 +723,7 @@ export default function PDVPage() {
         </header>
 
         {/* Mobile categories */}
-        <div className="md:hidden shrink-0 bg-[#050816] border-b border-[#161b2d]">
+        <div ref={categoriesRef} className="md:hidden shrink-0 bg-[#050816] border-b border-[#161b2d]">
           <div
             className="px-3 py-2 overflow-x-scroll scrollbar-hide touch-pan-x"
           >
@@ -720,7 +741,7 @@ export default function PDVPage() {
         </div>
 
         {/* BODY */}
-        <div className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
+        <div ref={desktopRef} className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
           <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto scrollbar-hide bg-[#050816]">
             <div className="space-y-4">
               <button onClick={() => setSelectedCategory("all")}
@@ -829,12 +850,14 @@ export default function PDVPage() {
 
           <div ref={wrapperRef} className="px-3 py-3">
           {ancestorDebug && (
-            <p style={{ color: "cyan", fontSize: 9, padding: "2px 4px", wordBreak: "break-all", lineHeight: 1.6 }}>
-              innerW={ancestorDebug.innerW} docCW={ancestorDebug.docClientW}{"\n"}
-              mainW={ancestorDebug.mainW} mobileW={ancestorDebug.mobileW}{"\n"}
-              wrapperW={ancestorDebug.wrapperW} gridW={ancestorDebug.gridW}{"\n"}
-              cardW={ancestorDebug.cardW} cols={ancestorDebug.cols}
-            </p>
+            <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 1.7 }}>
+              <p>innerW={ancestorDebug.innerW} docCW={ancestorDebug.docClientW} mainW={ancestorDebug.mainW}</p>
+              {ancestorDebug.children.map(c => (
+                <p key={c.tag}>{c.tag}: offW={c.offW} scrollW={c.scrollW} minW={c.minW} w={c.w}</p>
+              ))}
+              <p>wrapperW={ancestorDebug.wrapperW} gridW={ancestorDebug.gridW} cardW={ancestorDebug.cardW}</p>
+              <p>cols={ancestorDebug.cols}</p>
+            </div>
           )}
           <p style={{ color: "lime", fontSize: 9, padding: "2px 4px" }}>
             activeIsBeverage={String(activeIsBeverage)} | cat={activeCategory?.name ?? "ALL"}

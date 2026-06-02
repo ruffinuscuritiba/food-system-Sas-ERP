@@ -809,7 +809,8 @@ export default function PDVPage() {
             <div className="space-y-2.5">
               {buildDedupedPizzaProducts(filteredProducts).map(product => (
                 <div key={product.id}
-                  className="w-full flex items-center gap-2.5 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-2.5 active:opacity-80 transition overflow-hidden">
+                  onClick={() => { if (!complementLoading) openProductAdd(product); }}
+                  className="w-full flex items-center gap-2.5 bg-[#0b0f1b] border border-[#161b2d] rounded-2xl p-2.5 active:opacity-80 transition overflow-hidden cursor-pointer">
                   {/* Imagem */}
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-14 h-14 object-cover rounded-xl shrink-0" />
@@ -824,14 +825,12 @@ export default function PDVPage() {
                       {productPriceLabel(product)}
                     </p>
                   </div>
-                  {/* Botão + — cor via inline style para garantir resolução em produção */}
-                  <button
-                    onClick={() => openProductAdd(product)}
-                    disabled={complementLoading}
+                  {/* Indicador visual — pointer-events-none: o click é tratado pelo card inteiro */}
+                  <div
                     style={{ backgroundColor: "var(--color-primary, #16a34a)" }}
-                    className="shrink-0 w-11 h-11 rounded-xl text-white text-xl font-black flex items-center justify-center active:scale-95 transition disabled:opacity-50">
+                    className={`shrink-0 w-11 h-11 rounded-xl text-white text-xl font-black flex items-center justify-center transition pointer-events-none ${complementLoading ? "opacity-50" : ""}`}>
                     +
-                  </button>
+                  </div>
                 </div>
               ))}
             </div>

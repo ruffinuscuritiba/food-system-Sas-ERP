@@ -251,19 +251,42 @@ export default function PDVPage() {
   const [cupomCreated, setCupomCreated]         = useState<string | null>(null);
 
   // DEBUG TEMPORÁRIO — remover após diagnóstico
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef        = useRef<HTMLDivElement>(null);
+  const mainRef        = useRef<HTMLElement>(null);
+  const mobileRef      = useRef<HTMLDivElement>(null);
+  const wrapperRef     = useRef<HTMLDivElement>(null);
+
+  type AncestorDebug = {
+    innerW: number; docClientW: number;
+    mainW: number; mobileW: number; wrapperW: number;
+    gridW: number; cardW: number; cols: string; disp: string;
+  };
+  const [ancestorDebug, setAncestorDebug] = useState<AncestorDebug | null>(null);
   const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
+
   useEffect(() => {
-    const el = gridRef.current;
-    if (!el) return;
-    const card = el.firstElementChild as HTMLElement | null;
-    const cs = getComputedStyle(el);
-    setGridDebug({
-      gridWidth: el.offsetWidth,
-      cardWidth: card?.offsetWidth ?? -1,
-      cols: cs.gridTemplateColumns,
-      display: cs.display,
-    });
+    const grid    = gridRef.current;
+    const main    = mainRef.current;
+    const mobile  = mobileRef.current;
+    const wrapper = wrapperRef.current;
+    const card    = grid?.firstElementChild as HTMLElement | null;
+    const cs      = grid ? getComputedStyle(grid) : null;
+
+    const debug: AncestorDebug = {
+      innerW:     window.innerWidth,
+      docClientW: document.documentElement.clientWidth,
+      mainW:      main?.offsetWidth   ?? -1,
+      mobileW:    mobile?.offsetWidth ?? -1,
+      wrapperW:   wrapper?.offsetWidth ?? -1,
+      gridW:      grid?.offsetWidth   ?? -1,
+      cardW:      card?.offsetWidth   ?? -1,
+      cols:       cs?.gridTemplateColumns ?? "?",
+      disp:       cs?.display ?? "?",
+    };
+    setAncestorDebug(debug);
+    if (grid && cs) {
+      setGridDebug({ gridWidth: grid.offsetWidth, cardWidth: card?.offsetWidth ?? -1, cols: cs.gridTemplateColumns, display: cs.display });
+    }
   }, [selectedCategory, loading]);
 
   useEffect(() => {
@@ -623,7 +646,7 @@ export default function PDVPage() {
       </div>
 
       {/* CONTENT */}
-      <main className="flex-1 flex flex-col">
+      <main ref={mainRef} className="flex-1 flex flex-col">
 
         {/* HEADER */}
         <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
@@ -781,7 +804,7 @@ export default function PDVPage() {
         </div>
 
         {/* PRODUCTS mobile */}
-        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712]">
+        <div ref={mobileRef} className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712]">
 
           {/* Banner mobile — imagem da categoria + nome */}
           <div className="relative h-28 w-full overflow-hidden shrink-0">
@@ -804,7 +827,15 @@ export default function PDVPage() {
             </div>
           </div>
 
-          <div className="px-3 py-3">
+          <div ref={wrapperRef} className="px-3 py-3">
+          {ancestorDebug && (
+            <p style={{ color: "cyan", fontSize: 9, padding: "2px 4px", wordBreak: "break-all", lineHeight: 1.6 }}>
+              innerW={ancestorDebug.innerW} docCW={ancestorDebug.docClientW}{"\n"}
+              mainW={ancestorDebug.mainW} mobileW={ancestorDebug.mobileW}{"\n"}
+              wrapperW={ancestorDebug.wrapperW} gridW={ancestorDebug.gridW}{"\n"}
+              cardW={ancestorDebug.cardW} cols={ancestorDebug.cols}
+            </p>
+          )}
           <p style={{ color: "lime", fontSize: 9, padding: "2px 4px" }}>
             activeIsBeverage={String(activeIsBeverage)} | cat={activeCategory?.name ?? "ALL"}
           </p>

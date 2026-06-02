@@ -126,6 +126,20 @@ export function HeroModules({ totalModules, activeModules, billing, onBillingCha
           <p className="text-emerald-400 text-xs font-semibold">💡 Plano anual economiza até 30% — faturado uma vez</p>
         </motion.div>
 
+        {/* Info banner — included vs paid */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45, duration: 0.5 }}
+          className="flex items-center gap-3 bg-white/6 border border-white/10 rounded-2xl px-5 py-3 max-w-xl w-full"
+        >
+          <span className="text-xl shrink-0">💡</span>
+          <p className="text-white/60 text-sm leading-relaxed text-left">
+            <span className="text-white font-bold">Alguns módulos estão incluídos no seu plano</span>
+            {" "}e outros podem ser contratados separadamente.
+          </p>
+        </motion.div>
+
         {/* Floating stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

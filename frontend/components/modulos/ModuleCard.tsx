@@ -145,7 +145,7 @@ export function ModuleCard({
                   {price}
                 </span>
               </div>
-              <p className="text-gray-400 text-[11.5px] mt-0.5 leading-relaxed line-clamp-2 font-medium">
+              <p className="text-gray-500 text-[12.5px] mt-0.5 leading-relaxed line-clamp-2 font-medium">
                 {mod.description || "Expanda as funcionalidades do seu sistema."}
               </p>
             </div>

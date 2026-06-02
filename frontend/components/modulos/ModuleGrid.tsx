@@ -111,6 +111,17 @@ export function ModuleGrid({
           <p className="text-lg font-black text-gray-400">Nenhum módulo encontrado</p>
           <p className="text-sm mt-1 text-gray-300">Tente outro filtro ou busca</p>
         </motion.div>
+      ) : activeCategory === "Todos" && !search ? (
+        <SectionedGrid
+          modules={filtered}
+          billing={billing}
+          busy={busy}
+          openMenu={openMenu}
+          onToggleMenu={onToggleMenu}
+          onTrial={onTrial}
+          onActivate={onActivate}
+          onDeactivate={onDeactivate}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map((mod, i) => (
@@ -127,6 +138,83 @@ export function ModuleGrid({
               index={i}
             />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SectionedGrid ───────────────────────────────────────────────────────────
+
+interface SectionedGridProps {
+  modules: Mod[];
+  billing: BillingPeriod;
+  busy: Record<string, boolean>;
+  openMenu: string | null;
+  onToggleMenu: (slug: string, e: React.MouseEvent) => void;
+  onTrial: (slug: string) => void;
+  onActivate: (slug: string) => void;
+  onDeactivate: (slug: string) => void;
+}
+
+function SectionedGrid({
+  modules, billing, busy, openMenu, onToggleMenu, onTrial, onActivate, onDeactivate,
+}: SectionedGridProps) {
+  const included = modules.filter(m => m.isFree);
+  const paid     = modules.filter(m => !m.isFree);
+
+  function cards(list: Mod[], offset = 0) {
+    return list.map((mod, i) => (
+      <ModuleCard
+        key={mod.slug}
+        mod={mod}
+        billing={billing}
+        loading={!!busy[mod.slug]}
+        menuOpen={openMenu === mod.slug}
+        onToggleMenu={e => onToggleMenu(mod.slug, e)}
+        onTrial={() => onTrial(mod.slug)}
+        onActivate={() => onActivate(mod.slug)}
+        onDeactivate={() => onDeactivate(mod.slug)}
+        index={offset + i}
+      />
+    ));
+  }
+
+  return (
+    <div className="space-y-10">
+      {included.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Incluídos no Plano</h2>
+            </div>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+              {included.length} módulo{included.length !== 1 ? "s" : ""} gratuito{included.length !== 1 ? "s" : ""}
+            </span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {cards(included, 0)}
+          </div>
+        </div>
+      )}
+
+      {paid.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+              <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest">Módulos Avulsos</h2>
+            </div>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+              {paid.length} disponíve{paid.length !== 1 ? "is" : "l"}
+            </span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {cards(paid, included.length)}
+          </div>
         </div>
       )}
     </div>

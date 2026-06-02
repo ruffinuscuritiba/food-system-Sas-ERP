@@ -398,7 +398,8 @@ export default function PDVPage() {
 
   // Usa apenas banner dedicado da categoria; product thumbnails causam zoom excessivo como hero
   const bannerImageUrl: string | null =
-    (activeCategory as any)?.bannerImage ?? null;
+    (activeCategory as any)?.bannerImage ??
+    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=60";
 
   const fmt = (v?: number) => v != null
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
@@ -660,15 +661,17 @@ export default function PDVPage() {
 
         {/* Mobile categories */}
         <div className="md:hidden shrink-0 relative bg-[#050816] border-b border-[#161b2d]">
-          <div className="flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide touch-pan-x scroll-smooth">
-            {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
-              <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold transition ${
-                  selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-300"
-                }`}>
-                {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
-              </button>
-            ))}
+          <div className="px-3 py-2 overflow-x-auto scrollbar-hide touch-pan-x scroll-smooth">
+            <div className="flex gap-2 min-w-max">
+              {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
+                <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                  className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
+                    selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-300"
+                  }`}>
+                  {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="pointer-events-none absolute right-0 inset-y-0 w-10 bg-gradient-to-l from-[#050816] to-transparent" />
         </div>
@@ -765,7 +768,7 @@ export default function PDVPage() {
             {bannerImageUrl && (
               <img
                 src={bannerImageUrl}
-                className="absolute inset-0 w-full h-full object-cover object-center"
+                className="absolute inset-0 w-full h-full object-cover object-top"
                 alt={activeCategoryName}
               />
             )}

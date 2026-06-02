@@ -75,7 +75,7 @@ export default function ModulosPage() {
       const { data } = await api.get(`/company/${cid}`);
       const mods: any[] = Array.isArray(data?.modules) ? data.modules : [];
       setModules(mods.map((m: any): Mod => {
-        const slug = (m.moduleSlug ?? m.slug ?? m.module ?? "") as string;
+        const slug = (m.moduleSlug || m.slug || m.module || "") as string;
         const cat  = MODULE_CATALOG[slug] ?? {};
         return {
           // Catalog defaults (fill missing fields so cards render correctly)

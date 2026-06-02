@@ -259,57 +259,41 @@ export default function PDVPage() {
   const mobileRef      = useRef<HTMLDivElement>(null);
   const wrapperRef     = useRef<HTMLDivElement>(null);
 
-  type ElDebug = { label: string; offW: number; scrollW: number; minW: string; w: string; cls: string };
-  type AncestorDebug = {
-    innerW: number; bodyOffW: number; bodyScrollW: number;
-    ancestors: ElDebug[];
-    gridW: number; cardW: number; cols: string; disp: string;
-  };
-  const [ancestorDebug, setAncestorDebug] = useState<AncestorDebug | null>(null);
+  type ChildMeasure = { label: string; off: number; scr: number; cli: number };
+  type ChildrenDebug = { mainOff: number; mainScr: number; mainCli: number; children: ChildMeasure[] };
+  const [childrenDebug, setChildrenDebug] = useState<ChildrenDebug | null>(null);
+  const [ancestorDebug, setAncestorDebug] = useState<null>(null);
   const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
 
   useEffect(() => {
-    const grid = gridRef.current;
-    const main = mainRef.current;
-    const card = grid?.firstElementChild as HTMLElement | null;
-    const cs   = grid ? getComputedStyle(grid) : null;
+    const grid    = gridRef.current;
+    const main    = mainRef.current;
+    const header  = headerRef.current;
+    const cats    = categoriesRef.current;
+    const desktop = desktopRef.current;
+    const mobile  = mobileRef.current;
+    const card    = grid?.firstElementChild as HTMLElement | null;
+    const cs      = grid ? getComputedStyle(grid) : null;
 
-    const measure = (el: Element | null, label: string): ElDebug => {
-      const h = el as HTMLElement | null;
-      if (!h) return { label, offW: -1, scrollW: -1, minW: "?", w: "?", cls: "?" };
-      const s = getComputedStyle(h);
-      return {
-        label,
-        offW: h.offsetWidth,
-        scrollW: h.scrollWidth,
-        minW: s.minWidth,
-        w: s.width,
-        cls: h.className?.toString().slice(0, 40) ?? "?",
-      };
-    };
+    const m = (el: HTMLElement | null, label: string): ChildMeasure => ({
+      label,
+      off: el?.offsetWidth ?? -1,
+      scr: el?.scrollWidth ?? -1,
+      cli: el?.clientWidth ?? -1,
+    });
 
-    // Walk up from main to body
-    const chain: ElDebug[] = [];
-    let cur: Element | null = main;
-    let depth = 0;
-    while (cur && depth < 8) {
-      const label = depth === 0 ? "main" : `anc${depth}`;
-      chain.push(measure(cur, label));
-      cur = cur.parentElement;
-      depth++;
-    }
+    setChildrenDebug({
+      mainOff: main?.offsetWidth ?? -1,
+      mainScr: main?.scrollWidth ?? -1,
+      mainCli: main?.clientWidth ?? -1,
+      children: [
+        m(header,  "header"),
+        m(cats,    "categories"),
+        m(desktop, "desktop"),
+        m(mobile,  "mobile"),
+      ],
+    });
 
-    const debug: AncestorDebug = {
-      innerW:      window.innerWidth,
-      bodyOffW:    document.body.offsetWidth,
-      bodyScrollW: document.body.scrollWidth,
-      ancestors:   chain,
-      gridW:       grid?.offsetWidth ?? -1,
-      cardW:       card?.offsetWidth ?? -1,
-      cols:        cs?.gridTemplateColumns ?? "?",
-      disp:        cs?.display ?? "?",
-    };
-    setAncestorDebug(debug);
     if (grid && cs) {
       setGridDebug({ gridWidth: grid.offsetWidth, cardWidth: card?.offsetWidth ?? -1, cols: cs.gridTemplateColumns, display: cs.display });
     }
@@ -854,13 +838,12 @@ export default function PDVPage() {
           </div>
 
           <div ref={wrapperRef} className="px-3 py-3">
-          {ancestorDebug && (
-            <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 1.7 }}>
-              <p>innerW={ancestorDebug.innerW} body={ancestorDebug.bodyOffW} bodyScroll={ancestorDebug.bodyScrollW}</p>
-              {ancestorDebug.ancestors.map((a, i) => (
-                <p key={i}>{a.label}: off={a.offW} scr={a.scrollW} w={a.w} min={a.minW}</p>
+          {childrenDebug && (
+            <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 1.8 }}>
+              <p>main: off={childrenDebug.mainOff} scr={childrenDebug.mainScr} cli={childrenDebug.mainCli}</p>
+              {childrenDebug.children.map(c => (
+                <p key={c.label}>{c.label}: off={c.off} scr={c.scr} cli={c.cli}</p>
               ))}
-              <p>gridW={ancestorDebug.gridW} cardW={ancestorDebug.cardW} cols={ancestorDebug.cols}</p>
             </div>
           )}
           <p style={{ color: "lime", fontSize: 9, padding: "2px 4px" }}>

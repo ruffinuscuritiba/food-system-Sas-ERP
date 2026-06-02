@@ -904,7 +904,7 @@ export default function MenuPage() {
 
       {/* ─── Produtos ───────────────────────────────────────────────────────────── */}
       {/* pb-44 (176px) cobre CTA flutuante (~80px) + safe-area iOS + margem confortável */}
-      <main className={`max-w-2xl mx-auto px-4 py-6 ${cartCount > 0 ? "pb-44" : "pb-12"}`} style={{ paddingBottom: cartCount > 0 ? "calc(11rem + env(safe-area-inset-bottom))" : undefined }}>
+      <main className={`max-w-2xl mx-auto px-4 py-6 ${cartCount > 0 ? "pb-44" : "pb-12"}`} style={{ paddingBottom: cartCount > 0 ? "calc(7rem + env(safe-area-inset-bottom))" : undefined }}>
         {filtered.length === 0 ? (
           <p className="text-gray-400 text-center py-20">Nenhum produto disponível</p>
         ) : (() => {
@@ -974,9 +974,9 @@ export default function MenuPage() {
                   key={product.id}
                   className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex"
                 >
-                  <div className="flex-1 p-4 flex flex-col justify-between">
+                  <div className="flex-1 min-w-0 p-4 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-bold text-gray-900 text-base leading-snug">{product.name}</h3>
+                      <h3 className="font-bold text-gray-900 text-base leading-snug line-clamp-2">{product.name}</h3>
                       {product.description && (
                         <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
                       )}
@@ -1014,7 +1014,7 @@ export default function MenuPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="w-28 h-28 flex-shrink-0 relative">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 relative">
                     {product.imageUrl ? (
                       <img
                         src={product.imageUrl}

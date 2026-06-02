@@ -602,6 +602,9 @@ export default function PDVPage() {
 
   return (
     <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden">
+      <div style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, background: "red", color: "white", fontSize: 10, padding: "2px 6px" }}>
+        BUILD 65dd37c8
+      </div>
 
       {/* CONTENT */}
       <main className="flex-1 flex flex-col">
@@ -780,6 +783,9 @@ export default function PDVPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
               <h2 className="text-lg font-black text-white leading-tight">{activeCategoryName}</h2>
+              <p style={{ color: "yellow", fontSize: 9, marginTop: 2 }}>
+                name={activeCategory?.name ?? "null"} | type={activeCategory?.categoryType ?? "null"} | bev={String(activeIsBeverage)}
+              </p>
               <p className="text-zinc-400 text-xs mt-0.5">
                 {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""}
               </p>
@@ -787,6 +793,9 @@ export default function PDVPage() {
           </div>
 
           <div className="px-3 py-3">
+          <p style={{ color: "lime", fontSize: 9, padding: "2px 4px" }}>
+            activeIsBeverage={String(activeIsBeverage)} | cat={activeCategory?.name ?? "ALL"}
+          </p>
           {loading ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-20 rounded-2xl bg-[#0b0f1b] animate-pulse" />))}</div>
           ) : filteredProducts.length === 0 ? (

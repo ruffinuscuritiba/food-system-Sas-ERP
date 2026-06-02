@@ -828,8 +828,9 @@ export default function PDVPage() {
                   {/* Indicador visual — pointer-events-none: o click é tratado pelo card inteiro */}
                   <div
                     style={{ backgroundColor: "var(--color-primary, #16a34a)" }}
-                    className={`shrink-0 w-11 h-11 rounded-xl text-white text-xl font-black flex items-center justify-center transition pointer-events-none ${complementLoading ? "opacity-50" : ""}`}>
-                    +
+                    className={`shrink-0 h-10 px-3 rounded-xl text-white font-black flex items-center justify-center gap-1 transition pointer-events-none whitespace-nowrap ${complementLoading ? "opacity-50" : ""}`}>
+                    <span className="text-base leading-none">+</span>
+                    <span className="text-xs">Adicionar</span>
                   </div>
                 </div>
               ))}

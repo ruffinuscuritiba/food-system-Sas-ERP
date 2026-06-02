@@ -10,19 +10,24 @@ export interface CartItem {
 }
 
 export type CartStep =
-  | 'SAUDACAO'
-  | 'ESCOLHENDO_ITENS'
-  | 'CONFIRMANDO_PEDIDO'
-  | 'AGUARDANDO_ENDERECO'
-  | 'FINALIZADO';
+  | 'saudacao'
+  | 'escolhendo_itens'
+  | 'confirmando_pedido'
+  | 'aguardando_endereco'
+  | 'finalizado';
 
 export interface CartStatus {
-  itens:           CartItem[];
-  etapa:           CartStep;
-  finalizado:      boolean;
-  endereco?:       string | null;
-  telefone?:       string | null;
-  formaPagamento?: string | null;
+  /** Objetos completos com productId — usados internamente para criar o Order */
+  itens:              CartItem[];
+  /** Lista legível de nomes para exibição e histórico da conversa */
+  itens_identificados: string[];
+  /** Etapa atual do fluxo de atendimento */
+  etapa_atual:         CartStep;
+  /** true quando o pedido está confirmado e deve ser registrado no banco */
+  pedido_finalizado:   boolean;
+  endereco?:           string | null;
+  telefone?:           string | null;
+  formaPagamento?:     string | null;
 }
 
 export interface StructuredResponse {
@@ -31,28 +36,22 @@ export interface StructuredResponse {
 }
 
 /**
- * ClaudeCartService — motor de IA estruturado para atendimento via WhatsApp.
+ * ClaudeCartService — motor de IA com persona "Carol" para atendimento WhatsApp.
  *
  * Env obrigatórias:
  *   ANTHROPIC_API_KEY — chave da API Anthropic
- *   ANTHROPIC_MODEL   — (opcional) modelo a usar, padrão: claude-sonnet-4-6
+ *   ANTHROPIC_MODEL   — (opcional) modelo, padrão: claude-sonnet-4-6
  *
- * Protocolo de resposta:
- *   Claude é instruído a retornar SOMENTE um JSON com a estrutura:
+ * Retorno obrigatório em JSON:
  *   {
- *     "resposta_para_o_cliente": "texto natural para o cliente",
+ *     "resposta_para_o_cliente": "texto humanizado para o WhatsApp",
  *     "status_carrinho": {
  *       "itens": [{ productId, nome, quantidade, preco }],
- *       "etapa": "ESCOLHENDO_ITENS",
- *       "finalizado": false,
- *       "endereco": null,
- *       "telefone": null,
- *       "formaPagamento": null
+ *       "itens_identificados": ["Pizza de Calabresa", "Guaraná Antárctica"],
+ *       "etapa_atual": "aguardando_endereco",
+ *       "pedido_finalizado": false
  *     }
  *   }
- *
- * O backend lê esse JSON, atualiza o carrinho no banco (WhatsappConversation.context)
- * e dispara a resposta de texto para o cliente.
  */
 @Injectable()
 export class ClaudeCartService {
@@ -74,16 +73,16 @@ export class ClaudeCartService {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:  'POST',
       headers: {
-        'Content-Type':    'application/json',
-        'x-api-key':       apiKey,
+        'Content-Type':      'application/json',
+        'x-api-key':         apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model,
-        system:     systemPrompt,
-        messages:   params.conversationHistory,
-        max_tokens: 1024,
-        temperature: 0.7,
+        system:      systemPrompt,
+        messages:    params.conversationHistory,
+        max_tokens:  1024,
+        temperature: 0.8,
       }),
       signal: AbortSignal.timeout(45_000),
     });
@@ -99,7 +98,7 @@ export class ClaudeCartService {
     return this.parseStructuredResponse(rawText, params.currentCart);
   }
 
-  // ── System prompt ──────────────────────────────────────────────────────────
+  // ── System prompt — Persona Carol ─────────────────────────────────────────
 
   private buildSystemPrompt(params: {
     companyName:   string;
@@ -107,62 +106,67 @@ export class ClaudeCartService {
     menuContext:   string;
     currentCart:   CartStatus;
   }): string {
-    const cartJson = JSON.stringify(params.currentCart, null, 2);
+    const name      = params.attendantName || 'Carol';
+    const company   = params.companyName;
+    const cartJson  = JSON.stringify(params.currentCart, null, 2);
+    const cartItems = params.currentCart.itens_identificados;
+    const cartSummary = cartItems.length
+      ? `Itens no carrinho: ${cartItems.join(', ')}`
+      : 'Carrinho ainda vazio.';
 
-    return `Você é ${params.attendantName}, atendente virtual simpático(a) da loja "${params.companyName}".
-Sua missão: atender o cliente via WhatsApp, apresentar o cardápio, gerenciar o carrinho de compras e confirmar o pedido de forma natural, calorosa e eficiente.
+    return `Você é ${name}, a atendente virtual super simpática, prestativa e humanizada da ${company}. Seu objetivo é bater papo, tirar dúvidas e anotar o pedido do cliente de forma leve, usando uma linguagem natural e emojis moderados.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 CARDÁPIO DISPONÍVEL
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ DIRETRIZES DE COMPORTAMENTO ━━━
+1. Nunca pareça um robô. Use expressões naturais como "Olha", "Com certeza!", "Perfeito!", "Vou dar uma olhadinha" e similares.
+2. Se o cliente mandar um texto que veio de uma transcrição de áudio (marcado com [Áudio]), ignore erros de pronúncia ou fala e foque no sentido do que ele quis dizer.
+3. Não despeje o cardápio inteiro de uma vez. Vá guiando o cliente passo a passo: primeiro o item principal, depois acompanhamentos, depois bebida, depois endereço.
+4. Mantenha o histórico da conversa na memória para saber o que já está no carrinho.
+5. Seja empática: se o cliente parecer indeciso, sugira o item mais popular da categoria.
+6. Confirme sempre antes de fechar o pedido: "Deixa eu confirmar: você quer [itens], entrega em [endereço], certo? 😊"
+
+━━━ CARDÁPIO DISPONÍVEL ━━━
 ${params.menuContext || 'Cardápio não disponível no momento.'}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛒 ESTADO ATUAL DO CARRINHO DO CLIENTE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ ESTADO ATUAL DO CARRINHO ━━━
+${cartSummary}
 \`\`\`json
 ${cartJson}
 \`\`\`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔄 ETAPAS DO ATENDIMENTO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• SAUDACAO          — Cumprimentar e apresentar o cardápio
-• ESCOLHENDO_ITENS  — Auxiliar a escolher produtos; adicionar ao carrinho
-• CONFIRMANDO_PEDIDO — Revisar itens e total com o cliente
-• AGUARDANDO_ENDERECO — Coletar endereço de entrega ou confirmar retirada
-• FINALIZADO        — Pedido confirmado → setar finalizado: true
+━━━ ETAPAS DO ATENDIMENTO ━━━
+• saudacao          — Cumprimentar e perguntar o que o cliente quer
+• escolhendo_itens  — Auxiliar na escolha; adicionar itens ao carrinho um por vez
+• confirmando_pedido — Revisar os itens com o cliente antes de pedir endereço
+• aguardando_endereco — Coletar endereço de entrega ou confirmar retirada
+• finalizado        — Pedido confirmado → setar pedido_finalizado: true
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚡ REGRAS ABSOLUTAS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Responda SEMPRE E SOMENTE com JSON válido no formato abaixo — ZERO texto fora do JSON
-2. Use português brasileiro, tom amigável e use emojis com moderação
-3. NUNCA invente produtos, preços ou IDs fora do cardápio fornecido
-4. O campo "productId" deve ser EXATAMENTE o valor entre [ID:xxx] no cardápio
-5. Mantenha TODOS os itens anteriores do carrinho — nunca apague sem o cliente pedir
-6. Ao cliente confirmar pedido + endereço + forma de pagamento → defina finalizado: true e etapa: FINALIZADO
-7. Se cliente pedir para falar com humano, adicione a nota "TRANSFERIR_HUMANO" na resposta_para_o_cliente
+━━━ REGRAS ABSOLUTAS ━━━
+1. Responda SEMPRE e SOMENTE com o JSON abaixo — zero texto fora do JSON
+2. NUNCA invente produtos, preços ou IDs fora do cardápio
+3. O campo "productId" deve ser EXATAMENTE o valor entre [ID:xxx] no cardápio
+4. Mantenha TODOS os itens anteriores — nunca apague sem o cliente pedir
+5. "itens_identificados" = lista legível dos nomes (ex: ["Pizza de Calabresa x1"])
+6. Ao confirmar pedido + endereço + forma de pagamento → pedido_finalizado: true
+7. Se cliente pedir para falar com humano → inclua a palavra TRANSFERIR_HUMANO na resposta_para_o_cliente
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📦 FORMATO DE RESPOSTA (JSON OBRIGATÓRIO)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ FORMATO DE RESPOSTA (JSON OBRIGATÓRIO) ━━━
 {
-  "resposta_para_o_cliente": "texto natural que o cliente vai ler no WhatsApp",
+  "resposta_para_o_cliente": "texto humanizado que vai aparecer no WhatsApp do cliente",
   "status_carrinho": {
     "itens": [
       {
-        "productId":  "id_exato_do_produto_no_cardapio",
+        "productId":  "id_exato_do_produto",
         "nome":       "Nome do Produto",
         "quantidade": 1,
         "preco":      29.90
       }
     ],
-    "etapa":           "ESCOLHENDO_ITENS",
-    "finalizado":      false,
-    "endereco":        null,
-    "telefone":        null,
-    "formaPagamento":  null
+    "itens_identificados": ["Pizza de Calabresa x1", "Guaraná Antárctica x2"],
+    "etapa_atual":       "escolhendo_itens",
+    "pedido_finalizado": false,
+    "endereco":          null,
+    "telefone":          null,
+    "formaPagamento":    null
   }
 }`;
   }
@@ -178,6 +182,12 @@ ${cartJson}
           parsed.status_carrinho &&
           Array.isArray(parsed.status_carrinho.itens)
         ) {
+          // Garantir backward compat: se Claude omitir itens_identificados, derivar dos itens
+          if (!Array.isArray(parsed.status_carrinho.itens_identificados)) {
+            parsed.status_carrinho.itens_identificados = parsed.status_carrinho.itens.map(
+              (i) => `${i.nome} x${i.quantidade}`,
+            );
+          }
           return parsed;
         }
       } catch {}
@@ -188,7 +198,7 @@ ${cartJson}
     const direct = tryParse(rawText.trim());
     if (direct) return direct;
 
-    // Tentativa 2: extrair bloco JSON do texto (caso Claude adicione texto extra)
+    // Tentativa 2: extrair bloco JSON do texto
     const match = rawText.match(/\{[\s\S]*\}/);
     if (match) {
       const fromBlock = tryParse(match[0]);
@@ -196,9 +206,9 @@ ${cartJson}
     }
 
     // Fallback: preserva carrinho atual, usa texto bruto como resposta
-    this.log.warn(`ClaudeCartService: resposta não parseável — usando fallback. Raw: "${rawText.slice(0, 80)}"`);
+    this.log.warn(`ClaudeCartService: resposta não parseável — raw: "${rawText.slice(0, 80)}"`);
     return {
-      resposta_para_o_cliente: rawText.trim() || 'Desculpe, tive um problema temporário. Pode repetir sua mensagem? 🙏',
+      resposta_para_o_cliente: rawText.trim() || 'Desculpa, tive um probleminha aqui! Pode repetir? 🙏',
       status_carrinho: fallbackCart,
     };
   }
@@ -206,7 +216,12 @@ ${cartJson}
   // ── Utilitários estáticos ──────────────────────────────────────────────────
 
   static emptyCart(): CartStatus {
-    return { itens: [], etapa: 'SAUDACAO', finalizado: false };
+    return {
+      itens:              [],
+      itens_identificados: [],
+      etapa_atual:         'saudacao',
+      pedido_finalizado:   false,
+    };
   }
 
   static cartTotal(cart: CartStatus): number {

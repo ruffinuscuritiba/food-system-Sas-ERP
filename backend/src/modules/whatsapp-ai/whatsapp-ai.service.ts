@@ -644,12 +644,13 @@ export class WhatsappAiService {
     // Reconstruir contexto do carrinho atual
     const ctx: any   = conv.context ?? {};
     const currentCart: CartStatus = {
-      itens:          ctx.cart ?? [],
-      etapa:          ctx.etapa ?? 'SAUDACAO',
-      finalizado:     ctx.finalizado ?? false,
-      endereco:       ctx.endereco ?? null,
-      telefone:       ctx.telefone ?? null,
-      formaPagamento: ctx.formaPagamento ?? null,
+      itens:               ctx.cart               ?? [],
+      itens_identificados: ctx.itens_identificados ?? [],
+      etapa_atual:         ctx.etapa_atual         ?? 'saudacao',
+      pedido_finalizado:   ctx.pedido_finalizado   ?? false,
+      endereco:            ctx.endereco            ?? null,
+      telefone:            ctx.telefone            ?? null,
+      formaPagamento:      ctx.formaPagamento      ?? null,
     };
 
     // Histórico de conversa (últimas 20 mensagens) para Claude
@@ -698,20 +699,21 @@ export class WhatsappAiService {
     // 1. Atualizar contexto no banco
     const newCtx = {
       ...ctx,
-      cart:           status_carrinho.itens,
-      etapa:          status_carrinho.etapa,
-      finalizado:     status_carrinho.finalizado,
-      endereco:       status_carrinho.endereco   ?? ctx.endereco,
-      telefone:       status_carrinho.telefone   ?? ctx.telefone,
-      formaPagamento: status_carrinho.formaPagamento ?? ctx.formaPagamento,
+      cart:               status_carrinho.itens,
+      itens_identificados: status_carrinho.itens_identificados,
+      etapa_atual:         status_carrinho.etapa_atual,
+      pedido_finalizado:   status_carrinho.pedido_finalizado,
+      endereco:            status_carrinho.endereco      ?? ctx.endereco,
+      telefone:            status_carrinho.telefone      ?? ctx.telefone,
+      formaPagamento:      status_carrinho.formaPagamento ?? ctx.formaPagamento,
     };
     await (this.prisma as any).whatsappConversation.update({
       where: { id: conv.id },
       data:  { context: newCtx },
     });
 
-    // 2. Criar pedido quando finalizado = true
-    if (status_carrinho.finalizado && status_carrinho.itens.length > 0 && !ctx.finalizado) {
+    // 2. Criar pedido quando pedido_finalizado = true
+    if (status_carrinho.pedido_finalizado && status_carrinho.itens.length > 0 && !ctx.pedido_finalizado) {
       try {
         const productMap = new Map(products.map((p) => [p.id, p]));
         const cartForOrder = status_carrinho.itens.map((i) => {
@@ -728,7 +730,7 @@ export class WhatsappAiService {
           companyId,
           cartForOrder,
           {
-            deliveryType: status_carrinho.endereco ? 'DELIVERY' : 'PICKUP',
+            deliveryType: status_carrinho.endereco  ? 'DELIVERY' : 'PICKUP',
             address:      status_carrinho.endereco ?? '',
             phone:        status_carrinho.telefone ?? conv.customerPhone,
           },

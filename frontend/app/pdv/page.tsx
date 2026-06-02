@@ -300,6 +300,7 @@ export default function PDVPage() {
       return [...prev, { product, qty: 1 }];
     });
     toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
+    setShowCart(true);
   }, []);
 
   const openProductAdd = useCallback(async (product: Product) => {
@@ -346,6 +347,7 @@ export default function PDVPage() {
     setCart(prev => [...prev, pizzaItem]);
     setPizzaProduct(null);
     toast.success(`${pizza.name} adicionada`, { duration: 1500, icon: "🍕" });
+    setShowCart(true);
   }, []);
 
   const removeFromCart = useCallback((id: string) => {
@@ -849,13 +851,13 @@ export default function PDVPage() {
       {showCart && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/60 hidden md:block" onClick={() => setShowCart(false)} />
-          <aside className="w-full md:w-[380px] bg-[#050816] border-l border-[#161b2d] flex flex-col h-full">
+          <aside className="w-full md:w-[380px] bg-[#050816] border-l border-[#161b2d] flex flex-col h-[100dvh] md:h-full">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[#161b2d]">
               <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingBag size={20} className="text-blue-400" /> Carrinho</h2>
               <button onClick={() => setShowCart(false)} className="text-zinc-400 hover:text-white"><X size={20} /></button>
             </div>
             {/* Área scrollável: itens + formulário */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide p-4 space-y-3">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-zinc-600 py-20">
                   <ShoppingBag size={48} className="mb-4 opacity-30" />
@@ -921,7 +923,7 @@ export default function PDVPage() {
 
             {/* Botão fixo no rodapé — sempre visível */}
             {cart.length > 0 && (
-              <div className="border-t border-[#161b2d] p-4">
+              <div className="border-t border-[#161b2d] p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
                 <button onClick={openPayment} disabled={!canProceedToPayment}
                   className="w-full py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
                   Finalizar Pedido →

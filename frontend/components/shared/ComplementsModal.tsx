@@ -130,8 +130,8 @@ export function ComplementsModal({
   const cls = {
     backdrop:  "fixed inset-0 z-[100] bg-black/70 flex items-end sm:items-center justify-center sm:p-4",
     panel:     isDark
-      ? "w-full sm:max-w-lg bg-[#050816] border border-[#1d2336] text-white rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col"
-      : "w-full sm:max-w-lg bg-white text-gray-900 rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col shadow-2xl",
+      ? "w-full sm:max-w-lg bg-[#050816] border border-[#1d2336] text-white rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92dvh] sm:max-h-[90dvh] flex flex-col"
+      : "w-full sm:max-w-lg bg-white text-gray-900 rounded-t-3xl sm:rounded-3xl overflow-hidden max-h-[92dvh] sm:max-h-[90dvh] flex flex-col shadow-2xl",
     header:    isDark
       ? "px-5 py-4 border-b border-[#161b2d] shrink-0"
       : "px-5 py-4 border-b border-gray-100 shrink-0",

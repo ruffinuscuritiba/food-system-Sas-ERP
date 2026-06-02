@@ -223,7 +223,7 @@ function MenuContent() {
       </header>
 
       {/* Categories */}
-      <div className="sticky top-[65px] z-30 bg-slate-950 border-b border-slate-800 px-4 py-3 overflow-x-auto">
+      <div className="sticky top-[65px] z-30 bg-slate-950 border-b border-slate-800 px-4 py-3 overflow-x-auto touch-pan-x scroll-smooth">
         <div className="flex gap-2 max-w-3xl mx-auto">
           {categories.map((cat) => (
             <button

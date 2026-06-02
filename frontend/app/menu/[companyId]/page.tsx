@@ -868,8 +868,8 @@ export default function MenuPage() {
 
       {/* ─── Categorias + Busca ─────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm mt-4">
-        <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto">
-          <div className="flex gap-2">
+        <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto touch-pan-x scroll-smooth">
+          <div className="flex gap-2 min-w-max">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -910,7 +910,9 @@ export default function MenuPage() {
         ) : (() => {
           // Determine active category type
           const activeCatObj = categoryObjects.find((c) => c.name?.trim() === activeCategory);
-          const isBeverageCat = activeCatObj?.categoryType === "bebidas";
+          const isBeverageCat =
+            activeCatObj?.categoryType === "bebidas" ||
+            activeCatObj?.name?.toLowerCase().includes("bebida");
           const isPizzaCat = !isBeverageCat && (
             activeCategory === "Todos"
               ? false

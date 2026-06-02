@@ -605,7 +605,7 @@ function TabExtrato({ records, summary, cash, onAdd, onRefresh }: TabExtratoProp
             Atualizado em {new Date().toLocaleString("pt-BR")}
           </span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto touch-pan-x">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50">
@@ -1251,7 +1251,7 @@ export default function FinanceiroPage() {
 
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-6">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="flex gap-1 overflow-x-auto touch-pan-x scroll-smooth">
             {TABS.map((t) => (
               <button
                 key={t.key}

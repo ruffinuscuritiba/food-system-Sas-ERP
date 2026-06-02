@@ -214,7 +214,7 @@ export default function PlanosPage() {
         </div>
 
         {/* ── Category Filter ────────────────────────────────────────────────── */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+        <div className="flex gap-2 mb-8 overflow-x-auto pb-1 touch-pan-x scroll-smooth">
           {CATEGORIES.map((cat) => {
             const active = activeCategory === cat;
             const cfg = cat !== "TODOS" ? CATEGORY_CONFIG[cat] : null;

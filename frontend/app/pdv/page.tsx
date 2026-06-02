@@ -391,13 +391,14 @@ export default function PDVPage() {
     : categories.find(c => c.id === selectedCategory) ?? null;
 
   const activeCategoryName    = activeCategory?.name ?? (selectedCategory === "all" ? "Todos os Produtos" : "Produtos");
-  const activeIsBeverage      = activeCategory?.categoryType === "bebidas";
+  const activeIsBeverage      =
+    activeCategory?.categoryType === "bebidas" ||
+    activeCategory?.name?.toLowerCase().includes("bebida");
   const activeCategoryIsPizza = activeCategory != null && pizzaCategories.has(activeCategory.id);
 
   // Usa apenas banner dedicado da categoria; product thumbnails causam zoom excessivo como hero
-  const bannerImageUrl =
-    (activeCategory as any)?.bannerImage ||
-    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1400";
+  const bannerImageUrl: string | null =
+    (activeCategory as any)?.bannerImage ?? null;
 
   const fmt = (v?: number) => v != null
     ? `R$ ${Number(v).toFixed(2).replace(".", ",")}`
@@ -658,15 +659,18 @@ export default function PDVPage() {
         </header>
 
         {/* Mobile categories */}
-        <div className="md:hidden shrink-0 flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide bg-[#050816] border-b border-[#161b2d]">
-          {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
-            <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-              className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold transition ${
-                selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-300"
-              }`}>
-              {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
-            </button>
-          ))}
+        <div className="md:hidden shrink-0 relative bg-[#050816] border-b border-[#161b2d]">
+          <div className="flex gap-2 px-3 py-2 overflow-x-auto scrollbar-hide touch-pan-x scroll-smooth">
+            {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
+              <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold transition ${
+                  selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-300"
+                }`}>
+                {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
+              </button>
+            ))}
+          </div>
+          <div className="pointer-events-none absolute right-0 inset-y-0 w-10 bg-gradient-to-l from-[#050816] to-transparent" />
         </div>
 
         {/* BODY */}
@@ -758,11 +762,13 @@ export default function PDVPage() {
 
           {/* Banner mobile — imagem da categoria + nome */}
           <div className="relative h-28 w-full overflow-hidden shrink-0">
-            <img
-              src={bannerImageUrl}
-              className="absolute inset-0 w-full h-full object-cover object-center"
-              alt={activeCategoryName}
-            />
+            {bannerImageUrl && (
+              <img
+                src={bannerImageUrl}
+                className="absolute inset-0 w-full h-full object-cover object-center"
+                alt={activeCategoryName}
+              />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
               <h2 className="text-lg font-black text-white leading-tight">{activeCategoryName}</h2>

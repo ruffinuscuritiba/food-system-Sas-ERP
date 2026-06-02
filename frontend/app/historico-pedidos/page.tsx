@@ -120,7 +120,7 @@ export default function HistoricoPedidosPage() {
           <p className="text-sm mt-1">Pedidos marcados como Entregue ou Cancelado aparecerão aqui.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm touch-pan-x">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

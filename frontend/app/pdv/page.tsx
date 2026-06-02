@@ -660,9 +660,15 @@ export default function PDVPage() {
         </header>
 
         {/* Mobile categories */}
-        <div className="md:hidden shrink-0 relative bg-[#050816] border-b border-[#161b2d]">
-          <div className="px-3 py-2 overflow-x-auto scrollbar-hide touch-pan-x scroll-smooth">
-            <div className="flex gap-2 min-w-max">
+        <div className="md:hidden shrink-0 bg-[#050816] border-b border-[#161b2d]">
+          <div
+            className="px-3 py-2 overflow-x-scroll scrollbar-hide touch-pan-x"
+            style={{
+              maskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to right, black 80%, transparent 100%)",
+            }}
+          >
+            <div className="flex gap-2 min-w-max pr-8">
               {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
                 <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
                   className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
@@ -673,7 +679,6 @@ export default function PDVPage() {
               ))}
             </div>
           </div>
-          <div className="pointer-events-none absolute right-0 inset-y-0 w-10 bg-gradient-to-l from-[#050816] to-transparent" />
         </div>
 
         {/* BODY */}

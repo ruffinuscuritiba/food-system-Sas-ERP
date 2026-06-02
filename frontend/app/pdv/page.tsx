@@ -601,7 +601,7 @@ export default function PDVPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden">
+    <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden">
 
       {/* CONTENT */}
       <main className="flex-1 flex flex-col">

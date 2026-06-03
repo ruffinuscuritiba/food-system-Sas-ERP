@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import * as bcrypt from 'bcrypt'
 import { PrismaService } from '@/database/prisma.service'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -270,7 +271,7 @@ export class DemoVitrineService {
       const existing = await this.prisma.user.findUnique({ where: { email } })
       if (!existing) {
         const user = await this.prisma.user.create({
-          data: { name: DRIVER_NAMES[i] ?? `Entregador ${i+1}`, email, password: '$2b$10$demopasswordhash', role: 'DELIVERY', isActive: true, companyId: cid },
+          data: { name: DRIVER_NAMES[i] ?? `Entregador ${i+1}`, email, password: await bcrypt.hash('Demo@Driver123', 10), role: 'DELIVERY', isActive: true, companyId: cid },
         })
         await db.driverProfile.create({
           data: { userId: user.id, companyId: cid, isAvailable: i === 0, vehicleType: i % 2 === 0 ? 'MOTO' : 'CARRO' },

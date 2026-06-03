@@ -1,9 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, ChevronRight, Zap } from "lucide-react";
 import { FloatingStats } from "./FloatingStats";
 import { PricingSelector, BillingPeriod } from "./PricingSelector";
+
+interface Particle {
+  width: number; height: number;
+  left: string; top: string;
+  opacity: number; duration: number; delay: number;
+}
 
 interface HeroModulesProps {
   totalModules: number;
@@ -13,6 +20,20 @@ interface HeroModulesProps {
 }
 
 export function HeroModules({ totalModules, activeModules, billing, onBillingChange }: HeroModulesProps) {
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  useEffect(() => {
+    setParticles([...Array(20)].map(() => ({
+      width:    Math.random() * 3 + 1,
+      height:   Math.random() * 3 + 1,
+      left:     `${Math.random() * 100}%`,
+      top:      `${Math.random() * 100}%`,
+      opacity:  Math.random() * 0.4 + 0.1,
+      duration: Math.random() * 4 + 3,
+      delay:    Math.random() * 3,
+    })));
+  }, []);
+
   return (
     <div
       className="relative overflow-hidden"
@@ -38,20 +59,14 @@ export function HeroModules({ totalModules, activeModules, billing, onBillingCha
       <div className="absolute top-[20%] right-[5%] w-[200px] h-[200px] rounded-full opacity-10"
         style={{ background: "radial-gradient(circle, #06b6d4 0%, transparent 70%)" }} />
 
-      {/* Particle dots */}
-      {[...Array(20)].map((_, i) => (
+      {/* Particle dots — rendered client-only to avoid SSR hydration mismatch */}
+      {particles.map((p, i) => (
         <motion.div
           key={i}
           className="absolute rounded-full bg-white"
-          style={{
-            width: Math.random() * 3 + 1,
-            height: Math.random() * 3 + 1,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            opacity: Math.random() * 0.4 + 0.1,
-          }}
+          style={{ width: p.width, height: p.height, left: p.left, top: p.top, opacity: p.opacity }}
           animate={{ opacity: [0.1, 0.5, 0.1], y: [0, -10, 0] }}
-          transition={{ duration: Math.random() * 4 + 3, repeat: Infinity, delay: Math.random() * 3 }}
+          transition={{ duration: p.duration, repeat: Infinity, delay: p.delay }}
         />
       ))}
 

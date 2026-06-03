@@ -108,14 +108,14 @@ export default function BIPage() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiRes, revRes, alertRes] = await Promise.all([
+      const [kpiRes, revRes, alertRes] = await Promise.allSettled([
         api.get("/reports/executive"),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
         api.get("/alerts?unread=false"),
       ]);
-      setKpis(kpiRes.data);
-      setRevenue(revRes.data);
-      setAlerts(alertRes.data ?? []);
+      if (kpiRes.status   === "fulfilled") setKpis(kpiRes.value.data);
+      if (revRes.status   === "fulfilled") setRevenue(revRes.value.data);
+      if (alertRes.status === "fulfilled") setAlerts(alertRes.value.data ?? []);
     } catch {}
     setLoading(false);
   }, [range.from, range.to]);

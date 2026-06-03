@@ -150,11 +150,10 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: "Atendimento",
     items: [
       {
-        href:        "/whatsapp-ia",
-        label:       "Configurar IA",
-        icon:        <WaIcon3D />,
-        roles:       ["SUPER_ADMIN","ADMIN","MANAGER"],
-        moduleSlug:  "whatsapp",
+        href:  "/whatsapp-ia",
+        label: "Configurar IA",
+        icon:  <WaIcon3D />,
+        roles: ["SUPER_ADMIN","ADMIN","MANAGER"],
       },
     ],
   },

@@ -259,9 +259,9 @@ export default function PDVPage() {
   const mobileRef      = useRef<HTMLDivElement>(null);
   const wrapperRef     = useRef<HTMLDivElement>(null);
 
-  type ChildMeasure = { label: string; off: number; scr: number; cli: number };
-  type ChildrenDebug = { mainOff: number; mainScr: number; mainCli: number; children: ChildMeasure[] };
-  const [childrenDebug, setChildrenDebug] = useState<ChildrenDebug | null>(null);
+  type RefInfo = { label: string; tag: string; id: string; cls: string };
+  type RefsDebug = { refs: RefInfo[] };
+  const [childrenDebug, setChildrenDebug] = useState<RefsDebug | null>(null);
   const [ancestorDebug, setAncestorDebug] = useState<null>(null);
   const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
 
@@ -275,22 +275,20 @@ export default function PDVPage() {
     const card    = grid?.firstElementChild as HTMLElement | null;
     const cs      = grid ? getComputedStyle(grid) : null;
 
-    const m = (el: HTMLElement | null, label: string): ChildMeasure => ({
+    const r = (el: HTMLElement | null, label: string): RefInfo => ({
       label,
-      off: el?.offsetWidth ?? -1,
-      scr: el?.scrollWidth ?? -1,
-      cli: el?.clientWidth ?? -1,
+      tag: el?.tagName ?? "NULL",
+      id:  el?.id || "(none)",
+      cls: (el?.className?.toString() ?? "").slice(0, 120),
     });
 
     setChildrenDebug({
-      mainOff: main?.offsetWidth ?? -1,
-      mainScr: main?.scrollWidth ?? -1,
-      mainCli: main?.clientWidth ?? -1,
-      children: [
-        m(header,  "header"),
-        m(cats,    "categories"),
-        m(desktop, "desktop"),
-        m(mobile,  "mobile"),
+      refs: [
+        r(main,    "main"),
+        r(header,  "header"),
+        r(cats,    "categories"),
+        r(desktop, "desktop"),
+        r(mobile,  "mobile"),
       ],
     });
 
@@ -650,13 +648,13 @@ export default function PDVPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden">
+    <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden w-full min-w-0">
       <div style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, background: "red", color: "white", fontSize: 10, padding: "2px 6px" }}>
         BUILD 65dd37c8
       </div>
 
       {/* CONTENT */}
-      <main ref={mainRef} className="flex-1 flex flex-col">
+      <main ref={mainRef} className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 
         {/* HEADER */}
         <header ref={headerRef} className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
@@ -839,10 +837,9 @@ export default function PDVPage() {
 
           <div ref={wrapperRef} className="px-3 py-3">
           {childrenDebug && (
-            <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 1.8 }}>
-              <p>main: off={childrenDebug.mainOff} scr={childrenDebug.mainScr} cli={childrenDebug.mainCli}</p>
-              {childrenDebug.children.map(c => (
-                <p key={c.label}>{c.label}: off={c.off} scr={c.scr} cli={c.cli}</p>
+            <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 2, wordBreak: "break-all" }}>
+              {childrenDebug.refs.map(r => (
+                <p key={r.label}>{r.label}: tag={r.tag} id={r.id}<br/>cls={r.cls}</p>
               ))}
             </div>
           )}

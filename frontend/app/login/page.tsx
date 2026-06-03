@@ -31,7 +31,11 @@ export default function LoginPage() {
       localStorage.setItem('token', accessToken)
       localStorage.setItem('user', JSON.stringify(user))
       toast.success('Login realizado')
-      router.push('/pdv')
+      const ROLE_DEST: Record<string, string> = {
+        KITCHEN:  '/kitchen',
+        DELIVERY: '/orders',
+      }
+      router.push(ROLE_DEST[user?.role] ?? '/pdv')
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Erro ao fazer login')
     } finally {

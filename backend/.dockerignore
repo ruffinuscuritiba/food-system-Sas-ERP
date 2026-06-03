@@ -1,9 +1,9 @@
 node_modules
 dist
 .env
-.env.*
+.env.local
 uploads
 *.log
-coverage
-test
-**/*.spec.ts
+npm-debug.log*
+.git
+README.md

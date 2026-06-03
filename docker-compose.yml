@@ -3,7 +3,7 @@ version: "3.9"
 services:
   # ── Banco de Dados ────────────────────────────────────────────────────────
   db:
-    image: postgres:18-alpine
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB:       foodsystem
@@ -19,37 +19,47 @@ services:
       timeout: 5s
       retries: 10
 
-  # ── Backend NestJS ────────────────────────────────────────────────────────
+  # ── Backend NestJS (porta 3001) ───────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       DATABASE_URL:  postgresql://postgres:postgres@db:5432/foodsystem
       JWT_SECRET:    dev-secret-troque-em-producao
-      BACKEND_URL:   http://localhost:3000
-      FRONTEND_URL:  http://localhost:3001
-      # CLOUDINARY_URL: coloque aqui se quiser usar Cloudinary no local
+      PORT:          3001
+      BACKEND_URL:   http://localhost:3001
+      FRONTEND_URL:  http://localhost:3000
+      # Descomente para usar Cloudinary no local:
+      # CLOUDINARY_CLOUD_NAME:
+      # CLOUDINARY_API_KEY:
+      # CLOUDINARY_API_SECRET:
+      # Descomente para usar IA no local:
+      # GEMINI_API_KEY:
+      # ANTHROPIC_API_KEY:
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - uploads_data:/app/uploads
 
-  # ── Frontend Next.js ──────────────────────────────────────────────────────
+  # ── Frontend Next.js (porta 3000) ─────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL:     http://localhost:3001/api
+        NEXT_PUBLIC_SOCKET_URL:  http://localhost:3001
+        NEXT_PUBLIC_FRONTEND_URL: http://localhost:3000
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL:     http://localhost:3000/api
-      NEXT_PUBLIC_SOCKET_URL:  http://localhost:3000
+      NEXT_OUTPUT: standalone
     depends_on:
       - backend
 

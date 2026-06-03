@@ -1,0 +1,36 @@
+# ══════════════════════════════════════════════════════════════════
+# ENV_BACKUP.template — FoodSaaS ERP
+# Preencher com os valores reais e guardar em local SEGURO (nunca commitar).
+# Última revisão: 03/06/2026
+# ══════════════════════════════════════════════════════════════════
+
+# ── BACKEND (Render: food-system-backend) ─────────────────────────
+DATABASE_URL=
+JWT_SECRET=
+FRONTEND_URL=
+BACKEND_URL=
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-1.5-flash
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=google/gemini-2.0-flash-exp:free
+ANTHROPIC_API_KEY=
+MERCADOPAGO_ACCESS_TOKEN=
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+NODE_VERSION=22.13.0
+
+# ── FRONTEND (Vercel: food-system-sas-erp-frontend) ───────────────
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_SOCKET_URL=
+NEXT_PUBLIC_FRONTEND_URL=
+
+# ── SUPER ADMIN (hardcoded no service — mudar em produção) ─────────
+# superadmin@system.com / SuperAdmin@123
+# Localização: backend/src/modules/super-admin/super-admin.service.ts linhas 7-8
+
+# ── SUPABASE ──────────────────────────────────────────────────────
+# URL do projeto: https://app.supabase.com/project/<project-id>
+# Connection string está em DATABASE_URL acima
+# Senha do banco: (guardar separado)
+SUPABASE_DB_PASSWORD=

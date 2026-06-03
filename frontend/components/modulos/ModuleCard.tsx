@@ -17,6 +17,7 @@ export interface Mod {
   slug: string;
   name: string;
   description: string;
+  longDescription?: string;
   icon: string;
   category: string;
   price: number | null;
@@ -264,7 +265,7 @@ export function ModuleCard({
               {/* Modal body */}
               <div className="p-6 overflow-y-auto flex-1">
                 <p className="text-gray-600 text-sm leading-relaxed mb-5">
-                  {mod.description}
+                  {mod.longDescription ?? mod.description}
                 </p>
 
                 {(mod.benefits ?? []).length > 0 && (

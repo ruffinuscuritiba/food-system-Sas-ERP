@@ -18,34 +18,408 @@ import type { Mod } from "@/components/modulos/ModuleCard";
 // CompanyModule from /company/:id has no catalog fields (name, description, etc.)
 // This map provides them so cards render correctly regardless of backend join.
 const MODULE_CATALOG: Record<string, Partial<Mod>> = {
-  // Default modules (created at signup — uppercase slugs)
-  "TABLES":   { name: "Mesas",       icon: "🪑", category: "OPERACAO",    price: null, isFree: true,  description: "Gestão de mesas e comanda digital",            benefits: ["Abertura e fechamento de mesa", "Pedidos por mesa", "QR Code de mesa"],                       badge: null, badgeColor: null, isHighlighted: false, sortOrder: 1 },
-  "CASH":     { name: "Caixa",       icon: "💰", category: "FINANCEIRO",  price: null, isFree: true,  description: "Controle de abertura e fechamento de caixa",   benefits: ["Abertura/fechamento de caixa", "Sangria e suprimento", "Relatório diário"],                   badge: null, badgeColor: null, isHighlighted: false, sortOrder: 2 },
-  "FINANCIAL":{ name: "Financeiro",  icon: "📊", category: "FINANCEIRO",  price: null, isFree: true,  description: "Gestão financeira completa",                   benefits: ["Extrato financeiro", "Entradas e saídas", "Resumo por período"],                            badge: null, badgeColor: null, isHighlighted: false, sortOrder: 3 },
-  "STOCK":    { name: "Estoque",     icon: "📦", category: "OPERACAO",    price: null, isFree: true,  description: "Controle de estoque e movimentações",          benefits: ["Movimentações de estoque", "Alertas de mínimo", "Histórico completo"],                       badge: null, badgeColor: null, isHighlighted: false, sortOrder: 4 },
-  "RECIPES":  { name: "Receitas",    icon: "📋", category: "OPERACAO",    price: null, isFree: true,  description: "Fichas técnicas de produtos",                  benefits: ["Fichas técnicas", "CMV automático", "Custo por produto"],                                   badge: null, badgeColor: null, isHighlighted: false, sortOrder: 5 },
-  "DELIVERY": { name: "Delivery",    icon: "🛵", category: "OPERACAO",    price:   29, isFree: false, description: "Gestão de entregadores e zonas de entrega",    benefits: ["Zonas de entrega", "Gestão de entregadores", "Taxa automática por bairro"],                 badge: null, badgeColor: null, isHighlighted: false, sortOrder: 6 },
-  // Named slugs (from Module catalog)
-  "delivery":            { name: "Delivery",               icon: "🛵", category: "OPERACAO",    price:   29, isFree: false, description: "Gestão de entregadores e zonas de entrega",    benefits: ["Zonas de entrega", "Gestão de entregadores", "Rastreamento"],           badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 6 },
-  "cardapio-ia":         { name: "Cardápio IA",            icon: "🤖", category: "AUTOMACAO",   price:   49, isFree: false, description: "Atendimento inteligente no cardápio digital",  benefits: ["Chat IA no cardápio", "Sugestões automáticas", "Atendimento 24h"],     badge: "Popular",  badgeColor: "blue",   isHighlighted: true,  sortOrder: 7 },
-  "whatsapp-ia":         { name: "WhatsApp IA",            icon: "💬", category: "AUTOMACAO",   price:   79, isFree: false, description: "Atendimento automático via WhatsApp",          benefits: ["IA no WhatsApp", "Pedidos via chat", "Transferência para humano"],    badge: "Novo",     badgeColor: "purple", isHighlighted: true,  sortOrder: 8 },
-  "fidelidade":          { name: "Fidelidade",             icon: "⭐", category: "MARKETING",   price:   19, isFree: false, description: "Programa de fidelidade e cashback",            benefits: ["Pontos por compra", "Cashback automático", "Cupons de recompensa"],   badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 9 },
-  "cupons":              { name: "Cupons",                 icon: "🎁", category: "MARKETING",   price:    9, isFree: false, description: "Sistema de cupons de desconto",                benefits: ["Cupons de desconto", "Frete grátis", "Desconto percentual"],          badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 10 },
-  "meta-pixel":          { name: "Meta Pixel",             icon: "📱", category: "MARKETING",   price:    9, isFree: false, description: "Integração com Facebook/Instagram Ads",        benefits: ["Pixel do Facebook", "Rastreamento de conversões", "Retargeting"],    badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 11 },
-  "google-analytics":    { name: "Google Analytics",       icon: "📈", category: "MARKETING",   price:    9, isFree: false, description: "Analytics avançado do cardápio digital",       benefits: ["GA4 no cardápio", "Relatórios de tráfego", "Conversões"],            badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 12 },
-  "nfce":                { name: "NFC-e",                  icon: "🧾", category: "FINANCEIRO",  price:   59, isFree: false, description: "Emissão de nota fiscal eletrônica",            benefits: ["Emissão de NFC-e", "SEFAZ integrado", "Impressão automática"],        badge: "Em breve", badgeColor: "orange", isHighlighted: false, sortOrder: 13 },
-  "fluxo-caixa":         { name: "Fluxo de Caixa",         icon: "💸", category: "FINANCEIRO",  price:   29, isFree: false, description: "Projeção e análise do fluxo financeiro",       benefits: ["Projeção de caixa", "Análise de tendências", "Exportação Excel"],    badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 14 },
-  "dashboard-financeiro":{ name: "Dashboard Financeiro",   icon: "📉", category: "FINANCEIRO",  price:   29, isFree: false, description: "Painel financeiro visual e interativo",        benefits: ["KPIs em tempo real", "Gráficos de vendas", "Comparativo mensal"],     badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 15 },
-  "dre":                 { name: "DRE",                    icon: "📑", category: "FINANCEIRO",  price:   39, isFree: false, description: "Demonstrativo de resultado do exercício",      benefits: ["DRE automatizado", "CMV detalhado", "Margem por produto"],           badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 16 },
-  "pix-automatico":      { name: "Pix Automático",         icon: "⚡", category: "FINANCEIRO",  price:   19, isFree: false, description: "Geração automática de QR Code Pix",            benefits: ["QR Code Pix automático", "Confirmação em tempo real", "Webhook"],    badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 17 },
-  "relatorios-avancados":{ name: "Relatórios Avançados",   icon: "🔬", category: "FINANCEIRO",  price:   29, isFree: false, description: "BI completo com gráficos e análises",          benefits: ["Dashboard BI", "Relatórios PDF", "Análise por período"],             badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 18 },
-  "crm-whatsapp":        { name: "CRM WhatsApp",           icon: "📞", category: "MARKETING",   price:   49, isFree: false, description: "Relacionamento com clientes via WhatsApp",     benefits: ["Histórico de conversas", "Campanhas de marketing", "Segmentação"],  badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 19 },
-  "recuperacao-clientes":{ name: "Recuperação de Clientes",icon: "🔔", category: "MARKETING",   price:   29, isFree: false, description: "Reengajamento automático de clientes inativos",benefits: ["Campanhas de retorno", "Aniversariantes", "Clientes sem pedido"],   badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 20 },
-  "automacao-marketing": { name: "Automação de Marketing", icon: "🚀", category: "MARKETING",   price:   39, isFree: false, description: "Campanhas automáticas para clientes",          benefits: ["Campanhas automáticas", "Aniversariantes", "Reengajamento"],         badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 21 },
-  "multi-loja":          { name: "Multi-loja",             icon: "🏪", category: "OPERACAO",    price:   99, isFree: false, description: "Gestão de múltiplas unidades",                 benefits: ["Múltiplas unidades", "Gestão centralizada", "Relatórios consolidados"],badge:"Enterprise",badgeColor: "purple", isHighlighted: true,  sortOrder: 22 },
-  "ifood":               { name: "iFood",                  icon: "🍔", category: "AUTOMACAO",   price:   49, isFree: false, description: "Integração com o marketplace iFood",           benefits: ["Sincronização de cardápio", "Pedidos automáticos", "Status real-time"],badge:"Em breve", badgeColor: "orange", isHighlighted: false, sortOrder: 23 },
-  "99food":              { name: "99food",                  icon: "🛺", category: "AUTOMACAO",   price:   49, isFree: false, description: "Integração com o marketplace 99food",          benefits: ["Sincronização de cardápio", "Pedidos automáticos"],                   badge:"Em breve", badgeColor: "orange", isHighlighted: false, sortOrder: 24 },
-  "webhooks":            { name: "Webhooks",               icon: "🔗", category: "AUTOMACAO",   price:   19, isFree: false, description: "Notificações automáticas por webhook",         benefits: ["POST em URL configurada", "Eventos de pedido", "Payload JSON"],      badge: null,       badgeColor: null,     isHighlighted: false, sortOrder: 25 },
+
+  // ── Módulos default (criados no signup — slugs em MAIÚSCULO) ─────────────────
+
+  "TABLES": {
+    name: "Mesas", icon: "🪑", category: "OPERACAO",
+    price: null, isFree: true, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 1,
+    description: "Abra mesas, anote pedidos via QR Code e feche a conta sem papel e sem erro de digitação.",
+    benefits: [
+      "Abertura e fechamento de mesa com um toque",
+      "Pedidos por QR Code diretamente na cozinha",
+      "Divisão de conta por item ou por pessoa",
+      "Histórico completo de consumo por mesa",
+    ],
+    longDescription:
+      "Com o módulo de Mesas, cada mesa tem seu QR Code exclusivo. O cliente lê, o garçom anota ou o próprio cliente pede — tudo vai direto para a cozinha em tempo real. Sem papel, sem correria e sem erro de comanda. No fechamento, a divisão de conta é feita por item ou por pessoa em segundos.",
+  },
+
+  "CASH": {
+    name: "Caixa", icon: "💰", category: "FINANCEIRO",
+    price: null, isFree: true, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 2,
+    description: "Caixa completo: abra, feche, registre sangrias e veja o saldo a qualquer momento do dia.",
+    benefits: [
+      "Abertura e fechamento com valor inicial",
+      "Sangria e suprimento com justificativa",
+      "Relatório de fechamento com divergências",
+      "Histórico de movimentos por turno",
+    ],
+    longDescription:
+      "Nunca mais perca o controle do caixa. Abra o turno com o valor inicial, registre qualquer retirada ou reforço com justificativa, e feche com um relatório automático que mostra exatamente se o caixa bateu ou se há divergência. Ideal para quem tem múltiplos turnos e precisa de rastreabilidade total.",
+  },
+
+  "FINANCIAL": {
+    name: "Financeiro", icon: "📊", category: "FINANCEIRO",
+    price: null, isFree: true, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 3,
+    description: "Veja todas as entradas e saídas num extrato organizado. Saiba exatamente onde o dinheiro está indo.",
+    benefits: [
+      "Extrato por período com filtros de categoria",
+      "Lançamento de receitas e despesas manuais",
+      "Resumo de faturamento por forma de pagamento",
+      "Exportação de dados para planilha",
+    ],
+    longDescription:
+      "O módulo Financeiro centraliza tudo: vendas registradas automaticamente pelos pedidos, despesas lançadas manualmente e um resumo claro por período. Filtre por categoria, veja o total por forma de pagamento e exporte tudo para Excel em um clique. Para quem quer sair do caderno e ter controle real.",
+  },
+
+  "STOCK": {
+    name: "Estoque", icon: "📦", category: "OPERACAO",
+    price: null, isFree: true, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 4,
+    description: "Controle cada ingrediente em tempo real. Receba alertas antes de faltar e nunca mais venda o que não tem.",
+    benefits: [
+      "Movimentações de entrada, saída, perda e ajuste",
+      "Alerta automático de estoque mínimo",
+      "Custo médio ponderado atualizado por compra",
+      "Histórico completo com rastreabilidade por pedido",
+      "Estoque consumido automaticamente ao confirmar pedido",
+    ],
+    longDescription:
+      "Cada ingrediente tem seu saldo atualizado em tempo real. Quando um pedido é confirmado, o sistema desconta os ingredientes das receitas automaticamente. Comprou mais? O custo médio é recalculado. Perdeu produto? Registre o motivo e mantenha o histórico. Você sabe o que tem, o que custa e o que está acabando — antes de virar problema.",
+  },
+
+  "RECIPES": {
+    name: "Receitas", icon: "📋", category: "OPERACAO",
+    price: null, isFree: true, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 5,
+    description: "Monte a receita de cada produto e calcule o CMV real a cada pedido, automaticamente.",
+    benefits: [
+      "Fichas técnicas com ingredientes e quantidades",
+      "CMV calculado automaticamente em cada venda",
+      "Custo por porção atualizado com o custo médio",
+      "Integração direta com estoque e pedidos",
+    ],
+    longDescription:
+      "Defina uma vez a receita de cada produto — os ingredientes e as quantidades — e o sistema faz o resto. A cada pedido confirmado, o estoque é consumido e o CMV é calculado com o custo médio atual de cada ingrediente. Você vê no relatório o quanto cada item realmente custa e qual é a margem real. Sem planilha, sem chute.",
+  },
+
+  "DELIVERY": {
+    name: "Delivery", icon: "🛵", category: "OPERACAO",
+    price: 29, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 6,
+    description: "Cadastre entregadores, defina taxas por bairro ou km e receba pedidos de entrega com tudo automatizado.",
+    benefits: [
+      "Cadastro completo de entregadores",
+      "Taxa de entrega por bairro ou distância (km)",
+      "Split automático: parte para o cliente, parte para o entregador",
+      "Acompanhamento de status em tempo real",
+      "Relatório financeiro separado por entregador",
+    ],
+    longDescription:
+      "O módulo de Delivery organiza toda a operação de entregas: cadastre seus motoboys, configure taxas por bairro ou por quilômetro rodado, e defina quanto fica com o restaurante e quanto vai para o entregador. Cada pedido de delivery chega com o cálculo já feito. Acompanhe o status em tempo real e feche o acerto com o entregador no fim do dia sem planilha.",
+  },
+
+  // ── Módulos nomeados (slugs lowercase do catálogo) ───────────────────────────
+
+  "delivery": {
+    name: "Delivery", icon: "🛵", category: "OPERACAO",
+    price: 29, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 6,
+    description: "Cadastre entregadores, defina taxas por bairro ou km e receba pedidos de entrega com tudo automatizado.",
+    benefits: [
+      "Cadastro completo de entregadores",
+      "Taxa de entrega por bairro ou distância (km)",
+      "Split automático: parte para o cliente, parte para o entregador",
+      "Acompanhamento de status em tempo real",
+      "Relatório financeiro separado por entregador",
+    ],
+    longDescription:
+      "O módulo de Delivery organiza toda a operação de entregas: cadastre seus motoboys, configure taxas por bairro ou por quilômetro rodado, e defina quanto fica com o restaurante e quanto vai para o entregador. Cada pedido de delivery chega com o cálculo já feito. Acompanhe o status em tempo real e feche o acerto com o entregador no fim do dia sem planilha.",
+  },
+
+  "cardapio-ia": {
+    name: "Cardápio IA", icon: "🤖", category: "AUTOMACAO",
+    price: 49, isFree: false, badge: "Popular", badgeColor: "blue",
+    isHighlighted: true, sortOrder: 7,
+    description: "Atendimento inteligente no cardápio digital com sugestões em tempo real.",
+    benefits: [
+      "Chat IA integrado ao cardápio digital",
+      "Sugestões personalizadas por perfil do cliente",
+      "Atendimento automático 24 horas",
+    ],
+    longDescription:
+      "O Cardápio IA adiciona um assistente inteligente ao seu cardápio digital. O cliente tira dúvidas, recebe sugestões baseadas no que já pediu antes e é guiado até finalizar o pedido — sem precisar de atendente. Funciona 24 horas, não erra e aumenta o ticket médio com recomendações certeiras.",
+  },
+
+  "whatsapp-ia": {
+    name: "WhatsApp IA", icon: "💬", category: "AUTOMACAO",
+    price: 79, isFree: false, badge: "Novo", badgeColor: "purple",
+    isHighlighted: true, sortOrder: 8,
+    description: "Atenda clientes, receba pedidos e confirme entregas automaticamente pelo WhatsApp com IA.",
+    benefits: [
+      "Atendimento automático 24 horas por dia",
+      "Recebe mensagens de texto e áudio",
+      "Pedidos criados diretamente no ERP via chat",
+      "Transferência para atendente humano quando necessário",
+      "Notificações automáticas de status do pedido",
+    ],
+    longDescription:
+      "A Carol — IA do FoodSaaS — atende seus clientes pelo WhatsApp como se fosse uma atendente real. Ela responde perguntas sobre o cardápio, monta pedidos, confirma endereços e notifica o cliente em cada etapa da entrega. Entende texto e áudio, não erra pedido e nunca está de folga. Quando o cliente precisa de um humano, ela transfere em segundos.",
+  },
+
+  "fidelidade": {
+    name: "Fidelidade", icon: "⭐", category: "MARKETING",
+    price: 19, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 9,
+    description: "Programa de pontos e cashback que faz o cliente sempre querer voltar.",
+    benefits: [
+      "Pontos por compra com regra configurável",
+      "Cashback automático creditado ao cliente",
+      "Cupons de recompensa por pontos acumulados",
+    ],
+    longDescription:
+      "Configure o programa de fidelidade do seu jeito: defina quantos pontos valem R$1, quando o cashback é liberado e quais recompensas o cliente pode resgatar. Tudo acontece automaticamente a cada pedido pago. O cliente vê o saldo no cardápio digital e tem um motivo real para voltar.",
+  },
+
+  "cupons": {
+    name: "Cupons", icon: "🎁", category: "MARKETING",
+    price: 9, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 10,
+    description: "Crie cupons de desconto por percentual, valor fixo ou frete grátis e dispare para clientes.",
+    benefits: [
+      "Cupons de desconto por percentual ou valor fixo",
+      "Cupom de frete grátis",
+      "Limite de uso por cupom e por cliente",
+    ],
+    longDescription:
+      "Crie cupons em segundos, defina o tipo de desconto, a validade e o limite de usos. Distribua pelo WhatsApp, Instagram ou no fechamento do cardápio digital. Ideal para datas comemorativas, lançamentos de produto ou recuperação de clientes que abandonaram o carrinho.",
+  },
+
+  "meta-pixel": {
+    name: "Meta Pixel", icon: "📱", category: "MARKETING",
+    price: 9, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 11,
+    description: "Rastreie conversões do cardápio digital e crie campanhas de remarketing no Facebook e Instagram.",
+    benefits: [
+      "Pixel do Facebook integrado ao cardápio",
+      "Rastreamento de visualização e conversão por produto",
+      "Audiências personalizadas para remarketing",
+    ],
+    longDescription:
+      "Instale o Meta Pixel no seu cardápio digital em um clique. A partir daí, cada visita, clique em produto e pedido finalizado é rastreado automaticamente. Use esses dados no Gerenciador de Anúncios para criar campanhas de remarketing para quem visitou mas não comprou — e campanhas lookalike para encontrar novos clientes parecidos com os seus melhores compradores.",
+  },
+
+  "google-analytics": {
+    name: "Google Analytics", icon: "📈", category: "MARKETING",
+    price: 9, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 12,
+    description: "Métricas completas do cardápio digital: de onde vêm os visitantes, o que veem e o que compram.",
+    benefits: [
+      "GA4 integrado ao cardápio digital",
+      "Origem do tráfego por canal (WhatsApp, Instagram, direto)",
+      "Taxa de conversão por produto e por categoria",
+    ],
+    longDescription:
+      "Com o Google Analytics integrado, você enxerga tudo que acontece no cardápio: quantas pessoas visitaram, de onde vieram, quais produtos mais chamaram atenção e quantas finalizaram o pedido. Use esses dados para decidir onde investir em marketing e quais produtos precisam de foto melhor ou descrição mais atraente.",
+  },
+
+  "nfce": {
+    name: "NFC-e", icon: "🧾", category: "FINANCEIRO",
+    price: 59, isFree: false, badge: "Em breve", badgeColor: "orange",
+    isHighlighted: false, sortOrder: 13,
+    description: "Emissão automática de nota fiscal eletrônica integrada a cada pedido confirmado.",
+    benefits: [
+      "Emissão de NFC-e integrada ao pedido",
+      "Envio automático ao SEFAZ",
+      "Impressão ou envio por e-mail ao cliente",
+    ],
+    longDescription:
+      "Nunca mais tenha problemas fiscais. Configure seu certificado digital uma vez e pronto — a NFC-e é emitida automaticamente a cada pedido confirmado, enviada ao SEFAZ e disponível para impressão ou envio por e-mail. Em caso de contingência (sem internet), o sistema emite offline e transmite quando a conexão voltar.",
+  },
+
+  "fluxo-caixa": {
+    name: "Fluxo de Caixa", icon: "💸", category: "FINANCEIRO",
+    price: 29, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 14,
+    description: "Projeção de entradas e saídas futuras para você nunca ser pego de surpresa.",
+    benefits: [
+      "Projeção de caixa para os próximos 30 dias",
+      "Análise de tendências de receita e despesa",
+      "Exportação para Excel",
+    ],
+    longDescription:
+      "O Fluxo de Caixa projeta seus próximos 30 dias com base no histórico de receitas e despesas. Veja antecipadamente se vai ter aperto no caixa, quando as contas fixas chegam e qual a tendência do mês. Tome decisões antes que o problema apareça, não depois.",
+  },
+
+  "dashboard-financeiro": {
+    name: "Dashboard Financeiro", icon: "📉", category: "FINANCEIRO",
+    price: 29, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 15,
+    description: "Painel visual em tempo real: faturamento, ticket médio, margem e tendências do mês.",
+    benefits: [
+      "KPIs principais em um único painel",
+      "Gráfico de faturamento diário e tendência do mês",
+      "Ticket médio e comparativo com período anterior",
+      "Margem bruta por produto e por categoria",
+    ],
+    longDescription:
+      "O Dashboard Financeiro é a primeira coisa que você abre de manhã. Em uma única tela: quanto você faturou ontem, qual é o ticket médio da semana, como está a tendência do mês comparado ao anterior e onde está sua melhor margem. Tudo em gráficos claros, atualizados em tempo real a cada pedido confirmado.",
+  },
+
+  "dre": {
+    name: "DRE", icon: "📑", category: "FINANCEIRO",
+    price: 39, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 16,
+    description: "Demonstrativo de resultado gerado automaticamente. Saiba exatamente seu lucro real.",
+    benefits: [
+      "DRE mensal gerado automaticamente",
+      "CMV integrado às fichas técnicas",
+      "Exportação para Excel",
+    ],
+    longDescription:
+      "O DRE é gerado automaticamente todo mês com base nos seus pedidos, custos e despesas. Sem precisar preencher planilha: receita bruta, CMV, lucro bruto, despesas operacionais e resultado líquido aparecem organizados do jeito que o contador quer ver. Exporte em Excel quando precisar.",
+  },
+
+  "pix-automatico": {
+    name: "Pix Automático", icon: "⚡", category: "FINANCEIRO",
+    price: 19, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 17,
+    description: "QR Code Pix gerado automaticamente por pedido, com confirmação instantânea no sistema.",
+    benefits: [
+      "QR Code Pix dinâmico por pedido",
+      "Confirmação automática ao receber",
+      "Sem taxa por transação",
+    ],
+    longDescription:
+      "Cada pedido gera seu próprio QR Code Pix com o valor exato. Quando o cliente paga, o sistema confirma em segundos e o pedido avança automaticamente para preparação. Sem copiar chave, sem conferir na mão, sem erro. Funciona com qualquer banco e não tem taxa por transação.",
+  },
+
+  "relatorios-avancados": {
+    name: "Relatórios Avançados", icon: "🔬", category: "FINANCEIRO",
+    price: 29, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 18,
+    description: "Relatórios detalhados de vendas, produtos mais lucrativos, horário de pico e exportação PDF/Excel.",
+    benefits: [
+      "Ranking de produtos por lucro e volume de vendas",
+      "Análise de horário de pico e dia mais movimentado",
+      "Relatórios exportáveis em PDF e Excel",
+      "Agendamento automático de envio por e-mail",
+    ],
+    longDescription:
+      "Os Relatórios Avançados vão além do resumo básico. Veja quais produtos vendem mais, quais têm maior margem, em qual horário o movimento é maior e em qual dia da semana você fatura mais. Exporte qualquer relatório em PDF ou Excel, ou configure para receber por e-mail toda segunda-feira de manhã antes de abrir o restaurante.",
+  },
+
+  "crm-whatsapp": {
+    name: "CRM WhatsApp", icon: "📞", category: "MARKETING",
+    price: 49, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 19,
+    description: "Histórico completo de cada cliente, segmentação por perfil e campanhas em massa pelo WhatsApp.",
+    benefits: [
+      "Histórico de pedidos e conversas por cliente",
+      "Segmentação por ticket médio, frequência e bairro",
+      "Campanhas em massa com personalização por segmento",
+      "Relatório de abertura e conversão por campanha",
+    ],
+    longDescription:
+      "O CRM WhatsApp é para quando você quer controle manual sobre a comunicação. Veja quem são seus melhores clientes, filtre por bairro, ticket médio ou última visita, e dispare uma mensagem personalizada para cada segmento via WhatsApp. Com histórico de tudo que cada cliente já pediu e conversou — nada se perde.",
+  },
+
+  "recuperacao-clientes": {
+    name: "Recuperação de Clientes", icon: "🔔", category: "MARKETING",
+    price: 29, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 20,
+    description: "Reengaje clientes inativos automaticamente com ofertas personalizadas no momento certo.",
+    benefits: [
+      "Identificação automática de clientes inativos",
+      "Ofertas personalizadas por tempo de ausência",
+      "Aumento do LTV sem esforço manual",
+    ],
+    longDescription:
+      "O sistema identifica automaticamente clientes que não pedem há X dias (você define) e dispara uma oferta no momento mais provável de retorno. Sem lista manual, sem copiar número. O resultado aparece no relatório: quantos voltaram, quanto faturaram e qual campanha teve melhor retorno.",
+  },
+
+  "automacao-marketing": {
+    name: "Automação de Marketing", icon: "🚀", category: "MARKETING",
+    price: 39, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 21,
+    description: "Dispare campanhas automáticas para clientes no momento certo: aniversário, inatividade, volume de compra.",
+    benefits: [
+      "Campanhas automáticas por gatilho de comportamento",
+      "Mensagem de aniversário com cupom personalizado",
+      "Reengajamento de clientes sem pedido há X dias",
+      "Disparo via WhatsApp e notificação push",
+    ],
+    longDescription:
+      "Defina as regras uma vez e o sistema trabalha sozinho: no aniversário do cliente vai um cupom especial, após 15 dias sem pedido vai uma oferta de retorno, ao atingir 5 compras vai um brinde surpresa. Você configura os gatilhos, o sistema dispara no momento exato. Marketing que funciona enquanto você dorme.",
+  },
+
+  "multi-loja": {
+    name: "Multi-loja", icon: "🏪", category: "OPERACAO",
+    price: 99, isFree: false, badge: "Enterprise", badgeColor: "purple",
+    isHighlighted: true, sortOrder: 22,
+    description: "Gerencie múltiplas unidades em um único painel com relatórios consolidados.",
+    benefits: [
+      "Painel unificado para todas as unidades",
+      "Relatórios consolidados e por unidade",
+      "Controle de estoque e cardápio por loja",
+    ],
+    longDescription:
+      "Com o módulo Multi-loja, você gerencia todas as unidades do mesmo painel sem precisar trocar de login. Compare o desempenho entre lojas, consolide o faturamento total e ainda acesse relatórios individuais por unidade. Cardápio, estoque e equipe são gerenciados de forma independente em cada filial.",
+  },
+
+  "ifood": {
+    name: "iFood", icon: "🍔", category: "AUTOMACAO",
+    price: 49, isFree: false, badge: "Em breve", badgeColor: "orange",
+    isHighlighted: false, sortOrder: 23,
+    description: "Receba pedidos do iFood diretamente no sistema. Zero redigitação, zero erro.",
+    benefits: [
+      "Pedidos do iFood direto no painel",
+      "Cardápio sincronizado automaticamente",
+      "Status do pedido atualizado em tempo real",
+    ],
+    longDescription:
+      "Com a integração iFood, os pedidos que chegam no marketplace aparecem automaticamente no seu painel — sem precisar redigitar nada, sem risco de erro. O cardápio é sincronizado automaticamente: mudou o preço aqui, muda lá também. E o status de cada pedido (confirmado, em preparo, saiu para entrega) é atualizado em tempo real nos dois sistemas.",
+  },
+
+  "99food": {
+    name: "99food", icon: "🛺", category: "AUTOMACAO",
+    price: 49, isFree: false, badge: "Em breve", badgeColor: "orange",
+    isHighlighted: false, sortOrder: 24,
+    description: "Integração completa com o marketplace 99food para receber mais pedidos sem retrabalho.",
+    benefits: [
+      "Pedidos do 99food direto no painel",
+      "Cardápio sincronizado automaticamente",
+      "Relatórios unificados com outros canais",
+    ],
+    longDescription:
+      "A integração com o 99food traz os pedidos do marketplace direto para o seu painel, sem precisar abrir outro sistema. Cardápio sincronizado, status atualizado e relatório unificado com todos os outros canais de venda. Um painel, todos os pedidos.",
+  },
+
+  "webhooks": {
+    name: "Webhooks", icon: "🔗", category: "AUTOMACAO",
+    price: 19, isFree: false, badge: null, badgeColor: null,
+    isHighlighted: false, sortOrder: 25,
+    description: "Conecte o FoodSaaS a qualquer sistema externo via webhooks em tempo real.",
+    benefits: [
+      "POST automático em URL configurada a cada evento",
+      "Eventos de pedido, pagamento e status",
+      "Payload JSON estruturado e documentado",
+    ],
+    longDescription:
+      "Com os Webhooks, qualquer evento do sistema (novo pedido, pagamento confirmado, status alterado) dispara um POST para a URL que você configurar. Use para integrar com ERPs, sistemas de delivery próprio, PDVs externos ou qualquer ferramenta que aceite webhooks. Payload JSON limpo e documentado.",
+  },
+
+  // ── Módulo novo — Cadastro Inteligente ───────────────────────────────────────
+
+  "smart-import": {
+    name: "Cadastro Inteligente", icon: "🧠", category: "AUTOMACAO",
+    price: 49, isFree: false, badge: "Exclusivo", badgeColor: "blue",
+    isHighlighted: true, sortOrder: 26,
+    description: "Importe cardápios inteiros a partir de uma foto, PDF ou XML de nota fiscal. A IA preenche tudo.",
+    benefits: [
+      "Importação de cardápio por foto ou imagem",
+      "Leitura automática de XML de nota fiscal",
+      "Ingredientes e custos preenchidos pela IA",
+      "Revisão antes de salvar — você aprova cada item",
+      "Economize horas de cadastro manual",
+    ],
+    longDescription:
+      "Acabou a era do cadastro manual produto por produto. Tire uma foto do cardápio do fornecedor, envie um PDF do menu ou faça upload do XML da nota fiscal — a IA extrai nome, descrição, categoria e custo de cada item automaticamente. Você revisa, ajusta o que quiser e confirma. Em minutos, dezenas de produtos cadastrados com precisão.",
+  },
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -71,34 +445,33 @@ export default function ModulosPage() {
   async function load(cid: string) {
     setLoading(true);
     try {
-      // /company-module/company/:cid doesn't exist; read modules from /company
-      const { data } = await api.get(`/company/${cid}`);
-      const mods: any[] = Array.isArray(data?.modules) ? data.modules : [];
+      const { data } = await api.get(`/company-module/company/${cid}`);
+      const mods: any[] = Array.isArray(data) ? data : [];
       setModules(mods.map((m: any): Mod => {
-        const slug = (m.moduleSlug || m.slug || m.module || "") as string;
+        const slug = (m.slug || m.moduleSlug || "") as string;
         const cat  = MODULE_CATALOG[slug] ?? {};
         return {
-          // Catalog defaults (fill missing fields so cards render correctly)
-          name:           "",
-          description:    "",
-          icon:           "📦",
-          category:       "OPERACAO",
-          price:          null,
-          isFree:         false,
-          badge:          null,
-          badgeColor:     null,
-          benefits:       [],
-          isHighlighted:  false,
-          sortOrder:      99,
-          // Override with static catalog when available
-          ...cat,
-          // API fields always win (id, status, dates)
-          id:             m.id ?? slug,
+          // Catalog defaults (display fields not stored in DB)
+          name:           m.name           || cat.name           || "",
+          description:    m.description    || cat.description    || "",
+          longDescription: cat.longDescription,
+          icon:           m.icon           || cat.icon           || "📦",
+          category:       m.category       || cat.category       || "OPERACAO",
+          // Price: DB is source of truth; frontend catalog as fallback
+          price:          m.price != null  ? Number(m.price)     : (cat.price ?? null),
+          isFree:         m.isFree         ?? cat.isFree         ?? false,
+          badge:          m.badge          ?? cat.badge          ?? null,
+          badgeColor:     m.badgeColor     ?? cat.badgeColor     ?? null,
+          benefits:       (m.benefits?.length ? m.benefits : null) ?? cat.benefits ?? [],
+          isHighlighted:  m.isHighlighted  ?? cat.isHighlighted  ?? false,
+          sortOrder:      m.sortOrder      ?? cat.sortOrder      ?? 99,
+          // Association fields
+          id:             m.id             ?? slug,
           slug,
-          companyModuleId: m.id ?? null,
-          status:         (m.status ?? (m.active ? "ACTIVE" : "INACTIVE")) as Mod["status"],
-          trialEndsAt:    m.trialEndsAt ?? null,
-          activatedAt:    m.activatedAt ?? null,
+          companyModuleId: m.companyModuleId ?? null,
+          status:         (m.status        ?? (m.active ? "ACTIVE" : "INACTIVE")) as Mod["status"],
+          trialEndsAt:    m.trialEndsAt    ?? null,
+          activatedAt:    m.activatedAt    ?? null,
         };
       }));
     } catch { toast.error("Erro ao carregar módulos"); }

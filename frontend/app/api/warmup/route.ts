@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 
-const BACKEND_HEALTH =
-  (process.env.NEXT_PUBLIC_API_URL ?? process.env.BACKEND_URL ?? '').replace(/\/api$/, '') +
-  '/api/health'
+const PROD_BACKEND = "https://food-system-backend-no7d.onrender.com";
+const rawEnv = process.env.NEXT_PUBLIC_API_URL ?? process.env.BACKEND_URL ?? '';
+const resolvedBase = rawEnv.includes("94zd") ? PROD_BACKEND : (rawEnv.replace(/\/api$/, '') || PROD_BACKEND);
+const BACKEND_HEALTH = resolvedBase + '/api/health';
 
 export async function GET() {
   if (!BACKEND_HEALTH.startsWith('http')) {

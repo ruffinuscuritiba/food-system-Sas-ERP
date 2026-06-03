@@ -1,10 +1,11 @@
-// URLs resolved from environment variables only.
-// Required in .env.local (dev) or Vercel dashboard (prod):
-//   NEXT_PUBLIC_API_URL, NEXT_PUBLIC_SOCKET_URL, NEXT_PUBLIC_FRONTEND_URL
-if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== "undefined") {
-  console.warn("[env] NEXT_PUBLIC_API_URL is not set — API calls will fail. Check .env.local");
-}
+// Working production backend (Render service food-system-backend, URL: no7d)
+// The "94zd" service was recreated/broken — route any stale Vercel env var to no7d.
+const PROD_BACKEND = "https://food-system-backend-no7d.onrender.com";
 
-export const apiBaseUrl     = process.env.NEXT_PUBLIC_API_URL      ?? "";
-export const socketBaseUrl  = process.env.NEXT_PUBLIC_SOCKET_URL   ?? "";
-export const frontendBaseUrl= process.env.NEXT_PUBLIC_FRONTEND_URL ?? "";
+const rawApi    = process.env.NEXT_PUBLIC_API_URL    || `${PROD_BACKEND}/api`;
+const rawSocket = process.env.NEXT_PUBLIC_SOCKET_URL || PROD_BACKEND;
+
+export const apiBaseUrl     = rawApi.includes("94zd")    ? `${PROD_BACKEND}/api` : rawApi;
+export const socketBaseUrl  = rawSocket.includes("94zd") ? PROD_BACKEND           : rawSocket;
+export const frontendBaseUrl= process.env.NEXT_PUBLIC_FRONTEND_URL
+  || "https://food-system-sas-erp-frontend.vercel.app";

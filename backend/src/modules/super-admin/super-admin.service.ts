@@ -4,8 +4,6 @@ import { ConfigService } from '@nestjs/config'
 import * as bcrypt from 'bcrypt'
 import { PrismaService } from '@/database/prisma.service'
 
-const SA_EMAIL = 'superadmin@system.com'
-const SA_PASSWORD = 'SuperAdmin@123'
 const DEFAULT_MODULES = ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY']
 
 @Injectable()
@@ -17,7 +15,9 @@ export class SuperAdminService {
   ) {}
 
   async login(email: string, password: string) {
-    if (email !== SA_EMAIL || password !== SA_PASSWORD) {
+    const saEmail    = this.configService.get<string>('SUPER_ADMIN_EMAIL')    ?? 'superadmin@system.com'
+    const saPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD') ?? 'SuperAdmin@123'
+    if (email !== saEmail || password !== saPassword) {
       throw new UnauthorizedException('Credenciais inválidas')
     }
     const accessToken = await this.jwtService.signAsync(

@@ -30,9 +30,8 @@ export class JwtStrategy extends PassportStrategy(
       ignoreExpiration: false,
 
       secretOrKey:
-        configService.get<string>(
-          'JWT_SECRET',
-        ) || 'secret',
+        configService.get<string>('JWT_SECRET') ||
+        (() => { throw new Error('JWT_SECRET env var is required') })(),
     })
   }
 

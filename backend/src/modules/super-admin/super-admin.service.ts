@@ -23,7 +23,8 @@ export class SuperAdminService {
     const accessToken = await this.jwtService.signAsync(
       { email, role: 'SYSTEM_SUPER_ADMIN' },
       {
-        secret: this.configService.get<string>('JWT_SECRET') || 'secret',
+        secret: this.configService.get<string>('JWT_SECRET') ||
+          (() => { throw new Error('JWT_SECRET env var is required') })(),
         expiresIn: '8h',
       },
     )
@@ -136,7 +137,11 @@ export class SuperAdminService {
 
     const accessToken = await this.jwtService.signAsync(
       { sub: adminUser.id, email: adminUser.email, companyId: adminUser.companyId, role: adminUser.role },
-      { secret: this.configService.get<string>('JWT_SECRET') || 'secret', expiresIn: '4h' },
+      {
+        secret: this.configService.get<string>('JWT_SECRET') ||
+          (() => { throw new Error('JWT_SECRET env var is required') })(),
+        expiresIn: '4h',
+      },
     )
 
     return {
@@ -494,7 +499,8 @@ export class SuperAdminService {
    */
   async initDemoCompanies() {
     const bcrypt = await import('bcrypt');
-    const secret = this.configService.get<string>('JWT_SECRET') || 'secret';
+    const secret = this.configService.get<string>('JWT_SECRET') ||
+      (() => { throw new Error('JWT_SECRET env var is required') })();
 
     // Garante que o seed principal existe antes de clonar
     await this.runDemoSeed();

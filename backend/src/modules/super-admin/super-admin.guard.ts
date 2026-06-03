@@ -23,7 +23,8 @@ export class SuperAdminGuard implements CanActivate {
     const token = auth.slice(7)
     try {
       const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET') || 'secret',
+        secret: this.configService.get<string>('JWT_SECRET') ||
+          (() => { throw new Error('JWT_SECRET env var is required') })(),
       })
       if (payload.role !== 'SYSTEM_SUPER_ADMIN') {
         throw new UnauthorizedException('Acesso negado')

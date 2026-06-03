@@ -15,7 +15,8 @@ import { DemoVitrineService } from './demo-vitrine.service'
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
-        secret: cfg.get<string>('JWT_SECRET') || 'secret',
+        secret: cfg.get<string>('JWT_SECRET') ||
+          (() => { throw new Error('JWT_SECRET env var is required') })(),
         signOptions: { expiresIn: '8h' },
       }),
     }),

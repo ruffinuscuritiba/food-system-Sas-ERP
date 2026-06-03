@@ -11,10 +11,14 @@ import {
 } from '@nestjs/common'
 import { SuperAdminService } from './super-admin.service'
 import { SuperAdminGuard } from './super-admin.guard'
+import { DemoVitrineService } from './demo-vitrine.service'
 
 @Controller('super-admin')
 export class SuperAdminController {
-  constructor(private service: SuperAdminService) {}
+  constructor(
+    private service: SuperAdminService,
+    private vitrine: DemoVitrineService,
+  ) {}
 
   @Post('auth/login')
   login(@Body() body: { email: string; password: string }) {
@@ -140,5 +144,12 @@ export class SuperAdminController {
     @Body() body: { price: number; isFree?: boolean },
   ) {
     return this.service.updateModulePrice(slug, body.price, body.isFree)
+  }
+
+  /** POST /api/super-admin/demo/vitrine — popula as 3 demos com dados realistas */
+  @Post('demo/vitrine')
+  @UseGuards(SuperAdminGuard)
+  populateVitrine() {
+    return this.vitrine.populateAll()
   }
 }

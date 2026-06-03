@@ -5,6 +5,7 @@ import { PrismaModule } from '@/database/prisma.module'
 import { SuperAdminController } from './super-admin.controller'
 import { SuperAdminService } from './super-admin.service'
 import { SuperAdminGuard } from './super-admin.guard'
+import { DemoVitrineService } from './demo-vitrine.service'
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { SuperAdminGuard } from './super-admin.guard'
     }),
   ],
   controllers: [SuperAdminController],
-  providers: [SuperAdminService, SuperAdminGuard],
+  providers: [SuperAdminService, SuperAdminGuard, DemoVitrineService],
 })
 export class SuperAdminModule {}

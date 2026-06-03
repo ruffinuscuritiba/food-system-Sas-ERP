@@ -31,10 +31,14 @@ export class CategoriesService {
 
   findAll(companyId: string) {
     return this.prisma.category.findMany({
-      where: {
-        companyId,
+      where: { companyId },
+      select: {
+        id: true,
+        name: true,
+        categoryType: true,
+        sortOrder: true,
+        companyId: true,
       },
-
       orderBy: [
         { sortOrder: 'asc' },
         { name:      'asc' },

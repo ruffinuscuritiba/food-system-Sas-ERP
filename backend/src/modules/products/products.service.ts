@@ -26,8 +26,18 @@ export class ProductsService {
       },
 
       include: {
-        category: true,
-        sizes: { orderBy: { size: 'asc' } },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            categoryType: true,
+            sortOrder: true,
+            companyId: true,
+          },
+        },
+        sizes: {
+          orderBy: { size: 'asc' },
+        },
       },
 
       orderBy: [

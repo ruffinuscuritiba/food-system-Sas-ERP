@@ -161,77 +161,83 @@ export class SuperAdminService {
     const company = await this.prisma.company.findUnique({ where: { id } })
     if (!company) throw new NotFoundException('Empresa não encontrada')
 
-    // ── WhatsApp (leaf → root) ─────────────────────────────────────────────
-    await (this.prisma as any).whatsappMessage.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).whatsappConversation.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).whatsappAiSettings.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).whatsappConnection.deleteMany({ where: { companyId: id } })
+    // Wrap in a single transaction so a mid-delete crash leaves no orphan rows.
+    // timeout=60s to accommodate large tenants with many records.
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as any
 
-    // ── IA / Chat ──────────────────────────────────────────────────────────
-    await (this.prisma as any).aiMessage.deleteMany({ where: { conversation: { companyId: id } } })
-    await (this.prisma as any).aiConversation.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).chatMessage.deleteMany({ where: { session: { companyId: id } } })
-    await (this.prisma as any).chatSession.deleteMany({ where: { companyId: id } })
+      // ── WhatsApp (leaf → root) ───────────────────────────────────────────
+      await db.whatsappMessage.deleteMany({ where: { companyId: id } })
+      await db.whatsappConversation.deleteMany({ where: { companyId: id } })
+      await db.whatsappAiSettings.deleteMany({ where: { companyId: id } })
+      await db.whatsappConnection.deleteMany({ where: { companyId: id } })
 
-    // ── Smart Import ───────────────────────────────────────────────────────
-    await (this.prisma as any).importLog.deleteMany({ where: { session: { companyId: id } } })
-    await (this.prisma as any).importItem.deleteMany({ where: { session: { companyId: id } } })
-    await (this.prisma as any).importSession.deleteMany({ where: { companyId: id } })
+      // ── IA / Chat ────────────────────────────────────────────────────────
+      await db.aiMessage.deleteMany({ where: { conversation: { companyId: id } } })
+      await db.aiConversation.deleteMany({ where: { companyId: id } })
+      await db.chatMessage.deleteMany({ where: { session: { companyId: id } } })
+      await db.chatSession.deleteMany({ where: { companyId: id } })
 
-    // ── Pedidos mesa ───────────────────────────────────────────────────────
-    await (this.prisma as any).tableOrderItem.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).tableOrder.deleteMany({ where: { companyId: id } })
-    await this.prisma.table.deleteMany({ where: { companyId: id } })
+      // ── Smart Import ─────────────────────────────────────────────────────
+      await db.importLog.deleteMany({ where: { session: { companyId: id } } })
+      await db.importItem.deleteMany({ where: { session: { companyId: id } } })
+      await db.importSession.deleteMany({ where: { companyId: id } })
 
-    // ── Pedidos delivery / PDV ─────────────────────────────────────────────
-    await (this.prisma as any).orderItemComplement.deleteMany({ where: { orderItem: { companyId: id } } })
-    await this.prisma.orderItem.deleteMany({ where: { companyId: id } })
-    await this.prisma.order.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).onlineOrder.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).paymentWebhook.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).payment.deleteMany({ where: { companyId: id } })
+      // ── Pedidos mesa ─────────────────────────────────────────────────────
+      await db.tableOrderItem.deleteMany({ where: { companyId: id } })
+      await db.tableOrder.deleteMany({ where: { companyId: id } })
+      await tx.table.deleteMany({ where: { companyId: id } })
 
-    // ── Estoque / Receitas ─────────────────────────────────────────────────
-    await (this.prisma as any).stockMovement.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).recipeItem.deleteMany({ where: { recipe: { companyId: id } } })
-    await (this.prisma as any).recipe.deleteMany({ where: { companyId: id } })
-    await this.prisma.ingredient.deleteMany({ where: { companyId: id } })
+      // ── Pedidos delivery / PDV ────────────────────────────────────────────
+      await db.orderItemComplement.deleteMany({ where: { orderItem: { companyId: id } } })
+      await tx.orderItem.deleteMany({ where: { companyId: id } })
+      await tx.order.deleteMany({ where: { companyId: id } })
+      await db.onlineOrder.deleteMany({ where: { companyId: id } })
+      await db.paymentWebhook.deleteMany({ where: { companyId: id } })
+      await db.payment.deleteMany({ where: { companyId: id } })
 
-    // ── Cardápio ───────────────────────────────────────────────────────────
-    await (this.prisma as any).complementOption.deleteMany({ where: { complement: { companyId: id } } })
-    await (this.prisma as any).complement.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).productSize.deleteMany({ where: { companyId: id } })
-    await this.prisma.product.deleteMany({ where: { companyId: id } })
-    await this.prisma.category.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).pizzaBorderSize.deleteMany({ where: { pizzaBorder: { companyId: id } } })
-    await (this.prisma as any).pizzaBorder.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).pizzaSizeConfig.deleteMany({ where: { companyId: id } })
+      // ── Estoque / Receitas ────────────────────────────────────────────────
+      await db.stockMovement.deleteMany({ where: { companyId: id } })
+      await db.recipeItem.deleteMany({ where: { recipe: { companyId: id } } })
+      await db.recipe.deleteMany({ where: { companyId: id } })
+      await tx.ingredient.deleteMany({ where: { companyId: id } })
 
-    // ── Financeiro / Caixa ─────────────────────────────────────────────────
-    await this.prisma.financial.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).cash.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).kpiSnapshot.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).operationalCost.deleteMany({ where: { companyId: id } })
+      // ── Cardápio ─────────────────────────────────────────────────────────
+      await db.complementOption.deleteMany({ where: { complement: { companyId: id } } })
+      await db.complement.deleteMany({ where: { companyId: id } })
+      await db.productSize.deleteMany({ where: { companyId: id } })
+      await tx.product.deleteMany({ where: { companyId: id } })
+      await tx.category.deleteMany({ where: { companyId: id } })
+      await db.pizzaBorderSize.deleteMany({ where: { pizzaBorder: { companyId: id } } })
+      await db.pizzaBorder.deleteMany({ where: { companyId: id } })
+      await db.pizzaSizeConfig.deleteMany({ where: { companyId: id } })
 
-    // ── Clientes / Fidelidade ──────────────────────────────────────────────
-    await (this.prisma as any).pointTransaction.deleteMany({ where: { loyaltyAccount: { companyId: id } } })
-    await (this.prisma as any).loyaltyAccount.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).coupon.deleteMany({ where: { companyId: id } })
-    await this.prisma.customer.deleteMany({ where: { companyId: id } })
+      // ── Financeiro / Caixa ────────────────────────────────────────────────
+      await tx.financial.deleteMany({ where: { companyId: id } })
+      await db.cash.deleteMany({ where: { companyId: id } })
+      await db.kpiSnapshot.deleteMany({ where: { companyId: id } })
+      await db.operationalCost.deleteMany({ where: { companyId: id } })
 
-    // ── Entrega ────────────────────────────────────────────────────────────
-    await (this.prisma as any).driverProfile.deleteMany({ where: { companyId: id } })
-    await (this.prisma as any).deliveryZone.deleteMany({ where: { companyId: id } })
+      // ── Clientes / Fidelidade ─────────────────────────────────────────────
+      await db.pointTransaction.deleteMany({ where: { loyaltyAccount: { companyId: id } } })
+      await db.loyaltyAccount.deleteMany({ where: { companyId: id } })
+      await db.coupon.deleteMany({ where: { companyId: id } })
+      await tx.customer.deleteMany({ where: { companyId: id } })
 
-    // ── BI / Alertas ───────────────────────────────────────────────────────
-    await (this.prisma as any).alert.deleteMany({ where: { companyId: id } })
+      // ── Entrega ───────────────────────────────────────────────────────────
+      await db.driverProfile.deleteMany({ where: { companyId: id } })
+      await db.deliveryZone.deleteMany({ where: { companyId: id } })
 
-    // ── Sistema ────────────────────────────────────────────────────────────
-    await (this.prisma as any).companyTheme.deleteMany({ where: { companyId: id } })
-    await this.prisma.auditLog.deleteMany({ where: { companyId: id } })
-    await this.prisma.companyModule.deleteMany({ where: { companyId: id } })
-    await this.prisma.user.deleteMany({ where: { companyId: id } })
-    return this.prisma.company.delete({ where: { id } })
+      // ── BI / Alertas ──────────────────────────────────────────────────────
+      await db.alert.deleteMany({ where: { companyId: id } })
+
+      // ── Sistema ───────────────────────────────────────────────────────────
+      await db.companyTheme.deleteMany({ where: { companyId: id } })
+      await tx.auditLog.deleteMany({ where: { companyId: id } })
+      await tx.companyModule.deleteMany({ where: { companyId: id } })
+      await tx.user.deleteMany({ where: { companyId: id } })
+      return tx.company.delete({ where: { id } })
+    }, { timeout: 60_000 })
   }
 
   async cloneMenu(sourceId: string, targetId: string) {

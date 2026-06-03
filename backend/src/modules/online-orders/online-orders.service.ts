@@ -99,7 +99,7 @@ export class OnlineOrdersService {
     // Garante required / minOptions / maxOptions / multipleChoice mesmo
     // que o frontend seja burlado. Tudo filtrado por companyId.
     for (const item of dto.items) {
-      const groups: any[] = await (this.prisma as any).complement.findMany({
+      const groups: any[] = await this.prisma.complement.findMany({
         where: { productId: item.productId, companyId: dto.companyId, isActive: true },
         include: { options: { where: { isActive: true } } },
       });

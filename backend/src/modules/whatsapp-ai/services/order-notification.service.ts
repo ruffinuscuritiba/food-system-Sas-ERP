@@ -115,7 +115,7 @@ export class OrderNotificationService {
 
   private async findActiveConnection(companyId: string): Promise<any | null> {
     try {
-      const conn = await (this.prisma as any).whatsappConnection.findFirst({
+      const conn = await this.prisma.whatsappConnection.findFirst({
         where: { companyId, isActive: true },
         orderBy: { createdAt: 'desc' },
       });

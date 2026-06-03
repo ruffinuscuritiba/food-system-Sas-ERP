@@ -217,7 +217,7 @@ export class WhatsappAiService {
   // ── CONNECTIONS ────────────────────────────────────────────────────────────
 
   findConnections(companyId: string) {
-    return (this.prisma as any).whatsappConnection.findMany({
+    return this.prisma.whatsappConnection.findMany({
       where: { companyId },
       include: { settings: true, _count: { select: { conversations: true } } },
       orderBy: { createdAt: 'desc' },
@@ -225,26 +225,26 @@ export class WhatsappAiService {
   }
 
   async createConnection(companyId: string, dto: CreateConnectionDto) {
-    return (this.prisma as any).whatsappConnection.create({
+    return this.prisma.whatsappConnection.create({
       data: { ...dto, companyId, provider: dto.provider ?? 'EVOLUTION' },
     });
   }
 
   async updateConnection(id: string, companyId: string, dto: Partial<CreateConnectionDto>) {
     await this.assertConnectionOwnership(id, companyId);
-    return (this.prisma as any).whatsappConnection.update({ where: { id }, data: dto });
+    return this.prisma.whatsappConnection.update({ where: { id }, data: dto });
   }
 
   async deleteConnection(id: string, companyId: string) {
     await this.assertConnectionOwnership(id, companyId);
-    return (this.prisma as any).whatsappConnection.delete({ where: { id } });
+    return this.prisma.whatsappConnection.delete({ where: { id } });
   }
 
   // ── SETTINGS ───────────────────────────────────────────────────────────────
 
   async getSettings(connectionId: string, companyId: string) {
     await this.assertConnectionOwnership(connectionId, companyId);
-    const settings = await (this.prisma as any).whatsappAiSettings.findUnique({
+    const settings = await this.prisma.whatsappAiSettings.findUnique({
       where: { connectionId },
     });
     return settings;
@@ -252,7 +252,7 @@ export class WhatsappAiService {
 
   async upsertSettings(connectionId: string, companyId: string, dto: UpdateSettingsDto) {
     await this.assertConnectionOwnership(connectionId, companyId);
-    return (this.prisma as any).whatsappAiSettings.upsert({
+    return this.prisma.whatsappAiSettings.upsert({
       where: { connectionId },
       create: { ...dto, connectionId, companyId },
       update: dto,
@@ -262,7 +262,7 @@ export class WhatsappAiService {
   // ── CONVERSATIONS ──────────────────────────────────────────────────────────
 
   findConversations(companyId: string, connectionId?: string) {
-    return (this.prisma as any).whatsappConversation.findMany({
+    return this.prisma.whatsappConversation.findMany({
       where: { companyId, ...(connectionId ? { connectionId } : {}) },
       orderBy: { lastMessageAt: 'desc' },
       take: 100,
@@ -274,18 +274,18 @@ export class WhatsappAiService {
   }
 
   findMessages(conversationId: string, companyId: string) {
-    return (this.prisma as any).whatsappMessage.findMany({
+    return this.prisma.whatsappMessage.findMany({
       where: { conversationId, companyId },
       orderBy: { createdAt: 'asc' },
     });
   }
 
   async setConversationMode(id: string, companyId: string, mode: string) {
-    const conv = await (this.prisma as any).whatsappConversation.findFirst({
+    const conv = await this.prisma.whatsappConversation.findFirst({
       where: { id, companyId },
     });
     if (!conv) throw new NotFoundException('Conversa não encontrada');
-    return (this.prisma as any).whatsappConversation.update({
+    return this.prisma.whatsappConversation.update({
       where: { id },
       data: { mode },
     });
@@ -293,7 +293,7 @@ export class WhatsappAiService {
 
   /** Send a message manually as the operator (human mode) */
   async sendManualMessage(id: string, companyId: string, text: string) {
-    const conv = await (this.prisma as any).whatsappConversation.findFirst({
+    const conv = await this.prisma.whatsappConversation.findFirst({
       where: { id, companyId },
       include: { connection: true },
     });
@@ -309,11 +309,11 @@ export class WhatsappAiService {
   async getStats(companyId: string) {
     const [totalConversations, activeConversations, humanConversations, totalMessages, ordersCreated] =
       await Promise.all([
-        (this.prisma as any).whatsappConversation.count({ where: { companyId } }),
-        (this.prisma as any).whatsappConversation.count({ where: { companyId, status: 'ACTIVE' } }),
-        (this.prisma as any).whatsappConversation.count({ where: { companyId, mode: 'HUMAN' } }),
-        (this.prisma as any).whatsappMessage.count({ where: { companyId } }),
-        (this.prisma as any).whatsappConversation.count({
+        this.prisma.whatsappConversation.count({ where: { companyId } }),
+        this.prisma.whatsappConversation.count({ where: { companyId, status: 'ACTIVE' } }),
+        this.prisma.whatsappConversation.count({ where: { companyId, mode: 'HUMAN' } }),
+        this.prisma.whatsappMessage.count({ where: { companyId } }),
+        this.prisma.whatsappConversation.count({
           where: { companyId, orderId: { not: null } },
         }),
       ]);
@@ -348,7 +348,7 @@ export class WhatsappAiService {
     const audioMsg = data?.message?.audioMessage ?? data?.message?.pttMessage;
     if (!text.trim() && audioMsg?.url) {
       try {
-        const connection = await (this.prisma as any).whatsappConnection.findUnique({
+        const connection = await this.prisma.whatsappConnection.findUnique({
           where: { id: connectionId },
         });
         const headers: Record<string, string> = connection?.apiToken ? { apikey: String(connection.apiToken) } : {};
@@ -387,7 +387,7 @@ export class WhatsappAiService {
           } else if (msg.type === 'audio') {
             // ── Suporte a áudio via Whisper ────────────────────────────────
             try {
-              const connection = await (this.prisma as any).whatsappConnection.findUnique({
+              const connection = await this.prisma.whatsappConnection.findUnique({
                 where: { id: connectionId },
               });
               const token = connection?.apiToken ?? '';
@@ -418,7 +418,7 @@ export class WhatsappAiService {
   // ── CORE PROCESSING ────────────────────────────────────────────────────────
 
   private async processIncoming(connectionId: string, phone: string, name: string, text: string) {
-    const connection = await (this.prisma as any).whatsappConnection.findUnique({
+    const connection = await this.prisma.whatsappConnection.findUnique({
       where: { id: connectionId },
       include: { settings: true },
     });
@@ -431,7 +431,7 @@ export class WhatsappAiService {
 
     // Save user message
     await this.saveMessage(conv.id, connection.companyId, 'USER', text);
-    await (this.prisma as any).whatsappConversation.update({
+    await this.prisma.whatsappConversation.update({
       where: { id: conv.id },
       data: { lastMessageAt: new Date(), customerName: name },
     });
@@ -453,7 +453,7 @@ export class WhatsappAiService {
     if (settings.transferKeywords) {
       const kws = settings.transferKeywords.split(',').map((k: string) => k.trim().toLowerCase());
       if (kws.some((kw: string) => text.toLowerCase().includes(kw))) {
-        await (this.prisma as any).whatsappConversation.update({
+        await this.prisma.whatsappConversation.update({
           where: { id: conv.id },
           data: { mode: 'HUMAN', status: 'TRANSFERRED' },
         });
@@ -502,7 +502,7 @@ export class WhatsappAiService {
     const systemPrompt = buildSystemPrompt(settings, companyName, menuCtx, cartCtx);
 
     // Build conversation history (last 20 messages)
-    const history = await (this.prisma as any).whatsappMessage.findMany({
+    const history = await this.prisma.whatsappMessage.findMany({
       where: { conversationId: conv.id },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -538,7 +538,7 @@ export class WhatsappAiService {
         role: m.role === 'model' ? 'assistant' : 'user',
         text: m.text,
       }));
-      rawResponse = await anthropicChat(aiModel, systemPrompt, anthropicMsgs);
+      rawResponse = await anthropicChat(aiModel, systemPrompt, anthropicMsgs as any);
     } else {
       rawResponse = await geminiChat(aiModel, systemPrompt, aiMessages as any);
     }
@@ -569,7 +569,7 @@ export class WhatsappAiService {
         }
       }
       ctx.cart = updatedCart;
-      await (this.prisma as any).whatsappConversation.update({
+      await this.prisma.whatsappConversation.update({
         where: { id: conv.id },
         data: { context: ctx },
       });
@@ -584,7 +584,7 @@ export class WhatsappAiService {
           confirmOrder,
           conv.customerPhone,
         );
-        await (this.prisma as any).whatsappConversation.update({
+        await this.prisma.whatsappConversation.update({
           where: { id: conv.id },
           data: { orderId, status: 'CLOSED', context: { ...ctx, cart: [] } },
         });
@@ -595,7 +595,7 @@ export class WhatsappAiService {
 
     // Process TRANSFER_HUMAN
     if (transferHuman) {
-      await (this.prisma as any).whatsappConversation.update({
+      await this.prisma.whatsappConversation.update({
         where: { id: conv.id },
         data: { mode: 'HUMAN', status: 'TRANSFERRED' },
       });
@@ -603,7 +603,7 @@ export class WhatsappAiService {
 
     // Process CLOSE
     if (closeConversation) {
-      await (this.prisma as any).whatsappConversation.update({
+      await this.prisma.whatsappConversation.update({
         where: { id: conv.id },
         data: { status: 'CLOSED' },
       });
@@ -654,7 +654,7 @@ export class WhatsappAiService {
     };
 
     // Histórico de conversa (últimas 20 mensagens) para Claude
-    const historyRaw = await (this.prisma as any).whatsappMessage.findMany({
+    const historyRaw = await this.prisma.whatsappMessage.findMany({
       where: { conversationId: conv.id },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -707,7 +707,7 @@ export class WhatsappAiService {
       telefone:            status_carrinho.telefone      ?? ctx.telefone,
       formaPagamento:      status_carrinho.formaPagamento ?? ctx.formaPagamento,
     };
-    await (this.prisma as any).whatsappConversation.update({
+    await this.prisma.whatsappConversation.update({
       where: { id: conv.id },
       data:  { context: newCtx },
     });
@@ -737,7 +737,7 @@ export class WhatsappAiService {
           conv.customerPhone,
         );
 
-        await (this.prisma as any).whatsappConversation.update({
+        await this.prisma.whatsappConversation.update({
           where: { id: conv.id },
           data:  { orderId, status: 'CLOSED' },
         });
@@ -750,7 +750,7 @@ export class WhatsappAiService {
 
     // 3. Transferir para humano se solicitado na resposta
     if (resposta_para_o_cliente.includes('TRANSFERIR_HUMANO')) {
-      await (this.prisma as any).whatsappConversation.update({
+      await this.prisma.whatsappConversation.update({
         where: { id: conv.id },
         data:  { mode: 'HUMAN', status: 'TRANSFERRED' },
       });
@@ -803,12 +803,12 @@ export class WhatsappAiService {
   // ── HELPERS ────────────────────────────────────────────────────────────────
 
   private async getOrCreateConversation(connection: any, phone: string, name: string) {
-    const existing = await (this.prisma as any).whatsappConversation.findUnique({
+    const existing = await this.prisma.whatsappConversation.findUnique({
       where: { connectionId_customerPhone: { connectionId: connection.id, customerPhone: phone } },
     });
     if (existing) return existing;
 
-    return (this.prisma as any).whatsappConversation.create({
+    return this.prisma.whatsappConversation.create({
       data: {
         connectionId: connection.id,
         companyId: connection.companyId,
@@ -820,7 +820,7 @@ export class WhatsappAiService {
   }
 
   private saveMessage(conversationId: string, companyId: string, role: string, content: string) {
-    return (this.prisma as any).whatsappMessage.create({
+    return this.prisma.whatsappMessage.create({
       data: { conversationId, companyId, role, content },
     });
   }
@@ -845,7 +845,7 @@ export class WhatsappAiService {
 
     let connection: any;
     try {
-      connection = await (this.prisma as any).whatsappConnection.findFirst({
+      connection = await this.prisma.whatsappConnection.findFirst({
         where: { companyId: params.companyId, isActive: true },
         orderBy: { createdAt: 'desc' },
       });
@@ -893,7 +893,7 @@ export class WhatsappAiService {
   }
 
   private async assertConnectionOwnership(id: string, companyId: string) {
-    const conn = await (this.prisma as any).whatsappConnection.findFirst({
+    const conn = await this.prisma.whatsappConnection.findFirst({
       where: { id, companyId },
     });
     if (!conn) throw new NotFoundException('Conexão não encontrada');

@@ -266,7 +266,7 @@ export class OrdersService {
 
             for (const comp of comps) {
 
-              await (tx as any).orderItemComplement.create({
+              await tx.orderItemComplement.create({
 
                 data: {
 
@@ -417,26 +417,12 @@ export class OrdersService {
     companyId: string,
   ) {
 
-    return (this.prisma as any).order.findMany({
-
-      where: {
-        companyId,
-      },
-
-      orderBy: {
-        createdAt: "desc",
-      },
-
+    return this.prisma.order.findMany({
+      where: { companyId },
+      orderBy: { createdAt: "desc" },
       include: {
-
         customer: true,
-
-        items: {
-
-          include: {
-            selectedComplements: true,
-          },
-        },
+        items: { include: { selectedComplements: true } },
       },
     });
   }
@@ -825,12 +811,12 @@ export class OrdersService {
 
   async findAllForKitchen(companyId: string) {
     const [pdvOrders, onlineOrdersRaw] = await Promise.all([
-      (this.prisma as any).order.findMany({
+      this.prisma.order.findMany({
         where: { companyId },
         orderBy: { createdAt: 'desc' },
         include: { customer: true, items: { include: { selectedComplements: true } } },
       }),
-      (this.prisma as any).onlineOrder.findMany({
+      this.prisma.onlineOrder.findMany({
         where: { companyId },
         orderBy: { createdAt: 'desc' },
       }),
@@ -918,15 +904,15 @@ export class OrdersService {
 
     if (source === 'ONLINE') {
       const mapped = this.mapKitchenStatusToOnline(status);
-      const onlineOrder = await (this.prisma as any).onlineOrder.findFirst({
+      const onlineOrder = await this.prisma.onlineOrder.findFirst({
         where: { id, companyId },
         select: { id: true },
       });
       if (!onlineOrder) throw new NotFoundException('Pedido online não encontrado.');
 
-      const updated = await (this.prisma as any).onlineOrder.update({
+      const updated = await this.prisma.onlineOrder.update({
         where: { id },
-        data:  { orderStatus: mapped },
+        data:  { orderStatus: mapped as any },
       });
 
       try {

@@ -9,9 +9,17 @@ import { join } from 'path'
 import { mkdirSync } from 'fs'
 import type { Request, Response, NextFunction } from 'express'
 import { json, urlencoded } from 'express'
+import helmet from 'helmet'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
+
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }))
 
   // Aumentar limite para suportar imagens base64 no body JSON (logo, banner, etc.)
   app.use(json({ limit: '10mb' }))

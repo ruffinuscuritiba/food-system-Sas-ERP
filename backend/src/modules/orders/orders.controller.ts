@@ -18,6 +18,7 @@ export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CAN
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { Throttle } from "@nestjs/throttler";
 
 @Controller("orders")
 export class OrdersController {
@@ -138,6 +139,7 @@ export class OrdersController {
   }
 
   // Public endpoint — no auth required (customer ordering from menu)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("public")
   async createPublic(@Body() body: any) {
     const { customerPhone, companyId, ...rest } = body;

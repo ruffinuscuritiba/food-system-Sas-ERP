@@ -101,7 +101,7 @@ export class ComplementsService {
     if (!product) return []; // produto inexistente/outra empresa → sem grupos
 
     // 2. Query única cobrindo os 3 escopos relevantes
-    const groups: any[] = await (this.prisma as any).complement.findMany({
+    const groups: any[] = await this.prisma.complement.findMany({
       where: {
         companyId,
         isActive: true,
@@ -126,7 +126,7 @@ export class ComplementsService {
   // ── ADMIN LIST (mostra TUDO; UI agrupa por escopo) ─────────────────────────
 
   async findAll(companyId: string) {
-    return (this.prisma as any).complement.findMany({
+    return this.prisma.complement.findMany({
       where: { companyId },
       orderBy: [{ productId: 'asc' }, { categoryId: 'asc' }, { sortOrder: 'asc' }],
       include: {
@@ -141,7 +141,7 @@ export class ComplementsService {
 
   async create(dto: CreateComplementDto, companyId: string) {
     await this.assertScopeAndOwnership(dto.productId, dto.categoryId, companyId);
-    return (this.prisma as any).complement.create({
+    return this.prisma.complement.create({
       data: {
         companyId,
         name:           dto.name,
@@ -165,7 +165,7 @@ export class ComplementsService {
     if (data.productId !== undefined || data.categoryId !== undefined) {
       await this.assertScopeAndOwnership(data.productId, data.categoryId, companyId);
     }
-    return (this.prisma as any).complement.update({
+    return this.prisma.complement.update({
       where: { id },
       data: {
         ...(data.name           !== undefined && { name:           data.name }),
@@ -185,21 +185,21 @@ export class ComplementsService {
 
   async remove(id: string, companyId: string) {
     await this.assertOwnership(id, companyId);
-    return (this.prisma as any).complement.delete({ where: { id } });
+    return this.prisma.complement.delete({ where: { id } });
   }
 
   // ── B2 — DUPLICAR GRUPO ────────────────────────────────────────────────────
 
   async duplicate(id: string, companyId: string) {
     await this.assertOwnership(id, companyId);
-    const src = await (this.prisma as any).complement.findUnique({
+    const src = await this.prisma.complement.findUnique({
       where: { id },
       include: { options: true },
     });
     if (!src) throw new NotFoundException('Complemento não encontrado.');
 
     // Próximo sortOrder dentro do mesmo escopo
-    const max = await (this.prisma as any).complement.aggregate({
+    const max = await this.prisma.complement.aggregate({
       where: {
         companyId,
         productId:  src.productId,
@@ -208,7 +208,7 @@ export class ComplementsService {
       _max: { sortOrder: true },
     });
 
-    return (this.prisma as any).complement.create({
+    return this.prisma.complement.create({
       data: {
         companyId,
         name:           `${src.name} (cópia)`,
@@ -242,7 +242,7 @@ export class ComplementsService {
       throw new BadRequestException('items é obrigatório');
     }
     const ids = items.map((i) => i.id);
-    const owned: any[] = await (this.prisma as any).complement.findMany({
+    const owned: any[] = await this.prisma.complement.findMany({
       where: { id: { in: ids }, companyId },
       select: { id: true },
     });
@@ -251,7 +251,7 @@ export class ComplementsService {
     }
     await this.prisma.$transaction(
       items.map((i) =>
-        (this.prisma as any).complement.update({
+        this.prisma.complement.update({
           where: { id: i.id },
           data:  { sortOrder: i.sortOrder },
         }),
@@ -264,7 +264,7 @@ export class ComplementsService {
 
   async findOptions(complementId: string, companyId: string) {
     await this.assertOwnership(complementId, companyId);
-    return (this.prisma as any).complementOption.findMany({
+    return this.prisma.complementOption.findMany({
       where: { complementId },
       orderBy: { sortOrder: 'asc' },
     });
@@ -272,11 +272,11 @@ export class ComplementsService {
 
   async createOption(complementId: string, dto: CreateComplementOptionDto, companyId: string) {
     await this.assertOwnership(complementId, companyId);
-    const max = await (this.prisma as any).complementOption.aggregate({
+    const max = await this.prisma.complementOption.aggregate({
       where: { complementId },
       _max:  { sortOrder: true },
     });
-    return (this.prisma as any).complementOption.create({
+    return this.prisma.complementOption.create({
       data: {
         complementId,
         name:      dto.name,
@@ -295,7 +295,7 @@ export class ComplementsService {
     companyId: string,
   ) {
     await this.assertOwnership(complementId, companyId);
-    return (this.prisma as any).complementOption.update({
+    return this.prisma.complementOption.update({
       where: { id: optionId },
       data: {
         ...(dto.name      !== undefined && { name:      dto.name }),
@@ -309,7 +309,7 @@ export class ComplementsService {
 
   async removeOption(optionId: string, complementId: string, companyId: string) {
     await this.assertOwnership(complementId, companyId);
-    return (this.prisma as any).complementOption.delete({ where: { id: optionId } });
+    return this.prisma.complementOption.delete({ where: { id: optionId } });
   }
 
   // ── B4 — REORDER OPÇÕES ────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ export class ComplementsService {
       throw new BadRequestException('items é obrigatório');
     }
     const ids = items.map((i) => i.id);
-    const owned: any[] = await (this.prisma as any).complementOption.findMany({
+    const owned: any[] = await this.prisma.complementOption.findMany({
       where: { id: { in: ids }, complementId },
       select: { id: true },
     });
@@ -333,7 +333,7 @@ export class ComplementsService {
     }
     await this.prisma.$transaction(
       items.map((i) =>
-        (this.prisma as any).complementOption.update({
+        this.prisma.complementOption.update({
           where: { id: i.id },
           data:  { sortOrder: i.sortOrder },
         }),
@@ -345,7 +345,7 @@ export class ComplementsService {
   // ── helpers ────────────────────────────────────────────────────────────────
 
   private async assertOwnership(complementId: string, companyId: string) {
-    const comp = await (this.prisma as any).complement.findFirst({
+    const comp = await this.prisma.complement.findFirst({
       where: { id: complementId, companyId },
     });
     if (!comp) throw new NotFoundException('Complemento não encontrado');

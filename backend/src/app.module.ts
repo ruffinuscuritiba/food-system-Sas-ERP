@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
 import { ConfigModule } from '@nestjs/config'
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 
 import { PrismaModule } from './database/prisma.module'
 
@@ -43,9 +44,8 @@ import { DemoGuard }     from './common/guards/demo.guard'
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
 
     PrismaModule,
     AuditModule,
@@ -80,7 +80,7 @@ import { DemoGuard }     from './common/guards/demo.guard'
   controllers: [AppController],
   providers: [
     AppService,
-    // DemoGuard aplicado globalmente — bloqueia POST/PATCH/DELETE para role DEMO
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: DemoGuard },
   ],
 })

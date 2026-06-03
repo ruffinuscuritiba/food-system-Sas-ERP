@@ -245,6 +245,67 @@ export default function WhatsappIaPage() {
   );
 }
 
+// ─── Provider type (UI-only) ──────────────────────────────────────────────────
+
+type ProviderType = "WHATSAPP_BUSINESS" | "EVOLUTION" | "META_CLOUD";
+
+const PROVIDER_CARDS: {
+  type: ProviderType;
+  label: string;
+  badge?: string;
+  desc: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    type:  "WHATSAPP_BUSINESS",
+    label: "WhatsApp Business",
+    badge: "Recomendado",
+    desc:  "Conecte via QR Code. Simples e rápido.",
+    icon: (
+      <span style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 32, height: 32, borderRadius: 8,
+        background: "linear-gradient(145deg,#25D366 0%,#128C7E 60%,#075E54 100%)",
+        boxShadow: "0 2px 8px rgba(37,211,102,0.4)",
+      }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+      </span>
+    ),
+  },
+  {
+    type:  "EVOLUTION",
+    label: "Evolution API",
+    desc:  "Instância própria com controle total.",
+    icon: (
+      <span style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 32, height: 32, borderRadius: 8,
+        background: "linear-gradient(145deg,#6366f1,#4f46e5)",
+        boxShadow: "0 2px 8px rgba(99,102,241,0.4)",
+      }}>
+        <Zap size={16} color="white" />
+      </span>
+    ),
+  },
+  {
+    type:  "META_CLOUD",
+    label: "Meta Cloud API",
+    desc:  "API oficial da Meta para empresas.",
+    icon: (
+      <span style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 32, height: 32, borderRadius: 8,
+        background: "linear-gradient(145deg,#1877f2,#0d5db5)",
+        boxShadow: "0 2px 8px rgba(24,119,242,0.4)",
+      }}>
+        <Shield size={16} color="white" />
+      </span>
+    ),
+  },
+];
+
 // ─── Connections Tab ──────────────────────────────────────────────────────────
 
 function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
@@ -254,11 +315,23 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
   copyWebhook: (id: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [providerType, setProviderType] = useState<ProviderType>("WHATSAPP_BUSINESS");
   const [form, setForm] = useState({
     name: "", provider: "EVOLUTION", instanceName: "", apiUrl: "",
     apiToken: "", phoneNumberId: "", webhookToken: "", phoneNumber: "",
   });
   const [saving, setSaving] = useState(false);
+
+  const handleProviderTypeChange = (type: ProviderType) => {
+    setProviderType(type);
+    setForm((f) => ({
+      ...f,
+      provider: type === "META_CLOUD" ? "CLOUD_API" : "EVOLUTION",
+      // reset campos técnicos ao trocar de tipo
+      instanceName: "", apiUrl: "", apiToken: "",
+      phoneNumberId: "", webhookToken: "",
+    }));
+  };
 
   const save = async () => {
     if (!form.name.trim()) { toast.error("Nome obrigatório"); return; }
@@ -267,6 +340,7 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
       await api.post("/whatsapp-ai/connections", form);
       toast.success("Conexão criada!");
       setShowForm(false);
+      setProviderType("WHATSAPP_BUSINESS");
       setForm({ name: "", provider: "EVOLUTION", instanceName: "", apiUrl: "", apiToken: "", phoneNumberId: "", webhookToken: "", phoneNumber: "" });
       onRefresh();
     } catch {
@@ -305,34 +379,87 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
       </div>
 
       {showForm && (
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-5">
           <h3 className="font-bold text-white text-base">Nova Conexão</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Ex: WhatsApp Principal" />
-            <div>
-              <label className="text-xs text-slate-400 font-semibold mb-1 block">Provedor</label>
-              <select
-                value={form.provider}
-                onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-green-500"
-              >
-                {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
+
+          {/* ── Provider type selector ── */}
+          <div>
+            <label className="text-xs text-slate-400 font-semibold mb-2 block">Tipo de conexão</label>
+            <div className="grid grid-cols-3 gap-2">
+              {PROVIDER_CARDS.map((card) => {
+                const active = providerType === card.type;
+                return (
+                  <button
+                    key={card.type}
+                    type="button"
+                    onClick={() => handleProviderTypeChange(card.type)}
+                    className={`relative flex flex-col items-start gap-2 p-3 rounded-xl border text-left transition ${
+                      active
+                        ? "border-green-500 bg-green-900/20"
+                        : "border-slate-700 bg-slate-800/50 hover:border-slate-600"
+                    }`}
+                  >
+                    {card.badge && (
+                      <span className="absolute top-2 right-2 text-[9px] font-black bg-green-600 text-white px-1.5 py-0.5 rounded-full">
+                        {card.badge}
+                      </span>
+                    )}
+                    {card.icon}
+                    <div>
+                      <p className={`text-xs font-bold leading-tight ${active ? "text-white" : "text-slate-300"}`}>
+                        {card.label}
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{card.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            {form.provider === "EVOLUTION" && (
+          </div>
+
+          {/* ── Fields ── */}
+          <div className="space-y-3">
+            {/* WhatsApp Business: nome + telefone apenas */}
+            {providerType === "WHATSAPP_BUSINESS" && (
               <>
-                <Field label="URL da API" value={form.apiUrl} onChange={(v) => setForm({ ...form, apiUrl: v })} placeholder="https://api.evolution.io" />
-                <Field label="Nome da Instância" value={form.instanceName} onChange={(v) => setForm({ ...form, instanceName: v })} placeholder="minha-instancia" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Nome da conexão" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Ex: WhatsApp Principal" />
+                  <Field label="Número do WhatsApp" value={form.phoneNumber} onChange={(v) => setForm({ ...form, phoneNumber: v })} placeholder="5511999999999" />
+                </div>
+                <div className="flex items-start gap-2.5 bg-green-950/40 border border-green-800/50 rounded-xl px-4 py-3">
+                  <CheckCircle2 size={15} className="text-green-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-green-300 leading-relaxed">
+                    Após salvar você poderá conectar seu WhatsApp Business através de QR Code.
+                  </p>
+                </div>
               </>
             )}
-            {form.provider === "CLOUD_API" && (
-              <Field label="Phone Number ID" value={form.phoneNumberId} onChange={(v) => setForm({ ...form, phoneNumberId: v })} placeholder="123456789" />
+
+            {/* Evolution API: campos técnicos completos */}
+            {providerType === "EVOLUTION" && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nome da conexão" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Ex: WhatsApp Principal" />
+                <Field label="Número do WhatsApp" value={form.phoneNumber} onChange={(v) => setForm({ ...form, phoneNumber: v })} placeholder="5511999999999" />
+                <Field label="URL da API" value={form.apiUrl} onChange={(v) => setForm({ ...form, apiUrl: v })} placeholder="https://api.evolution.io" />
+                <Field label="Nome da Instância" value={form.instanceName} onChange={(v) => setForm({ ...form, instanceName: v })} placeholder="minha-instancia" />
+                <Field label="API Token / Bearer" value={form.apiToken} onChange={(v) => setForm({ ...form, apiToken: v })} placeholder="Token de autenticação" type="password" />
+                <Field label="Webhook Token (opcional)" value={form.webhookToken} onChange={(v) => setForm({ ...form, webhookToken: v })} placeholder="Verificação de webhook" />
+              </div>
             )}
-            <Field label="API Token / Bearer" value={form.apiToken} onChange={(v) => setForm({ ...form, apiToken: v })} placeholder="Token de autenticação" type="password" />
-            <Field label="Webhook Token (opcional)" value={form.webhookToken} onChange={(v) => setForm({ ...form, webhookToken: v })} placeholder="Verificação de webhook" />
-            <Field label="Número do WhatsApp" value={form.phoneNumber} onChange={(v) => setForm({ ...form, phoneNumber: v })} placeholder="5511999999999" />
+
+            {/* Meta Cloud API: Phone Number ID + token */}
+            {providerType === "META_CLOUD" && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nome da conexão" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Ex: WhatsApp Meta" />
+                <Field label="Número do WhatsApp" value={form.phoneNumber} onChange={(v) => setForm({ ...form, phoneNumber: v })} placeholder="5511999999999" />
+                <Field label="Phone Number ID" value={form.phoneNumberId} onChange={(v) => setForm({ ...form, phoneNumberId: v })} placeholder="123456789" />
+                <Field label="API Token / Bearer" value={form.apiToken} onChange={(v) => setForm({ ...form, apiToken: v })} placeholder="Token de autenticação" type="password" />
+                <Field label="Webhook Token (opcional)" value={form.webhookToken} onChange={(v) => setForm({ ...form, webhookToken: v })} placeholder="Verificação de webhook" />
+              </div>
+            )}
           </div>
-          <div className="flex gap-2 pt-2">
+
+          <div className="flex gap-2 pt-1">
             <button
               onClick={save} disabled={saving}
               className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-sm font-bold transition"

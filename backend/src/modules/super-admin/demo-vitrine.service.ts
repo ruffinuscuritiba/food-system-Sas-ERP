@@ -5,10 +5,13 @@ import { PrismaService } from '@/database/prisma.service'
 
 const SAFE_DEMO_IDS = ['demo-basic-001', 'demo-pro-001', 'demo-enterprise-001']
 
-const rnd   = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
-const pick  = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
-const img   = (id: string) => `https://images.unsplash.com/photo-${id}?w=600&auto=format&q=85`
-const banner= (id: string) => `https://images.unsplash.com/photo-${id}?w=1200&auto=format&q=85`
+// Base URL served by Next.js /public — images stored at frontend/public/demo-assets/
+const DEMO_BASE = 'https://food-system-sas-erp-frontend.vercel.app/demo-assets'
+
+const rnd    = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
+const pick   = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
+const img    = (path: string) => `${DEMO_BASE}/${path}`
+const banner = (path: string) => `${DEMO_BASE}/banners/${path}`
 
 function pastDate(daysAgo: number): Date {
   const d = new Date()
@@ -26,56 +29,57 @@ function todayAt(hour: number): Date {
 // ── Static catalogue ──────────────────────────────────────────────────────────
 
 const CATEGORIES_DEF = [
-  { key: 'salgadas',   name: '🍕 Pizzas Salgadas',  bannerId: '1574071318508-1cdbab80d002', sortOrder: 1 },
-  { key: 'doces',      name: '🍫 Pizzas Doces',      bannerId: '1578985545062-69928b1d9587', sortOrder: 2 },
-  { key: 'bebidas',    name: '🥤 Bebidas',            bannerId: '1544145945-f90425340c7e',   sortOrder: 3 },
-  { key: 'sobremesas', name: '🍮 Sobremesas',         bannerId: '1624353365286-6f6e9d2cc5e0', sortOrder: 4 },
-  { key: 'combos',     name: '📦 Combos',             bannerId: '1565299507177-b37ef9dba198', sortOrder: 5 },
+  { key: 'salgadas',   name: '🍕 Pizzas Salgadas', bannerFile: 'pizzas-salgadas.jpg', sortOrder: 1 },
+  { key: 'doces',      name: '🍫 Pizzas Doces',     bannerFile: 'pizzas-doces.jpg',    sortOrder: 2 },
+  { key: 'bebidas',    name: '🥤 Bebidas',           bannerFile: 'bebidas.jpg',         sortOrder: 3 },
+  { key: 'sobremesas', name: '🍮 Sobremesas',        bannerFile: 'sobremesas.jpg',      sortOrder: 4 },
+  { key: 'combos',     name: '📦 Combos',            bannerFile: 'combos.jpg',          sortOrder: 5 },
 ]
 
 type ProdDef = { key: string; name: string; price: number; cost: number; imgId: string; desc: string }
 
+// imgId = relative path under /demo-assets/ (served by Next.js /public)
 const PIZZAS_SALGADAS: ProdDef[] = [
-  { key: 'calabresa',         name: 'Pizza Calabresa',            price: 49.90, cost: 15.00, imgId: '1574071318508-1cdbab80d002', desc: 'Molho especial, mussarela, calabresa artesanal e cebola roxa' },
-  { key: 'frango-catupiry',   name: 'Pizza Frango com Catupiry',  price: 52.90, cost: 17.00, imgId: '1565299507177-b37ef9dba198', desc: 'Frango desfiado temperado, catupiry original e mussarela' },
-  { key: 'portuguesa',        name: 'Pizza Portuguesa',           price: 55.90, cost: 18.00, imgId: '1513104890138-7c749659a591', desc: 'Presunto, ovos, azeitonas, cebola, mussarela e orégano' },
-  { key: 'margherita',        name: 'Pizza Margherita',           price: 44.90, cost: 13.00, imgId: '1574071318508-1cdbab80d002', desc: 'Molho san marzano, mussarela fresca, tomate cereja e manjericão' },
-  { key: 'quatro-queijos',    name: 'Pizza 4 Queijos',            price: 57.90, cost: 19.00, imgId: '1571066811602-716837d681de', desc: 'Mussarela, provolone, gorgonzola e parmesão reggiano' },
-  { key: 'bacon-especial',    name: 'Pizza Bacon Especial',       price: 54.90, cost: 17.50, imgId: '1565299624946-b28f40a0ae38', desc: 'Bacon defumado crocante, cream cheese e mussarela extra' },
-  { key: 'pepperoni',         name: 'Pizza Pepperoni',            price: 56.90, cost: 18.50, imgId: '1628840042765-356cda07504e', desc: 'Pepperoni importado, molho especial e mussarela' },
-  { key: 'frango-bacon',      name: 'Pizza Frango com Bacon',     price: 53.90, cost: 17.00, imgId: '1548369937-47519962c11a',   desc: 'Frango grelhado, bacon crocante, catupiry e tomate seco' },
-  { key: 'calabresa-cheddar', name: 'Pizza Calabresa Cheddar',   price: 51.90, cost: 16.00, imgId: '1574071318508-1cdbab80d002', desc: 'Calabresa defumada, cheddar derretido e cebola caramelizada' },
-  { key: 'nordestina',        name: 'Pizza Nordestina',           price: 58.90, cost: 19.50, imgId: '1513104890138-7c749659a591', desc: 'Carne de sol, queijo coalho, cebola roxa e manteiga de garrafa' },
-  { key: 'vegetariana',       name: 'Pizza Vegetariana',          price: 48.90, cost: 15.00, imgId: '1574071318508-1cdbab80d002', desc: 'Berinjela, abobrinha, pimentão colorido, azeitona e mussarela' },
-  { key: 'brigadeiro-salgado',name: 'Pizza de Strogonoff',        price: 55.90, cost: 17.50, imgId: '1565299507177-b37ef9dba198', desc: 'Strogonoff de frango cremoso, batata palha e mussarela' },
+  { key: 'calabresa',         name: 'Pizza Calabresa',           price: 49.90, cost: 15.00, imgId: 'pizzas/calabresa.jpg',       desc: 'Molho especial, mussarela, calabresa artesanal e cebola roxa' },
+  { key: 'frango-catupiry',   name: 'Pizza Frango com Catupiry', price: 52.90, cost: 17.00, imgId: 'pizzas/frango-catupiry.jpg', desc: 'Frango desfiado temperado, catupiry original e mussarela' },
+  { key: 'portuguesa',        name: 'Pizza Portuguesa',          price: 55.90, cost: 18.00, imgId: 'pizzas/portuguesa.jpg',      desc: 'Presunto, ovos, azeitonas, cebola, mussarela e orégano' },
+  { key: 'margherita',        name: 'Pizza Margherita',          price: 44.90, cost: 13.00, imgId: 'pizzas/calabresa.jpg',       desc: 'Molho san marzano, mussarela fresca, tomate cereja e manjericão' },
+  { key: 'quatro-queijos',    name: 'Pizza 4 Queijos',           price: 57.90, cost: 19.00, imgId: 'pizzas/quatro-queijos.jpg',  desc: 'Mussarela, provolone, gorgonzola e parmesão reggiano' },
+  { key: 'bacon-especial',    name: 'Pizza Bacon Especial',      price: 54.90, cost: 17.50, imgId: 'pizzas/bacon-especial.jpg',  desc: 'Bacon defumado crocante, cream cheese e mussarela extra' },
+  { key: 'pepperoni',         name: 'Pizza Pepperoni',           price: 56.90, cost: 18.50, imgId: 'pizzas/pepperoni.jpg',       desc: 'Pepperoni importado, molho especial e mussarela' },
+  { key: 'frango-bacon',      name: 'Pizza Frango com Bacon',    price: 53.90, cost: 17.00, imgId: 'pizzas/frango-catupiry.jpg', desc: 'Frango grelhado, bacon crocante, catupiry e tomate seco' },
+  { key: 'calabresa-cheddar', name: 'Pizza Calabresa Cheddar',  price: 51.90, cost: 16.00, imgId: 'pizzas/calabresa.jpg',       desc: 'Calabresa defumada, cheddar derretido e cebola caramelizada' },
+  { key: 'nordestina',        name: 'Pizza Nordestina',          price: 58.90, cost: 19.50, imgId: 'pizzas/portuguesa.jpg',      desc: 'Carne de sol, queijo coalho, cebola roxa e manteiga de garrafa' },
+  { key: 'vegetariana',       name: 'Pizza Vegetariana',         price: 48.90, cost: 15.00, imgId: 'pizzas/calabresa.jpg',       desc: 'Berinjela, abobrinha, pimentão colorido, azeitona e mussarela' },
+  { key: 'strogonoff',        name: 'Pizza de Strogonoff',       price: 55.90, cost: 17.50, imgId: 'pizzas/frango-catupiry.jpg', desc: 'Strogonoff de frango cremoso, batata palha e mussarela' },
 ]
 
 const PIZZAS_DOCES: ProdDef[] = [
-  { key: 'chocolate',      name: 'Pizza Chocolate com Morango', price: 45.90, cost: 14.00, imgId: '1578985545062-69928b1d9587', desc: 'Chocolate ao leite derretido, morango fresco e granulado' },
-  { key: 'nutella-banana', name: 'Pizza Nutella com Banana',    price: 47.90, cost: 15.00, imgId: '1571066811602-716837d681de',  desc: 'Nutella generosa, banana nanica e leite condensado' },
-  { key: 'romeu-julieta',  name: 'Pizza Romeu e Julieta',       price: 43.90, cost: 13.00, imgId: '1578985545062-69928b1d9587', desc: 'Goiabada cremosa com queijo minas frescal' },
-  { key: 'brigadeiro',     name: 'Pizza Brigadeiro',            price: 46.90, cost: 14.50, imgId: '1606313564200-e75d5e394746', desc: 'Brigadeiro cremoso, granulado de chocolate e cereja ao marasquino' },
+  { key: 'chocolate',      name: 'Pizza Chocolate com Morango', price: 45.90, cost: 14.00, imgId: 'pizzas/chocolate-morango.jpg', desc: 'Chocolate ao leite derretido, morango fresco e granulado' },
+  { key: 'nutella-banana', name: 'Pizza Nutella com Banana',    price: 47.90, cost: 15.00, imgId: 'pizzas/chocolate-morango.jpg', desc: 'Nutella generosa, banana nanica e leite condensado' },
+  { key: 'romeu-julieta',  name: 'Pizza Romeu e Julieta',       price: 43.90, cost: 13.00, imgId: 'pizzas/chocolate-morango.jpg', desc: 'Goiabada cremosa com queijo minas frescal' },
+  { key: 'brigadeiro',     name: 'Pizza Brigadeiro',            price: 46.90, cost: 14.50, imgId: 'pizzas/brigadeiro.jpg',        desc: 'Brigadeiro cremoso, granulado de chocolate e cereja ao marasquino' },
 ]
 
 const BEBIDAS: ProdDef[] = [
-  { key: 'coca-2l',      name: 'Coca-Cola 2L',             price: 12.90, cost: 5.00, imgId: '1554866585-cd94860890b7',  desc: 'Refrigerante gelado — serve 4 pessoas' },
-  { key: 'guarana-2l',   name: 'Guaraná Antarctica 2L',    price: 11.90, cost: 4.50, imgId: '1581636625402-29b2a704ef13',desc: 'Guaraná gelado — serve 4 pessoas' },
-  { key: 'coca-600',     name: 'Coca-Cola 600ml',          price: 7.90,  cost: 3.00, imgId: '1554866585-cd94860890b7',  desc: 'Garrafa individual gelada' },
-  { key: 'suco-laranja', name: 'Suco de Laranja Natural',  price: 10.90, cost: 3.50, imgId: '1621506289937-a27a00e7aa61',desc: 'Suco natural espremido na hora 500ml' },
-  { key: 'agua',         name: 'Água Mineral 500ml',       price: 4.90,  cost: 1.50, imgId: '1548839140-29a749e1cf4d',  desc: 'Água mineral sem gás gelada' },
-  { key: 'heineken',     name: 'Heineken Long Neck 330ml', price: 9.90,  cost: 4.00, imgId: '1608270586351-4b9e80f3b9e0',desc: 'Cerveja gelada, garrafa long neck' },
+  { key: 'coca-2l',      name: 'Coca-Cola 2L',             price: 12.90, cost: 5.00, imgId: 'bebidas/coca.jpg',        desc: 'Refrigerante gelado — serve 4 pessoas' },
+  { key: 'guarana-2l',   name: 'Guaraná Antarctica 2L',    price: 11.90, cost: 4.50, imgId: 'bebidas/coca.jpg',        desc: 'Guaraná gelado — serve 4 pessoas' },
+  { key: 'coca-600',     name: 'Coca-Cola 600ml',          price: 7.90,  cost: 3.00, imgId: 'bebidas/coca.jpg',        desc: 'Garrafa individual gelada' },
+  { key: 'suco-laranja', name: 'Suco de Laranja Natural',  price: 10.90, cost: 3.50, imgId: 'bebidas/suco-laranja.jpg',desc: 'Suco natural espremido na hora 500ml' },
+  { key: 'agua',         name: 'Água Mineral 500ml',       price: 4.90,  cost: 1.50, imgId: 'bebidas/agua.jpg',        desc: 'Água mineral sem gás gelada' },
+  { key: 'heineken',     name: 'Heineken Long Neck 330ml', price: 9.90,  cost: 4.00, imgId: 'bebidas/cerveja.jpg',     desc: 'Cerveja gelada, garrafa long neck' },
 ]
 
 const SOBREMESAS: ProdDef[] = [
-  { key: 'brownie',      name: 'Brownie com Sorvete',  price: 18.90, cost: 6.00, imgId: '1606313564200-e75d5e394746', desc: 'Brownie quente com sorvete de creme e calda de chocolate' },
-  { key: 'pudim',        name: 'Pudim de Leite',        price: 14.90, cost: 4.50, imgId: '1624353365286-6f6e9d2cc5e0', desc: 'Pudim cremoso com calda de caramelo artesanal' },
-  { key: 'petit-gateau', name: 'Petit Gateau',          price: 22.90, cost: 7.50, imgId: '1606313564200-e75d5e394746', desc: 'Bolinho de chocolate quente com interior cremoso e sorvete' },
+  { key: 'brownie',      name: 'Brownie com Sorvete', price: 18.90, cost: 6.00, imgId: 'sobremesas/brownie.jpg', desc: 'Brownie quente com sorvete de creme e calda de chocolate' },
+  { key: 'pudim',        name: 'Pudim de Leite',       price: 14.90, cost: 4.50, imgId: 'sobremesas/pudim.jpg',  desc: 'Pudim cremoso com calda de caramelo artesanal' },
+  { key: 'petit-gateau', name: 'Petit Gateau',         price: 22.90, cost: 7.50, imgId: 'sobremesas/brownie.jpg',desc: 'Bolinho de chocolate quente com interior cremoso e sorvete' },
 ]
 
 const COMBOS: ProdDef[] = [
-  { key: 'familia', name: 'Combo Família',  price: 89.90, cost: 28.00, imgId: '1565299507177-b37ef9dba198', desc: '2 pizzas grandes + 1 Coca-Cola 2L + 1 sobremesa — serve até 6 pessoas' },
-  { key: 'casal',   name: 'Combo Casal',    price: 59.90, cost: 19.00, imgId: '1574071318508-1cdbab80d002', desc: '1 pizza grande + 2 Coca-Cola 600ml — o programa perfeito para dois' },
-  { key: 'solo',    name: 'Combo Solo',     price: 34.90, cost: 11.00, imgId: '1565299624946-b28f40a0ae38', desc: '1 pizza pequena + 1 refrigerante 600ml' },
+  { key: 'familia', name: 'Combo Família', price: 89.90, cost: 28.00, imgId: 'combos/familia.jpg', desc: '2 pizzas grandes + 1 Coca-Cola 2L + 1 sobremesa — serve até 6 pessoas' },
+  { key: 'casal',   name: 'Combo Casal',   price: 59.90, cost: 19.00, imgId: 'combos/familia.jpg', desc: '1 pizza grande + 2 Coca-Cola 600ml — o programa perfeito para dois' },
+  { key: 'solo',    name: 'Combo Solo',    price: 34.90, cost: 11.00, imgId: 'combos/familia.jpg', desc: '1 pizza pequena + 1 refrigerante 600ml' },
 ]
 
 const PRODUCTS_MAP: Record<string, ProdDef[]> = {
@@ -230,8 +234,8 @@ export class DemoVitrineService {
       const id = `${cid}-cat-${catDef.key}`
       await this.prisma.category.upsert({
         where:  { id },
-        update: { name: catDef.name, imageUrl: banner(catDef.bannerId), sortOrder: catDef.sortOrder },
-        create: { id, name: catDef.name, imageUrl: banner(catDef.bannerId), sortOrder: catDef.sortOrder, companyId: cid },
+        update: { name: catDef.name, bannerImage: banner(catDef.bannerFile), sortOrder: catDef.sortOrder },
+        create: { id, name: catDef.name, bannerImage: banner(catDef.bannerFile), sortOrder: catDef.sortOrder, companyId: cid },
       })
       catIds[catDef.key] = id
     }

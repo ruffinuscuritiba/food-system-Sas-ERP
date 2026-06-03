@@ -55,6 +55,9 @@ services:
         NEXT_PUBLIC_API_URL:     http://localhost:3001/api
         NEXT_PUBLIC_SOCKET_URL:  http://localhost:3001
         NEXT_PUBLIC_FRONTEND_URL: http://localhost:3000
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
     ports:
       - "3000:3000"

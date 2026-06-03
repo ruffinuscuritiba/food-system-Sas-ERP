@@ -1,0 +1,21 @@
+# Artefatos de build
+backend/dist
+frontend/.next
+**/*.log
+
+# Envs
+**/.env
+**/.env.local
+
+# Git
+.git
+.github
+
+# Docs
+*.md
+docs/
+
+# Arquivos temporários
+node_modules_bak
+gen_output.txt
+pdv-diff.txt

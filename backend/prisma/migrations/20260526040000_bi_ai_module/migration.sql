@@ -1,3 +1,9 @@
+-- CreateEnum (ChatRole was missing — added for idempotent local builds)
+DO $$ BEGIN
+  CREATE TYPE "ChatRole" AS ENUM ('USER', 'ASSISTANT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- CreateEnum
 CREATE TYPE "AlertType" AS ENUM ('LOW_STOCK', 'HIGH_CMV', 'REVENUE_DROP', 'TICKET_DROP', 'CANCELLATION_SPIKE');
 

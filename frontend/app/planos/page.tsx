@@ -158,7 +158,7 @@ export default function PlanosPage() {
       <div className="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/dashboard")} className="p-2 rounded-lg hover:bg-slate-800 transition text-slate-400 hover:text-white">
+            <button onClick={() => router.push("/pdv")} className="p-2 rounded-lg hover:bg-slate-800 transition text-slate-400 hover:text-white">
               <ArrowLeft size={18} />
             </button>
             <div>

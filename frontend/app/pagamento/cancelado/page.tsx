@@ -18,7 +18,7 @@ export default function PagamentoCanceladoPage() {
             Tentar novamente
           </Link>
           <Link
-            href="/dashboard"
+            href="/pdv"
             className="rounded-xl border border-slate-700 px-8 py-3 font-semibold hover:border-slate-500 transition"
           >
             Voltar ao painel

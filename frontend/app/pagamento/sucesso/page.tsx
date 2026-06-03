@@ -55,7 +55,7 @@ function PagamentoSucessoContent() {
         </p>
         <div className="flex flex-col gap-3">
           <Link
-            href="/dashboard"
+            href="/pdv"
             className="rounded-xl bg-red-500 px-8 py-3 font-bold hover:bg-red-600 transition"
           >
             Acessar meu painel →

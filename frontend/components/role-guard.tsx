@@ -54,7 +54,7 @@ export function RoleGuard({
 
     if (!hasPermission) {
 
-      router.push("/");
+      router.push("/pdv");
     }
 
   }, [user]);

@@ -250,52 +250,6 @@ export default function PDVPage() {
   const [cupomSaving, setCupomSaving]           = useState(false);
   const [cupomCreated, setCupomCreated]         = useState<string | null>(null);
 
-  // DEBUG TEMPORÁRIO — remover após diagnóstico
-  const gridRef        = useRef<HTMLDivElement>(null);
-  const mainRef        = useRef<HTMLElement>(null);
-  const headerRef      = useRef<HTMLElement>(null);
-  const categoriesRef  = useRef<HTMLDivElement>(null);
-  const desktopRef     = useRef<HTMLDivElement>(null);
-  const mobileRef      = useRef<HTMLDivElement>(null);
-  const wrapperRef     = useRef<HTMLDivElement>(null);
-
-  type RefInfo = { label: string; tag: string; id: string; cls: string };
-  type RefsDebug = { refs: RefInfo[] };
-  const [childrenDebug, setChildrenDebug] = useState<RefsDebug | null>(null);
-  const [ancestorDebug, setAncestorDebug] = useState<null>(null);
-  const [gridDebug, setGridDebug] = useState<{ gridWidth: number; cardWidth: number; cols: string; display: string } | null>(null);
-
-  useEffect(() => {
-    const grid    = gridRef.current;
-    const main    = mainRef.current;
-    const header  = headerRef.current;
-    const cats    = categoriesRef.current;
-    const desktop = desktopRef.current;
-    const mobile  = mobileRef.current;
-    const card    = grid?.firstElementChild as HTMLElement | null;
-    const cs      = grid ? getComputedStyle(grid) : null;
-
-    const r = (el: HTMLElement | null, label: string): RefInfo => ({
-      label,
-      tag: el?.tagName ?? "NULL",
-      id:  el?.id || "(none)",
-      cls: (el?.className?.toString() ?? "").slice(0, 120),
-    });
-
-    setChildrenDebug({
-      refs: [
-        r(main,    "main"),
-        r(header,  "header"),
-        r(cats,    "categories"),
-        r(desktop, "desktop"),
-        r(mobile,  "mobile"),
-      ],
-    });
-
-    if (grid && cs) {
-      setGridDebug({ gridWidth: grid.offsetWidth, cardWidth: card?.offsetWidth ?? -1, cols: cs.gridTemplateColumns, display: cs.display });
-    }
-  }, [selectedCategory, loading]);
 
   useEffect(() => {
     try {
@@ -649,15 +603,11 @@ export default function PDVPage() {
 
   return (
     <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-black text-white flex overflow-hidden w-full min-w-0">
-      <div style={{ position: "fixed", top: 0, left: 0, zIndex: 9999, background: "red", color: "white", fontSize: 10, padding: "2px 6px" }}>
-        BUILD 65dd37c8
-      </div>
-
       {/* CONTENT */}
-      <main ref={mainRef} className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
+      <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 
         {/* HEADER */}
-        <header ref={headerRef} className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
+        <header className="shrink-0 border-b border-[#161b2d] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
           {/* Search */}
           <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[#0c101d] border border-[#1d2336] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
             <Search size={15} className="text-zinc-200 shrink-0" />
@@ -710,7 +660,7 @@ export default function PDVPage() {
         </header>
 
         {/* Mobile categories */}
-        <div ref={categoriesRef} className="md:hidden shrink-0 bg-[#050816] border-b border-[#161b2d]">
+        <div className="md:hidden shrink-0 bg-[#050816] border-b border-[#161b2d]">
           <div
             className="px-3 py-2 overflow-x-scroll scrollbar-hide touch-pan-x"
           >
@@ -728,7 +678,7 @@ export default function PDVPage() {
         </div>
 
         {/* BODY */}
-        <div ref={desktopRef} className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
+        <div className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
           <aside className="w-full border-r border-[#161b2d] p-5 overflow-y-auto scrollbar-hide bg-[#050816]">
             <div className="space-y-4">
               <button onClick={() => setSelectedCategory("all")}
@@ -812,40 +762,27 @@ export default function PDVPage() {
         </div>
 
         {/* PRODUCTS mobile */}
-        <div ref={mobileRef} className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712]">
+        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[#030712]">
 
           {/* Banner mobile — imagem da categoria + nome */}
-          <div className="relative h-28 w-full overflow-hidden shrink-0">
+          <div className="relative h-[220px] w-full overflow-hidden shrink-0">
             {bannerImageUrl && (
               <img
-                src={bannerImageUrl}
-                className="absolute inset-0 w-full h-full object-cover object-top"
-                alt={activeCategoryName}
-              />
+  src={bannerImageUrl}
+  className="absolute inset-0 w-full h-full object-cover"
+  alt={activeCategoryName}
+/>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
               <h2 className="text-lg font-black text-white leading-tight">{activeCategoryName}</h2>
-              <p style={{ color: "yellow", fontSize: 9, marginTop: 2 }}>
-                name={activeCategory?.name ?? "null"} | type={activeCategory?.categoryType ?? "null"} | bev={String(activeIsBeverage)}
-              </p>
               <p className="text-zinc-400 text-xs mt-0.5">
                 {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
 
-          <div ref={wrapperRef} className="px-3 py-3">
-          {childrenDebug && (
-            <div style={{ color: "cyan", fontSize: 9, padding: "2px 4px", lineHeight: 2, wordBreak: "break-all" }}>
-              {childrenDebug.refs.map(r => (
-                <p key={r.label}>{r.label}: tag={r.tag} id={r.id}<br/>cls={r.cls}</p>
-              ))}
-            </div>
-          )}
-          <p style={{ color: "lime", fontSize: 9, padding: "2px 4px" }}>
-            activeIsBeverage={String(activeIsBeverage)} | cat={activeCategory?.name ?? "ALL"}
-          </p>
+          <div className="px-3 py-3">
           {loading ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="h-20 rounded-2xl bg-[#0b0f1b] animate-pulse" />))}</div>
           ) : filteredProducts.length === 0 ? (
@@ -855,13 +792,7 @@ export default function PDVPage() {
             </div>
           ) : activeIsBeverage ? (
             /* Grade 2-col para bebidas */
-            <>
-            {gridDebug && (
-              <p style={{ color: "orange", fontSize: 9, padding: "2px 0", wordBreak: "break-all" }}>
-                gridW={gridDebug.gridWidth} cardW={gridDebug.cardWidth} cols="{gridDebug.cols}" disp={gridDebug.display}
-              </p>
-            )}
-            <div ref={gridRef} className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+            <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
               {filteredProducts.map(product => (
                 <div key={product.id} className="bg-[#0b0f1b] border border-[#161b2d] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>
@@ -881,7 +812,6 @@ export default function PDVPage() {
                 </div>
               ))}
             </div>
-            </>
           ) : (
             /* Lista compacta para produtos normais / pizza */
             <div className="space-y-2.5">

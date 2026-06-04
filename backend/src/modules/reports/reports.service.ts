@@ -61,6 +61,7 @@ export class ReportsService {
         createdAt: { gte: range.from, lte: range.to },
         status: { not: 'CANCELLED' },
       },
+      take: 5000,
       include: { items: true },
     });
 

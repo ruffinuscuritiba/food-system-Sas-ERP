@@ -420,6 +420,7 @@ export class OrdersService {
     return this.prisma.order.findMany({
       where: { companyId },
       orderBy: { createdAt: "desc" },
+      take: 500,
       include: {
         customer: true,
         items: { include: { selectedComplements: true } },
@@ -814,11 +815,13 @@ export class OrdersService {
       this.prisma.order.findMany({
         where: { companyId },
         orderBy: { createdAt: 'desc' },
+        take: 200,
         include: { customer: true, items: { include: { selectedComplements: true } } },
       }),
       this.prisma.onlineOrder.findMany({
         where: { companyId },
         orderBy: { createdAt: 'desc' },
+        take: 200,
       }),
     ]);
 

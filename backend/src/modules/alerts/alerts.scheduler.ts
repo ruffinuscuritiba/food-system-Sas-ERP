@@ -13,10 +13,8 @@ export class AlertsScheduler {
     private reports: ReportsService,
     private alerts: AlertsService,
   ) {
-    // Run every hour
+    // Run every hour — no startup run to protect heap during cold start
     this.interval = setInterval(() => this.run(), 60 * 60 * 1000);
-    // Also run on startup after 30s
-    // setTimeout(() => this.run(), 30_000);
   }
 
   async run() {
@@ -26,13 +24,16 @@ export class AlertsScheduler {
       select: { id: true },
     });
 
-    for (const { id: companyId } of companies) {
+    for (let i = 0; i < companies.length; i++) {
+      const { id: companyId } = companies[i];
       try {
         await this.reports.materializeKpiSnapshot(companyId);
         await this.generateAlerts(companyId);
       } catch (e) {
         this.logger.error(`Failed for company ${companyId}: ${e.message}`);
       }
+      // Yield to event loop between companies — lets GC reclaim heap
+      if (i < companies.length - 1) await new Promise(r => setTimeout(r, 500));
     }
   }
 

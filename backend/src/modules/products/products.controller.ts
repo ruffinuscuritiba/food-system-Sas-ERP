@@ -82,7 +82,7 @@ export class ProductsController {
   )
 
   @UseInterceptors(
-    FileInterceptor("image", { storage: memoryStorage() }),
+    FileInterceptor("image", { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }),
   )
 
   async create(
@@ -125,7 +125,7 @@ export class ProductsController {
   )
 
   @UseInterceptors(
-    FileInterceptor("image", { storage: memoryStorage() }),
+    FileInterceptor("image", { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }),
   )
 
   async update(

@@ -16,7 +16,7 @@ export class AlertsScheduler {
     // Run every hour
     this.interval = setInterval(() => this.run(), 60 * 60 * 1000);
     // Also run on startup after 30s
-    setTimeout(() => this.run(), 30_000);
+    // setTimeout(() => this.run(), 30_000);
   }
 
   async run() {

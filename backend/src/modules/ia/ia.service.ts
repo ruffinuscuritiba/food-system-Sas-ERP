@@ -294,12 +294,20 @@ ${contextBlock}`;
         systemInstruction: PLATFORM_DEMO_SYSTEM_PROMPT,
       });
 
-      // Gemini uses 'user' / 'model' roles; history = all messages except last
+      // Gemini uses 'user' / 'model' roles; history = all messages except last.
+      // SDK requires history[0].role === 'user' — drop leading model entries
+      // (the initial Luna greeting is assistant/model and must be excluded).
       const lastMsg = messages[messages.length - 1];
-      const history = messages.slice(0, -1).map((m) => ({
+      const rawHistory = messages.slice(0, -1).map((m) => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }],
       }));
+      const firstUserIdx = rawHistory.findIndex((h) => h.role === 'user');
+      const history = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : [];
+
+      // DIAG-GEMINI-HISTORY — remover após confirmar fix
+      const diagRoles = [...history.map((h) => h.role), 'user' /* lastMsg */];
+      this.logger.debug(`[DIAG-GEMINI-HISTORY] roles=[${diagRoles.join(', ')}]`);
 
       const chat = model.startChat({ history });
       const result = await chat.sendMessageStream(lastMsg.content);

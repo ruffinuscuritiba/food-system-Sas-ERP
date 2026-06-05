@@ -347,7 +347,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <h1 className="text-[13px] font-black text-white leading-tight truncate">{companyName}</h1>
-                  <span className="text-[9px] font-mono text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-md shrink-0 select-none">
+                  <span className="text-[9px] font-mono text-slate-500 px-1.5 py-0.5 rounded-md shrink-0 select-none" style={{ background: "rgba(255,255,255,0.04)" }}>
                     {process.env.NEXT_PUBLIC_COMMIT_SHA || "dev"}
                   </span>
                 </div>

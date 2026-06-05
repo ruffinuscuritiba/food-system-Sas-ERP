@@ -200,6 +200,13 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
 
+  const isDemoUser = user?.role === "DEMO";
+  const planLabel = isDemoUser
+    ? user.companyId?.includes("enterprise") ? "Enterprise"
+      : user.companyId?.includes("pro") ? "Pro"
+      : "Basic"
+    : "";
+
   useEffect(() => {
     loadAuth();
     const imp = localStorage.getItem("impersonating");
@@ -303,7 +310,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
       {/* Mobile top bar */}
       <div
-        className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${impersonating ? "top-9" : "top-0"} ${isPdv ? "border-b" : "bg-white border-b border-gray-100 shadow-sm"}`}
+        className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${isDemoUser ? "top-8" : impersonating ? "top-9" : "top-0"} ${isPdv ? "border-b" : "bg-white border-b border-gray-100 shadow-sm"}`}
         style={isPdv ? { background: "var(--pdv-header-bg,#050816)", borderColor: "var(--pdv-border,#161b2d)" } : undefined}
       >
         <div className="flex items-center gap-2.5">
@@ -325,7 +332,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[#030712]" : "bg-[#F5F3EF]"} ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
+      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[#030712]" : "bg-[#F5F3EF]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside
@@ -447,14 +454,24 @@ export default function ClientShell({ children }: { children: React.ReactNode })
       </div>
 
       {/* ─── DEMO read-only banner ─────────────────────────────────── */}
-      {user?.role === "DEMO" && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-violet-600 text-white flex items-center justify-center px-4 py-1.5 shadow-md">
-          <Sparkles size={13} className="shrink-0 mr-2" />
-          <span className="text-xs font-bold">
-            Conta de Demonstração — somente leitura. Alterações não são salvas.
-          </span>
-          <span className="mx-3 opacity-40">|</span>
-          <span className="text-xs opacity-80 capitalize">{user.companyId?.includes("enterprise") ? "Enterprise" : user.companyId?.includes("pro") ? "Pro" : "Basic"}</span>
+      {isDemoUser && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[9999] bg-violet-600 text-white shadow-md overflow-hidden"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        >
+          <div className="flex items-center justify-center gap-1.5 px-3 py-1.5">
+            <Sparkles size={12} className="shrink-0" />
+            {/* mobile ≤ 639px: texto compacto com ellipsis */}
+            <span className="text-xs font-bold truncate max-w-[calc(100vw-4rem)] sm:hidden">
+              Demo {planLabel} · Somente leitura
+            </span>
+            {/* desktop ≥ 640px: texto completo */}
+            <span className="text-xs font-bold hidden sm:inline whitespace-nowrap">
+              Conta de Demonstração — somente leitura. Alterações não são salvas.
+            </span>
+            <span className="mx-2 opacity-40 hidden sm:inline">|</span>
+            <span className="text-xs opacity-80 capitalize hidden sm:inline">{planLabel}</span>
+          </div>
         </div>
       )}
 

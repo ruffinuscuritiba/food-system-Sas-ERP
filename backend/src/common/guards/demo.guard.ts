@@ -19,6 +19,10 @@ export class DemoGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<any>();
 
+    // Auth endpoints are always public — never block unauthenticated login/signup/register
+    const url: string = req.url ?? '';
+    if (/\/auth\/(login|signup|register)/.test(url)) return true;
+
     const auth: string = req.headers?.['authorization'] ?? '';
     if (!auth.startsWith('Bearer ')) return true;
 

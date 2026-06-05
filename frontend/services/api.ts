@@ -28,7 +28,12 @@ api.interceptors.request.use(
           "token",
         );
 
-      if (token) {
+      const skipAuth =
+        config.url?.includes("auth/login") ||
+        config.url?.includes("auth/signup") ||
+        config.url?.includes("auth/register");
+
+      if (token && !skipAuth) {
 
         config.headers.Authorization =
           `Bearer ${token}`;

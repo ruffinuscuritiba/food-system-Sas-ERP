@@ -8,7 +8,7 @@ import {
   Check, Zap, Crown, Star, Lock, Unlock, Loader2,
   Package, DollarSign, FlaskConical, BookOpen, Bike,
   BarChart2, Brain, Gift, CreditCard, Shield, X,
-  Info, ChevronRight,
+  Info, ChevronRight, MessageCircle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -114,6 +114,7 @@ export default function AssinaturaPage() {
   const [selectedModule,  setSelectedModule]  = useState<CatalogModule | null>(null);
   const [loading,         setLoading]         = useState(true);
   const [busy,            setBusy]            = useState<Record<string, boolean>>({});
+  const [companyName,     setCompanyName]     = useState<string>("");
 
   useEffect(() => {
     if (!companyId) return;
@@ -123,14 +124,16 @@ export default function AssinaturaPage() {
   async function load() {
     setLoading(true);
     try {
-      const [subRes, catRes] = await Promise.all([
+      const [subRes, catRes, companyRes] = await Promise.all([
         api.get<Subscription>(`/company/${companyId}/subscription`),
         api.get<CatalogModule[]>("/company-module/catalog").catch(() => ({ data: [] })),
+        api.get<{ name: string }>(`/company/${companyId}`).catch(() => ({ data: { name: "" } })),
       ]);
       const validPlans: Plan[] = ["BASIC", "PRO", "ENTERPRISE"];
       const plan = validPlans.includes(subRes.data.plan as Plan) ? subRes.data.plan : "BASIC";
       setSub({ ...subRes.data, plan });
       setCatalog(Array.isArray(catRes.data) ? catRes.data : []);
+      setCompanyName(companyRes.data?.name || companyId);
     } catch {
       toast.error("Erro ao carregar assinatura");
     } finally {
@@ -196,6 +199,11 @@ export default function AssinaturaPage() {
 
   function getCatalogModule(slug: string): CatalogModule | undefined {
     return catalog.find((c) => c.slug.toUpperCase() === slug || c.slug === slug);
+  }
+
+  function buildWaUrl(moduleName: string): string {
+    const msg = `Olá, sou da empresa ${companyName}.\n\nGostaria de ativar o módulo:\n\n• ${moduleName}\n\nAguardo contato.`;
+    return `https://wa.me/?text=${encodeURIComponent(msg)}`;
   }
 
   if (loading) {
@@ -483,7 +491,8 @@ export default function AssinaturaPage() {
             </div>
 
             {/* Modal footer */}
-            <div className="p-6 border-t border-gray-100">
+            <div className="p-6 border-t border-gray-100 flex flex-col gap-3">
+              {/* Super Admin: toggle rápido */}
               {canEdit && !PLAN_INCLUDES[sub.plan].includes(selectedModule.slug.toUpperCase()) && (
                 <button
                   onClick={() => {
@@ -501,15 +510,27 @@ export default function AssinaturaPage() {
                   {isModuleActive(selectedModule.slug.toUpperCase()) ? "Desativar módulo" : "Ativar módulo"}
                 </button>
               )}
+
+              {/* Módulo incluído no plano */}
               {PLAN_INCLUDES[sub.plan].includes(selectedModule.slug.toUpperCase()) && (
                 <div className="flex items-center justify-center gap-2 text-sm text-green-600 font-semibold py-2">
                   <Shield size={14} /> Incluído no seu plano atual
                 </div>
               )}
-              {!canEdit && (
-                <p className="text-center text-xs text-gray-400 py-2">
-                  Apenas Super Admin pode ativar módulos
-                </p>
+
+              {/* Solicitar Ativação via WhatsApp — visível quando módulo não está ativo */}
+              {!PLAN_INCLUDES[sub.plan].includes(selectedModule.slug.toUpperCase()) &&
+               !isModuleActive(selectedModule.slug.toUpperCase()) && (
+                <a
+                  href={buildWaUrl(selectedModule.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition hover:brightness-110"
+                  style={{ background: "linear-gradient(135deg,#25D366 0%,#128C7E 100%)" }}
+                >
+                  <MessageCircle size={16} />
+                  Solicitar Ativação via WhatsApp
+                </a>
               )}
             </div>
           </div>

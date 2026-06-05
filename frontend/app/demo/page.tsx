@@ -1,17 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, MessageCircle, UtensilsCrossed } from "lucide-react";
+import Image from "next/image";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  MessageCircle,
+  Minus,
+  UtensilsCrossed,
+  Zap,
+  BarChart3,
+  Smartphone,
+  Bot,
+  TrendingUp,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 
+// ─── Comparison table data ────────────────────────────────────────────────────
+type PlanKey = "basic" | "pro" | "enterprise";
+
+interface Feature {
+  label: string;
+  basic: boolean;
+  pro: boolean;
+  enterprise: boolean;
+}
+
+const COMPARISON: Feature[] = [
+  { label: "PDV",              basic: true,  pro: true,  enterprise: true },
+  { label: "Pedidos",          basic: true,  pro: true,  enterprise: true },
+  { label: "Cozinha",          basic: true,  pro: true,  enterprise: true },
+  { label: "Mesas",            basic: true,  pro: true,  enterprise: true },
+  { label: "Cardápio Online",  basic: true,  pro: true,  enterprise: true },
+  { label: "Cupons",           basic: false, pro: true,  enterprise: true },
+  { label: "Relatórios",       basic: false, pro: true,  enterprise: true },
+  { label: "WhatsApp IA",      basic: false, pro: true,  enterprise: true },
+  { label: "Multiunidades",    basic: false, pro: false, enterprise: true },
+  { label: "White Label",      basic: false, pro: false, enterprise: true },
+];
+
+// ─── Benefits data ────────────────────────────────────────────────────────────
+const BENEFITS = [
+  { icon: Zap,        title: "Operação rápida",          desc: "PDV otimizado para velocidade no atendimento." },
+  { icon: BarChart3,  title: "Gestão completa",          desc: "Financeiro, estoque e relatórios em um só lugar." },
+  { icon: Smartphone, title: "Cardápio digital",         desc: "Cardápio online com pedidos direto pelo cliente." },
+  { icon: Bot,        title: "Automação inteligente",    desc: "IA no WhatsApp para atender e vender 24h." },
+  { icon: TrendingUp, title: "Mais vendas",              desc: "Cupons, fidelidade e upsell integrados ao fluxo." },
+];
+
+// ─── Screenshots (demo-assets presentes no /public) ──────────────────────────
+const DEMO_SCREENSHOTS: Record<PlanKey, string> = {
+  basic:      "/demo-assets/banners/pizzas-salgadas.jpg",
+  pro:        "/demo-assets/banners/combos.jpg",
+  enterprise: "/demo-assets/banners/pizzas-doces.jpg",
+};
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+function planKey(plan: string): PlanKey {
+  return plan.toLowerCase() as PlanKey;
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function DemoPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
   const [entering, setEntering] = useState<string | null>(null);
+  const demoSectionRef = useRef<HTMLElement>(null);
 
   async function enterDemo(demo: DemoAccount) {
     setEntering(demo.id);
@@ -21,176 +80,346 @@ export default function DemoPage() {
         password: demo.password,
       });
       const { accessToken, user } = data;
-      if (!accessToken) {
-        toast.error("Demonstração indisponível no momento.");
-        return;
-      }
+      if (!accessToken) { toast.error("Demonstração indisponível."); return; }
       setAuth(accessToken, user);
       document.cookie = `token=${accessToken}; path=/`;
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(user));
-      toast.success(`Entrando na demo ${demo.plan}...`);
+      toast.success(`Abrindo demo ${demo.plan}…`);
       router.push("/pdv");
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Não foi possível abrir esta demonstração. Tente novamente em instantes.",
-      );
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Não foi possível abrir esta demonstração.");
     } finally {
       setEntering(null);
     }
   }
 
+  function scrollToDemo() {
+    demoSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#05070d] via-[#0a0f1f] to-[#05070d] text-white">
-      {/* Glow decorativo */}
-      <div
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-        aria-hidden
-      >
-        <div className="absolute -top-40 left-1/2 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-orange-500/10 blur-[140px]" />
-        <div className="absolute bottom-0 right-0 h-[320px] w-[520px] rounded-full bg-violet-600/10 blur-[120px]" />
+    <div className="min-h-screen bg-[#07090f] text-white selection:bg-orange-500/30">
+      {/* ── ambient glows ── */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+        <div className="absolute -top-60 left-1/3 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-orange-500/8 blur-[180px]" />
+        <div className="absolute top-1/2 -right-40 h-[400px] w-[600px] rounded-full bg-violet-600/8 blur-[160px]" />
+        <div className="absolute bottom-0 left-1/4 h-[300px] w-[500px] rounded-full bg-blue-600/6 blur-[140px]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-10 sm:px-8 sm:py-16">
-        {/* Header */}
-        <header className="mb-10 flex items-center gap-3 sm:mb-14">
-          <div className="rounded-2xl bg-orange-500/15 p-2.5 ring-1 ring-orange-500/40">
-            <UtensilsCrossed className="h-5 w-5 text-orange-400" />
+      <div className="relative z-10">
+        {/* ── HEADER ── */}
+        <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07090f]/80 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-orange-500/15 p-2 ring-1 ring-orange-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <UtensilsCrossed className="h-4 w-4 text-orange-400" />
+              </div>
+              <span className="text-base font-black tracking-tight">FoodSaaS ERP</span>
+            </div>
+            <nav className="flex items-center gap-3">
+              <button
+                onClick={scrollToDemo}
+                className="hidden rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10 sm:block"
+              >
+                Ver demos
+              </button>
+              <a
+                href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white shadow-[0_4px_14px_-4px_rgba(249,115,22,0.7),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Falar com Especialista</span>
+                <span className="sm:hidden">Especialista</span>
+              </a>
+            </nav>
           </div>
-          <span className="text-lg font-black tracking-tight sm:text-xl">
-            FoodSaaS ERP
-          </span>
         </header>
 
-        {/* Hero */}
-        <section className="mx-auto max-w-3xl text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-white/70 backdrop-blur">
+        {/* ── HERO ── */}
+        <section className="mx-auto max-w-6xl px-5 pb-16 pt-20 text-center sm:px-8 sm:pb-24 sm:pt-28">
+          <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
             Demonstrações ao vivo
-          </p>
-          <h1 className="mt-6 text-4xl font-black tracking-tight sm:text-5xl">
-            FoodSaaS ERP
+          </span>
+
+          <h1 className="mx-auto mt-7 max-w-4xl text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+            FoodSaaS{" "}
+            <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
+              ERP
+            </span>
           </h1>
-          <p className="mt-4 text-base text-white/60 sm:text-lg">
-            Escolha uma demonstração para experimentar
+
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/55 sm:text-xl">
+            Sistema completo para pizzarias, restaurantes, hamburguerias,
+            delivery e dark kitchens.
           </p>
+
+          <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={scrollToDemo}
+              className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-7 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]"
+            >
+              Testar Demonstrações
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <a
+              href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur transition hover:border-white/20 hover:bg-white/10"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Falar com Especialista
+            </a>
+          </div>
         </section>
 
-        {/* Cards */}
-        <section className="mt-12 grid gap-6 sm:mt-16 md:grid-cols-3">
-          {DEMO_ACCOUNTS.map((demo) => (
-            <DemoCard
-              key={demo.id}
-              demo={demo}
-              loading={entering === demo.id}
-              disabled={entering !== null && entering !== demo.id}
-              onSelect={() => enterDemo(demo)}
-            />
-          ))}
+        {/* ── BENEFITS ── */}
+        <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {BENEFITS.map(({ icon: Icon, title, desc }) => (
+              <div
+                key={title}
+                className="group rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-white/[0.13] hover:bg-white/[0.04]"
+              >
+                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/15 ring-1 ring-orange-500/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <Icon className="h-4 w-4 text-orange-400" />
+                </div>
+                <p className="text-sm font-black text-white">{title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/45">{desc}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
-        {/* Rodapé / CTA */}
-        <section className="mt-16 flex flex-col items-center gap-4 text-center sm:mt-20">
-          <p className="max-w-md text-sm text-white/60 sm:text-base">
-            Experimente o sistema completo antes de contratar.
-          </p>
-          <a
-            href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white/90 transition hover:border-white/30 hover:bg-white/10"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Falar com Especialista
-          </a>
+        {/* ── DEMO CARDS ── */}
+        <section
+          id="demos"
+          ref={demoSectionRef}
+          className="mx-auto max-w-6xl px-5 pb-24 sm:px-8"
+        >
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+              Escolha uma demonstração
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Acesso imediato — sem cadastro, sem cartão.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {DEMO_ACCOUNTS.map((demo) => (
+              <DemoCard
+                key={demo.id}
+                demo={demo}
+                screenshot={DEMO_SCREENSHOTS[planKey(demo.plan)]}
+                loading={entering === demo.id}
+                disabled={entering !== null && entering !== demo.id}
+                onSelect={() => enterDemo(demo)}
+              />
+            ))}
+          </div>
         </section>
 
-        <footer className="mt-auto pt-12 text-center text-xs text-white/30">
+        {/* ── COMPARISON TABLE ── */}
+        <section className="mx-auto max-w-4xl px-5 pb-28 sm:px-8">
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+              Comparativo de planos
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Escolha o plano ideal para o tamanho da sua operação.
+            </p>
+          </div>
+
+          <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
+            {/* Header */}
+            <div className="grid grid-cols-4 border-b border-white/[0.07] bg-white/[0.03]">
+              <div className="p-5" />
+              {(["BASIC", "PRO", "ENTERPRISE"] as const).map((plan, i) => {
+                const colors = ["#16a34a", "#2563eb", "#7c3aed"];
+                const color = colors[i];
+                return (
+                  <div key={plan} className="border-l border-white/[0.07] p-5 text-center">
+                    <span
+                      className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest"
+                      style={{ color, backgroundColor: `${color}22`, border: `1px solid ${color}44` }}
+                    >
+                      {plan}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Rows */}
+            {COMPARISON.map((feat, idx) => (
+              <div
+                key={feat.label}
+                className={`grid grid-cols-4 border-b border-white/[0.05] transition hover:bg-white/[0.02] ${
+                  idx === COMPARISON.length - 1 ? "border-b-0" : ""
+                }`}
+              >
+                <div className="flex items-center px-5 py-4 text-sm font-medium text-white/75">
+                  {feat.label}
+                </div>
+                {(["basic", "pro", "enterprise"] as PlanKey[]).map((key, i) => {
+                  const colors = ["#16a34a", "#2563eb", "#7c3aed"];
+                  const val = feat[key];
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center justify-center border-l border-white/[0.05] py-4"
+                    >
+                      {val ? (
+                        <span
+                          className="flex h-6 w-6 items-center justify-center rounded-full"
+                          style={{ backgroundColor: `${colors[i]}22` }}
+                        >
+                          <Check
+                            className="h-3.5 w-3.5"
+                            style={{ color: colors[i] }}
+                            strokeWidth={3}
+                          />
+                        </span>
+                      ) : (
+                        <Minus className="h-4 w-4 text-white/20" strokeWidth={2} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── FOOTER CTA ── */}
+        <section className="mx-auto max-w-3xl px-5 pb-20 text-center sm:px-8">
+          <div className="rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <p className="text-2xl font-black sm:text-3xl">
+              Experimente o sistema completo
+              <br />
+              <span className="text-white/50">antes de contratar.</span>
+            </p>
+            <p className="mt-3 text-sm text-white/45">
+              Nenhum compromisso. Sem dados de cartão.
+            </p>
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <button
+                onClick={scrollToDemo}
+                className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600"
+              >
+                Ver demonstrações
+              </button>
+              <a
+                href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/10"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Falar com Especialista
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <footer className="border-t border-white/[0.05] py-8 text-center text-xs text-white/25">
           © {new Date().getFullYear()} FoodSaaS ERP — Demonstração pública
         </footer>
       </div>
-    </main>
+    </div>
   );
 }
 
+// ─── Demo Card ────────────────────────────────────────────────────────────────
 interface DemoCardProps {
   demo: DemoAccount;
+  screenshot: string;
   loading: boolean;
   disabled: boolean;
   onSelect: () => void;
 }
 
-function DemoCard({ demo, loading, disabled, onSelect }: DemoCardProps) {
+function DemoCard({ demo, screenshot, loading, disabled, onSelect }: DemoCardProps) {
+  const color = demo.primaryColor;
+
   return (
     <article
-      className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-7 backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6)]"
+      className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0b0e18] shadow-[0_2px_0_rgba(255,255,255,0.04)_inset,0_24px_48px_-16px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
       style={{
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.02), 0 20px 60px -30px ${demo.primaryColor}55`,
+        boxShadow: `0 0 0 1px rgba(255,255,255,0.04), 0 24px 60px -20px ${color}44`,
       }}
     >
-      {/* Glow superior do card */}
-      <div
-        className="pointer-events-none absolute -top-24 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full opacity-40 blur-3xl transition-opacity duration-300 group-hover:opacity-70"
-        style={{ backgroundColor: demo.primaryColor }}
-        aria-hidden
-      />
-
-      <div className="relative">
-        <span
-          className="inline-flex rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+      {/* Screenshot */}
+      <div className="relative h-40 overflow-hidden">
+        <Image
+          src={screenshot}
+          alt={`Preview ${demo.label}`}
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          sizes="(max-width: 768px) 100vw, 33vw"
+        />
+        {/* overlay gradient */}
+        <div
+          className="absolute inset-0"
           style={{
-            color: demo.primaryColor,
-            backgroundColor: `${demo.primaryColor}1f`,
-            border: `1px solid ${demo.primaryColor}55`,
+            background: `linear-gradient(to bottom, ${color}22 0%, #0b0e18 100%)`,
           }}
+        />
+        {/* plan badge */}
+        <span
+          className="absolute left-4 top-4 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest backdrop-blur"
+          style={{ color, backgroundColor: `${color}33`, border: `1px solid ${color}55` }}
         >
           {demo.plan}
         </span>
-        <h2 className="mt-4 text-2xl font-black tracking-tight">{demo.label}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/60">
-          {demo.tagline}
-        </p>
       </div>
 
-      <ul className="relative mt-6 space-y-2.5">
-        {demo.features.map((feat) => (
-          <li
-            key={feat}
-            className="flex items-start gap-2.5 text-sm text-white/80"
-          >
-            <span
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundColor: `${demo.primaryColor}26` }}
-            >
-              <Check
-                className="h-3 w-3"
-                style={{ color: demo.primaryColor }}
-                strokeWidth={3}
-              />
-            </span>
-            {feat}
-          </li>
-        ))}
-      </ul>
+      {/* top glow */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-32 opacity-30 transition-opacity duration-300 group-hover:opacity-50"
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}55, transparent 70%)` }}
+        aria-hidden
+      />
 
-      <button
-        onClick={onSelect}
-        disabled={loading || disabled}
-        className="relative mt-8 inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-black text-white shadow-lg transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-        style={{
-          backgroundColor: demo.primaryColor,
-          boxShadow: `0 12px 30px -10px ${demo.primaryColor}aa`,
-        }}
-      >
-        {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Abrindo...
-          </>
-        ) : (
-          `Testar ${demo.plan.charAt(0) + demo.plan.slice(1).toLowerCase()}`
-        )}
-      </button>
+      {/* Content */}
+      <div className="relative flex flex-1 flex-col p-7">
+        <h2 className="text-xl font-black tracking-tight">{demo.label}</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-white/55">{demo.tagline}</p>
+
+        <ul className="mt-5 space-y-2.5 flex-1">
+          {demo.features.map((feat) => (
+            <li key={feat} className="flex items-start gap-2.5 text-sm text-white/75">
+              <span
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                style={{ backgroundColor: `${color}22` }}
+              >
+                <Check className="h-3 w-3" style={{ color }} strokeWidth={3} />
+              </span>
+              {feat}
+            </li>
+          ))}
+        </ul>
+
+        <button
+          onClick={onSelect}
+          disabled={loading || disabled}
+          className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          style={{
+            backgroundColor: color,
+            boxShadow: `0 8px 24px -8px ${color}cc, inset 0 1px 0 rgba(255,255,255,0.15)`,
+          }}
+        >
+          {loading ? (
+            <><Loader2 className="h-4 w-4 animate-spin" />Abrindo…</>
+          ) : (
+            `Testar ${demo.plan.charAt(0) + demo.plan.slice(1).toLowerCase()}`
+          )}
+        </button>
+      </div>
     </article>
   );
 }

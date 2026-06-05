@@ -12,6 +12,7 @@ const PUBLIC_ROUTES = [
   '/pedido',
   '/super-admin',
   '/demo',
+  '/ia-demo',
 ]
 
 export function middleware(request: NextRequest) {

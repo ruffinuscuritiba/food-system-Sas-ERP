@@ -54,6 +54,7 @@ const PUBLIC_ROUTES = [
   "/order-status",
   "/super-admin",
   "/demo",
+  "/ia-demo",
 ];
 
 type NavItem = {

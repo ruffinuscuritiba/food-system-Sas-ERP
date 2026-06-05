@@ -190,18 +190,44 @@ ${contextBlock}`;
     });
   }
 
-  /** Public streaming endpoint — no auth, no DB persistence, FoodSaaS commercial demo */
+  /** Public streaming endpoint — Claude primary, Gemini fallback, no auth, no DB */
   async streamPlatformDemo(messages: DemoMessage[], res: any): Promise<void> {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (messages.length === 0) {
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      return;
+    }
 
-    if (!apiKey) {
+    // ── Primary: Anthropic Claude ────────────────────────────────────
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      const ok = await this.tryStreamClaude(messages, res, anthropicKey);
+      if (ok) return;
+      this.logger.warn('Claude failed — falling back to Gemini for platform demo');
+    } else {
+      this.logger.warn('ANTHROPIC_API_KEY absent — using Gemini directly for platform demo');
+    }
+
+    // ── Fallback: Google Gemini ──────────────────────────────────────
+    if (!process.env.GEMINI_API_KEY) {
+      this.logger.error('Platform demo: both ANTHROPIC_API_KEY and GEMINI_API_KEY are missing');
       res.write(
-        `data: ${JSON.stringify({ text: "Olá! 👋 Sou a Luna, consultora da Ruffinu's FoodSaaS ERP. A chave de API precisa ser configurada para ativar o chat completo." })}\n\n`,
+        `data: ${JSON.stringify({ text: "Olá! 👋 Sou a Luna. Para ativar o chat, as chaves de API precisam ser configuradas no servidor." })}\n\n`,
       );
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return;
     }
 
+    await this.streamGeminiFallback(messages, res);
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /** Streams Claude response. Returns true on success, false to trigger fallback. */
+  private async tryStreamClaude(
+    messages: DemoMessage[],
+    res: any,
+    apiKey: string,
+  ): Promise<boolean> {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -217,15 +243,15 @@ ${contextBlock}`;
           system: PLATFORM_DEMO_SYSTEM_PROMPT,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         }),
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!response.ok || !response.body) {
         const errBody = await response.text().catch(() => 'unknown');
-        // DIAG — remover após identificar o erro
-        this.logger.error(`[DIAG] Anthropic platform-demo status=${response.status} statusText="${response.statusText}" body=${errBody}`);
-        res.write(`data: ${JSON.stringify({ text: 'Desculpe, tive um probleminha. Tente novamente em instantes! 🙏' })}\n\n`);
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-        return;
+        this.logger.error(
+          `[DIAG] Anthropic platform-demo status=${response.status} statusText="${response.statusText}" body=${errBody}`,
+        );
+        return false;
       }
 
       const reader = (response.body as any).getReader();
@@ -248,14 +274,47 @@ ${contextBlock}`;
             ) {
               res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
             }
-          } catch {
-            /* skip malformed SSE line */
-          }
+          } catch { /* skip malformed SSE line */ }
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      return true;
+    } catch (err) {
+      this.logger.error(`Claude stream threw (will try Gemini): ${err}`);
+      return false;
+    }
+  }
+
+  /** Gemini fallback — uses SDK streaming, writes same SSE format as Claude path. */
+  private async streamGeminiFallback(messages: DemoMessage[], res: any): Promise<void> {
+    try {
+      const model = this.genai.getGenerativeModel({
+        model: process.env.GEMINI_MODEL ?? 'gemini-1.5-flash',
+        systemInstruction: PLATFORM_DEMO_SYSTEM_PROMPT,
+      });
+
+      // Gemini uses 'user' / 'model' roles; history = all messages except last
+      const lastMsg = messages[messages.length - 1];
+      const history = messages.slice(0, -1).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.content }],
+      }));
+
+      const chat = model.startChat({ history });
+      const result = await chat.sendMessageStream(lastMsg.content);
+
+      for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (text) {
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
       }
     } catch (err) {
-      this.logger.error(`Platform demo stream error: ${err}`);
-      res.write(`data: ${JSON.stringify({ text: 'Erro de conexão. Tenta de novo!' })}\n\n`);
+      this.logger.error(`Gemini fallback error: ${err}`);
+      res.write(
+        `data: ${JSON.stringify({ text: 'Desculpe, nossos servidores de IA estão temporariamente indisponíveis. Tente novamente em instantes! 🙏' })}\n\n`,
+      );
     }
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);

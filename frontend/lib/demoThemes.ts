@@ -35,14 +35,14 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       "--app-sidebar-active": "#10b981",
       "--app-sidebar-text":   "#ecfdf5",
       "--app-border-ui":      "rgba(22,163,74,0.30)",
-      // PDV dark theme — neutral (same across all demos for immersive uniformity)
+      // PDV dark theme — neutral bg, plan-coloured accents (borders/highlights)
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050a14",
       "--pdv-sidebar-bg":     "#030712",
       "--pdv-card":           "#070d18",
       "--pdv-card-hover":     "#09111d",
-      "--pdv-border":         "rgba(255,255,255,0.06)",
-      "--pdv-text-muted":     "#64748b",
+      "--pdv-border":         "rgba(22,163,74,0.22)",
+      "--pdv-text-muted":     "#86efac",
     },
   },
 
@@ -56,14 +56,14 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       "--app-sidebar-active": "#3b82f6",
       "--app-sidebar-text":   "#eff6ff",
       "--app-border-ui":      "rgba(37,99,235,0.30)",
-      // PDV dark theme — neutral (same across all demos for immersive uniformity)
+      // PDV dark theme — neutral bg, plan-coloured accents (borders/highlights)
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050a14",
       "--pdv-sidebar-bg":     "#030712",
       "--pdv-card":           "#070d18",
       "--pdv-card-hover":     "#09111d",
-      "--pdv-border":         "rgba(255,255,255,0.06)",
-      "--pdv-text-muted":     "#64748b",
+      "--pdv-border":         "rgba(37,99,235,0.22)",
+      "--pdv-text-muted":     "#93c5fd",
     },
   },
 
@@ -77,14 +77,14 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       "--app-sidebar-active": "#1f1f1f",
       "--app-sidebar-text":   "#f3f4f6",
       "--app-border-ui":      "rgba(124,58,237,0.30)",
-      // PDV dark theme — neutral (same across all demos for immersive uniformity)
+      // PDV dark theme — neutral bg, plan-coloured accents (borders/highlights)
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050a14",
       "--pdv-sidebar-bg":     "#030712",
       "--pdv-card":           "#070d18",
       "--pdv-card-hover":     "#09111d",
-      "--pdv-border":         "rgba(255,255,255,0.06)",
-      "--pdv-text-muted":     "#64748b",
+      "--pdv-border":         "rgba(124,58,237,0.22)",
+      "--pdv-text-muted":     "#c4b5fd",
     },
   },
 };

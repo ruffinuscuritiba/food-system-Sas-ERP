@@ -324,7 +324,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex h-screen overflow-hidden bg-[#F5F3EF] ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
+      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[#030712]" : "bg-[#F5F3EF]"} ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside

@@ -310,8 +310,11 @@ ${contextBlock}`;
           res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
       }
-    } catch (err) {
-      this.logger.error(`Gemini fallback error: ${err}`);
+    } catch (err: any) {
+      // DIAG-GEMINI — remover após identificar o erro
+      this.logger.error(
+        `[DIAG-GEMINI] message="${err?.message ?? err}" status=${err?.status ?? err?.statusCode ?? 'n/a'} stack=${(err?.stack ?? '').slice(0, 300)}`,
+      );
       res.write(
         `data: ${JSON.stringify({ text: 'Desculpe, nossos servidores de IA estão temporariamente indisponíveis. Tente novamente em instantes! 🙏' })}\n\n`,
       );

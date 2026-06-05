@@ -30,11 +30,11 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
     name: "Bella Napoli",
     primaryColor: "#16a34a",
     cssVars: {
-      "--app-sidebar":        "#065f46",
-      "--app-sidebar-hover":  "#047857",
+      "--app-sidebar":        "#020d07",
+      "--app-sidebar-hover":  "#051609",
       "--app-sidebar-active": "#10b981",
       "--app-sidebar-text":   "#ecfdf5",
-      "--app-border-ui":      "rgba(22,163,74,0.30)",
+      "--app-border-ui":      "rgba(22,163,74,0.22)",
       // PDV dark theme — green-tinted dark environment
       "--pdv-bg":             "#020d07",
       "--pdv-header-bg":      "#031008",
@@ -51,11 +51,11 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
     name: "Don Corleone",
     primaryColor: "#2563eb",
     cssVars: {
-      "--app-sidebar":        "#1e3a5f",
-      "--app-sidebar-hover":  "#2563eb",
+      "--app-sidebar":        "#020614",
+      "--app-sidebar-hover":  "#050d22",
       "--app-sidebar-active": "#3b82f6",
       "--app-sidebar-text":   "#eff6ff",
-      "--app-border-ui":      "rgba(37,99,235,0.30)",
+      "--app-border-ui":      "rgba(37,99,235,0.22)",
       // PDV dark theme — blue-tinted dark environment
       "--pdv-bg":             "#020614",
       "--pdv-header-bg":      "#030a1c",
@@ -72,11 +72,11 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
     name: "Milano",
     primaryColor: "#7c3aed",
     cssVars: {
-      "--app-sidebar":        "#000000",
-      "--app-sidebar-hover":  "#111111",
-      "--app-sidebar-active": "#1f1f1f",
+      "--app-sidebar":        "#030712",
+      "--app-sidebar-hover":  "#070d18",
+      "--app-sidebar-active": "#7c3aed",
       "--app-sidebar-text":   "#f3f4f6",
-      "--app-border-ui":      "rgba(124,58,237,0.30)",
+      "--app-border-ui":      "rgba(124,58,237,0.22)",
       // PDV dark theme — neutral bg, plan-coloured accents (borders/highlights)
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050a14",

@@ -91,6 +91,57 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
 
 export const DEMO_IDS = new Set(Object.keys(DEMO_THEMES));
 
+/**
+ * Credenciais dos restaurantes de demonstração comercial.
+ * Mantidas em sincronia com `backend/src/modules/super-admin/super-admin.service.ts`
+ * (método `initDemoCompanies` / endpoint `/super-admin/demo/init`).
+ *
+ * Reutilize daqui em vez de hardcodar IDs/emails em páginas públicas.
+ */
+export interface DemoAccount {
+  id: string;
+  plan: "BASIC" | "PRO" | "ENTERPRISE";
+  label: string;
+  tagline: string;
+  email: string;
+  password: string;
+  primaryColor: string;
+  features: string[];
+}
+
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    id: "demo-basic-001",
+    plan: "BASIC",
+    label: "FoodSaaS Basic",
+    tagline: "Ideal para pizzarias e restaurantes pequenos.",
+    email: "demo-basic@foodsaas.demo",
+    password: "DemoBasic@123",
+    primaryColor: "#16a34a",
+    features: ["PDV", "Pedidos", "Cozinha", "Mesas", "Cardápio Online"],
+  },
+  {
+    id: "demo-pro-001",
+    plan: "PRO",
+    label: "FoodSaaS Pro",
+    tagline: "Ideal para operações em crescimento.",
+    email: "demo-pro@foodsaas.demo",
+    password: "DemoPro@123",
+    primaryColor: "#2563eb",
+    features: ["Tudo do Basic", "Cupons", "Relatórios", "Controle avançado", "Gestão ampliada"],
+  },
+  {
+    id: "demo-enterprise-001",
+    plan: "ENTERPRISE",
+    label: "FoodSaaS Enterprise",
+    tagline: "Solução premium para grandes operações.",
+    email: "demo-enterprise@foodsaas.demo",
+    password: "DemoEnterprise@123",
+    primaryColor: "#7c3aed",
+    features: ["Tudo do Pro", "Multiunidades", "Recursos avançados", "Dashboards completos", "Operação corporativa"],
+  },
+];
+
 const ALL_VARS = [
   "--color-primary",
   "--app-sidebar", "--app-sidebar-hover", "--app-sidebar-active", "--app-sidebar-text",

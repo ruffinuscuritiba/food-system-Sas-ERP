@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
 
 import {
   LayoutDashboard,
@@ -214,9 +215,15 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!user?.companyId) return;
-    // /company already returns the modules relation — single call,
-    // no separate /company-module fetch needed (that route doesn't exist).
-    api.get(`/company/${user.companyId}`)
+    const cid = user.companyId;
+
+    // Demo companies: apply hardcoded visual identity immediately,
+    // bypassing whatever primaryColor the API might return.
+    if (DEMO_IDS.has(cid)) {
+      applyDemoTheme(cid);
+    }
+
+    api.get(`/company/${cid}`)
       .then((r) => {
         if (r.data?.name) setCompanyName(r.data.name);
         const modules: any[] = Array.isArray(r.data?.modules) ? r.data.modules : [];
@@ -227,12 +234,21 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         setActiveSlugs(slugs);
       })
       .catch(() => {});
-    api.get(`/themes/${user.companyId}`)
+
+    api.get(`/themes/${cid}`)
       .then((r) => {
-        const color = r.data?.primaryColor;
-        if (color) document.documentElement.style.setProperty("--color-primary", color);
+        // Real companies: honour their configured primaryColor.
+        // Demo companies: re-apply demo theme so API response cannot override it.
+        if (DEMO_IDS.has(cid)) {
+          applyDemoTheme(cid);
+        } else {
+          const color = r.data?.primaryColor;
+          if (color) document.documentElement.style.setProperty("--color-primary", color);
+        }
       })
       .catch(() => {});
+
+    return () => { if (DEMO_IDS.has(cid)) clearDemoTheme(); };
   }, [user?.companyId]);
 
   function stopImpersonating() {

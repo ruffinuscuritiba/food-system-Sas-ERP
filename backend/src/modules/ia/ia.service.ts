@@ -220,8 +220,9 @@ ${contextBlock}`;
       });
 
       if (!response.ok || !response.body) {
-        const err = await response.text().catch(() => 'unknown');
-        this.logger.error(`Anthropic platform-demo error: ${err}`);
+        const errBody = await response.text().catch(() => 'unknown');
+        // DIAG — remover após identificar o erro
+        this.logger.error(`[DIAG] Anthropic platform-demo status=${response.status} statusText="${response.statusText}" body=${errBody}`);
         res.write(`data: ${JSON.stringify({ text: 'Desculpe, tive um probleminha. Tente novamente em instantes! 🙏' })}\n\n`);
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         return;

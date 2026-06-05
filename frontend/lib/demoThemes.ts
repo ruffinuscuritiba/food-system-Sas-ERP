@@ -38,7 +38,7 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       // PDV dark theme (self-contained, does not affect non-PDV pages)
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050816",
-      "--pdv-sidebar-bg":     "#050816",
+      "--pdv-sidebar-bg":     "#030712",
       "--pdv-card":           "#0b0f1b",
       "--pdv-card-hover":     "#0c101d",
       "--pdv-border":         "rgba(22,163,74,0.25)",
@@ -59,7 +59,7 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       // PDV dark theme
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050816",
-      "--pdv-sidebar-bg":     "#050816",
+      "--pdv-sidebar-bg":     "#030712",
       "--pdv-card":           "#0b0f1b",
       "--pdv-card-hover":     "#0c101d",
       "--pdv-border":         "rgba(37,99,235,0.25)",
@@ -80,7 +80,7 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       // PDV dark theme
       "--pdv-bg":             "#030712",
       "--pdv-header-bg":      "#050816",
-      "--pdv-sidebar-bg":     "#050816",
+      "--pdv-sidebar-bg":     "#030712",
       "--pdv-card":           "#0b0f1b",
       "--pdv-card-hover":     "#0c101d",
       "--pdv-border":         "rgba(124,58,237,0.25)",

@@ -335,7 +335,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
             ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:shadow-sm"}
             top-0
           `}
-          style={{ background: "var(--app-sidebar,#0f172a)", borderColor: "var(--app-border-ui,#1e293b)" }}
+          style={{ background: isPdv ? "var(--pdv-bg,#030712)" : "var(--app-sidebar,#0f172a)", borderColor: "var(--app-border-ui,#1e293b)" }}
         >
 
           {/* Brand */}

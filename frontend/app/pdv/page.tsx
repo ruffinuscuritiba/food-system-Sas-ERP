@@ -602,7 +602,7 @@ export default function PDVPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#000000)] text-white flex overflow-hidden w-full min-w-0">
+    <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0">
       {/* CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 

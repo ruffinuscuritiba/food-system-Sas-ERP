@@ -626,28 +626,28 @@ export default function PDVPage() {
               </div>
             )}
             <button onClick={openTrocarMesa} title="Trocar mesa"
-              className="w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
+              className="w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-blue-600 hover:opacity-90 active:scale-95 transition flex flex-col items-center justify-center gap-0 md:gap-0.5">
               <ArrowLeftRight size={14} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Trocar</span>
               <span className="hidden md:block text-[10px] leading-none">Mesa</span>
             </button>
             {/* Criar Cupom — oculto em xs, visível em sm+ */}
             <button onClick={openCriarCupom} title="Criar cupom"
-              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
+              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-blue-600 hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
               <Receipt size={14} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
               <span className="hidden md:block text-[10px] leading-none">Cupom</span>
             </button>
             {/* Limpar — oculto em xs */}
             <button onClick={clearCart} title="Limpar conta"
-              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
+              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-blue-600 hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
               <Trash2 size={14} className="shrink-0" />
               <span className="hidden md:block text-[10px] font-bold leading-none">Limpar</span>
               <span className="hidden md:block text-[10px] leading-none">Conta</span>
             </button>
             {/* Carrinho — sempre visível */}
             <button onClick={() => setShowCart(true)}
-              className="h-9 md:h-[54px] px-2.5 sm:px-3 md:px-6 rounded-xl md:rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 md:gap-2 font-semibold relative">
+              className="h-9 md:h-[54px] px-2.5 sm:px-3 md:px-6 rounded-xl md:rounded-2xl bg-blue-600 hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 md:gap-2 font-semibold relative">
               <ShoppingBag size={16} md-size={18} />
               <span className="hidden md:block text-sm">Carrinho</span>
               {cartCount > 0 && (
@@ -668,7 +668,7 @@ export default function PDVPage() {
               {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
                 <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
                   className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
-                    selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-300"
+                    selectedCategory === cat.id ? "bg-blue-600 text-white" : "bg-[#0c101d] text-zinc-300"
                   }`}>
                   {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
                 </button>
@@ -683,14 +683,14 @@ export default function PDVPage() {
             <div className="space-y-4">
               <button onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
-                  selectedCategory === "all" ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
+                  selectedCategory === "all" ? "bg-blue-600 text-white" : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
                 }`}>Todos</button>
               {loading ? Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[#0c101d] animate-pulse" />
               )) : categories.map((cat) => (
                 <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
                   className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
-                    selectedCategory === cat.id ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
+                    selectedCategory === cat.id ? "bg-blue-600 text-white" : "bg-[#0c101d] hover:bg-[#151c2d] text-zinc-300"
                   }`}>
                   {cat.categoryType === "bebidas" ? "Bebidas" : cat.name}
                 </button>
@@ -726,7 +726,7 @@ export default function PDVPage() {
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
                       <p className="text-blue-400 font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
                       <button onClick={(e) => { e.stopPropagation(); openProductAdd(product); }} disabled={complementLoading}
-                        className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary)] group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50">
+                        className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50">
                         + Adicionar
                       </button>
                     </div>
@@ -750,7 +750,7 @@ export default function PDVPage() {
                       </span>
                       {product.costPrice != null && <span className="text-zinc-600 text-xs mt-1">Custo: {fmt(product.costPrice)}</span>}
                       <button onClick={() => openProductAdd(product)} disabled={complementLoading}
-                        className="mt-4 h-[50px] px-8 rounded-2xl bg-[var(--color-primary)] hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50">
+                        className="mt-4 h-[50px] px-8 rounded-2xl bg-blue-600 hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50">
                         ADICIONAR
                       </button>
                     </div>
@@ -804,7 +804,7 @@ export default function PDVPage() {
                     <p className="text-blue-400 font-black text-xs leading-tight mb-2">{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
-                      style={{ backgroundColor: "var(--color-primary, #16a34a)" }}
+                      style={{ backgroundColor: "#2563eb" }}
                       className="w-full py-2 rounded-xl text-white active:scale-95 transition text-xs font-bold min-h-[36px]">
                       + Adicionar
                     </button>
@@ -829,13 +829,13 @@ export default function PDVPage() {
                     {product.description && (
                       <p className="text-zinc-500 text-xs mt-0.5 truncate">{product.description}</p>
                     )}
-                    <p className="font-black text-sm mt-0.5 leading-tight" style={{ color: "var(--color-primary, #16a34a)" }}>
+                    <p className="font-black text-sm mt-0.5 leading-tight" style={{ color: "#2563eb" }}>
                       {productPriceLabel(product)}
                     </p>
                   </div>
                   {/* Indicador visual — pointer-events-none: o click é tratado pelo card inteiro */}
                   <div
-                    style={{ backgroundColor: "var(--color-primary, #16a34a)" }}
+                    style={{ backgroundColor: "#2563eb" }}
                     className={`shrink-0 h-10 px-3 rounded-xl text-white font-black flex items-center justify-center gap-1 transition pointer-events-none whitespace-nowrap ${complementLoading ? "opacity-50" : ""}`}>
                     <span className="text-base leading-none">+</span>
                     <span className="text-xs">Adicionar</span>
@@ -962,7 +962,7 @@ export default function PDVPage() {
                   <input id="trocar-mesa-input" type="text" placeholder="Ex: 12" defaultValue={pdvOrderDetails.tableNumber}
                     className="flex-1 bg-[#0c101d] border border-[#1d2336] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
                   <button onClick={() => { const input = document.getElementById("trocar-mesa-input") as HTMLInputElement; const v = input?.value?.trim(); if (!v) { toast.error("Digite o número da mesa"); return; } trocarMesa(v); }}
-                    className="px-5 py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition">Confirmar</button>
+                    className="px-5 py-3 rounded-xl bg-blue-600 hover:opacity-90 font-bold text-sm transition">Confirmar</button>
                 </div>
               </div>
               {loadingTables ? (
@@ -975,7 +975,7 @@ export default function PDVPage() {
                   <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto">
                     {tables.map((t: any) => (
                       <button key={t.id} onClick={() => trocarMesa(String(t.number))}
-                        className={`py-3 rounded-xl border text-sm font-bold transition ${String(t.number) === pdvOrderDetails.tableNumber ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white" : t.status === "FREE" ? "bg-[#0c101d] border-green-700/40 text-green-400 hover:border-green-600" : t.status === "OCCUPIED" ? "bg-[#0c101d] border-red-700/40 text-red-400 hover:border-red-600" : "bg-[#0c101d] border-yellow-700/40 text-yellow-400"}`}
+                        className={`py-3 rounded-xl border text-sm font-bold transition ${String(t.number) === pdvOrderDetails.tableNumber ? "bg-blue-600 border-blue-600 text-white" : t.status === "FREE" ? "bg-[#0c101d] border-green-700/40 text-green-400 hover:border-green-600" : t.status === "OCCUPIED" ? "bg-[#0c101d] border-red-700/40 text-red-400 hover:border-red-600" : "bg-[#0c101d] border-yellow-700/40 text-yellow-400"}`}
                         title={`Mesa ${t.number} — ${t.status}`}>
                         {t.number}
                         <div className="text-[8px] mt-0.5 opacity-60">{t.status === "FREE" ? "livre" : t.status === "OCCUPIED" ? "ocup." : "reserv."}</div>
@@ -1012,7 +1012,7 @@ export default function PDVPage() {
                     <p className="text-3xl font-black text-blue-400 tracking-widest">{cupomCreated}</p>
                   </div>
                   <button onClick={() => { navigator.clipboard?.writeText(cupomCreated); toast.success("Código copiado!"); }}
-                    className="w-full py-3 rounded-xl bg-[var(--color-primary)] hover:opacity-90 font-bold text-sm transition">Copiar código</button>
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:opacity-90 font-bold text-sm transition">Copiar código</button>
                   <button onClick={() => { setCupomCreated(null); setCupomForm({ code: gerarCodigoCupom(), type: "PERCENTAGE", value: "", usageLimit: "", expiresAt: "" }); }}
                     className="w-full py-3 rounded-xl bg-[#0c101d] border border-[#1d2336] text-zinc-400 hover:text-white font-semibold text-sm transition">Criar outro cupom</button>
                 </div>
@@ -1032,7 +1032,7 @@ export default function PDVPage() {
                     <div className="grid grid-cols-3 gap-2">
                       {([{ v: "PERCENTAGE", label: "%", desc: "Percentual" }, { v: "FIXED_AMOUNT", label: "R$", desc: "Valor fixo" }, { v: "FREE_SHIPPING", label: "🚚", desc: "Frete grátis" }] as const).map(opt => (
                         <button key={opt.v} onClick={() => setCupomForm(f => ({ ...f, type: opt.v }))}
-                          className={`py-2.5 rounded-xl border text-xs font-semibold transition flex flex-col items-center gap-0.5 ${cupomForm.type === opt.v ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white" : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-blue-600/40"}`}>
+                          className={`py-2.5 rounded-xl border text-xs font-semibold transition flex flex-col items-center gap-0.5 ${cupomForm.type === opt.v ? "bg-blue-600 border-blue-600 text-white" : "bg-[#0c101d] border-[#1d2336] text-zinc-400 hover:border-blue-600/40"}`}>
                           <span className="text-base">{opt.label}</span><span className="text-[9px]">{opt.desc}</span>
                         </button>
                       ))}
@@ -1182,7 +1182,7 @@ function DiscountRow({ subtotal, onDiscount }: { subtotal: number; onDiscount: (
             {(["PERCENTAGE", "FIXED"] as const).map((t) => (
               <button key={t} type="button"
                 onClick={() => { setType(t); apply(t, value); }}
-                className={`flex-1 px-3 py-1.5 text-xs font-bold transition ${type === t ? "bg-[var(--color-primary)] text-white" : "bg-[#0c101d] text-zinc-400"}`}>
+                className={`flex-1 px-3 py-1.5 text-xs font-bold transition ${type === t ? "bg-blue-600 text-white" : "bg-[#0c101d] text-zinc-400"}`}>
                 {t === "PERCENTAGE" ? "%" : "R$"}
               </button>
             ))}

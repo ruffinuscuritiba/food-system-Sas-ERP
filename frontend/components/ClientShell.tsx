@@ -59,7 +59,8 @@ type NavItem = {
   label: string;
   icon: React.ReactNode;
   roles: string[];
-  moduleSlug?: string;  // slug do módulo obrigatório — usado para filtrar sidebar de DEMO
+  moduleSlug?: string;
+  activeColor?: "green" | "blue"; // força cor do item ativo independente de --color-primary
 };
 
 // Module slug → nav item(s) shown below Módulos de Integração when active
@@ -110,13 +111,13 @@ function WaIcon3D() {
 const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     items: [
-      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={16} />, roles: [] },
+      { href: "/", label: "Dashboard", icon: <LayoutDashboard size={16} />, roles: [], activeColor: "green" },
     ],
   },
   {
     title: "Operação",
     items: [
-      { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"] },
+      { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue" },
       { href: "/orders",  label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
       { href: "/kitchen", label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
       { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables" },
@@ -286,7 +287,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
       {/* Mobile top bar */}
       <div className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${impersonating ? "top-9" : "top-0"} ${isPdv ? "bg-[#050816] border-b border-[#161b2d]" : "bg-white border-b border-gray-100 shadow-sm"}`}>
         <div className="flex items-center gap-2.5">
-          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isPdv ? "bg-[var(--color-primary)]" : "bg-orange-500 shadow-md shadow-orange-200"}`}>
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isPdv ? "bg-blue-600" : "bg-orange-500 shadow-md shadow-orange-200"}`}>
             <UtensilsCrossed size={15} className="text-white" />
           </div>
           <span className={`font-bold text-sm truncate max-w-[180px] ${isPdv ? "text-white" : "text-gray-900"}`}>{companyName}</span>
@@ -336,8 +337,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
           {/* Nav */}
           <nav
-            className="flex-1 min-h-0 overflow-y-scroll px-3 py-3 space-y-0.5 [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-slate-800/60 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:hover:bg-slate-400"
-            style={{ scrollbarWidth: "thin", scrollbarColor: "#475569 transparent" }}
+            className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 space-y-0.5"
+            style={{ scrollbarWidth: "none" }}
           >
             {NAV_SECTIONS.map((section, si) => {
               const visible = section.items.filter((item) => canSee(item.roles) && canAccessModule(item.moduleSlug));
@@ -364,6 +365,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                         icon={item.icon}
                         label={item.label}
                         active={pathname === item.href}
+                        activeColor={item.activeColor}
                         onClick={() => setSidebarOpen(false)}
                       />
                     ))}
@@ -467,22 +469,27 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 }
 
 function MenuItem({
-  href, icon, label, active, onClick,
+  href, icon, label, active, activeColor, onClick,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
+  activeColor?: "green" | "blue";
   onClick?: () => void;
 }) {
+  const activeCls = activeColor === "blue"
+    ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
+    : activeColor === "green"
+      ? "bg-[#16a34a] text-white shadow-md shadow-green-900/40"
+      : "bg-primary text-white shadow-md shadow-primary/30";
+
   return (
     <Link
       href={href}
       onClick={onClick}
       className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all text-[13px] font-semibold group ${
-        active
-          ? "bg-primary text-white shadow-md shadow-primary/30"
-          : "text-slate-300 hover:bg-slate-800 hover:text-white"
+        active ? activeCls : "text-slate-300 hover:bg-slate-800 hover:text-white"
       }`}
     >
       <span className={`shrink-0 transition-transform group-hover:scale-110 ${active ? "" : "text-slate-500 group-hover:text-slate-200"}`}>

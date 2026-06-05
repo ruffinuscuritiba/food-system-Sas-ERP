@@ -42,7 +42,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - demo-assets (static JPEG/PNG assets served from /public/demo-assets/)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|demo-assets).*)',
   ],
 }

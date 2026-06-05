@@ -82,3 +82,47 @@ button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
+
+/* ── Demo company theme — global layout overrides ─────────────────────────────
+ * Applied when html[data-demo] is present (set by applyDemoTheme in demoThemes.ts).
+ * Only affects structural layout containers — not modals, badges, or UI widgets.
+ * Real companies never have data-demo set, so they are completely unaffected.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Body/page background */
+html[data-demo] body {
+  background-color: var(--app-bg) !important;
+}
+
+/* Main content area */
+html[data-demo] main {
+  background-color: var(--app-bg) !important;
+}
+
+/* Nav item hover — overrides Tailwind hover:bg-slate-800 */
+html[data-demo] .demo-nav-item:hover {
+  background-color: var(--app-sidebar-hover) !important;
+}
+
+/* Top-level page wrapper divs (direct children of <main>) */
+html[data-demo] main > div:first-child {
+  background-color: var(--app-bg);
+}
+
+/* Common white card backgrounds inside main — surfaces like cards/panels */
+html[data-demo] main .bg-white {
+  background-color: var(--app-surface) !important;
+}
+html[data-demo] main .bg-gray-50 {
+  background-color: var(--app-surface) !important;
+}
+html[data-demo] main .bg-gray-100 {
+  background-color: var(--app-surface) !important;
+}
+
+/* Text muted adapts to demo theme */
+html[data-demo] main .text-gray-500,
+html[data-demo] main .text-gray-400,
+html[data-demo] main .text-slate-500 {
+  color: var(--app-text-muted) !important;
+}

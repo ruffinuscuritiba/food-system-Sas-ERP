@@ -301,14 +301,21 @@ export default function ClientShell({ children }: { children: React.ReactNode })
       <Toaster position="top-right" />
 
       {/* Mobile top bar */}
-      <div className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${impersonating ? "top-9" : "top-0"} ${isPdv ? "bg-[#050816] border-b border-[#161b2d]" : "bg-white border-b border-gray-100 shadow-sm"}`}>
+      <div
+        className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${impersonating ? "top-9" : "top-0"} ${isPdv ? "border-b" : "bg-white border-b border-gray-100 shadow-sm"}`}
+        style={isPdv ? { background: "var(--pdv-header-bg,#050816)", borderColor: "var(--pdv-border,#161b2d)" } : undefined}
+      >
         <div className="flex items-center gap-2.5">
           <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isPdv ? "bg-blue-600" : "bg-orange-500 shadow-md shadow-orange-200"}`}>
             <UtensilsCrossed size={15} className="text-white" />
           </div>
           <span className={`font-bold text-sm truncate max-w-[180px] ${isPdv ? "text-white" : "text-gray-900"}`}>{companyName}</span>
         </div>
-        <button onClick={() => setSidebarOpen(true)} className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${isPdv ? "bg-[#0c101d] text-zinc-300 hover:bg-[#161b2d]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${isPdv ? "text-zinc-300" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+          style={isPdv ? { background: "var(--pdv-card-hover,#0c101d)" } : undefined}
+        >
           <Menu size={18} />
         </button>
       </div>
@@ -317,19 +324,25 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex h-screen overflow-hidden bg-[#F5F3EF] ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
+      <div
+        className={`flex h-screen overflow-hidden ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}
+        style={{ background: "var(--app-bg,#F5F3EF)" }}
+      >
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-50 w-60 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0
-          transition-transform duration-300 ease-in-out
-          md:relative md:translate-x-0 md:z-auto md:h-screen
-          ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:shadow-sm"}
-          top-0
-        `}>
+        <aside
+          className={`
+            fixed inset-y-0 left-0 z-50 w-60 border-r flex flex-col shrink-0
+            transition-transform duration-300 ease-in-out
+            md:relative md:translate-x-0 md:z-auto md:h-screen
+            ${sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:shadow-sm"}
+            top-0
+          `}
+          style={{ background: "var(--app-sidebar,#0f172a)", borderColor: "var(--app-border-ui,#1e293b)" }}
+        >
 
           {/* Brand */}
-          <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="px-4 py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--app-border-ui,#1e293b)" }}>
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-primary/30">
                 <UtensilsCrossed size={16} className="text-white" />
@@ -418,7 +431,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           )}
 
           {/* Logout */}
-          <div className="px-3 py-3 border-t border-slate-800">
+          <div className="px-3 py-3 border-t" style={{ borderColor: "var(--app-border-ui,#1e293b)" }}>
             <button
               onClick={logout}
               className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition font-medium text-[12px] group"
@@ -504,7 +517,7 @@ function MenuItem({
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all text-[13px] font-semibold group ${
+      className={`demo-nav-item flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all text-[13px] font-semibold group ${
         active ? activeCls : "text-slate-300 hover:bg-slate-800 hover:text-white"
       }`}
     >

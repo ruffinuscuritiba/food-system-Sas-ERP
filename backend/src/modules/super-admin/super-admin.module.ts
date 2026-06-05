@@ -6,6 +6,7 @@ import { SuperAdminController } from './super-admin.controller'
 import { SuperAdminService } from './super-admin.service'
 import { SuperAdminGuard } from './super-admin.guard'
 import { DemoVitrineService } from './demo-vitrine.service'
+import { DemoBootstrapService } from './demo-bootstrap.service'
 
 @Module({
   imports: [
@@ -22,6 +23,6 @@ import { DemoVitrineService } from './demo-vitrine.service'
     }),
   ],
   controllers: [SuperAdminController],
-  providers: [SuperAdminService, SuperAdminGuard, DemoVitrineService],
+  providers: [SuperAdminService, SuperAdminGuard, DemoVitrineService, DemoBootstrapService],
 })
 export class SuperAdminModule {}

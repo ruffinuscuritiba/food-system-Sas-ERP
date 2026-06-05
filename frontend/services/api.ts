@@ -55,10 +55,13 @@ api.interceptors.response.use(
     const status =
       error.response?.status;
 
+    const requestUrl: string = (error.config as any)?.url ?? "";
+    const isLoginAttempt = requestUrl.includes("auth/login");
+
     if (
       status === 401 &&
-      typeof window !==
-        "undefined"
+      typeof window !== "undefined" &&
+      !isLoginAttempt
     ) {
 
       localStorage.removeItem(

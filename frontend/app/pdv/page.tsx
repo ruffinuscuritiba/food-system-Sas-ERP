@@ -799,9 +799,9 @@ export default function PDVPage() {
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[var(--pdv-card,#161b2d)] p-2" />
                     : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-3xl">🥤</div>}
-                  <div className="p-2.5 flex flex-col flex-1">
-                    <p className="font-bold text-xs leading-tight line-clamp-2 flex-1 mb-1.5">{product.name}</p>
-                    <p className="text-blue-400 font-black text-xs leading-tight mb-2">{productPriceLabel(product)}</p>
+                  <div className="p-2.5 flex flex-col flex-1 min-w-0">
+                    <p className="font-bold text-xs leading-tight line-clamp-2 min-w-0 mb-1.5">{product.name}</p>
+                    <p className="text-blue-400 font-black text-xs leading-tight mt-auto mb-2">{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
                       style={{ backgroundColor: "var(--color-primary,#2563eb)" }}

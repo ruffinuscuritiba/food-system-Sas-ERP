@@ -324,10 +324,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div
-        className={`flex h-screen overflow-hidden ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}
-        style={{ background: "var(--app-bg,#F5F3EF)" }}
-      >
+      <div className={`flex h-screen overflow-hidden bg-[#F5F3EF] ${impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside
@@ -518,7 +515,7 @@ function MenuItem({
       href={href}
       onClick={onClick}
       className={`demo-nav-item flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all text-[13px] font-semibold group ${
-        active ? activeCls : "text-slate-300 hover:bg-slate-800 hover:text-white"
+        active ? `${activeCls} demo-active` : "text-slate-300 hover:bg-slate-800 hover:text-white"
       }`}
     >
       <span className={`shrink-0 transition-transform group-hover:scale-110 ${active ? "" : "text-slate-500 group-hover:text-slate-200"}`}>

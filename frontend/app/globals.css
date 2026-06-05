@@ -83,46 +83,39 @@ button:disabled {
   opacity: 0.55;
 }
 
-/* ── Demo company theme — global layout overrides ─────────────────────────────
- * Applied when html[data-demo] is present (set by applyDemoTheme in demoThemes.ts).
- * Only affects structural layout containers — not modals, badges, or UI widgets.
- * Real companies never have data-demo set, so they are completely unaffected.
+/* ── Demo company theme — sidebar navigation only ────────────────────────────
+ * Applies ONLY to the left sidebar nav. Pages, cards, body, main, containers
+ * and all content areas are intentionally untouched.
+ *
+ * 3D / auto-relevo effect:
+ *   item normal  → subtle raised card (rgba overlay + inset shadow)
+ *   hover        → var(--app-sidebar-hover) + stronger inset shadow
+ *   active       → var(--app-sidebar-active) + most prominent inset shadow
  * ─────────────────────────────────────────────────────────────────────────── */
 
-/* Body/page background */
-html[data-demo] body {
-  background-color: var(--app-bg) !important;
+/* Item normal: levemente elevado sobre o fundo da sidebar */
+html[data-demo] aside .demo-nav-item {
+  color: var(--app-sidebar-text, #cbd5e1);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset 0  1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
 }
 
-/* Main content area */
-html[data-demo] main {
-  background-color: var(--app-bg) !important;
-}
-
-/* Nav item hover — overrides Tailwind hover:bg-slate-800 */
-html[data-demo] .demo-nav-item:hover {
+/* Hover: um pouco mais claro + sombra mais intensa */
+html[data-demo] aside .demo-nav-item:hover {
   background-color: var(--app-sidebar-hover) !important;
+  color: var(--app-sidebar-text, #ffffff) !important;
+  box-shadow:
+    inset 0  1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Top-level page wrapper divs (direct children of <main>) */
-html[data-demo] main > div:first-child {
-  background-color: var(--app-bg);
-}
-
-/* Common white card backgrounds inside main — surfaces like cards/panels */
-html[data-demo] main .bg-white {
-  background-color: var(--app-surface) !important;
-}
-html[data-demo] main .bg-gray-50 {
-  background-color: var(--app-surface) !important;
-}
-html[data-demo] main .bg-gray-100 {
-  background-color: var(--app-surface) !important;
-}
-
-/* Text muted adapts to demo theme */
-html[data-demo] main .text-gray-500,
-html[data-demo] main .text-gray-400,
-html[data-demo] main .text-slate-500 {
-  color: var(--app-text-muted) !important;
+/* Item ativo: mais destacado + relevo pronunciado */
+html[data-demo] aside .demo-nav-item.demo-active {
+  background-color: var(--app-sidebar-active) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0  1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.30) !important;
 }

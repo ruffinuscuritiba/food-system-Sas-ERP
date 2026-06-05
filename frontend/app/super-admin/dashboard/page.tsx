@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { saApi } from "@/services/superAdminApi"
+import { DemoCentralCard } from "@/components/DemoCentralCard"
 
 interface Company {
   id: string
@@ -288,6 +289,11 @@ export default function SuperAdminDashboard() {
             <p className="text-gray-400 text-sm">Arquivados</p>
             <p className="text-4xl font-bold text-gray-400 mt-1">{stats.archived}</p>
           </div>
+        </div>
+
+        {/* Demo Central */}
+        <div className="mb-8">
+          <DemoCentralCard variant="dark" />
         </div>
 
         {/* Actions bar */}

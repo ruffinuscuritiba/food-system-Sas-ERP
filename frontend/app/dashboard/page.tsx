@@ -12,6 +12,7 @@ import {
   ChefHat,
   Hash,
 } from "lucide-react";
+import { DemoCentralCard } from "@/components/DemoCentralCard";
 
 const DashboardCharts = dynamic(() => import("./DashboardCharts"), {
   ssr: false,
@@ -134,6 +135,10 @@ export default function DashboardPage() {
         </div>
 
         <DashboardCharts chartData={chartData} />
+
+        <div className="mt-6">
+          <DemoCentralCard variant="light" />
+        </div>
       </div>
     </main>
   );

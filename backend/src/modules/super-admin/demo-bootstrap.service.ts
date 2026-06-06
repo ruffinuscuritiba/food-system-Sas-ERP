@@ -46,6 +46,7 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
     if (count >= 3) {
       this.logger.debug('Demo accounts present — running idempotent patches.')
       await this.vitrine.patchDemoCategoryNames()
+      await this.vitrine.patchDemoThemesAndModules()
       return
     }
 

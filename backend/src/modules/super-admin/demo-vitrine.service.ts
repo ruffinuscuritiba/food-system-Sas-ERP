@@ -222,6 +222,51 @@ export class DemoVitrineService {
     }
   }
 
+  /**
+   * Always-run idempotent patch: ensures correct primaryColor and ALL_MODULES
+   * for every demo company, regardless of when initDemoCompanies last ran.
+   * Called on every Render restart so prod state stays in sync with code.
+   */
+  async patchDemoThemesAndModules(): Promise<void> {
+    const ALL_MODULES = ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY',
+                         'BI', 'AI', 'LOYALTY', 'MARKETING', 'SMART_IMPORT', 'WHATSAPP']
+
+    const DEMO_COLORS: Record<string, string> = {
+      'demo-basic-001':      '#16a34a',
+      'demo-pro-001':        '#2563eb',
+      'demo-enterprise-001': '#7c3aed',
+    }
+
+    for (const cid of SAFE_DEMO_IDS) {
+      const primaryColor = DEMO_COLORS[cid]
+
+      // Ensure CompanyTheme exists with correct brand color
+      await this.prisma.companyTheme.upsert({
+        where:  { companyId: cid },
+        update: { primaryColor },
+        create: { companyId: cid, primaryColor, darkMode: false },
+      })
+
+      // Ensure all modules are active (additive — never deactivates)
+      for (const mod of ALL_MODULES) {
+        const cmId = `cm-${mod.toLowerCase()}-${cid}`
+        await this.prisma.companyModule.upsert({
+          where:  { id: cmId },
+          update: { active: true, status: 'ACTIVE', module: mod.toUpperCase(), moduleSlug: mod.toLowerCase() },
+          create: {
+            id:          cmId,
+            module:      mod.toUpperCase(),
+            active:      true,
+            moduleSlug:  mod.toLowerCase(),
+            status:      'ACTIVE',
+            activatedAt: new Date(),
+            companyId:   cid,
+          },
+        })
+      }
+    }
+  }
+
   async populateAll() {
     const results: any[] = []
     for (const tier of TIERS) {

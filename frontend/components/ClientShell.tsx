@@ -218,12 +218,18 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     if (imp) { try { setImpersonating(JSON.parse(imp)); } catch {} }
   }, [loadAuth]);
 
-  // Mantém o backend do Render acordado enquanto o app está aberto (pinga a cada 13 min)
+  // Mantém o backend Render acordado: pinga a cada 5 min (hiberna em 15 min).
+  // Também pinga ao recuperar visibilidade (tab voltando ao foco após inatividade).
   useEffect(() => {
     const ping = () => fetch("/api/warmup", { cache: "no-store" }).catch(() => {});
-    ping();
-    const id = setInterval(ping, 13 * 60 * 1000);
-    return () => clearInterval(id);
+    ping(); // ping imediato ao carregar
+    const id = setInterval(ping, 5 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") ping(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -243,7 +249,8 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         const modules: any[] = Array.isArray(r.data?.modules) ? r.data.modules : [];
         const slugs = modules
           .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL" || m.active)
-          .map((m: any) => (m.moduleSlug ?? m.slug ?? m.module) as string)
+          // `||` (not `??`) because moduleSlug has @default("") — empty string is falsy
+          .map((m: any) => ((m.moduleSlug || m.slug || m.module) as string).toLowerCase())
           .filter(Boolean);
         setActiveSlugs(slugs);
       })

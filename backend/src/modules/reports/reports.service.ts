@@ -87,7 +87,7 @@ export class ReportsService {
       const pm = order.paymentMethod;
       byPaymentMethod[pm] = (byPaymentMethod[pm] || 0) + rev;
 
-      const type = (order as any).orderType as string | null;
+      const type = order.orderType as string | null;
       if (type === 'DELIVERY') byType.delivery += rev;
       else if (type === 'PICKUP') byType.pickup += rev;
       else byType.dineIn += rev;

@@ -378,7 +378,7 @@ export class OrdersService {
 
     if (!customer && !order) return null;
 
-    const name = customer?.name || order?.customer?.name || (order as any)?.customerName || '';
+    const name = customer?.name || order?.customer?.name || order?.customerName || '';
 
     // Endereço: tenta JSON desagregado (novo formato), cai em string legada
     let rua = '', numero = '', complemento = '', bairro = '', cidade = '', cep = '';
@@ -757,8 +757,8 @@ export class OrdersService {
 
     this.socketGateway.emitDashboardUpdate(order.companyId, dashboard);
 
-    const customerPhone = (order as any).customerPhone ?? order.customer?.phone;
-    const customerName  = (order as any).customerName  ?? order.customer?.name;
+    const customerPhone = order.customerPhone ?? order.customer?.phone;
+    const customerName  = order.customerName  ?? order.customer?.name;
     const notifyStatuses = ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
 
     if (this.orderNotificationService && customerPhone && notifyStatuses.includes(status)) {
@@ -778,7 +778,7 @@ export class OrdersService {
               })),
               total:         Number(order.total),
               paymentMethod: String(order.paymentMethod ?? 'PIX'),
-              address:       (order as any).deliveryAddress ?? undefined,
+              address:       order.deliveryAddress ?? undefined,
             });
           } else {
             // Notificação curta de mudança de status (PREPARING, READY, etc.)
@@ -866,7 +866,7 @@ export class OrdersService {
       customerName:     o.customer?.name ?? o.customerName ?? null,
       customerPhone:    o.customer?.phone ?? null,
       customerAddress:  o.customer?.address ?? null,
-      orderType:        (o as any).orderType ?? 'DINE_IN',
+      orderType:        o.orderType ?? 'DINE_IN',
       total:            Number(o.total),
       paymentMethod:    o.paymentMethod ?? null,
       notes:            o.notes ?? null,

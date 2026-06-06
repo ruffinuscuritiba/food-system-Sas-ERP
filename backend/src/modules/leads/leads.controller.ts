@@ -18,7 +18,7 @@ export class LeadsController {
 
   @Post()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  upsert(@Body() body: LeadUpsertDto): Promise<{ id: string }> {
+  upsert(@Body() body: LeadUpsertDto): Promise<{ id: string } | null> {
     const dto: LeadUpsertDto = {
       sessionToken: String(body.sessionToken ?? '').slice(0, 100),
       name: body.name ? String(body.name).slice(0, 100) : undefined,

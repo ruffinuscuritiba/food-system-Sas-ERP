@@ -155,6 +155,13 @@ export class SuperAdminController {
     return this.vitrine.populateAll()
   }
 
+  /** GET /api/super-admin/leads/stats — KPIs de leads da Kely */
+  @Get('leads/stats')
+  @UseGuards(SuperAdminGuard)
+  leadsStats() {
+    return this.leads.getStats()
+  }
+
   /** GET /api/super-admin/leads — lista todos os leads capturados pela Kely */
   @Get('leads')
   @UseGuards(SuperAdminGuard)

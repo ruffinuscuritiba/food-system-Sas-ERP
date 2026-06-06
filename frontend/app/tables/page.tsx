@@ -68,50 +68,49 @@ export default function TablesPage() {
   }
 
   async function fetchTables() {
-
     try {
-
-      const response =
-        await api.get(
-          "/tables",
-        );
-
-      setTables(
-        response.data || [],
-      );
-
+      const response = await api.get("/tables");
+      const fresh: any[] = response.data || [];
+      setTables(fresh);
+      // Sync selectedTable with fresh data so dineInOrders stays current
+      setSelectedTable((prev: any) => {
+        if (!prev) return prev;
+        return fresh.find((t: any) => t.id === prev.id) ?? prev;
+      });
     } catch (error) {
-
       console.log(error);
-
-      toast.error(
-        "Erro ao carregar mesas",
-      );
-
+      toast.error("Erro ao carregar mesas");
       setTables([]);
     }
   }
 
+  // Rebuild tableItems reactively whenever selectedTable is updated by fetchTables
   useEffect(() => {
+    if (!selectedTable) { setTableItems([]); return; }
+    const serverItems = (selectedTable.dineInOrders || [])
+      .flatMap((o: any) =>
+        (o.items || []).map((item: any) => ({
+          id:        item.id,
+          productId: item.productId,
+          name:      item.productName,
+          quantity:  Number(item.quantity),
+          price:     Number(item.unitPrice),
+        }))
+      );
+    setTableItems(serverItems);
+  }, [selectedTable]);
 
+  useEffect(() => {
     fetchTables();
     fetchProducts();
-
     socket.connect();
-
     socket.on("tableUpdate", fetchTables);
-
     socket.on("orderCreated", fetchTables);
-
     return () => {
-
       socket.off("tableUpdate");
-
       socket.off("orderCreated");
-
       socket.disconnect();
     };
-
   }, []);
 
   async function createTable() {
@@ -148,103 +147,55 @@ export default function TablesPage() {
   }
 
   function addItemToTable() {
-
     if (!selectedProductId) {
       toast.error("Selecione um produto");
       return;
     }
-
     const product = products.find((p) => p.id === selectedProductId);
     if (!product) return;
 
+    const tempId = Date.now();
     const item = {
-      id: Date.now(),
+      id:        tempId,
       productId: selectedProductId,
-      name: product.name,
-      quantity: newItemQuantity,
-      price: Number(product.salePrice),
+      name:      product.name,
+      quantity:  newItemQuantity,
+      price:     Number(product.salePrice),
     };
 
-    const updatedItems = [...tableItems, item];
-    setTableItems(updatedItems);
-    sendOrderToKitchen(item);
-
-    if (tableItems.length === 0 && selectedTable?.status === "FREE") {
-      api.patch(`/tables/${selectedTable.id}/status`, { status: "OCCUPIED" }).catch(() => {});
-    }
+    // Optimistic UI — replaced by bank data once fetchTables syncs
+    setTableItems(prev => [...prev, item]);
+    sendOrderToKitchen(item, tempId);
 
     setSelectedProductId("");
     setNewItemPrice("");
     setNewItemQuantity(1);
   }
 
-  async function saveTableOrder(
-    items: any[],
-  ) {
-
-    if (!selectedTable) {
-      return;
-    }
-
-    try {
-
-      await api.patch(
-        `/tables/${selectedTable.id}/order`,
-        {
-
-          items,
-
-          total:
-            items.reduce(
-              (
-                acc,
-                item,
-              ) =>
-
-                acc +
-                item.price *
-                item.quantity,
-
-              0,
-            ),
-        },
-      );
-
-      fetchTables();
-
-    } catch (error) {
-
-      console.log(error);
-
-      toast.error(
-        "Erro ao salvar pedido",
-      );
-    }
-  }
-
-  async function sendOrderToKitchen(
-    item: any,
-  ) {
-
+  async function sendOrderToKitchen(item: any, tempId: number) {
     if (!selectedTable) return;
-
     try {
-
-      await api.post("/orders", {
-        customerName: `Mesa ${selectedTable.number}`,
-        customerPhone: "SALÃO",
+      const orderRes = await api.post("/orders", {
+        customerName:    `Mesa ${selectedTable.number}`,
+        customerPhone:   "SALÃO",
         deliveryAddress: "INTERNO",
+        orderType:       "DINE_IN",
         paymentMethod,
         tableId: selectedTable.id,
-        items: [{ productId: item.productId, quantity: item.quantity }],
+        items:   [{ productId: item.productId, quantity: item.quantity }],
         deliveryFee: 0,
       });
-
+      // Auto-confirm: consumes stock, notifies kitchen, calculates CMV
+      if (orderRes.data?.id) {
+        await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" }).catch(() => {});
+      }
+      // Refresh tables so selectedTable.dineInOrders reflects the new order
+      fetchTables();
     } catch (error) {
-
       console.log(error);
-
       toast.error("Erro ao enviar para cozinha");
+      // Rollback optimistic item
+      setTableItems(prev => prev.filter(i => i.id !== tempId));
     }
   }
 
@@ -279,69 +230,32 @@ export default function TablesPage() {
   }
 
   async function closeTable() {
-
-    if (!selectedTable) {
-      return;
-    }
-
+    if (!selectedTable) return;
     try {
+      // Total from persisted orders (selectedTable is kept in sync by fetchTables)
+      const total = (selectedTable.dineInOrders || [])
+        .filter((o: any) => o.status !== "CANCELLED")
+        .reduce((sum: number, o: any) => sum + Number(o.total ?? 0), 0);
 
-      // Total real calculado dos Orders persistidos (não do estado local)
-      const realTotal = (selectedTable.dineInOrders || [])
-        .filter((o: any) => !['CANCELLED'].includes(o.status))
-        .reduce((sum: number, o: any) => sum + Number(o.total), 0);
-
-      await api.post(
-        "/cash/movement",
-        {
-
-          type:
-            "SUPPLY",
-
-          value:
-            realTotal > 0 ? realTotal : tableTotal,
-
-          paymentMethod,
-        },
-      );
-
-      await api.patch(`/tables/${selectedTable.id}/status`, {
-        status: "FREE",
-      });
-
-      setTableItems([]);
+      if (total <= 0) {
+        // No confirmed items — just free the table
+        await api.patch(`/tables/${selectedTable.id}/status`, { status: "FREE" });
+      } else {
+        await api.post("/cash/movement", { type: "SUPPLY", value: total, paymentMethod });
+        await api.patch(`/tables/${selectedTable.id}/status`, { status: "FREE" });
+      }
 
       setSelectedTable(null);
-
-      toast.success(
-        "Mesa fechada",
-      );
-
+      toast.success("Mesa fechada");
       fetchTables();
-
     } catch (error) {
-
       console.log(error);
-
-      toast.error(
-        "Erro ao fechar mesa",
-      );
+      toast.error("Erro ao fechar mesa");
     }
   }
 
-  const tableTotal =
-    tableItems.reduce(
-      (
-        acc,
-        item,
-      ) =>
-
-        acc +
-        item.price *
-        item.quantity,
-
-      0,
-    );
+  // Derived from live tableItems (synced from selectedTable.dineInOrders via useEffect)
+  const tableTotal = tableItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   return (
 
@@ -381,24 +295,8 @@ export default function TablesPage() {
               }}
 
               onClick={() => {
-
-                setSelectedTable(
-                  table,
-                );
-
-                // Reconstruir itens a partir dos Orders persistidos no banco
-                const serverItems = (table.dineInOrders || [])
-                  .flatMap((o: any) =>
-                    (o.items || []).map((item: any) => ({
-                      id:        item.id,
-                      productId: item.productId,
-                      name:      item.productName,
-                      quantity:  Number(item.quantity),
-                      price:     Number(item.unitPrice),
-                    })),
-                  );
-
-                setTableItems(serverItems);
+                // useEffect on selectedTable will rebuild tableItems automatically
+                setSelectedTable(table);
               }}
 
               className="bg-white border border-gray-200 rounded-3xl p-6 cursor-pointer shadow-sm hover:shadow-md transition-shadow"

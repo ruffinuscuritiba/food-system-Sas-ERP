@@ -365,9 +365,13 @@ export default function OrdersPage() {
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide ${
                         (order as any).source === "ONLINE"
                           ? "bg-blue-100 text-blue-700 border border-blue-200"
-                          : "bg-gray-100 text-gray-600 border border-gray-200"
+                          : (order as any).source === "MOCK"
+                            ? "bg-purple-100 text-purple-700 border border-purple-200"
+                            : (order as any).source === "IFOOD"
+                              ? "bg-red-100 text-red-700 border border-red-200"
+                              : "bg-gray-100 text-gray-600 border border-gray-200"
                       }`}>
-                        {(order as any).source === "ONLINE" ? "ONLINE" : "PDV"}
+                        {(order as any).source ?? "PDV"}
                       </span>
                       {/* Fase 2: badge de tipo de atendimento */}
                       {order.orderType === "DELIVERY" && (

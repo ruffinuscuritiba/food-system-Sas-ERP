@@ -64,9 +64,13 @@ function Column({
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide shrink-0 ${
                           order.source === "ONLINE"
                             ? "bg-blue-100 text-blue-700 border border-blue-200"
-                            : "bg-gray-100 text-gray-600 border border-gray-200"
+                            : order.source === "MOCK"
+                              ? "bg-purple-100 text-purple-700 border border-purple-200"
+                              : order.source === "IFOOD"
+                                ? "bg-red-100 text-red-700 border border-red-200"
+                                : "bg-gray-100 text-gray-600 border border-gray-200"
                         }`}>
-                          {order.source === "ONLINE" ? "ONLINE" : "PDV"}
+                          {order.source ?? "PDV"}
                         </span>
                       </div>
                       <span className={`

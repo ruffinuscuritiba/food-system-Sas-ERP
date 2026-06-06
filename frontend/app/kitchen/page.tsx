@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useEffect, useState, useRef } from "react";
 import { socket } from "@/services/socket";
 import { api } from "@/services/api";
+import { printTicket } from "@/components/printing/printTicket";
+import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
 
 // @hello-pangea/dnd is heavy and SSR-incompatible — load lazily
 const KitchenBoard = dynamic(() => import("./KitchenBoard"), {
@@ -49,54 +51,7 @@ export default function KitchenPage() {
   }
 
   function printKitchenOrder(order: any) {
-    const printWindow = window.open("", "_blank", "width=400,height=600");
-    if (!printWindow) return;
-
-    // items já vem como array de objetos do backend
-    const items: any[] = Array.isArray(order.items) ? order.items : [];
-    const itemsHtml = items.map((item: any) => {
-      const complements: any[] = Array.isArray(item.selectedComplements) ? item.selectedComplements : [];
-      const complementsHtml = complements.map((c: any) =>
-        `<div style="margin-left:16px;font-size:16px;color:#555;">
-          + ${c.quantity}x ${c.optionName}${Number(c.price) > 0 ? ` (R$${Number(c.price).toFixed(2)})` : ""}
-        </div>`
-      ).join("");
-      return `
-        <div style="margin-bottom:15px;">
-          <b style="font-size:22px;">${item.quantity}x ${item.productName || item.name || ""}</b><br/>
-          ${item.notes ? `<i style="font-size:16px;">Obs: ${item.notes}</i><br/>` : ""}
-          ${complementsHtml}
-          R$ ${Number(item.subtotal || 0).toFixed(2)}
-        </div>
-      `;
-    }).join("");
-
-    const typeLabels: Record<string, string> = {
-      DELIVERY: "🛵 Delivery",
-      PICKUP:   "🏠 Retirada",
-      DINE_IN:  "🍽️ Balcão",
-    };
-    const typeLabel = typeLabels[order.orderType] || typeLabels.DINE_IN;
-    const clientName = order.customerName || order.customer?.name || order.notes || "—";
-
-    printWindow.document.write(`
-      <html><head><title>Pedido</title>
-      <style>body{font-family:Arial;width:300px;padding:20px}h1{text-align:center;font-size:28px}h2{font-size:22px}.line{margin-bottom:12px;font-size:18px}hr{margin:20px 0}.type{font-size:20px;font-weight:bold;text-align:center;margin-bottom:8px}</style>
-      </head><body>
-        <h1>COZINHA</h1><hr/>
-        <div class="type">${typeLabel}</div>
-        <div class="line"><b>Cliente:</b> ${clientName}</div>
-        ${order.customerPhone ? `<div class="line"><b>Tel:</b> ${order.customerPhone}</div>` : ""}
-        ${order.deliveryAddress ? `<div class="line"><b>Endereço:</b> ${order.deliveryAddress}</div>` : ""}
-        <div class="line"><b>Pagamento:</b> ${order.paymentMethod}</div>
-        <div class="line"><b>Total:</b> R$ ${Number(order.total).toFixed(2)}</div>
-        <hr/>${itemsHtml}<hr/>
-        <h2>${order.status}</h2>
-      </body></html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    printTicket(buildKitchenTicket(order));
   }
 
   useEffect(() => {

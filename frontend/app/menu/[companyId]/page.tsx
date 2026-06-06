@@ -216,12 +216,16 @@ export default function MenuPage() {
         const td = await themeRes.json().catch(() => null);
         if (td?.metaPixelId) setMetaPixelId(td.metaPixelId);
         if (td?.gaId) setGaId(td.gaId);
-        if (td) setTheme({
-          primaryColor: td.primaryColor || "#f97316",
-          logoUrl: td.logoUrl || null,
-          bannerUrl: td.bannerUrl || null,
-          pizzaPricingMode: td.pizzaPricingMode || "MAX",
-        });
+        if (td) {
+          const primary = td.primaryColor || "#f97316";
+          setTheme({
+            primaryColor: primary,
+            logoUrl: td.logoUrl || null,
+            bannerUrl: td.bannerUrl || null,
+            pizzaPricingMode: td.pizzaPricingMode || "MAX",
+          });
+          document.documentElement.style.setProperty("--color-primary", primary);
+        }
       }
 
       setLoading(false);

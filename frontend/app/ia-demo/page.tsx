@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 import { apiBaseUrl } from "@/services/env";
 
-// TODO: substituir pelo WhatsApp comercial oficial da Ruffinu's FoodSaaS ERP
-const WHATSAPP_COMERCIAL = "5500000000000";
+const WHATSAPP_COMERCIAL = "5541988729370";
 
 type Role = "user" | "assistant";
 
@@ -111,8 +110,8 @@ function stripTags(text: string): {
 
 function waLink(plan?: string): string {
   const text = plan
-    ? `Olá! Tenho interesse no plano ${plan} da Ruffinu's FoodSaaS ERP.`
-    : `Olá! Quero saber mais sobre o FoodSaaS ERP.`;
+    ? `Olá! Tenho interesse no plano ${plan} da Ruffinu's FoodSaaS ERP. Gostaria de receber uma proposta comercial.`
+    : `Olá! Gostaria de saber mais sobre a Ruffinu's FoodSaaS ERP e entrar em contato com um consultor.`;
   return `https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(text)}`;
 }
 
@@ -610,7 +609,7 @@ function PlanCard({ plan }: { plan: string }) {
             Testar grátis
           </a>
           <a
-            href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(`Olá! Tenho interesse no plano ${data.label} da Ruffinu's FoodSaaS ERP.`)}`}
+            href={`https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(`Olá! Tenho interesse no plano ${data.label} da Ruffinu's FoodSaaS ERP. Gostaria de receber uma proposta comercial.`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.1] transition px-3 py-2 rounded-xl text-[11px] font-bold text-white/70 hover:text-white"

@@ -244,6 +244,9 @@ export class OrdersService {
                   data.deliveryAddress || null,
 
                 ...(data.tableId && { tableId: data.tableId }),
+
+                ...(data.channel        && { channel:         data.channel }),
+                ...(data.externalOrderId && { externalOrderId: data.externalOrderId }),
               },
 
               include: {
@@ -894,7 +897,7 @@ export class OrdersService {
 
     const pdv = pdvOrders.map((o: any) => ({
       id:               o.id,
-      source:           'PDV' as const,
+      source:           (o.channel && o.channel !== 'PDV' ? o.channel : 'PDV') as string,
       status:           o.status,
       productionStatus: o.productionStatus ?? null,
       createdAt:        o.createdAt,
@@ -968,7 +971,8 @@ export class OrdersService {
       throw new NotFoundException(`Status "${status}" inválido.`);
     }
 
-    if (source === 'PDV') {
+    // Todos os canais que armazenam em Order (PDV, IFOOD, RAPPI, MOCK, WHATSAPP)
+    if (source !== 'ONLINE') {
       return this.updateStatus(id, status as OrderStatus, userId, companyId);
     }
 

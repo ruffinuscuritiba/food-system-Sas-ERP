@@ -36,7 +36,8 @@ import { MarketingModule }    from './modules/marketing/marketing.module'
 import { SuperAdminModule }   from './modules/super-admin/super-admin.module'
 import { CompanyModuleModule } from './company-module/company-module.module'
 import { LeadsModule } from './modules/leads/leads.module'
-import { PaymentsModule } from './modules/payments/payments.module'
+import { PaymentsModule }      from './modules/payments/payments.module'
+import { IntegrationsModule }   from './modules/integrations/integrations.module'
 import { AppController } from './app.controller'
 import { AppService }    from './app.service'
 import { DemoGuard }     from './common/guards/demo.guard'
@@ -82,6 +83,7 @@ import { DemoGuard }     from './common/guards/demo.guard'
     CompanyModuleModule,
     LeadsModule,
     PaymentsModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
   providers: [

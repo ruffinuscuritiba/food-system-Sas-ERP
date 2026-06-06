@@ -98,6 +98,13 @@ enum OnlinePaymentMethod {
   CASH
 }
 
+// ── Integrações (iFood, Rappi, etc.) ───────────────────────────────────────
+enum IntegrationProvider {
+  IFOOD
+  RAPPI
+  MOCK
+}
+
 model Company {
   id String @id @default(cuid())
 
@@ -177,6 +184,11 @@ model Company {
 
   driverEarnings  DriverEarning[]
   driverPayments  DriverPayment[]
+
+  integrationConfigs  IntegrationConfig[]
+  integrationOrders   IntegrationOrder[]
+  integrationEvents   IntegrationEventLog[]
+  productCatalogMaps  ProductCatalogMap[]
 
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
@@ -344,6 +356,8 @@ model Product {
 
   tableOrderItems TableOrderItem[]
 
+  catalogMaps ProductCatalogMap[]
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -476,6 +490,12 @@ model Order {
 
   table Table? @relation(fields: [tableId], references: [id])
 
+  // Canal de origem do pedido (PDV, ONLINE, WHATSAPP, IFOOD, RAPPI, MOCK)
+  channel         String  @default("PDV")
+
+  // ID externo para idempotência em integrações (ex: orderId do iFood)
+  externalOrderId String? @unique
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -493,6 +513,8 @@ model Order {
   @@index([deliveryZoneId])
 
   @@index([tableId])
+
+  @@index([channel])
 }
 
 model DriverProfile {
@@ -1579,4 +1601,90 @@ model DriverPayment {
 
   @@index([companyId])
   @@index([driverProfileId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTEGRAÇÕES — iFood, Rappi e futuros marketplaces
+// Arquitetura Provider Pattern: novos provedores = novo provider file, sem
+// tocar nos models abaixo.
+// ═══════════════════════════════════════════════════════════════════════════
+
+model IntegrationConfig {
+  id              String              @id @default(cuid())
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id])
+  provider        IntegrationProvider
+  isActive        Boolean             @default(false)
+  sandboxMode     Boolean             @default(true)
+  apiKeyEncrypted String?
+  merchantId      String?
+  webhookSecret   String?
+  accessToken     String?
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  orders          IntegrationOrder[]
+
+  @@unique([companyId, provider])
+  @@index([companyId])
+  @@index([provider])
+}
+
+model IntegrationOrder {
+  id              String              @id @default(cuid())
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id])
+  configId        String
+  config          IntegrationConfig   @relation(fields: [configId], references: [id])
+  orderId         String?             // FK para Order interno — null enquanto processando
+  externalOrderId String              @unique
+  provider        IntegrationProvider
+  externalStatus  String?
+  ackSentAt       DateTime?
+  errorMessage    String?
+  rawPayload      Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([companyId])
+  @@index([orderId])
+}
+
+model IntegrationEventLog {
+  id              String              @id @default(cuid())
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id])
+  provider        IntegrationProvider
+  eventType       String
+  externalOrderId String?
+  processedAt     DateTime?
+  status          String              @default("RECEIVED")
+  errorMessage    String?
+  rawPayload      Json?
+  createdAt       DateTime            @default(now())
+
+  @@index([companyId])
+  @@index([externalOrderId])
+  @@index([createdAt])
+}
+
+model ProductCatalogMap {
+  id                String              @id @default(cuid())
+  companyId         String
+  company           Company             @relation(fields: [companyId], references: [id])
+  provider          IntegrationProvider
+  externalProductId String
+  internalProductId String
+  product           Product             @relation(fields: [internalProductId], references: [id])
+  externalVariantId String?
+  sizeMapping       Json?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([companyId, provider, externalProductId])
+  @@index([companyId])
+  @@index([internalProductId])
 }

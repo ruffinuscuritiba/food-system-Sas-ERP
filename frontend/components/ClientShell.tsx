@@ -43,6 +43,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { buildSupportUrl } from "@/config/support";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -197,6 +198,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
   const { loadAuth, user } = useAuthStore();
   const [companyName, setCompanyName] = useState("FoodSaaS ERP");
+  const [companyPlan, setCompanyPlan] = useState("");
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
@@ -235,6 +237,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     api.get(`/company/${cid}`)
       .then((r) => {
         if (r.data?.name) setCompanyName(r.data.name);
+        if (r.data?.plan) setCompanyPlan(r.data.plan);
         const modules: any[] = Array.isArray(r.data?.modules) ? r.data.modules : [];
         const slugs = modules
           .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL" || m.active)
@@ -439,7 +442,11 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           {/* Falar com a Kely */}
           <div className="px-3 pb-2">
             <a
-              href={`https://wa.me/5541988729370?text=${encodeURIComponent("Olá Kely! Preciso de ajuda com minha loja na Ruffinu's FoodSaaS ERP.")}`}
+              href={buildSupportUrl({
+                companyName,
+                plan: isDemoUser ? planLabel : companyPlan || undefined,
+                route: pathname ?? undefined,
+              })}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-emerald-400 hover:bg-emerald-900/20 hover:text-emerald-300 transition font-semibold text-[12px] border border-emerald-900/30 group"

@@ -20,6 +20,11 @@ import toast from "react-hot-toast";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
+import { SUPPORT_WHATSAPP } from "@/config/support";
+
+const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
+  "Olá! Gostaria de falar com um especialista da Ruffinu's FoodSaaS ERP.",
+)}`;
 
 // ─── Comparison table data ────────────────────────────────────────────────────
 type PlanKey = "basic" | "pro" | "enterprise";
@@ -125,7 +130,7 @@ export default function DemoPage() {
                 Ver demos
               </button>
               <a
-                href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
+                href={SPECIALIST_WA_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white shadow-[0_4px_14px_-4px_rgba(249,115,22,0.7),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600"
@@ -165,7 +170,7 @@ export default function DemoPage() {
               <ChevronDown className="h-4 w-4" />
             </button>
             <a
-              href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
+              href={SPECIALIST_WA_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur transition hover:border-white/20 hover:bg-white/10"
@@ -314,7 +319,7 @@ export default function DemoPage() {
                 Ver demonstrações
               </button>
               <a
-                href="https://wa.me/?text=Quero%20falar%20com%20um%20especialista%20FoodSaaS"
+                href={SPECIALIST_WA_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/10"

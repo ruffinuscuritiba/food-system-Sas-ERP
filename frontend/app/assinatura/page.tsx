@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/services/api";
+import { SUPPORT_WHATSAPP } from "@/config/support";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
 import {
@@ -203,7 +204,7 @@ export default function AssinaturaPage() {
 
   function buildWaUrl(moduleName: string): string {
     const msg = `Olá, sou da empresa ${companyName}.\n\nGostaria de ativar o módulo:\n\n• ${moduleName}\n\nAguardo contato.`;
-    return `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
   }
 
   if (loading) {

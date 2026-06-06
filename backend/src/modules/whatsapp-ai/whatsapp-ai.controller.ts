@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Patch, Delete, Put,
   Param, Body, Query, Request, UseGuards, Res, HttpCode, Headers,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard }   from '@/common/guards/roles.guard';
@@ -22,6 +23,7 @@ export class WhatsappAiController {
    */
   @Post('webhook/mp-payment')
   @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async webhookMpPayment(@Body() body: any, @Query() query: any) {
     await this.service.handleMpPaymentWebhook(body, query).catch(() => {});
     return { ok: true };
@@ -53,6 +55,7 @@ export class WhatsappAiController {
    */
   @Post('webhook/:connectionId')
   @HttpCode(200)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async webhookIncoming(
     @Param('connectionId') connectionId: string,
     @Body() body: any,

@@ -894,7 +894,7 @@ export default function MenuPage() {
                   ? { background: theme.primaryColor, color: "#fff" }
                   : { background: "#f3f4f6", color: "#4b5563" }}
               >
-                {cat}
+                {cat.replace(/^[^\p{L}\p{N}]+/u, '')}
               </button>
             ))}
           </div>

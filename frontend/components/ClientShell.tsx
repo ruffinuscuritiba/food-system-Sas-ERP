@@ -436,6 +436,20 @@ export default function ClientShell({ children }: { children: React.ReactNode })
             </div>
           )}
 
+          {/* Falar com a Kely */}
+          <div className="px-3 pb-2">
+            <a
+              href={`https://wa.me/5541988729370?text=${encodeURIComponent("Olá Kely! Preciso de ajuda com minha loja na Ruffinu's FoodSaaS ERP.")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-emerald-400 hover:bg-emerald-900/20 hover:text-emerald-300 transition font-semibold text-[12px] border border-emerald-900/30 group"
+            >
+              <MessageCircle size={13} />
+              Falar com a Kely
+              <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
+            </a>
+          </div>
+
           {/* Logout */}
           <div className="px-3 py-3 border-t" style={{ borderColor: "var(--app-border-ui,#1e293b)" }}>
             <button

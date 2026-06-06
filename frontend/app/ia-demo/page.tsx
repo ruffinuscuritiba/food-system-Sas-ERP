@@ -30,7 +30,7 @@ export default function IaDemoPage() {
       id: ++msgId,
       role: "assistant",
       content:
-        "Olá! 👋 Sou a **Luna**, consultora virtual da **Ruffinu's FoodSaaS ERP**.\n\nEstou aqui para te ajudar a entender como nossa plataforma pode transformar a gestão da sua pizzaria ou restaurante — do PDV ao WhatsApp IA.\n\nComo posso te ajudar hoje?",
+        "Olá! 👋 Sou a **Kely**, consultora da **Ruffinu's FoodSaaS ERP**.\n\nEstou aqui para te ajudar a entender como nossa plataforma pode transformar a gestão da sua pizzaria ou restaurante — do PDV ao WhatsApp IA.\n\nComo posso te ajudar hoje?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -164,7 +164,7 @@ export default function IaDemoPage() {
         {/* Brand */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-black text-white text-sm">Luna</span>
+            <span className="font-black text-white text-sm">Kely</span>
             <span className="hidden xs:inline text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 shrink-0">
               IA HUMANIZADA
             </span>

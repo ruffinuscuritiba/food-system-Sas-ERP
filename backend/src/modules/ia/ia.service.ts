@@ -3,7 +3,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { ReportsService } from '../reports/reports.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const PLATFORM_DEMO_SYSTEM_PROMPT = `Você é a Luna, consultora virtual da Ruffinu's FoodSaaS ERP — plataforma completa de gestão para pizzarias, restaurantes e lanchonetes.
+const PLATFORM_DEMO_SYSTEM_PROMPT = `Você é a Kely, consultora virtual da Ruffinu's FoodSaaS ERP — plataforma completa de gestão para pizzarias, restaurantes e lanchonetes.
 
 Seu objetivo: ajudar donos e gestores a entender como o sistema resolve os problemas deles e qual plano se encaixa melhor.
 
@@ -211,7 +211,7 @@ ${contextBlock}`;
     if (!process.env.GEMINI_API_KEY) {
       this.logger.error('Platform demo: both ANTHROPIC_API_KEY and GEMINI_API_KEY are missing');
       res.write(
-        `data: ${JSON.stringify({ text: "Olá! 👋 Sou a Luna. Para ativar o chat, as chaves de API precisam ser configuradas no servidor." })}\n\n`,
+        `data: ${JSON.stringify({ text: "Olá! 👋 Sou a Kely. Para ativar o chat, as chaves de API precisam ser configuradas no servidor." })}\n\n`,
       );
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return;
@@ -296,7 +296,7 @@ ${contextBlock}`;
 
       // Gemini uses 'user' / 'model' roles; history = all messages except last.
       // SDK requires history[0].role === 'user' — drop leading model entries
-      // (the initial Luna greeting is assistant/model and must be excluded).
+      // (the initial Kely greeting is assistant/model and must be excluded).
       const lastMsg = messages[messages.length - 1];
       const rawHistory = messages.slice(0, -1).map((m) => ({
         role: m.role === 'user' ? 'user' : 'model',

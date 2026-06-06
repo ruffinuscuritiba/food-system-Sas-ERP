@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
@@ -132,6 +132,92 @@ export class DriversService {
     return this.prisma.driverProfile.findUnique({
       where: { userId },
       include: { user: { select: { id: true, name: true, email: true } } },
+    });
+  }
+
+  // ── Earnings & Payments ─────────────────────────────────────────────────
+
+  listEarnings(driverProfileId: string, companyId: string) {
+    return this.prisma.driverEarning.findMany({
+      where: { driverProfileId, companyId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        order: { select: { id: true, createdAt: true, total: true, deliveryAddress: true } },
+      },
+    });
+  }
+
+  listPayments(driverProfileId: string, companyId: string) {
+    return this.prisma.driverPayment.findMany({
+      where: { driverProfileId, companyId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        earnings: { select: { id: true, orderId: true, driverAmount: true, status: true } },
+      },
+    });
+  }
+
+  async myEarnings(userId: string) {
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+    return this.listEarnings(profile.id, profile.companyId);
+  }
+
+  async myPayments(userId: string) {
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+    return this.listPayments(profile.id, profile.companyId);
+  }
+
+  async createPayment(driverProfileId: string, companyId: string) {
+    const driver = await this.prisma.driverProfile.findFirst({ where: { id: driverProfileId, companyId } });
+    if (!driver) throw new NotFoundException('Entregador não encontrado');
+
+    const earnings = await this.prisma.driverEarning.findMany({
+      where: { driverProfileId, companyId, status: 'PENDING', driverPaymentId: null },
+    });
+    if (!earnings.length) throw new BadRequestException('Nenhum repasse pendente para este entregador');
+
+    const totalAmount = earnings.reduce((sum, e) => sum + Number(e.driverAmount), 0);
+
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.driverPayment.create({
+        data: { companyId, driverProfileId, totalAmount },
+      });
+      await tx.driverEarning.updateMany({
+        where: { id: { in: earnings.map((e) => e.id) } },
+        data: { driverPaymentId: payment.id },
+      });
+      return payment;
+    });
+  }
+
+  async payPayment(paymentId: string, companyId: string) {
+    const payment = await this.prisma.driverPayment.findFirst({
+      where: { id: paymentId, companyId },
+      include: { driverProfile: { include: { user: { select: { name: true } } } } },
+    });
+    if (!payment) throw new NotFoundException('Pagamento não encontrado');
+    if (payment.status === 'PAID') throw new BadRequestException('Pagamento já quitado');
+
+    return this.prisma.$transaction(async (tx) => {
+      const financial = await tx.financial.create({
+        data: {
+          companyId,
+          type: 'EXPENSE',
+          category: 'REPASSE_ENTREGADOR',
+          description: `Repasse entregador ${payment.driverProfile.user.name ?? payment.driverProfileId}`,
+          amount: payment.totalAmount,
+        },
+      });
+      await tx.driverEarning.updateMany({
+        where: { driverPaymentId: paymentId },
+        data: { status: 'PAID' },
+      });
+      return tx.driverPayment.update({
+        where: { id: paymentId },
+        data: { status: 'PAID', paidAt: new Date(), financialId: financial.id },
+      });
     });
   }
 }

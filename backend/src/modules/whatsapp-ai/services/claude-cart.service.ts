@@ -26,6 +26,8 @@ export interface CartStatus {
   /** true quando o pedido está confirmado e deve ser registrado no banco */
   pedido_finalizado:   boolean;
   endereco?:           string | null;
+  /** Bairro extraído do endereço — somente quando o cliente informar explicitamente */
+  bairro?:             string | null;
   telefone?:           string | null;
   formaPagamento?:     string | null;
 }
@@ -169,7 +171,10 @@ ${cartJson}
 • saudacao          — Cumprimentar e perguntar o que o cliente quer
 • escolhendo_itens  — Auxiliar na escolha; adicionar itens ao carrinho um por vez
 • confirmando_pedido — Revisar os itens com o cliente antes de pedir endereço
-• aguardando_endereco — Coletar endereço de entrega ou confirmar retirada
+• aguardando_endereco — Coletar endereço de entrega ou confirmar retirada.
+    Ao registrar o endereço, preencha "bairro" com o bairro informado pelo cliente.
+    NUNCA invente ou infira bairro — preencha somente quando o cliente disser explicitamente.
+    Se o cliente não mencionar bairro, deixe "bairro": null.
 • finalizado        — Pedido confirmado → setar pedido_finalizado: true
 
 ━━━ REGRAS ABSOLUTAS ━━━
@@ -197,6 +202,7 @@ ${cartJson}
     "etapa_atual":       "escolhendo_itens",
     "pedido_finalizado": false,
     "endereco":          null,
+    "bairro":            null,
     "telefone":          null,
     "formaPagamento":    null
   },

@@ -175,6 +175,9 @@ model Company {
 
   whatsappConnections WhatsappConnection[]
 
+  driverEarnings  DriverEarning[]
+  driverPayments  DriverPayment[]
+
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
@@ -467,6 +470,8 @@ model Order {
 
   payment Payment?
 
+  driverEarning DriverEarning?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -497,6 +502,8 @@ model DriverProfile {
   companyId    String
   company      Company  @relation(fields: [companyId], references: [id])
   orders       Order[]
+  earnings     DriverEarning[]
+  payments     DriverPayment[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1517,4 +1524,51 @@ model Lead {
 
   @@index([status])
   @@index([createdAt])
+}
+
+// ── Driver Earnings & Payments ─────────────────────────────────────────────
+
+enum DriverPaymentStatus {
+  PENDING
+  PAID
+}
+
+model DriverEarning {
+  id              String              @id @default(cuid())
+  orderId         String              @unique
+  order           Order               @relation(fields: [orderId], references: [id])
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id])
+  driverProfileId String
+  driverProfile   DriverProfile       @relation(fields: [driverProfileId], references: [id])
+  customerFee     Decimal             @db.Decimal(10, 2)
+  driverAmount    Decimal             @db.Decimal(10, 2)
+  platformFee     Decimal             @db.Decimal(10, 2)
+  status          DriverPaymentStatus @default(PENDING)
+  driverPaymentId String?
+  driverPayment   DriverPayment?      @relation(fields: [driverPaymentId], references: [id])
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([companyId])
+  @@index([driverProfileId])
+  @@index([driverPaymentId])
+}
+
+model DriverPayment {
+  id              String              @id @default(cuid())
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id])
+  driverProfileId String
+  driverProfile   DriverProfile       @relation(fields: [driverProfileId], references: [id])
+  earnings        DriverEarning[]
+  totalAmount     Decimal             @db.Decimal(10, 2)
+  status          DriverPaymentStatus @default(PENDING)
+  paidAt          DateTime?
+  financialId     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([companyId])
+  @@index([driverProfileId])
 }

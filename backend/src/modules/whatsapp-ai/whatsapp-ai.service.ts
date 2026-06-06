@@ -623,6 +623,9 @@ export class WhatsappAiService {
           cart,
           confirmOrder,
           conv.customerPhone,
+          undefined,                        // formaPagamento — não disponível no modo cmd
+          conv.customerName  ?? undefined,
+          ctx.bairro         ?? undefined,  // bairro do contexto (pode ter sido coletado antes)
         );
         await this.prisma.whatsappConversation.update({
           where: { id: conv.id },
@@ -689,6 +692,7 @@ export class WhatsappAiService {
       etapa_atual:         ctx.etapa_atual         ?? 'saudacao',
       pedido_finalizado:   ctx.pedido_finalizado   ?? false,
       endereco:            ctx.endereco            ?? null,
+      bairro:              ctx.bairro              ?? null,
       telefone:            ctx.telefone            ?? null,
       formaPagamento:      ctx.formaPagamento      ?? null,
     };
@@ -744,6 +748,7 @@ export class WhatsappAiService {
       etapa_atual:         status_carrinho.etapa_atual,
       pedido_finalizado:   status_carrinho.pedido_finalizado,
       endereco:            status_carrinho.endereco      ?? ctx.endereco,
+      bairro:              status_carrinho.bairro        ?? ctx.bairro,
       telefone:            status_carrinho.telefone      ?? ctx.telefone,
       formaPagamento:      status_carrinho.formaPagamento ?? ctx.formaPagamento,
     };
@@ -776,6 +781,8 @@ export class WhatsappAiService {
           },
           conv.customerPhone,
           status_carrinho.formaPagamento ?? undefined,
+          conv.customerName              ?? undefined,
+          status_carrinho.bairro         ?? undefined,
         );
 
         await this.prisma.whatsappConversation.update({
@@ -864,8 +871,12 @@ export class WhatsappAiService {
     confirmOrder: { deliveryType: string; address: string; phone: string },
     customerPhone: string,
     formaPagamento?: string,
+    customerName?: string,
+    neighborhood?: string,
   ): Promise<string> {
-    const subtotal = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
+    if (!this.ordersService) {
+      throw new Error('[WA] ordersService indisponível — dependência circular não resolvida');
+    }
 
     const paymentMethodMap: Record<string, string> = {
       pix:         'PIX',
@@ -874,31 +885,26 @@ export class WhatsappAiService {
     };
     const paymentMethod = paymentMethodMap[formaPagamento ?? ''] ?? 'PIX';
 
-    const order = await this.prisma.order.create({
-      data: {
-        companyId,
-        status: 'PENDING' as any,
-        paymentMethod: paymentMethod as any,
-        subtotal,
-        total: subtotal,
-        orderType: confirmOrder.deliveryType === 'PICKUP' ? 'PICKUP' : 'DELIVERY',
-        customerPhone,
-        deliveryAddress: confirmOrder.address || null,
-        notes: `Pedido via WhatsApp IA — ${confirmOrder.deliveryType} — ${confirmOrder.address || 'Retirada'} — Tel: ${confirmOrder.phone || customerPhone}`,
-        items: {
-          create: cart.map((i) => ({
-            companyId,
-            productId: i.productId,
-            productName: i.name,
-            productSku: '',
-            unitPrice: i.price,
-            subtotal: i.price * i.qty,
-            productCost: 0,
-            quantity: i.qty,
-          })),
-        },
-      },
+    // Delega para OrdersService.create para garantir:
+    // - socket orderCreated + dashboardUpdate
+    // - productCost e productSku reais (lookup no banco)
+    // - deliveryFee/driverFee via DeliveryZone quando neighborhood fornecido
+    const order = await this.ordersService.create({
+      companyId,
+      paymentMethod,
+      orderType:       confirmOrder.deliveryType === 'PICKUP' ? 'PICKUP' : 'DELIVERY',
+      customerPhone,
+      customerName:    customerName    ?? null,
+      deliveryAddress: confirmOrder.address || null,
+      neighborhood:    neighborhood    || undefined,
+      notes:           `Pedido via WhatsApp IA — ${confirmOrder.deliveryType} — ${confirmOrder.address || 'Retirada'} — Tel: ${confirmOrder.phone || customerPhone}`,
+      items: cart.map((i) => ({
+        productId: i.productId,
+        unitPrice:  i.price,
+        quantity:   i.qty,
+      })),
     });
+
     return order.id;
   }
 

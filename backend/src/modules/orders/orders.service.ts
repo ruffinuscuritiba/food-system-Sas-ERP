@@ -747,6 +747,36 @@ export class OrdersService {
         },
       );
 
+    // ── Driver Earning: cria apenas em DELIVERY entregue com entregador e taxa ──
+    if (
+      status === OrderStatus.DELIVERED &&
+      order.orderType === 'DELIVERY' &&
+      order.driverId &&
+      Number(order.driverFee) > 0
+    ) {
+      setImmediate(async () => {
+        try {
+          const customerFee  = Number(order.deliveryFee);
+          const driverAmount = Number(order.driverFee);
+          const platformFee  = Math.max(0, customerFee - driverAmount);
+          await this.prisma.driverEarning.upsert({
+            where:  { orderId: id },
+            create: {
+              orderId:         id,
+              companyId:       order.companyId,
+              driverProfileId: order.driverId!,
+              customerFee,
+              driverAmount,
+              platformFee,
+            },
+            update: {},
+          });
+        } catch (e) {
+          console.error(`[OrdersService] DriverEarning falhou para pedido ${id}:`, e);
+        }
+      });
+    }
+
     this.socketGateway.emitKitchenUpdate(updatedOrder);
     this.socketGateway.emitOrderStatusChanged(id, { status: updatedOrder.status, source: 'PDV' });
 

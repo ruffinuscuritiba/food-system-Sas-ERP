@@ -146,13 +146,31 @@ function parseCommands(raw: string): ParsedCommands {
 // ─── Business hours check ────────────────────────────────────────────────────
 
 function isBusinessHours(settings: any): boolean {
+  // Use Brazil timezone (handles DST automatically, unlike a fixed UTC-3 offset)
   const now = new Date();
-  const day = now.getDay(); // 0=sun..6=sat
+  const brFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+    hour:    '2-digit',
+    minute:  '2-digit',
+    hour12:  false,
+  });
+  const parts = brFormatter.formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+
+  const dayName = get('weekday'); // 'dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'
+  const DAY_MAP: Record<string, number> = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sáb: 6, sab: 6 };
+  const day = DAY_MAP[dayName.toLowerCase()] ?? now.getDay();
+
   const days = (settings.businessDays || '1,2,3,4,5,6').split(',').map(Number);
   if (!days.includes(day)) return false;
+
+  const brHour   = parseInt(get('hour'),   10);
+  const brMinute = parseInt(get('minute'), 10);
+  const cur = brHour * 60 + brMinute;
+
   const [sh, sm] = (settings.businessHoursStart || '08:00').split(':').map(Number);
   const [eh, em] = (settings.businessHoursEnd   || '22:00').split(':').map(Number);
-  const cur = now.getHours() * 60 + now.getMinutes();
   return cur >= sh * 60 + sm && cur <= eh * 60 + em;
 }
 
@@ -346,7 +364,9 @@ export class WhatsappAiService {
   /** Evolution API webhook — POST /whatsapp-ai/webhook/:connectionId */
   async handleEvolutionWebhook(connectionId: string, body: any) {
     const event: string = body?.event ?? '';
-    if (!['messages.upsert', 'message'].includes(event)) return { ok: true };
+    // Normalize: Evolution v1 "messages.upsert", v2 "MESSAGES_UPSERT" → same token
+    const normalizedEvent = event.toLowerCase().replace(/_/g, '.');
+    if (!['messages.upsert', 'message'].includes(normalizedEvent)) return { ok: true };
 
     const data = body?.data;
     if (!data) return { ok: true };
@@ -962,15 +982,23 @@ export class WhatsappAiService {
 
   private async dispatchMessage(connection: any, phone: string, text: string) {
     try {
-      if (connection.provider === 'EVOLUTION' && connection.apiUrl && connection.instanceName) {
+      if (connection.provider === 'EVOLUTION') {
+        if (!connection.apiUrl || !connection.instanceName) {
+          log.error(`[dispatchMessage] Connection ${connection.id} misconfigured: missing apiUrl or instanceName`);
+          return;
+        }
         await sendEvolution(connection.apiUrl, connection.instanceName, connection.apiToken ?? '', phone, text);
-      } else if (connection.provider === 'CLOUD_API' && connection.phoneNumberId) {
+      } else if (connection.provider === 'CLOUD_API') {
+        if (!connection.phoneNumberId) {
+          log.error(`[dispatchMessage] Connection ${connection.id} misconfigured: missing phoneNumberId`);
+          return;
+        }
         await sendCloudApi(connection.phoneNumberId, connection.apiToken ?? '', phone, text);
       } else {
-        log.warn(`Connection ${connection.id}: provider not configured or unsupported`);
+        log.error(`[dispatchMessage] Connection ${connection.id}: unsupported provider "${connection.provider}"`);
       }
     } catch (err: any) {
-      log.warn(`dispatchMessage error: ${err?.message}`);
+      log.error(`[dispatchMessage] Connection ${connection.id} send failed: ${err?.message}`);
     }
   }
 

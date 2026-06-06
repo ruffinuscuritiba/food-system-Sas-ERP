@@ -511,33 +511,36 @@ export class SuperAdminService {
     // Garante que o seed principal existe antes de clonar
     await this.runDemoSeed();
 
+    const ALL_MODULES = ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY',
+                         'BI', 'AI', 'LOYALTY', 'MARKETING', 'SMART_IMPORT', 'WHATSAPP'];
+
     const DEMOS = [
       {
-        id:       'demo-basic-001',
-        name:     'Demo BASIC — FoodSaaS',
-        email:    'demo-basic@foodsaas.demo',
-        password: 'DemoBasic@123',
-        plan:     'BASIC',
-        // Somente módulos do plano BASIC — financial/stock/recipes são bloqueados pelo ModuleGuard
-        modules:  ['TABLES', 'CASH'],
+        id:           'demo-basic-001',
+        name:         'Demo BASIC — FoodSaaS',
+        email:        'demo-basic@foodsaas.demo',
+        password:     'DemoBasic@123',
+        plan:         'BASIC',
+        primaryColor: '#16a34a',
+        modules:      ALL_MODULES,
       },
       {
-        id:       'demo-pro-001',
-        name:     'Demo PRO — FoodSaaS',
-        email:    'demo-pro@foodsaas.demo',
-        password: 'DemoPro@123',
-        plan:     'PRO',
-        modules:  ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
+        id:           'demo-pro-001',
+        name:         'Demo PRO — FoodSaaS',
+        email:        'demo-pro@foodsaas.demo',
+        password:     'DemoPro@123',
+        plan:         'PRO',
+        primaryColor: '#2563eb',
+        modules:      ALL_MODULES,
       },
       {
-        id:       'demo-enterprise-001',
-        name:     'Demo ENTERPRISE — FoodSaaS',
-        email:    'demo-enterprise@foodsaas.demo',
-        password: 'DemoEnterprise@123',
-        plan:     'ENTERPRISE',
-        // ENTERPRISE tem wildcard no ModuleGuard — lista aqui garante visibilidade no sidebar
-        modules:  ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY',
-                   'BI', 'AI', 'LOYALTY', 'MARKETING', 'SMART_IMPORT', 'WHATSAPP'],
+        id:           'demo-enterprise-001',
+        name:         'Demo ENTERPRISE — FoodSaaS',
+        email:        'demo-enterprise@foodsaas.demo',
+        password:     'DemoEnterprise@123',
+        plan:         'ENTERPRISE',
+        primaryColor: '#7c3aed',
+        modules:      ALL_MODULES,
       },
     ];
 
@@ -605,6 +608,18 @@ export class SuperAdminService {
       if (prodCount === 0) {
         await this.cloneMenu('company-seed-001', demo.id).catch(() => null);
       }
+
+      // 4b. CompanyTheme — garante que a cor correta do plano está no banco
+      // (o menu público lê daqui via GET /api/themes/:companyId)
+      await this.prisma.companyTheme.upsert({
+        where:  { companyId: demo.id },
+        update: { primaryColor: demo.primaryColor },
+        create: {
+          companyId:    demo.id,
+          primaryColor: demo.primaryColor,
+          darkMode:     false,
+        },
+      });
 
       // 5. Token de demonstração (365 dias)
       const user = await this.prisma.user.findUnique({ where: { email: demo.email } });

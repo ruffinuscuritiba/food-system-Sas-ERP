@@ -439,7 +439,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
             </div>
           )}
 
-          {/* Falar com a Kely */}
+          {/* Suporte */}
           <div className="px-3 pb-2">
             <a
               href={buildSupportUrl({
@@ -452,7 +452,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
               className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-emerald-400 hover:bg-emerald-900/20 hover:text-emerald-300 transition font-semibold text-[12px] border border-emerald-900/30 group"
             >
               <MessageCircle size={13} />
-              Falar com a Kely
+              Suporte
               <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>

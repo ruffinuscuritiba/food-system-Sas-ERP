@@ -7,10 +7,12 @@ import { SuperAdminService } from './super-admin.service'
 import { SuperAdminGuard } from './super-admin.guard'
 import { DemoVitrineService } from './demo-vitrine.service'
 import { DemoBootstrapService } from './demo-bootstrap.service'
+import { LeadsModule } from '../leads/leads.module'
 
 @Module({
   imports: [
     PrismaModule,
+    LeadsModule,
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

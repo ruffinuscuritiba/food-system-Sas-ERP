@@ -87,6 +87,19 @@ const SUGGESTIONS = [
 
 let msgId = 0;
 
+const SESSION_TOKEN =
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+function buildConversationSummary(msgs: Message[]): string {
+  return msgs
+    .filter((m) => !m.streaming && m.content.trim())
+    .slice(-10)
+    .map((m) => `${m.role === "user" ? "Cliente" : "Kely"}: ${m.content.slice(0, 200)}`)
+    .join("\n");
+}
+
 function stripTags(text: string): {
   clean: string;
   plan: string | null;
@@ -160,11 +173,37 @@ export default function IaDemoPage() {
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }
 
+  async function saveLead(
+    overrides?: Partial<LeadInfo & { recommendedPlan: string; conversationSummary: string }>,
+    currentMessages?: Message[],
+  ) {
+    try {
+      await fetch(`${apiBaseUrl}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionToken: SESSION_TOKEN,
+          name: leadInfo.name || undefined,
+          company: leadInfo.company || undefined,
+          whatsapp: leadInfo.phone || undefined,
+          ...overrides,
+          conversationSummary: overrides?.conversationSummary
+            ?? buildConversationSummary(currentMessages ?? messages),
+        }),
+      });
+    } catch {
+      /* silently ignore — lead save is best-effort */
+    }
+  }
+
   function submitLead(e: React.FormEvent) {
     e.preventDefault();
     setLeadSubmitted(true);
     setShowLeadCapture(false);
     const hasData = leadInfo.name || leadInfo.company || leadInfo.phone;
+    saveLead({
+      recommendedPlan: recommendedPlan ?? undefined,
+    } as Parameters<typeof saveLead>[0]);
     if (hasData) {
       setMessages((prev) => [
         ...prev,
@@ -247,7 +286,14 @@ export default function IaDemoPage() {
                     : m
                 )
               );
-              if (plan) setRecommendedPlan(plan);
+              if (plan) {
+                setRecommendedPlan(plan);
+                // Auto-save lead with plan when detected (even if no form was filled)
+                setMessages((snapshot) => {
+                  saveLead({ recommendedPlan: plan }, snapshot);
+                  return snapshot;
+                });
+              }
               if (cta === "WHATSAPP" && !leadDismissed && !leadSubmitted) {
                 setShowLeadCapture(true);
               }

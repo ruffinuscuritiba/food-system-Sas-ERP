@@ -1491,3 +1491,22 @@ model WhatsappMessage {
   @@index([conversationId])
   @@index([companyId])
 }
+
+// ── Leads capturados pela Kely (IA Demo pública) ──────────────────────────────
+
+model Lead {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  sessionToken        String   @unique
+  name                String?
+  company             String?
+  whatsapp            String?
+  recommendedPlan     String?
+  source              String   @default("IA_DEMO")
+  conversationSummary String?
+  status              String   @default("NOVO")
+
+  @@index([status])
+  @@index([createdAt])
+}

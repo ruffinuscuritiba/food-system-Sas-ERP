@@ -12,12 +12,14 @@ import {
 import { SuperAdminService } from './super-admin.service'
 import { SuperAdminGuard } from './super-admin.guard'
 import { DemoVitrineService } from './demo-vitrine.service'
+import { LeadsService } from '../leads/leads.service'
 
 @Controller('super-admin')
 export class SuperAdminController {
   constructor(
     private service: SuperAdminService,
     private vitrine: DemoVitrineService,
+    private leads: LeadsService,
   ) {}
 
   @Post('auth/login')
@@ -151,5 +153,12 @@ export class SuperAdminController {
   @UseGuards(SuperAdminGuard)
   populateVitrine() {
     return this.vitrine.populateAll()
+  }
+
+  /** GET /api/super-admin/leads — lista todos os leads capturados pela Kely */
+  @Get('leads')
+  @UseGuards(SuperAdminGuard)
+  listLeads() {
+    return this.leads.findAll()
   }
 }

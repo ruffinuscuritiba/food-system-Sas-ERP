@@ -429,6 +429,10 @@ model Order {
 
   driver DriverProfile? @relation(fields: [driverId], references: [id])
 
+  deliveryZoneId String?
+
+  deliveryZone DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
+
   assignedAt DateTime?
 
   pickedUpAt DateTime?
@@ -476,6 +480,8 @@ model Order {
   @@index([driverId])
 
   @@index([orderType])
+
+  @@index([deliveryZoneId])
 }
 
 model DriverProfile {
@@ -509,6 +515,7 @@ model DeliveryZone {
   clientFee    Decimal  @db.Decimal(10, 2)
   driverShare  Decimal  @db.Decimal(10, 2)
   isActive     Boolean  @default(true)
+  orders       Order[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1506,6 +1513,7 @@ model Lead {
   source              String   @default("IA_DEMO")
   conversationSummary String?
   status              String   @default("NOVO")
+  waClickedAt         DateTime?
 
   @@index([status])
   @@index([createdAt])

@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService }    from '@/database/prisma.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { UpdateSettingsDto }   from './dto/update-settings.dto';
 import { WhisperService }   from './services/whisper.service';
 import { ClaudeCartService, CartStatus, StructuredResponse } from './services/claude-cart.service';
+import { WaPaymentService } from './services/wa-payment.service';
+import { OrdersService }    from '@/modules/orders/orders.service';
+import { OrderStatus }      from '@prisma/client';
 
 const log = new Logger('WhatsappAiService');
+const PIX_EXPIRATION_MINUTES = 30;
 
 // ─── AI Chat helper (text-only, sem imagem) ──────────────────────────────────
 
@@ -87,6 +91,19 @@ async function sendCloudApi(phoneNumberId: string, token: string, phone: string,
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) log.warn(`Cloud API send failed: ${res.status}`);
+}
+
+// ─── Payment method normalizer ───────────────────────────────────────────────
+
+function normalizePaymentMethod(raw: string | null | undefined): 'pix' | 'credit_card' | 'debit_card' | null {
+  if (!raw) return null;
+  if (raw === 'pix' || raw === 'credit_card' || raw === 'debit_card') return raw;
+  const s = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (s.includes('pix')) return 'pix';
+  if (s.includes('debito') || s.includes('debit')) return 'debit_card';
+  // cartão de crédito, cartao, credito, credit, card → credit_card (default card)
+  if (s.includes('credito') || s.includes('credit') || s.includes('cartao') || s.includes('card')) return 'credit_card';
+  return null;
 }
 
 // ─── Command parser ──────────────────────────────────────────────────────────
@@ -212,6 +229,9 @@ export class WhatsappAiService {
     private prisma:       PrismaService,
     private whisper:      WhisperService,
     private claudeCart:   ClaudeCartService,
+    private waPayment:    WaPaymentService,
+    @Inject(forwardRef(() => OrdersService))
+    private ordersService?: OrdersService,
   ) {}
 
   // ── CONNECTIONS ────────────────────────────────────────────────────────────
@@ -735,6 +755,7 @@ export class WhatsappAiService {
             phone:        status_carrinho.telefone ?? conv.customerPhone,
           },
           conv.customerPhone,
+          status_carrinho.formaPagamento ?? undefined,
         );
 
         await this.prisma.whatsappConversation.update({
@@ -743,6 +764,55 @@ export class WhatsappAiService {
         });
 
         log.log(`WhatsApp pedido criado via Claude JSON: orderId=${orderId} conv=${conv.id}`);
+
+        // 2b. Processar pagamento automático via Mercado Pago
+        const solicitacao = (structured as any).solicitacao_pagamento;
+        const rawMetodo: string | null = solicitacao?.requer_acao
+          ? (solicitacao.metodo ?? status_carrinho.formaPagamento)
+          : status_carrinho.formaPagamento;
+        const metodo = normalizePaymentMethod(rawMetodo);
+
+        if (metodo && orderId) {
+          const orderTotal = cartForOrder.reduce((s, i) => s + i.price * i.qty, 0);
+          const description = cartForOrder.map(i => `${i.qty}x ${i.name}`).join(', ');
+
+          try {
+            if (metodo === 'pix') {
+              const pix = await this.waPayment.createPix({
+                orderId,
+                companyId,
+                total:         orderTotal,
+                customerPhone: conv.customerPhone,
+                customerName:  conv.customerName ?? 'Cliente',
+                description,
+              });
+              const pixMsg = pix.mock
+                ? `Aqui está o seu Pix Copia e Cola:\n\`${pix.pixCopyPaste}\`\n\n⏱ Expira em ${PIX_EXPIRATION_MINUTES} minutos. Após o pagamento seu pedido será confirmado automaticamente!`
+                : `Aqui está o seu Pix Copia e Cola 💸:\n\`${pix.pixCopyPaste}\`\n\n⏱ Expira em ${PIX_EXPIRATION_MINUTES} minutos. Assim que o pagamento for confirmado, já mandamos o status aqui!`;
+              await this.saveMessage(conv.id, companyId, 'ASSISTANT', pixMsg);
+              await this.dispatchMessage(connection, conv.customerPhone, pixMsg);
+
+            } else if (metodo === 'credit_card' || metodo === 'debit_card') {
+              const linkResult = await this.waPayment.createPaymentLink({
+                orderId,
+                companyId,
+                total:        orderTotal,
+                description,
+                customerName: conv.customerName ?? 'Cliente',
+              });
+              const methodLabel = metodo === 'credit_card' ? 'Cartão de Crédito' : 'Cartão de Débito';
+              const linkMsg = `Perfeito! Você pode realizar o pagamento com segurança através deste link oficial 🔒:\n\n${linkResult.paymentUrl}\n\nEssa é a forma de pagamento: *${methodLabel}*. Qualquer dúvida, é só falar! 😊`;
+              await this.saveMessage(conv.id, companyId, 'ASSISTANT', linkMsg);
+              await this.dispatchMessage(connection, conv.customerPhone, linkMsg);
+            }
+          } catch (payErr: any) {
+            log.warn(`WaPayment error for order ${orderId}: ${payErr?.message}`);
+            const fallbackMsg = `Seu pedido foi registrado! 🎉 Em breve enviaremos as instruções de pagamento.`;
+            await this.saveMessage(conv.id, companyId, 'ASSISTANT', fallbackMsg);
+            await this.dispatchMessage(connection, conv.customerPhone, fallbackMsg);
+          }
+        }
+
       } catch (err: any) {
         log.warn(`Claude structured — falha ao criar pedido: ${err?.message}`);
       }
@@ -773,15 +843,27 @@ export class WhatsappAiService {
     cart: any[],
     confirmOrder: { deliveryType: string; address: string; phone: string },
     customerPhone: string,
+    formaPagamento?: string,
   ): Promise<string> {
     const subtotal = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
+
+    const paymentMethodMap: Record<string, string> = {
+      pix:         'PIX',
+      credit_card: 'CREDIT_CARD',
+      debit_card:  'DEBIT_CARD',
+    };
+    const paymentMethod = paymentMethodMap[formaPagamento ?? ''] ?? 'PIX';
+
     const order = await this.prisma.order.create({
       data: {
         companyId,
         status: 'PENDING' as any,
-        paymentMethod: 'PIX' as any, // default, can be updated
+        paymentMethod: paymentMethod as any,
         subtotal,
         total: subtotal,
+        orderType: confirmOrder.deliveryType === 'PICKUP' ? 'PICKUP' : 'DELIVERY',
+        customerPhone,
+        deliveryAddress: confirmOrder.address || null,
         notes: `Pedido via WhatsApp IA — ${confirmOrder.deliveryType} — ${confirmOrder.address || 'Retirada'} — Tel: ${confirmOrder.phone || customerPhone}`,
         items: {
           create: cart.map((i) => ({
@@ -889,6 +971,84 @@ export class WhatsappAiService {
       }
     } catch (err: any) {
       log.warn(`dispatchMessage error: ${err?.message}`);
+    }
+  }
+
+  // ── MERCADO PAGO WEBHOOK (WhatsApp orders) ────────────────────────────────
+
+  /**
+   * Handles MP webhooks for orders created via WhatsApp IA.
+   * external_reference format: "WA_ORDER|orderId|companyId"
+   * On approved → Order.status = CONFIRMED + WhatsApp notification to customer.
+   */
+  async handleMpPaymentWebhook(body: any, query: any): Promise<void> {
+    const mpPaymentId = body?.data?.id ?? query?.id;
+    if (!mpPaymentId) return;
+
+    const accessToken = this.waPayment['accessToken'];
+    if (!accessToken) return;
+
+    let mp: any;
+    try {
+      const res = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(15_000),
+      });
+      mp = await res.json();
+    } catch (err: any) {
+      log.warn(`[WA MP Webhook] fetch payment error: ${err?.message}`);
+      return;
+    }
+
+    const ref = mp.external_reference ?? '';
+    if (!ref.startsWith('WA_ORDER|')) return;
+
+    const [, orderId, companyId] = ref.split('|');
+    if (!orderId || !companyId) return;
+
+    if (mp.status !== 'approved') return;
+
+    // Idempotency: skip if already CONFIRMED (MP may send duplicate webhook retries)
+    const existingOrder = await this.prisma.order.findFirst({
+      where: { id: orderId },
+      select: { status: true },
+    });
+    if (!existingOrder) {
+      log.warn(`[WA MP Webhook] Order ${orderId} not found — skipping`);
+      return;
+    }
+    if (existingOrder.status === OrderStatus.CONFIRMED) {
+      log.log(`[WA MP Webhook] Order ${orderId} already CONFIRMED — idempotency skip`);
+      return;
+    }
+
+    // Use OrdersService.updateStatus to trigger stock deduction, loyalty, socket events
+    try {
+      if (this.ordersService) {
+        await this.ordersService.updateStatus(orderId, OrderStatus.CONFIRMED, 'SYSTEM', companyId);
+      } else {
+        // Fallback: direct update (ordersService not available — should not happen in prod)
+        await this.prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.CONFIRMED } });
+      }
+      log.log(`[WA MP Webhook] Order ${orderId} CONFIRMED after payment ${mpPaymentId}`);
+    } catch (err: any) {
+      log.warn(`[WA MP Webhook] order update error: ${err?.message}`);
+      return;
+    }
+
+    // Find conversation linked to this order and notify customer
+    try {
+      const conv = await this.prisma.whatsappConversation.findFirst({
+        where: { orderId, companyId },
+        include: { connection: true },
+      });
+      if (conv?.customerPhone) {
+        const msg = `✅ Pagamento confirmado! Seu pedido #${orderId.slice(-6).toUpperCase()} está em preparo. Avisaremos quando estiver pronto! 🍕`;
+        await this.saveMessage(conv.id, companyId, 'ASSISTANT', msg);
+        await this.dispatchMessage(conv.connection, conv.customerPhone, msg);
+      }
+    } catch (err: any) {
+      log.warn(`[WA MP Webhook] notification error: ${err?.message}`);
     }
   }
 

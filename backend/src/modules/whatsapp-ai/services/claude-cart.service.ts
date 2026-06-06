@@ -30,9 +30,16 @@ export interface CartStatus {
   formaPagamento?:     string | null;
 }
 
+export interface SolicitacaoPagamento {
+  requer_acao: boolean;
+  /** "pix" | "credit_card" | "debit_card" | null */
+  metodo: 'pix' | 'credit_card' | 'debit_card' | null;
+}
+
 export interface StructuredResponse {
   resposta_para_o_cliente: string;
   status_carrinho:         CartStatus;
+  solicitacao_pagamento?:  SolicitacaoPagamento;
 }
 
 /**
@@ -139,7 +146,12 @@ export class ClaudeCartService {
 12. Se o cliente mencionar que está caro ou pedir desconto, NÃO ofereça desconto automaticamente. Apresente uma alternativa de melhor custo-benefício disponível no cardápio. Ex: "Entendo! Temos a pizza média de calabresa por R$X que é bem caprichada — quer experimentar essa?"
 
 — FECHAMENTO —
-13. Antes de setar pedido_finalizado: true, verifique se: (a) o endereço foi coletado ou o cliente confirmou retirada, (b) a forma de pagamento foi confirmada, (c) houve ao menos uma tentativa de sugestão complementar. Se algum desses itens estiver faltando, pergunte antes de finalizar.
+13. Antes de setar pedido_finalizado: true, verifique se: (a) o endereço foi coletado ou o cliente confirmou retirada, (b) a forma de pagamento foi confirmada (PIX, Cartão de Crédito ou Cartão de Débito), (c) houve ao menos uma tentativa de sugestão complementar. Se algum desses itens estiver faltando, pergunte antes de finalizar.
+
+— PAGAMENTO —
+15. Quando o cliente confirmar a forma de pagamento, armazene em formaPagamento: "pix", "credit_card" ou "debit_card".
+16. Quando pedido_finalizado = true E formaPagamento estiver preenchido, preencha o campo solicitacao_pagamento com requer_acao: true e metodo com o valor correspondente.
+17. Ao finalizar com PIX, informe que irá gerar o código. Com cartão, informe que irá enviar o link de pagamento seguro.
 
 — LINGUAGEM —
 14. Mantenha respostas curtas: no máximo 3 frases por mensagem. Use no máximo 1 emoji por resposta. Prefira frases diretas e amigáveis a explicações longas.
@@ -187,6 +199,10 @@ ${cartJson}
     "endereco":          null,
     "telefone":          null,
     "formaPagamento":    null
+  },
+  "solicitacao_pagamento": {
+    "requer_acao": false,
+    "metodo": null
   }
 }`;
   }

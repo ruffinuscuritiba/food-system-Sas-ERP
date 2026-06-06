@@ -473,9 +473,11 @@ export default function PDVPage() {
         customerName: details.customerName || serviceLabel,
         customerPhone: details.customerPhone || "",
         deliveryAddress: fullAddress,
+        neighborhood: details.orderType === "DELIVERY" ? details.bairro || "" : undefined,
         orderType: details.orderType,
         // tableNumber enviado para o backend atualizar a mesa para OCCUPIED
         tableNumber: details.orderType === "DINE_IN" ? details.tableNumber : undefined,
+        deliveryZoneId: details.deliveryZoneId || undefined,
         paymentMethod,
         notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
         items: orderItems,

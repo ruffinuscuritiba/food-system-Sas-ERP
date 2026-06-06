@@ -1,9 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
+import { OrdersService } from '@/modules/orders/orders.service';
 
 @Injectable()
 export class DriversService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ordersService: OrdersService,
+  ) {}
 
   findAll(companyId: string) {
     return this.prisma.driverProfile.findMany({
@@ -91,18 +96,21 @@ export class DriversService {
     });
   }
 
-  async assignOrder(orderId: string, driverId: string, companyId: string) {
+  async assignOrder(orderId: string, driverId: string, companyId: string, userId: string) {
     const driver = await this.prisma.driverProfile.findFirst({ where: { id: driverId, companyId } });
     if (!driver) throw new NotFoundException('Entregador não encontrado');
 
     const order = await this.prisma.order.findFirst({ where: { id: orderId, companyId } });
     if (!order) throw new NotFoundException('Pedido não encontrado');
 
-    return this.prisma.order.update({
+    // Persist driver assignment fields outside the status transaction
+    await this.prisma.order.update({
       where: { id: orderId },
-      data: { driverId, assignedAt: new Date(), status: 'OUT_FOR_DELIVERY' },
-      include: { driver: { include: { user: { select: { name: true } } } } },
+      data: { driverId, assignedAt: new Date() },
     });
+
+    // Delegate status transition via OrdersService (stock, socket, loyalty, audit)
+    return this.ordersService.updateStatus(orderId, OrderStatus.OUT_FOR_DELIVERY, userId, companyId);
   }
 
   async myOrders(userId: string) {

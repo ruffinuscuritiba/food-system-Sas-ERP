@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Put,
-  Param, Body, Query, Request, UseGuards, Res, HttpCode,
+  Param, Body, Query, Request, UseGuards, Res, HttpCode, Headers,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -15,6 +15,17 @@ export class WhatsappAiController {
   constructor(private service: WhatsappAiService) {}
 
   // ── WEBHOOKS (sem auth) ───────────────────────────────────────────────────
+
+  /**
+   * Mercado Pago webhook for WhatsApp orders (exact path — must precede /:connectionId).
+   * POST /api/whatsapp-ai/webhook/mp-payment
+   */
+  @Post('webhook/mp-payment')
+  @HttpCode(200)
+  async webhookMpPayment(@Body() body: any, @Query() query: any) {
+    await this.service.handleMpPaymentWebhook(body, query).catch(() => {});
+    return { ok: true };
+  }
 
   /**
    * Evolution API webhook verification (GET) + Cloud API challenge

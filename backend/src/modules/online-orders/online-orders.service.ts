@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '@/database/prisma.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
@@ -57,6 +58,7 @@ export class OnlineOrdersService {
     private readonly prisma: PrismaService,
     private readonly socketGateway: SocketGateway,
     private readonly notifications: NotificationsService,
+    private readonly deliveryConfigService: DeliveryConfigService,
   ) {}
 
   /**
@@ -81,15 +83,29 @@ export class OnlineOrdersService {
     if (!dto.items?.length) throw new BadRequestException('Pedido sem itens.');
 
     const subtotal = Number(dto.subtotal);
-    const deliveryFee = Number(dto.deliveryFee ?? 0);
+    let deliveryFee = Number(dto.deliveryFee ?? 0);
     const discount = Number(dto.discount ?? 0);
-    const total = Number(dto.total);
     const orderType = ORDER_TYPES.includes(dto.orderType)
       ? dto.orderType
       : 'DELIVERY';
     const paymentMethod = PAYMENT_METHODS.includes(dto.paymentMethod)
       ? dto.paymentMethod
       : 'PIX';
+
+    // Zone lookup: resolve real deliveryFee for DELIVERY orders (menu always sends 0)
+    let deliveryZoneId: string | undefined;
+    if (orderType === 'DELIVERY' && dto.neighborhood) {
+      const zone = await this.deliveryConfigService.getFeeForNeighborhood(
+        dto.companyId,
+        dto.neighborhood,
+      );
+      if (zone) {
+        if (deliveryFee === 0) deliveryFee = Number(zone.clientFee);
+        deliveryZoneId = zone.id;
+      }
+    }
+
+    const total = subtotal - discount + deliveryFee;
 
     if (!isFinite(total) || total <= 0) {
       throw new BadRequestException('Valor total inválido.');

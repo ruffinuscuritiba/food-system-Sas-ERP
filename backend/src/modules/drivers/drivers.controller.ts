@@ -44,6 +44,6 @@ export class DriversController {
 
   @Post('assign')
   assignOrder(@Body() body: { orderId: string; driverId: string }, @Req() req: any) {
-    return this.service.assignOrder(body.orderId, body.driverId, req.user.companyId);
+    return this.service.assignOrder(body.orderId, body.driverId, req.user.companyId, req.user.userId);
   }
 }

@@ -24,6 +24,7 @@ interface LeadStats {
   qualificados: number;
   contatados: number;
   perdidos: number;
+  waClicked: number;
   porPlano: { BASIC: number; PRO: number; ENTERPRISE: number };
 }
 
@@ -120,7 +121,7 @@ export default function SuperAdminLeadsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         <KpiCard
           label="Total de Leads"
           value={loading ? "…" : String(stats?.total ?? 0)}
@@ -131,6 +132,11 @@ export default function SuperAdminLeadsPage() {
           value={loading ? "…" : String(stats?.qualificados ?? 0)}
           accent="green"
           sub={stats ? `${stats.novos} novos` : undefined}
+        />
+        <KpiCard
+          label="Cliques WhatsApp"
+          value={loading ? "…" : String(stats?.waClicked ?? 0)}
+          accent="emerald"
         />
         <KpiCard
           label="Leads do Mês"
@@ -277,10 +283,11 @@ export default function SuperAdminLeadsPage() {
 // ── KPI Card ────────────────────────────────────────────────────────────────
 
 const ACCENT_CLASSES: Record<string, { border: string; text: string }> = {
-  violet: { border: "border-violet-500/30", text: "text-violet-300" },
-  green:  { border: "border-green-500/30",  text: "text-green-300"  },
-  blue:   { border: "border-blue-500/30",   text: "text-blue-300"   },
-  amber:  { border: "border-amber-500/30",  text: "text-amber-300"  },
+  violet:  { border: "border-violet-500/30",  text: "text-violet-300"  },
+  green:   { border: "border-green-500/30",   text: "text-green-300"   },
+  blue:    { border: "border-blue-500/30",    text: "text-blue-300"    },
+  amber:   { border: "border-amber-500/30",   text: "text-amber-300"   },
+  emerald: { border: "border-emerald-500/30", text: "text-emerald-300" },
 };
 
 function KpiCard({

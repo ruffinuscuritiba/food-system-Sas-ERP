@@ -30,6 +30,7 @@ export class LeadsController {
       conversationSummary: body.conversationSummary
         ? String(body.conversationSummary).slice(0, 1000)
         : undefined,
+      waClicked: body.waClicked === true ? true : undefined,
     };
     return this.leads.upsert(dto);
   }

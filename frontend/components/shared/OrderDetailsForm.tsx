@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Loader2, UtensilsCrossed, Bike, PackageCheck, User, Clock, MapPin, X } from "lucide-react";
 import { apiBaseUrl } from "@/services/env";
 
@@ -19,6 +19,8 @@ export type OrderDetails = {
   cep?: string;
   /** Taxa de entrega (string para preservar vírgula digitada pelo operador) */
   deliveryFee?: string;
+  /** ID da DeliveryZone resolvida automaticamente pelo bairro */
+  deliveryZoneId?: string;
 };
 
 type CustomerLookup = {
@@ -39,6 +41,14 @@ type AddressSuggestion = {
   cep: string;
 };
 
+type DeliveryZone = {
+  id: string;
+  name: string;
+  neighborhood: string | null;
+  clientFee: number;
+  type: string;
+};
+
 type Props = {
   value: OrderDetails;
   onChange: (v: OrderDetails) => void;
@@ -55,14 +65,43 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
   const [showSuggestions,  setShowSuggestions]   = useState(false);
   const [lastOrder,        setLastOrder]         = useState<{ total: number; createdAt: string } | null>(null);
   const [foundName,        setFoundName]         = useState("");
+  const [zones,            setZones]             = useState<DeliveryZone[]>([]);
+  const [matchedZone,      setMatchedZone]       = useState<DeliveryZone | null>(null);
 
   const cepDebounce   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ruaDebounce   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPhone     = useRef<string>("");
 
+  // Fetch delivery zones once when component mounts with companyId
+  useEffect(() => {
+    if (!companyId) return;
+    fetch(`${apiBaseUrl}/delivery-config/public?companyId=${companyId}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: DeliveryZone[]) => setZones(data))
+      .catch(() => {});
+  }, [companyId]);
+
   function set(patch: Partial<OrderDetails>) {
     onChange({ ...value, ...patch });
+  }
+
+  function matchZoneByNeighborhood(bairro: string) {
+    if (!bairro || zones.length === 0) return;
+    const lower = bairro.toLowerCase().trim();
+    const zone = zones.find(z => z.neighborhood?.toLowerCase().trim() === lower) ?? null;
+    setMatchedZone(zone);
+    onChange({
+      ...value,
+      bairro,
+      deliveryFee: zone ? String(Number(zone.clientFee).toFixed(2)).replace(".", ",") : value.deliveryFee,
+      deliveryZoneId: zone?.id ?? undefined,
+    });
+  }
+
+  function onBairroChange(bairro: string) {
+    matchZoneByNeighborhood(bairro);
+    if (!zones.length) set({ bairro, deliveryZoneId: undefined });
   }
 
   // ── CEP autocomplete (secundário) ──────────────────────────────────────────
@@ -111,14 +150,20 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
   }
 
   function selectRuaSuggestion(s: AddressSuggestion) {
-    set({
-      address: s.rua,
-      bairro:  s.bairro  || value.bairro,
-      cidade:  s.cidade  || value.cidade,
-      cep:     s.cep     || value.cep,
-    });
+    const bairro = s.bairro || value.bairro || "";
     setShowSuggestions(false);
     setRuaSuggestions([]);
+    const zone = zones.find(z => z.neighborhood?.toLowerCase().trim() === bairro.toLowerCase().trim()) ?? null;
+    setMatchedZone(zone);
+    onChange({
+      ...value,
+      address: s.rua,
+      bairro,
+      cidade:  s.cidade  || value.cidade,
+      cep:     s.cep     || value.cep,
+      deliveryFee: zone ? String(Number(zone.clientFee).toFixed(2)).replace(".", ",") : value.deliveryFee,
+      deliveryZoneId: zone?.id ?? undefined,
+    });
   }
 
   // ── Phone lookup ───────────────────────────────────────────────────────────
@@ -156,7 +201,16 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
       if (data.bairro)      patch.bairro        = data.bairro;
       if (data.cidade)      patch.cidade        = data.cidade;
       if (data.cep)         patch.cep           = data.cep;
-      if (Object.keys(patch).length > 0) set(patch);
+      if (Object.keys(patch).length > 0) {
+        const newBairro = (patch.bairro ?? value.bairro ?? "").toLowerCase().trim();
+        const zone = newBairro ? zones.find(z => z.neighborhood?.toLowerCase().trim() === newBairro) ?? null : null;
+        if (zone) {
+          setMatchedZone(zone);
+          patch.deliveryFee  = String(Number(zone.clientFee).toFixed(2)).replace(".", ",");
+          patch.deliveryZoneId = zone.id;
+        }
+        set(patch);
+      }
 
       // Auto-enrich: se rua presente mas bairro/cidade ausentes, busca Nominatim
       if (data.rua && (!data.bairro || !data.cidade)) {
@@ -364,10 +418,17 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
               />
             </div>
             <div>
-              <p className={labelCls}>Bairro *</p>
+              <p className={labelCls}>
+                Bairro *
+                {matchedZone && (
+                  <span className="ml-1.5 text-green-400 font-normal normal-case">
+                    · Taxa: R$ {Number(matchedZone.clientFee).toFixed(2).replace(".", ",")}
+                  </span>
+                )}
+              </p>
               <input
                 value={value.bairro ?? ""}
-                onChange={e => set({ bairro: e.target.value })}
+                onChange={e => onBairroChange(e.target.value)}
                 placeholder="Bairro"
                 className={inputCls}
               />

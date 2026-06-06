@@ -132,6 +132,10 @@ export default function MenuPage() {
   const [search, setSearch] = useState("");
   const [videoProduct, setVideoProduct] = useState<Product | null>(null);
 
+  // Delivery zone state — populated after loadMenu; matched per neighborhood change
+  const [deliveryZones, setDeliveryZones] = useState<{ id: string; name: string; neighborhood: string | null; clientFee: number }[]>([]);
+  const [selectedZone, setSelectedZone] = useState<{ id: string; clientFee: number } | null>(null);
+
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [flavorParts, setFlavorParts] = useState(2);
   const [flavorSlots, setFlavorSlots] = useState<(Product | null)[]>([null, null]);
@@ -151,11 +155,12 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes, themeRes, sizeConfigRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/pizza-size-configs/public?companyId=${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/delivery-config/public?companyId=${companyId}`).catch(() => null),
       ]);
 
       if (!menuRes.ok) {
@@ -194,6 +199,12 @@ export default function MenuPage() {
       if (sizeConfigRes?.ok) {
         const sc = await sizeConfigRes.json().catch(() => []);
         if (Array.isArray(sc)) setPizzaSizeConfigs(sc);
+      }
+
+      // Delivery zones (public — no auth)
+      if (zonesRes?.ok) {
+        const zd = await zonesRes.json().catch(() => []);
+        if (Array.isArray(zd)) setDeliveryZones(zd.map((z: any) => ({ ...z, clientFee: Number(z.clientFee) })));
       }
 
       if (companyRes?.ok) {
@@ -380,10 +391,13 @@ export default function MenuPage() {
       if (!r.ok) return;
       const d = await r.json();
       if (d.erro) return;
+      const newNeighborhood = d.bairro || "";
+      const zone = newNeighborhood ? deliveryZones.find(z => z.neighborhood?.toLowerCase().trim() === newNeighborhood.toLowerCase().trim()) ?? null : null;
+      setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
       setForm((f) => ({
         ...f,
         street: d.logradouro || f.street,
-        neighborhood: d.bairro || f.neighborhood,
+        neighborhood: newNeighborhood || f.neighborhood,
         city: d.localidade || f.city,
         state: d.uf || f.state,
       }));
@@ -539,8 +553,9 @@ export default function MenuPage() {
           }),
           subtotal:      cartTotal,
           discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount,
-          deliveryFee:   0,
-          total:         capturedFinalTotal,
+          deliveryFee:   selectedZone?.clientFee ?? 0,
+          deliveryZoneId: selectedZone?.id ?? undefined,
+          total:         capturedFinalTotal + (selectedZone?.clientFee ?? 0),
           paymentMethod: form.paymentMethod,
           notes:         selectedOrderType === "DINE_IN" ? `Mesa ${tableNumber}` : undefined,
         }),
@@ -1386,7 +1401,12 @@ export default function MenuPage() {
                   <input
                     placeholder="Bairro *"
                     value={form.neighborhood}
-                    onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
+                    onChange={(e) => {
+                      const nb = e.target.value;
+                      setForm((f) => ({ ...f, neighborhood: nb }));
+                      const zone = deliveryZones.find(z => z.neighborhood?.toLowerCase().trim() === nb.toLowerCase().trim()) ?? null;
+                      setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
+                    }}
                     className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                   />
                   <input
@@ -1453,9 +1473,21 @@ export default function MenuPage() {
                   <span>- R$ {couponDiscount.toFixed(2)}</span>
                 </div>
               )}
+              {form.orderType === "DELIVERY" && (
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span className="flex items-center gap-1"><MapPin size={11} /> Taxa de entrega</span>
+                  <span>
+                    {selectedZone
+                      ? `R$ ${selectedZone.clientFee.toFixed(2).replace(".", ",")}`
+                      : form.neighborhood
+                        ? "Bairro sem cobertura"
+                        : "Informe o bairro"}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-base font-black text-gray-900 pt-1 border-t border-gray-100">
                 <span>Total</span>
-                <span className="text-orange-500">R$ {finalCartTotal.toFixed(2)}</span>
+                <span className="text-orange-500">R$ {(finalCartTotal + (form.orderType === "DELIVERY" ? (selectedZone?.clientFee ?? 0) : 0)).toFixed(2)}</span>
               </div>
             </div>
 

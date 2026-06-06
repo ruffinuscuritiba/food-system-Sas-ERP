@@ -52,6 +52,15 @@ export class DeliveryConfigService {
     return this.prisma.deliveryZone.delete({ where: { id } });
   }
 
+  // Returns public zone list (no driverShare) — safe to expose without auth
+  findAllPublic(companyId: string) {
+    return this.prisma.deliveryZone.findMany({
+      where: { companyId, isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, neighborhood: true, clientFee: true, type: true },
+    });
+  }
+
   // Returns the fee for a given neighborhood (for use in order creation)
   async getFeeForNeighborhood(companyId: string, neighborhood: string) {
     const zone = await this.prisma.deliveryZone.findFirst({

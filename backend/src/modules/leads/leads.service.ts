@@ -8,6 +8,7 @@ export interface LeadUpsertDto {
   whatsapp?: string;
   recommendedPlan?: string;
   conversationSummary?: string;
+  waClicked?: boolean;
 }
 
 export interface LeadStats {
@@ -16,6 +17,7 @@ export interface LeadStats {
   qualificados: number;
   contatados: number;
   perdidos: number;
+  waClicked: number;
   porPlano: { BASIC: number; PRO: number; ENTERPRISE: number };
 }
 
@@ -35,13 +37,13 @@ export class LeadsService {
 
   async upsert(dto: LeadUpsertDto): Promise<{ id: string } | null> {
     // Do not persist anonymous sessions with no qualifying data
-    if (!dto.name && !dto.company && !dto.whatsapp && !dto.recommendedPlan) {
+    if (!dto.name && !dto.company && !dto.whatsapp && !dto.recommendedPlan && !dto.waClicked) {
       return null;
     }
 
     const existing = await this.prisma.lead.findUnique({
       where: { sessionToken: dto.sessionToken },
-      select: { id: true, status: true },
+      select: { id: true, status: true, waClickedAt: true },
     });
 
     const newStatus = resolveStatus(existing?.status, dto);
@@ -56,6 +58,7 @@ export class LeadsService {
         recommendedPlan: dto.recommendedPlan,
         conversationSummary: dto.conversationSummary,
         status: newStatus,
+        ...(dto.waClicked && { waClickedAt: new Date() }),
       },
       update: {
         ...(dto.name !== undefined && { name: dto.name }),
@@ -63,6 +66,8 @@ export class LeadsService {
         ...(dto.whatsapp !== undefined && { whatsapp: dto.whatsapp }),
         ...(dto.recommendedPlan !== undefined && { recommendedPlan: dto.recommendedPlan }),
         ...(dto.conversationSummary !== undefined && { conversationSummary: dto.conversationSummary }),
+        // First-touch: only set waClickedAt once (attribution)
+        ...(dto.waClicked && !existing?.waClickedAt && { waClickedAt: new Date() }),
         status: newStatus,
         updatedAt: new Date(),
       },
@@ -107,10 +112,11 @@ export class LeadsService {
   }
 
   async getStats(): Promise<LeadStats> {
-    const [total, byStatus, byPlan] = await Promise.all([
+    const [total, byStatus, byPlan, waClicked] = await Promise.all([
       this.prisma.lead.count(),
       this.prisma.lead.groupBy({ by: ['status'], _count: { _all: true } }),
       this.prisma.lead.groupBy({ by: ['recommendedPlan'], _count: { _all: true } }),
+      this.prisma.lead.count({ where: { waClickedAt: { not: null } } }),
     ]);
 
     const sm: Record<string, number> = {};
@@ -127,6 +133,7 @@ export class LeadsService {
       qualificados: sm['QUALIFICADO'] ?? 0,
       contatados: sm['CONTATADO'] ?? 0,
       perdidos: sm['PERDIDO'] ?? 0,
+      waClicked,
       porPlano: {
         BASIC: pm['BASIC'] ?? 0,
         PRO: pm['PRO'] ?? 0,

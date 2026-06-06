@@ -27,6 +27,9 @@ from "../whatsapp-ai/whatsapp-ai.service";
 import { OrderNotificationService }
 from "../whatsapp-ai/services/order-notification.service";
 
+import { DeliveryConfigService }
+from "../delivery-config/delivery-config.service";
+
 @Injectable()
 export class OrdersService {
 
@@ -44,6 +47,9 @@ export class OrdersService {
 
     @Optional()
     private orderNotificationService?: OrderNotificationService,
+
+    @Optional()
+    private deliveryConfigService?: DeliveryConfigService,
   ) {}
 
   async create(data: any) {
@@ -159,10 +165,32 @@ export class OrdersService {
         };
       });
 
-    const deliveryFee =
-      Number(
-        data.deliveryFee || 0,
-      );
+    // Zone lookup: resolve deliveryFee + driverFee from DeliveryZone when orderType=DELIVERY
+    let deliveryFee = Number(data.deliveryFee || 0);
+    let driverFee: number | undefined;
+    let deliveryZoneId: string | undefined = data.deliveryZoneId ?? undefined;
+
+    if ((data.orderType === 'DELIVERY' || !data.orderType) && this.deliveryConfigService) {
+      const neighborhood = data.neighborhood ?? null;
+      let zone: { id: string; clientFee: any; driverShare: any } | null = null;
+
+      if (deliveryZoneId) {
+        // Frontend already resolved the zone — just load it to get driverShare
+        zone = await this.prisma.deliveryZone.findFirst({
+          where: { id: deliveryZoneId, companyId: data.companyId, isActive: true },
+          select: { id: true, clientFee: true, driverShare: true },
+        });
+      } else if (neighborhood) {
+        zone = await this.deliveryConfigService.getFeeForNeighborhood(data.companyId, neighborhood);
+      }
+
+      if (zone) {
+        // Override fee only when frontend sent 0 (menu always sends 0)
+        if (deliveryFee === 0) deliveryFee = Number(zone.clientFee);
+        driverFee = Number(zone.driverShare);
+        deliveryZoneId = zone.id;
+      }
+    }
 
     const total =
       subtotal + deliveryFee;
@@ -187,6 +215,10 @@ export class OrdersService {
                 subtotal,
 
                 deliveryFee,
+
+                ...(driverFee !== undefined && { driverFee }),
+
+                ...(deliveryZoneId && { deliveryZoneId }),
 
                 total,
 

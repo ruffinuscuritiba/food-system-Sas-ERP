@@ -13,7 +13,7 @@ export class PaymentsController {
 
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
-  createCheckout(@Body() body: { companyId: string; plan: string; provider: 'MERCADOPAGO' | 'STRIPE'; successUrl?: string; cancelUrl?: string }) {
+  createCheckout(@Body() body: { companyId: string; plan: string; provider: 'MERCADO_PAGO' | 'STRIPE'; successUrl?: string; cancelUrl?: string }) {
     return this.service.createCheckout(body);
   }
 

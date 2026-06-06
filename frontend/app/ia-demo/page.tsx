@@ -173,12 +173,13 @@ export default function IaDemoPage() {
   }
 
   async function saveLead(
-    overrides?: Partial<LeadInfo & { recommendedPlan: string; conversationSummary: string }>,
+    overrides?: Partial<LeadInfo & { recommendedPlan: string; conversationSummary: string; waClicked: boolean }>,
     currentMessages?: Message[],
   ) {
     try {
       await fetch(`${apiBaseUrl}/leads`, {
         method: "POST",
+        keepalive: true,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionToken: SESSION_TOKEN,
@@ -414,7 +415,7 @@ export default function IaDemoPage() {
               {/* Plan card — rendered below the message that triggered it */}
               {msg.planRecommended && !msg.streaming && (
                 <div className="ml-10 mt-2">
-                  <PlanCard plan={msg.planRecommended} />
+                  <PlanCard plan={msg.planRecommended} onWaClick={() => saveLead({ waClicked: true })} />
                 </div>
               )}
 
@@ -426,6 +427,7 @@ export default function IaDemoPage() {
                       href={waLink(recommendedPlan ?? undefined)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => saveLead({ waClicked: true })}
                       className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 transition px-4 py-2 rounded-xl text-[11px] font-bold text-white shadow-md"
                     >
                       <MessageSquare size={13} />
@@ -589,6 +591,7 @@ export default function IaDemoPage() {
               href={waLink(recommendedPlan ?? undefined)}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => saveLead({ waClicked: true })}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 transition px-4 py-2 rounded-xl text-[11px] font-bold text-white shadow-md shadow-emerald-900/30"
             >
               <MessageSquare size={13} />
@@ -610,7 +613,7 @@ export default function IaDemoPage() {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function PlanCard({ plan }: { plan: string }) {
+function PlanCard({ plan, onWaClick }: { plan: string; onWaClick?: () => void }) {
   const data = PLAN_DATA[plan];
   if (!data) return null;
   return (
@@ -657,6 +660,7 @@ function PlanCard({ plan }: { plan: string }) {
             href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(`Olá! Tenho interesse no plano ${data.label} da Ruffinu's FoodSaaS ERP. Gostaria de receber uma proposta comercial.`)}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={onWaClick}
             className="flex-1 flex items-center justify-center gap-1.5 bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.1] transition px-3 py-2 rounded-xl text-[11px] font-bold text-white/70 hover:text-white"
           >
             <MessageSquare size={12} />

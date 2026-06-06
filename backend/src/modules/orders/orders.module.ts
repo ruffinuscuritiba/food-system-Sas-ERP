@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 import { OrdersController } from './orders.controller';
 
@@ -11,6 +11,7 @@ import { StockModule } from '../stock/stock.module';
 import { SocketModule } from '../../socket/socket.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { WhatsappAiModule } from '../whatsapp-ai/whatsapp-ai.module';
+import { DeliveryConfigModule } from '../delivery-config/delivery-config.module';
 
 @Module({
 
@@ -19,11 +20,14 @@ import { WhatsappAiModule } from '../whatsapp-ai/whatsapp-ai.module';
     StockModule,
     SocketModule,
     LoyaltyModule,
-    WhatsappAiModule,
+    forwardRef(() => WhatsappAiModule),
+    DeliveryConfigModule,
   ],
 
   controllers: [OrdersController],
 
   providers: [OrdersService],
+
+  exports: [OrdersService],
 })
 export class OrdersModule {}

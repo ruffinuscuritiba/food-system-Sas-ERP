@@ -8,22 +8,39 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { Injectable, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
-import { Injectable } from '@nestjs/common';
+import { OrdersService } from '@/modules/orders/orders.service';
 
 @Injectable()
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/tracking' })
 export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server: Server;
+  @WebSocketServer() server!: Server;
+  private readonly logger = new Logger(TrackingGateway.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+    private ordersService: OrdersService,
+  ) {}
 
   handleConnection(client: Socket) {
-    console.log(`[Tracking] Client connected: ${client.id}`);
+    try {
+      const token = client.handshake.auth?.token ?? (client.handshake.query?.token as string);
+      if (token) {
+        const payload = this.jwtService.verify<{ sub: string; companyId: string }>(token);
+        client.data = { userId: payload.sub, companyId: payload.companyId };
+      }
+    } catch {
+      // public clients (customers tracking orders) connect without token — allowed
+    }
+    this.logger.log(`Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`[Tracking] Client disconnected: ${client.id}`);
+    this.logger.log(`Client disconnected: ${client.id}`);
   }
 
   // Customer joins room to track an order
@@ -77,14 +94,17 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.server.to(`order:${payload.orderId}`).emit('order:picked_up', { orderId: payload.orderId });
   }
 
-  // Driver marks order as delivered
+  // Driver marks order as delivered — routes through OrdersService (stock, socket, loyalty, audit)
   @SubscribeMessage('driver:delivered')
-  async handleDelivered(@MessageBody() payload: { orderId: string }) {
+  async handleDelivered(
+    @MessageBody() payload: { orderId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { userId, companyId } = (client.data ?? {}) as { userId?: string; companyId?: string };
+    if (!userId || !companyId) return;
+
     try {
-      await this.prisma.order.update({
-        where: { id: payload.orderId },
-        data: { status: 'DELIVERED', deliveredAt: new Date() },
-      });
+      await this.ordersService.updateStatus(payload.orderId, OrderStatus.DELIVERED, userId, companyId);
     } catch {}
     this.server.to(`order:${payload.orderId}`).emit('order:delivered', { orderId: payload.orderId });
   }

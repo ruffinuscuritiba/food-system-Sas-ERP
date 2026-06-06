@@ -11,7 +11,7 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { SocketGateway } from '@/socket/socket.gateway';
 import { OnlineOrdersService } from '@/modules/online-orders/online-orders.service';
 
-export type PaymentProvider = 'MERCADOPAGO' | 'STRIPE';
+export type PaymentProvider = 'MERCADO_PAGO' | 'STRIPE';
 
 export interface CreateCheckoutDto {
   companyId: string;
@@ -50,7 +50,7 @@ export class PaymentsService {
     const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
     if (!company) throw new BadRequestException('Empresa não encontrada.');
 
-    if (dto.provider === 'MERCADOPAGO') return this.createMercadoPagoCheckout(dto, planData, company);
+    if (dto.provider === 'MERCADO_PAGO') return this.createMercadoPagoCheckout(dto, planData, company);
     return this.createStripeCheckout(dto, planData, company);
   }
 
@@ -435,7 +435,7 @@ export class PaymentsService {
     }
 
     const payment = await this.prisma.payment.create({
-      data: { orderId: dto.orderId, companyId: dto.companyId, externalId, status: 'PENDING', provider: 'MERCADOPAGO', amount: order.total },
+      data: { orderId: dto.orderId, companyId: dto.companyId, externalId, status: 'PENDING', provider: 'MERCADO_PAGO', amount: order.total },
     });
 
     return { checkoutUrl, paymentId: payment.id };

@@ -29,19 +29,20 @@ import { IngredientsModule } from './modules/ingredients/ingredients.module'
 import { RecipesModule } from './modules/recipes/recipes.module'
 import { StockModule } from './modules/stock/stock.module'
 import { DriversModule } from './modules/drivers/drivers.module'
+import { TrackingModule } from './modules/tracking/tracking.module'
+import { DeliveryConfigModule } from './modules/delivery-config/delivery-config.module'
 import { FinancialModule }    from './modules/financial/financial.module'
 import { MarketingModule }    from './modules/marketing/marketing.module'
 import { SuperAdminModule }   from './modules/super-admin/super-admin.module'
 import { CompanyModuleModule } from './company-module/company-module.module'
 import { LeadsModule } from './modules/leads/leads.module'
+import { PaymentsModule } from './modules/payments/payments.module'
 import { AppController } from './app.controller'
 import { AppService }    from './app.service'
 import { DemoGuard }     from './common/guards/demo.guard'
 
-// NOTE: Modules disabled temporarily due to schema/code mismatch
-// (will be re-enabled after backend cleanup):
-// - PaymentsModule, LoyaltyModule, ChatModule, DriversModule,
-// - DeliveryConfigModule, TrackingModule, AlertsModule
+// NOTE: Modules disabled temporarily due to schema/code mismatch:
+// - ChatModule, AlertsModule
 
 @Module({
   imports: [
@@ -73,11 +74,14 @@ import { DemoGuard }     from './common/guards/demo.guard'
     RecipesModule,
     StockModule,
     DriversModule,
+    TrackingModule,
+    DeliveryConfigModule,
     FinancialModule,
     MarketingModule,
     SuperAdminModule,
     CompanyModuleModule,
     LeadsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

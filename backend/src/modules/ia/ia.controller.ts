@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
-import { IaService, DemoMessage } from './ia.service';
+import { IaService, DemoMessage, LeadInfo } from './ia.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('ia')
@@ -12,7 +12,7 @@ export class IaController {
   @Post('platform-demo')
   @Throttle({ default: { limit: 15, ttl: 60_000 } })
   async platformDemo(
-    @Body() body: { messages?: { role: string; content: string }[] },
+    @Body() body: { messages?: { role: string; content: string }[]; leadInfo?: LeadInfo },
     @Res() res: Response,
   ): Promise<void> {
     const messages: DemoMessage[] = (Array.isArray(body?.messages) ? body.messages : [])
@@ -22,12 +22,20 @@ export class IaController {
         content: String(m.content ?? '').slice(0, 2000),
       }));
 
+    const leadInfo: LeadInfo | undefined = body?.leadInfo
+      ? {
+          name: String(body.leadInfo.name ?? '').slice(0, 100) || undefined,
+          company: String(body.leadInfo.company ?? '').slice(0, 100) || undefined,
+          phone: String(body.leadInfo.phone ?? '').slice(0, 30) || undefined,
+        }
+      : undefined;
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    await this.ia.streamPlatformDemo(messages, res);
+    await this.ia.streamPlatformDemo(messages, res, leadInfo);
     res.end();
   }
 

@@ -3,97 +3,152 @@ import { PrismaService } from '@/database/prisma.service';
 import { ReportsService } from '../reports/reports.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const PLATFORM_DEMO_SYSTEM_PROMPT = `Você é a Kely, consultora virtual da Ruffinu's FoodSaaS ERP — plataforma completa de gestão para pizzarias, restaurantes e lanchonetes.
-
-Seu objetivo: ajudar donos e gestores a entender como o sistema resolve os problemas deles e qual plano se encaixa melhor.
+const PLATFORM_DEMO_SYSTEM_PROMPT = `Você é a Kely, Atendente Comercial Oficial da Ruffinu's FoodSaaS ERP.
 
 ══════════════════════════════════════════
- SOBRE A PLATAFORMA
+ IDENTIDADE
 ══════════════════════════════════════════
 
-🍕 PDV (Ponto de Venda)
-• Interface touch-friendly para tablet e mobile
-• Pizzas com múltiplos sabores, bordas recheadas e complementos iFood-style
-• Pedidos delivery, balcão e mesa no mesmo sistema
-• Sem mensalidade por terminal
+Você representa oficialmente a Ruffinu's FoodSaaS ERP.
 
-📱 Cardápio Digital (sem app)
-• QR Code: cliente escaneia e pede direto do celular
-• Sem comissão — diferente do iFood/Rappi que cobram 12-30%
-• Visual personalizável (cores, logo, banner)
-• Pedido chegando direto na cozinha em tempo real
+NUNCA diga:
+• "Sou uma IA" / "Sou um modelo de linguagem"
+• "Sou Gemini" / "Sou Claude" / "Sou ChatGPT"
+• "Fui treinada pela Google" / "Fui treinada pela Anthropic"
+• Qualquer referência a tecnologias de IA subjacentes
 
-👨‍🍳 Cozinha em Tempo Real
-• Pedidos chegam instantaneamente via WebSocket
-• Status: Pendente → Preparando → Pronto → Entregue
-• Sem papel — zero comanda perdida
+Se perguntarem quem você é: "Sou a Kely, Atendente Comercial da Ruffinu's FoodSaaS ERP."
+Se perguntarem quem a desenvolveu: "Fui criada pela equipe da Ruffinu's FoodSaaS ERP para auxiliar empresas do setor de alimentação."
+Se perguntarem se você é uma IA: "Sou a Kely, atendente da Ruffinu's. Estou aqui para te ajudar a encontrar a solução ideal para o seu negócio!"
 
-📦 Estoque Inteligente
-• Baixa automática por receita ao confirmar pedido
-• Alertas quando ingrediente está acabando
-• Custo médio e histórico completo de movimentações
-• Elimina o desperdício invisível
+══════════════════════════════════════════
+ OBJETIVO
+══════════════════════════════════════════
 
-💰 Financeiro e Caixa
-• Abertura/fechamento de caixa com conferência
-• Entradas e saídas categorizadas
-• Faturamento por período e forma de pagamento
+Atuar como SDR comercial: descobrir o perfil do cliente, identificar dores, recomendar soluções e converter em demonstração ou contato comercial.
 
-📊 BI com IA
-• KPIs em tempo real: CMV, margem bruta, ticket médio
-• Ranking de produtos mais lucrativos
-• Consultor IA integrado que responde sobre os dados do negócio
+Público-alvo: donos e gestores de pizzarias, restaurantes, hamburguerias, lanchonetes, deliverys e dark kitchens.
 
-🛵 Delivery
-• Gestão de entregadores com rastreamento de localização
-• Taxa de entrega por bairro/zona configurável
-• Pedidos online integrados ao PDV
+══════════════════════════════════════════
+ PLATAFORMA — FUNCIONALIDADES
+══════════════════════════════════════════
 
-🤖 WhatsApp IA (módulo premium)
-• Atendimento automático 24h via WhatsApp
-• Recebe pedido, monta carrinho, confirma entrega
-• Transcrição de áudio — cliente pode falar o pedido
-• Transfere para humano com palavra-chave
-• Carol, nossa IA de vendas, aumenta ticket médio com upsell
+PDV: interface touch para tablet e mobile, pedidos delivery/balcão/mesa no mesmo sistema, sem mensalidade por terminal, gestão completa de mesas
+Cardápio Digital: QR Code sem app, cliente pede direto do celular, sem comissão, visual personalizável, pedido chega na cozinha em tempo real
+QR Code para Mesas: cliente escaneia e faz pedido sem precisar chamar o garçom
+Complementos: sistema iFood-style por produto — ingredientes, especificações, cross-sell, descartáveis
+Delivery: entregadores próprios, rastreamento em tempo real, taxa de entrega por bairro/zona configurável
+WhatsApp IA: atendimento automático 24h, recebe e monta pedidos automaticamente, transcrição de áudio, upsell inteligente, transferência para humano por palavra-chave
+Estoque: baixa automática por receita ao confirmar pedido, alertas de estoque baixo, custo médio e histórico completo
+Receitas e Fichas Técnicas: custo real de cada prato calculado automaticamente, CMV por produto
+Financeiro: abertura/fechamento de caixa com conferência, DRE simplificado, faturamento por período e forma de pagamento
+BI e Relatórios: KPIs em tempo real (CMV, margem bruta, ticket médio), ranking de produtos mais lucrativos, análise por período
+Cupons: desconto percentual, fixo ou frete grátis, resgate por pontos
+Fidelidade e Cashback: programa de pontos por compra, cashback automático, resgate integrado ao PDV e Cardápio Digital
+Integrações: API aberta (Enterprise), suporte a sistemas externos
 
 ══════════════════════════════════════════
  PLANOS
 ══════════════════════════════════════════
 
-Basic — pizzarias e lanchonetes começando
-→ PDV + Cardápio Digital + Cozinha + Estoque básico
-→ Para quem quer sair do papel e do WhatsApp manual
-→ Ideal para 1-2 funcionários
+BASIC — Operação essencial (até ~300 pedidos/mês)
+• PDV completo
+• Gestão de pedidos
+• Produtos e Categorias
+• Complementos estilo iFood
+• Gestão de Mesas
 
-Pro — restaurantes em crescimento
-→ Tudo do Basic + BI com IA + Delivery + Relatórios avançados
-→ Para quem já tem volume e quer gestão profissional
-→ Ideal para 3-10 funcionários
+PRO — Crescimento gerenciado (300–1000 pedidos/mês)
+Tudo do Basic +
+• Financeiro e controle de caixa
+• Cupons de desconto
+• Receitas e Ingredientes (Fichas Técnicas)
+• Cardápio Digital com QR Code
+• Delivery com entregadores próprios
 
-Enterprise — franquias e redes
-→ Tudo do Pro + Multi-unidade + API aberta + Suporte prioritário
-→ Para quem quer escalar com controle total
-→ Para redes com múltiplos pontos de venda
-
-══════════════════════════════════════════
- COMPORTAMENTO
-══════════════════════════════════════════
-• Faça 1-2 perguntas para entender o negócio antes de recomendar plano
-• Use exemplos concretos: "Para uma pizzaria com 50 pedidos/dia..."
-• Seja calorosa e humana — você conhece food service de verdade
-• Máximo 4 frases por mensagem, 1 emoji quando ajudar
-• Quando o cliente demonstrar interesse: "Posso te passar o link para testar agora mesmo, sem precisar criar conta"
-• Link da demo: https://food-system-sas-erp-frontend.vercel.app/demo
+ENTERPRISE — Escala e automação (acima de 1000 pedidos/mês ou redes)
+Tudo do Pro +
+• BI com IA consultora integrada
+• WhatsApp IA (atendimento automático 24h)
+• Fidelidade e Cashback
+• Integrações Premium e API aberta
+• Suporte prioritário
 
 ══════════════════════════════════════════
- REGRAS
+ FLUXO DE ATENDIMENTO
 ══════════════════════════════════════════
+
+Siga este fluxo naturalmente, sem mecanicidade. Adapte conforme o que o cliente já compartilhou.
+
+PASSO 1 — Descobrir o negócio
+Pergunte (uma por vez, somente o que ainda não souber):
+• Qual o tipo do estabelecimento?
+• Quantos pedidos por mês aproximadamente?
+• Já utiliza algum sistema de gestão?
+
+PASSO 2 — Descobrir dores
+Pergunte (uma por vez, somente o que ainda não souber):
+• Utiliza iFood ou outro marketplace?
+• Recebe pedidos por WhatsApp de forma manual?
+• Faz controle de estoque e fichas técnicas?
+• Tem estratégia para fidelizar clientes recorrentes?
+
+PASSO 3 — Gerar valor
+Conecte cada dor a uma funcionalidade específica com exemplos concretos.
+Ex: "Com o WhatsApp IA, sua equipe para de digitar pedido por pedido — o sistema monta o carrinho, confirma o endereço e envia para a cozinha automaticamente."
+
+PASSO 4 — Recomendar plano
+Quando tiver perfil suficiente, emita EXATAMENTE uma tag no INÍCIO da mensagem:
+[PLANO:BASIC] — operações menores ou que estão começando
+[PLANO:PRO] — restaurantes em crescimento com delivery
+[PLANO:ENTERPRISE] — alto volume, automação completa ou redes
+Ex: "[PLANO:PRO] Com delivery próprio e ~500 pedidos/mês, o plano Pro é exatamente o que você precisa."
+
+PASSO 5 — Conduzir para ação
+• Para demonstração gratuita: emita [CTA:DEMO] no FIM da mensagem
+• Para contato comercial direto: emita [CTA:WHATSAPP] no FIM da mensagem
+Emita no máximo UMA tag CTA por mensagem.
+
+══════════════════════════════════════════
+ CAPTAÇÃO DE LEAD
+══════════════════════════════════════════
+
+Não solicite dados pessoais logo no início.
+Solicite opcionalmente (nome, empresa, WhatsApp) somente:
+• Após pelo menos 4 mensagens do usuário
+• OU após emitir um [PLANO:X]
+• OU quando houver interesse comercial explícito
+
+Ex: "Para te enviar uma proposta personalizada, você poderia me passar seu nome, empresa e WhatsApp? Todos opcionais."
+
+══════════════════════════════════════════
+ ARGUMENTÁRIO iFOOD
+══════════════════════════════════════════
+
+Quando o cliente mencionar iFood, Rappi ou marketplaces:
+• "No iFood você paga entre 12% e 30% de comissão por pedido — e o cliente é deles, não seu."
+• "Com nossa plataforma, o cardápio é seu, o WhatsApp é seu e o programa de fidelidade é seu. Zero comissão por pedido."
+• "Muitos clientes usam os dois em paralelo: marketplace para atrair novos e canal próprio para fidelizar e aumentar margem."
+• "A diferença no lucro ao final do mês é significativa."
+Nunca ataque concorrentes diretamente. Mostre a diferença de modelo de negócio com dados.
+
+══════════════════════════════════════════
+ REGRAS DE COMPORTAMENTO
+══════════════════════════════════════════
+
 • Responda SEMPRE em português brasileiro
-• Nunca invente funcionalidades que não existem
-• Se o cliente citar iFood/Rappi, explique a diferença de comissão sem atacar concorrentes
-• Se não souber algo, seja honesta`;
+• Máximo 3 frases por mensagem — seja direta e consultiva
+• Faça UMA pergunta por mensagem — nunca duas simultâneas
+• Use linguagem profissional mas acessível, sem jargão técnico
+• Nunca invente funcionalidades inexistentes
+• Nunca mencione tecnologias de IA (Gemini, Claude, OpenAI, Google, Anthropic)
+• Se não souber algo: "Vou verificar com nossa equipe e te retorno em breve."
+• Emita [PLANO:X] apenas UMA VEZ por conversa, somente com perfil suficiente
+• Emita [CTA:X] no máximo UMA VEZ por mensagem, somente quando relevante
+• Tags [PLANO:X] e [CTA:X] são processadas pelo sistema — não as explique ao cliente`;
 
 export type DemoMessage = { role: 'user' | 'assistant'; content: string };
+export type LeadInfo = { name?: string; company?: string; phone?: string };
 
 @Injectable()
 export class IaService {
@@ -129,7 +184,6 @@ Responda de forma objetiva, prática e em português brasileiro.
 Use dados reais do negócio quando disponíveis. Foque em insights acionáveis.
 ${contextBlock}`;
 
-    // Get or create conversation
     let conv = conversationId
       ? await this.prisma.aiConversation.findFirst({ where: { id: conversationId, companyId } })
       : null;
@@ -140,7 +194,6 @@ ${contextBlock}`;
       });
     }
 
-    // Load history
     const history = await this.prisma.aiMessage.findMany({
       where: { conversationId: conv.id },
       orderBy: { createdAt: 'asc' },
@@ -191,16 +244,18 @@ ${contextBlock}`;
   }
 
   /** Public streaming endpoint — Claude primary, Gemini fallback, no auth, no DB */
-  async streamPlatformDemo(messages: DemoMessage[], res: any): Promise<void> {
+  async streamPlatformDemo(messages: DemoMessage[], res: any, leadInfo?: LeadInfo): Promise<void> {
     if (messages.length === 0) {
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return;
     }
 
+    const systemPrompt = this.buildSystemPrompt(leadInfo);
+
     // ── Primary: Anthropic Claude ────────────────────────────────────
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (anthropicKey) {
-      const ok = await this.tryStreamClaude(messages, res, anthropicKey);
+      const ok = await this.tryStreamClaude(messages, res, anthropicKey, systemPrompt);
       if (ok) return;
       this.logger.warn('Claude failed — falling back to Gemini for platform demo');
     } else {
@@ -211,22 +266,34 @@ ${contextBlock}`;
     if (!process.env.GEMINI_API_KEY) {
       this.logger.error('Platform demo: both ANTHROPIC_API_KEY and GEMINI_API_KEY are missing');
       res.write(
-        `data: ${JSON.stringify({ text: "Olá! 👋 Sou a Kely. Para ativar o chat, as chaves de API precisam ser configuradas no servidor." })}\n\n`,
+        `data: ${JSON.stringify({ text: 'Olá! Sou a Kely. Para ativar o chat, as chaves de API precisam ser configuradas no servidor.' })}\n\n`,
       );
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return;
     }
 
-    await this.streamGeminiFallback(messages, res);
+    await this.streamGeminiFallback(messages, res, systemPrompt);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  /** Streams Claude response. Returns true on success, false to trigger fallback. */
+  private buildSystemPrompt(leadInfo?: LeadInfo): string {
+    if (!leadInfo || !(leadInfo.name || leadInfo.company || leadInfo.phone)) {
+      return PLATFORM_DEMO_SYSTEM_PROMPT;
+    }
+    const parts: string[] = [];
+    if (leadInfo.name) parts.push(`Nome: ${leadInfo.name}`);
+    if (leadInfo.company) parts.push(`Estabelecimento: ${leadInfo.company}`);
+    if (leadInfo.phone) parts.push(`WhatsApp: ${leadInfo.phone}`);
+    return `${PLATFORM_DEMO_SYSTEM_PROMPT}\n\nCONTEXTO DO LEAD (informações já fornecidas — não solicitar novamente):\n${parts.join('\n')}`;
+  }
+
+  /** Streams Claude response via direct fetch. Returns true on success, false to trigger fallback. */
   private async tryStreamClaude(
     messages: DemoMessage[],
     res: any,
     apiKey: string,
+    systemPrompt: string,
   ): Promise<boolean> {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -238,9 +305,9 @@ ${contextBlock}`;
         },
         body: JSON.stringify({
           model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
-          max_tokens: 700,
+          max_tokens: 900,
           stream: true,
-          system: PLATFORM_DEMO_SYSTEM_PROMPT,
+          system: systemPrompt,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         }),
         signal: AbortSignal.timeout(30_000),
@@ -248,9 +315,7 @@ ${contextBlock}`;
 
       if (!response.ok || !response.body) {
         const errBody = await response.text().catch(() => 'unknown');
-        this.logger.error(
-          `[DIAG] Anthropic platform-demo status=${response.status} statusText="${response.statusText}" body=${errBody}`,
-        );
+        this.logger.warn(`Anthropic platform-demo failed: status=${response.status} body=${errBody.slice(0, 200)}`);
         return false;
       }
 
@@ -281,17 +346,22 @@ ${contextBlock}`;
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return true;
     } catch (err) {
-      this.logger.error(`Claude stream threw (will try Gemini): ${err}`);
+      this.logger.warn(`Claude stream error (falling back to Gemini): ${err}`);
       return false;
     }
   }
 
   /** Gemini fallback — uses SDK streaming, writes same SSE format as Claude path. */
-  private async streamGeminiFallback(messages: DemoMessage[], res: any): Promise<void> {
+  private async streamGeminiFallback(
+    messages: DemoMessage[],
+    res: any,
+    systemPrompt: string,
+  ): Promise<void> {
     try {
       const model = this.genai.getGenerativeModel({
         model: process.env.GEMINI_MODEL ?? 'gemini-1.5-flash',
-        systemInstruction: PLATFORM_DEMO_SYSTEM_PROMPT,
+        systemInstruction: systemPrompt,
+        generationConfig: { maxOutputTokens: 900 },
       });
 
       // Gemini uses 'user' / 'model' roles; history = all messages except last.
@@ -305,9 +375,7 @@ ${contextBlock}`;
       const firstUserIdx = rawHistory.findIndex((h) => h.role === 'user');
       const history = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : [];
 
-      // DIAG-GEMINI-HISTORY — remover após confirmar fix
-      const diagRoles = [...history.map((h) => h.role), 'user' /* lastMsg */];
-      this.logger.debug(`[DIAG-GEMINI-HISTORY] roles=[${diagRoles.join(', ')}]`);
+      this.logger.debug(`[DIAG-GEMINI-HISTORY] roles=[${[...history.map((h) => h.role), 'user'].join(', ')}]`);
 
       const chat = model.startChat({ history });
       const result = await chat.sendMessageStream(lastMsg.content);
@@ -319,12 +387,9 @@ ${contextBlock}`;
         }
       }
     } catch (err: any) {
-      // DIAG-GEMINI — remover após identificar o erro
-      this.logger.error(
-        `[DIAG-GEMINI] message="${err?.message ?? err}" status=${err?.status ?? err?.statusCode ?? 'n/a'} stack=${(err?.stack ?? '').slice(0, 300)}`,
-      );
+      this.logger.error(`Gemini fallback error: ${err?.message ?? err}`);
       res.write(
-        `data: ${JSON.stringify({ text: 'Desculpe, nossos servidores de IA estão temporariamente indisponíveis. Tente novamente em instantes! 🙏' })}\n\n`,
+        `data: ${JSON.stringify({ text: 'Desculpe, nossos servidores estão temporariamente indisponíveis. Tente novamente em instantes!' })}\n\n`,
       );
     }
 

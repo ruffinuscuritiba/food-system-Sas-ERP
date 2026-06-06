@@ -4,8 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState, useRef } from "react";
 import { socket } from "@/services/socket";
 import { api } from "@/services/api";
-import { printTicket } from "@/components/printing/printTicket";
-import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
+import { PrintRouterService } from "@/components/printing/PrintRouterService";
 
 // @hello-pangea/dnd is heavy and SSR-incompatible — load lazily
 const KitchenBoard = dynamic(() => import("./KitchenBoard"), {
@@ -51,7 +50,7 @@ export default function KitchenPage() {
   }
 
   function printKitchenOrder(order: any) {
-    printTicket(buildKitchenTicket(order));
+    PrintRouterService.printAll(order, { companyName: "Cozinha", sectors: ["KITCHEN", "BAR"] });
   }
 
   useEffect(() => {

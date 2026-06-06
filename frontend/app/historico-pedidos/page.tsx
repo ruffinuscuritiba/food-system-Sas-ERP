@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { Printer, RefreshCw } from "lucide-react";
-import { printTicket } from "@/components/printing/printTicket";
-import { buildReceipt80mm } from "@/components/printing/Receipt80mm";
+import { PrintRouterService } from "@/components/printing/PrintRouterService";
 
 type OrderItem = {
   id: string;
@@ -82,7 +81,7 @@ export default function HistoricoPedidosPage() {
   useEffect(() => { load(); }, []);
 
   function handlePrint(order: Order) {
-    printTicket(buildReceipt80mm(
+    PrintRouterService.printAll(
       {
         ...order,
         status: STATUS_PT[order.status]?.label || order.status,
@@ -90,7 +89,7 @@ export default function HistoricoPedidosPage() {
         customerPhone: order.customer?.phone || order.customerPhone || "",
       },
       { companyName },
-    ));
+    );
   }
 
   return (

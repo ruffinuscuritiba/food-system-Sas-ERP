@@ -7,6 +7,7 @@ import { PaymentModal } from "@/components/pdv/PaymentModal";
 import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
 import { ComplementsModal } from "@/components/shared/ComplementsModal";
+import { PrintRouterService } from "@/components/printing/PrintRouterService";
 
 type PdvOrderDetails = OrderDetails;
 import {
@@ -233,6 +234,7 @@ export default function PDVPage() {
     deliveryFee: "",
   });
   const [companyId, setCompanyId]               = useState<string>("");
+  const [companyName, setCompanyName]           = useState<string>("Restaurante");
   const [authToken, setAuthToken]               = useState<string>("");
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
@@ -287,6 +289,13 @@ export default function PDVPage() {
       setPizzaCategories(pizzaCatIds);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
     }).catch(() => {}).finally(() => setLoading(false));
+    // Fetch company name for receipts (fire-and-forget)
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (user?.companyId) {
+      api.get(`/company/${user.companyId}`)
+        .then(r => { if (r.data?.name) setCompanyName(r.data.name); })
+        .catch(() => {});
+    }
   }, []);
 
   const addCartItem = useCallback((product: Product, complements?: SelectedComplement[]) => {
@@ -496,6 +505,44 @@ export default function PDVPage() {
       }
 
       toast.success(`Pedido fechado — ${serviceLabel}`, { duration: 3000 });
+
+      // Impressão automática: monta ticket a partir do carrinho local (sem novo GET)
+      try {
+        const catTypeById = new Map(categories.map(c => [c.id, c.categoryType ?? "normal"]));
+        PrintRouterService.printAll(
+          {
+            id:              orderRes.data?.id ?? "pdv-" + Date.now(),
+            source:          "PDV",
+            orderType:       details.orderType,
+            paymentMethod,
+            customerName:    details.customerName || serviceLabel,
+            customerPhone:   details.customerPhone || "",
+            deliveryAddress: details.orderType === "DELIVERY"
+              ? [details.address, details.addressNumber, details.complement, details.bairro, details.cidade].filter(Boolean).join(", ")
+              : undefined,
+            subtotal:        cartTotal,
+            deliveryFee:     parsedDeliveryFee,
+            total:           orderTotal,
+            createdAt:       new Date().toISOString(),
+            items: cart.map(({ product, qty, complements, unitPrice }) => ({
+              productName:         product.name,
+              quantity:            qty,
+              unitPrice:           unitPrice ?? Number(product.salePrice ?? 0),
+              subtotal:            qty * (unitPrice ?? Number(product.salePrice ?? 0)),
+              categoryType:        catTypeById.get(product.categoryId ?? "") ?? "normal",
+              selectedComplements: (complements ?? []).map(c => ({
+                complementName: c.complementName,
+                optionName:     c.optionName,
+                price:          c.price,
+                quantity:       c.quantity,
+              })),
+            })),
+          },
+          { companyName },
+        );
+      } catch (printErr) {
+        console.warn("[PDV] impressão falhou silenciosamente:", printErr);
+      }
 
       // Salva endereço desagregado do cliente para autofill futuro (fire-and-forget)
       if (details.orderType === "DELIVERY" && details.customerPhone?.replace(/\D/g, "").length >= 8) {

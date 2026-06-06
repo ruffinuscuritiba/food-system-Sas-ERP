@@ -9,8 +9,8 @@ import {
   ShoppingCart, Printer, Clock, Truck, CheckCircle2, History,
   Phone, User, MapPin, X, Save, ChevronRight, RefreshCw,
 } from "lucide-react";
-import { printTicket, type PrintableOrder } from "@/components/printing/printTicket";
-import { buildReceipt80mm } from "@/components/printing/Receipt80mm";
+import { type PrintableOrder } from "@/components/printing/printTicket";
+import { PrintRouterService } from "@/components/printing/PrintRouterService";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -113,15 +113,12 @@ function customerPhone(order: Order): string {
 function printOrder(order: Order, companyName: string) {
   const printable: PrintableOrder = {
     ...(order as unknown as PrintableOrder),
-    // source vem do adapter Caminho 2 (campo extra não tipado em Order)
     source:        (order as Order & { source?: string }).source,
-    // status traduzido para PT-BR — preserva comportamento anterior
     status:        STATUS_LABELS[order.status]?.label || order.status,
-    // helpers locais preservam lógica de fallback existente
     customerName:  customerName(order),
     customerPhone: customerPhone(order),
   };
-  printTicket(buildReceipt80mm(printable, { companyName }));
+  PrintRouterService.printAll(printable, { companyName });
 }
 
 // ── Edit Notes Modal ──────────────────────────────────────────────────────────

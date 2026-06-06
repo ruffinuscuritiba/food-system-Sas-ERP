@@ -886,7 +886,15 @@ export class OrdersService {
         where: { companyId },
         orderBy: { createdAt: 'desc' },
         take: 200,
-        include: { customer: true, items: { include: { selectedComplements: true } } },
+        include: {
+          customer: true,
+          items: {
+            include: {
+              selectedComplements: true,
+              product: { include: { category: { select: { categoryType: true } } } },
+            },
+          },
+        },
       }),
       this.prisma.onlineOrder.findMany({
         where: { companyId },
@@ -894,6 +902,23 @@ export class OrdersService {
         take: 200,
       }),
     ]);
+
+    // Batch-resolve categoryType for online order items (stored as JSON, no direct relation)
+    const onlineProductIds = new Set<string>();
+    for (const o of onlineOrdersRaw) {
+      const rawItems: any[] = Array.isArray((o as any).items) ? (o as any).items : [];
+      rawItems.forEach((it: any) => { if (it.productId) onlineProductIds.add(it.productId); });
+    }
+    const categoryByProductId = new Map<string, string>();
+    if (onlineProductIds.size > 0) {
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: [...onlineProductIds] }, companyId },
+        include: { category: { select: { categoryType: true } } },
+      });
+      products.forEach((p: any) => {
+        categoryByProductId.set(p.id, p.category?.categoryType ?? 'normal');
+      });
+    }
 
     const pdv = pdvOrders.map((o: any) => ({
       id:               o.id,
@@ -914,6 +939,7 @@ export class OrdersService {
         notes:        it.notes ?? '',
         unitPrice:    Number(it.unitPrice ?? 0),
         subtotal:     Number(it.subtotal ?? 0),
+        categoryType: it.product?.category?.categoryType ?? 'normal',
         selectedComplements: (it.selectedComplements ?? []).map((c: any) => ({
           complementName: c.complementName,
           optionName:     c.optionName,
@@ -939,11 +965,12 @@ export class OrdersService {
         paymentMethod:    o.paymentMethod ?? null,
         notes:            o.notes ?? null,
         items: rawItems.map((it: any) => ({
-          productName: it.productName,
-          quantity:    Number(it.quantity ?? 1),
-          notes:       it.notes ?? '',
-          unitPrice:   Number(it.unitPrice ?? 0),
-          subtotal:    Number(it.unitPrice ?? 0) * Number(it.quantity ?? 1),
+          productName:  it.productName,
+          quantity:     Number(it.quantity ?? 1),
+          notes:        it.notes ?? '',
+          unitPrice:    Number(it.unitPrice ?? 0),
+          subtotal:     Number(it.unitPrice ?? 0) * Number(it.quantity ?? 1),
+          categoryType: categoryByProductId.get(it.productId) ?? 'normal',
           selectedComplements: Array.isArray(it.complements) ? it.complements.map((c: any) => ({
             complementName: c.complementName,
             optionName:     c.optionName,

@@ -30,11 +30,11 @@ function todayAt(hour: number): Date {
 // ── Static catalogue ──────────────────────────────────────────────────────────
 
 const CATEGORIES_DEF = [
-  { key: 'salgadas',   name: '🍕 Pizzas Salgadas', bannerFile: 'pizzas-salgadas.jpg', sortOrder: 1 },
-  { key: 'doces',      name: '🍫 Pizzas Doces',     bannerFile: 'pizzas-doces.jpg',    sortOrder: 2 },
-  { key: 'bebidas',    name: '🥤 Bebidas',           bannerFile: 'bebidas.jpg',         sortOrder: 3 },
-  { key: 'sobremesas', name: '🍮 Sobremesas',        bannerFile: 'sobremesas.jpg',      sortOrder: 4 },
-  { key: 'combos',     name: '📦 Combos',            bannerFile: 'combos.jpg',          sortOrder: 5 },
+  { key: 'salgadas',   name: 'Pizzas Salgadas', bannerFile: 'pizzas-salgadas.jpg', sortOrder: 1 },
+  { key: 'doces',      name: 'Pizzas Doces',    bannerFile: 'pizzas-doces.jpg',    sortOrder: 2 },
+  { key: 'bebidas',    name: 'Bebidas',          bannerFile: 'bebidas.jpg',         sortOrder: 3 },
+  { key: 'sobremesas', name: 'Sobremesas',       bannerFile: 'sobremesas.jpg',      sortOrder: 4 },
+  { key: 'combos',     name: 'Combos',           bannerFile: 'combos.jpg',          sortOrder: 5 },
 ]
 
 type ProdDef = { key: string; name: string; price: number; cost: number; imgId: string; desc: string }
@@ -205,6 +205,22 @@ const TIERS: TierConfig[] = [
 @Injectable()
 export class DemoVitrineService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Idempotent — updates category names for all demo companies to the current
+   * CATEGORIES_DEF values (no emoji). Safe to run on every boot.
+   */
+  async patchDemoCategoryNames(): Promise<void> {
+    for (const cid of SAFE_DEMO_IDS) {
+      for (const cat of CATEGORIES_DEF) {
+        const id = `${cid}-cat-${cat.key}`
+        await this.prisma.category.updateMany({
+          where: { id, companyId: cid },
+          data:  { name: cat.name },
+        })
+      }
+    }
+  }
 
   async populateAll() {
     const results: any[] = []

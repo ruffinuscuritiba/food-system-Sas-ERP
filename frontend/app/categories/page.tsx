@@ -59,7 +59,7 @@ export default function CategoriesPage() {
     setCreating(true);
     try {
       await api.post("/categories", {
-        name: name.trim(),
+        name: name.trim().replace(/^[^\p{L}\p{N}]+/u, ''),
         allowMultipleFlavors: newAllowMulti,
         categoryType: newCategoryType,
         bannerImage: newBannerImage,
@@ -89,7 +89,7 @@ export default function CategoriesPage() {
     if (!editName.trim()) { toast.error("Nome não pode ser vazio"); return; }
     try {
       await api.patch(`/categories/${id}`, {
-        name: editName.trim(),
+        name: editName.trim().replace(/^[^\p{L}\p{N}]+/u, ''),
         allowMultipleFlavors: editAllowMulti,
         categoryType: editCategoryType,
         bannerImage: editBannerImage,  // pode ser null (remoção)

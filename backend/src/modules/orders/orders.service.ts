@@ -242,6 +242,8 @@ export class OrdersService {
 
                 deliveryAddress:
                   data.deliveryAddress || null,
+
+                ...(data.tableId && { tableId: data.tableId }),
               },
 
               include: {
@@ -249,24 +251,27 @@ export class OrdersService {
               },
             });
 
-          // 2a. DINE_IN: localizar a mesa pelo número e marcar como OCCUPIED
-          if (
-            (data.orderType === 'DINE_IN' || !data.orderType) &&
-            data.tableNumber
-          ) {
-            const table = await tx.table.findFirst({
-              where: {
-                companyId: data.companyId,
-                number: Number(data.tableNumber),
-              },
-              select: { id: true },
-            });
-
-            if (table) {
+          // 2a. DINE_IN: localizar a mesa pelo tableId (direto) ou tableNumber e marcar OCCUPIED
+          if (data.orderType === 'DINE_IN' || !data.orderType) {
+            if (data.tableId) {
               await tx.table.update({
-                where: { id: table.id },
+                where: { id: data.tableId },
                 data: { status: 'OCCUPIED' },
+              }).catch(() => {});
+            } else if (data.tableNumber) {
+              const table = await tx.table.findFirst({
+                where: {
+                  companyId: data.companyId,
+                  number: Number(data.tableNumber),
+                },
+                select: { id: true },
               });
+              if (table) {
+                await tx.table.update({
+                  where: { id: table.id },
+                  data: { status: 'OCCUPIED' },
+                });
+              }
             }
           }
 

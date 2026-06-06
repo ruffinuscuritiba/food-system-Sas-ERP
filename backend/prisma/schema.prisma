@@ -472,6 +472,10 @@ model Order {
 
   driverEarning DriverEarning?
 
+  tableId String?
+
+  table Table? @relation(fields: [tableId], references: [id])
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -487,6 +491,8 @@ model Order {
   @@index([orderType])
 
   @@index([deliveryZoneId])
+
+  @@index([tableId])
 }
 
 model DriverProfile {
@@ -587,7 +593,9 @@ model Table {
 
   company Company @relation(fields: [companyId], references: [id])
 
-  orders TableOrder[]
+  orders       TableOrder[]
+
+  dineInOrders Order[]
 
   createdAt DateTime @default(now())
 

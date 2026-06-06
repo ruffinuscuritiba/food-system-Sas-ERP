@@ -31,6 +31,14 @@ export class TablesService {
       orderBy: {
         number: 'asc',
       },
+
+      include: {
+        dineInOrders: {
+          where: { status: { notIn: ['CANCELLED'] } },
+          include: { items: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     });
   }
 

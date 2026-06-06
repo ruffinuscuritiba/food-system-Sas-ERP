@@ -235,6 +235,7 @@ export default function TablesPage() {
         customerPhone: "SALÃO",
         deliveryAddress: "INTERNO",
         paymentMethod,
+        tableId: selectedTable.id,
         items: [{ productId: item.productId, quantity: item.quantity }],
         deliveryFee: 0,
       });
@@ -285,6 +286,11 @@ export default function TablesPage() {
 
     try {
 
+      // Total real calculado dos Orders persistidos (não do estado local)
+      const realTotal = (selectedTable.dineInOrders || [])
+        .filter((o: any) => !['CANCELLED'].includes(o.status))
+        .reduce((sum: number, o: any) => sum + Number(o.total), 0);
+
       await api.post(
         "/cash/movement",
         {
@@ -293,7 +299,7 @@ export default function TablesPage() {
             "SUPPLY",
 
           value:
-            tableTotal,
+            realTotal > 0 ? realTotal : tableTotal,
 
           paymentMethod,
         },
@@ -380,9 +386,19 @@ export default function TablesPage() {
                   table,
                 );
 
-                setTableItems(
-                  table.items || [],
-                );
+                // Reconstruir itens a partir dos Orders persistidos no banco
+                const serverItems = (table.dineInOrders || [])
+                  .flatMap((o: any) =>
+                    (o.items || []).map((item: any) => ({
+                      id:        item.id,
+                      productId: item.productId,
+                      name:      item.productName,
+                      quantity:  Number(item.quantity),
+                      price:     Number(item.unitPrice),
+                    })),
+                  );
+
+                setTableItems(serverItems);
               }}
 
               className="bg-white border border-gray-200 rounded-3xl p-6 cursor-pointer shadow-sm hover:shadow-md transition-shadow"

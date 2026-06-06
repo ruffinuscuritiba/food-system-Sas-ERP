@@ -50,7 +50,10 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
 
+  const prismaService = app.get(PrismaService)
+
   app.use((req: Request, res: Response, next: NextFunction) => {
+    // Root probe (Render TCP health + keepalive ping)
     if (req.path === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
       return res.status(200).json({
         status: 'ok',
@@ -59,14 +62,19 @@ async function bootstrap() {
         timestamp: new Date().toISOString(),
       })
     }
+    // Health endpoint: 200 quando pronto, 503 durante cold start
+    if (req.path === '/api/health' && (req.method === 'GET' || req.method === 'HEAD')) {
+      return res.status(prismaService.isReady ? 200 : 503).json({
+        status: prismaService.isReady ? 'ok' : 'starting',
+        ready: prismaService.isReady,
+        timestamp: new Date().toISOString(),
+      })
+    }
     return next()
   })
 
-  // Readiness gate: hold requests until Prisma is connected.
-  // Returns 503 immediately if not ready (frontend interceptor retries 5xx).
-  const prismaService = app.get(PrismaService)
+  // Readiness gate: segura requests de negócio até Prisma conectar
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path === '/api/health') return next()
     if (prismaService.isReady) return next()
     res.status(503).json({ message: 'Service starting, please retry in a few seconds' })
   })

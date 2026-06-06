@@ -1,0 +1,30 @@
+name: Render Keepalive
+
+# Pinga o backend a cada 9 minutos para evitar spin-down do plano Free.
+# Render dorme após 15 min de inatividade → ping a cada 9 min mantém acordado.
+# Custo GitHub Actions Free: ~800 min/mês (dentro do limite de 2000 min).
+
+on:
+  schedule:
+    - cron: '*/9 * * * *'
+  workflow_dispatch:          # permite disparar manualmente pelo GitHub UI
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping backend health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 30 \
+            https://food-system-backend-no7d.onrender.com/api/health)
+          echo "Health check status: $STATUS at $(date -u)"
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+            echo "Backend is responding (503 = still warming up, OK)"
+            exit 0
+          else
+            echo "Backend unreachable (status $STATUS)"
+            exit 1
+          fi

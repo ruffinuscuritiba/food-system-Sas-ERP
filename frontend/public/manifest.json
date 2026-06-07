@@ -1,0 +1,17 @@
+{
+  "name": "FoodSaaS Entregador",
+  "short_name": "Entregador",
+  "description": "App do entregador FoodSaaS",
+  "start_url": "/driver",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#f97316",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

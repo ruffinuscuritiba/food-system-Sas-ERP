@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
 
@@ -113,6 +113,56 @@ export class DriversService {
     return this.ordersService.updateStatus(orderId, OrderStatus.OUT_FOR_DELIVERY, userId, companyId);
   }
 
+  async updateMyLocation(userId: string, lat: number, lng: number) {
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+    return this.prisma.driverProfile.update({
+      where: { id: profile.id },
+      data: { currentLat: lat, currentLng: lng },
+    });
+  }
+
+  async availableOrders(userId: string) {
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+
+    return this.prisma.order.findMany({
+      where: {
+        companyId: profile.companyId,
+        status: OrderStatus.READY,
+        driverId: null,
+      },
+      orderBy: { readyAt: 'desc' },
+      take: 50,
+      include: { items: { select: { productName: true, quantity: true } } },
+    });
+  }
+
+  async acceptOrder(userId: string, orderId: string) {
+    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+
+    // Serializable transaction: check-and-assign atomically to prevent double-assignment
+    await this.prisma.$transaction(
+      async (tx) => {
+        const order = await tx.order.findFirst({
+          where: { id: orderId, companyId: profile.companyId },
+        });
+        if (!order) throw new NotFoundException('Pedido não encontrado');
+        if (order.driverId !== null) throw new ConflictException('Pedido já foi aceito por outro entregador');
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: { driverId: profile.id, assignedAt: new Date() },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    // Status transition outside transaction (triggers stock, socket, loyalty, audit)
+    return this.ordersService.updateStatus(orderId, OrderStatus.OUT_FOR_DELIVERY, userId, profile.companyId);
+  }
+
   async myOrders(userId: string) {
     const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
@@ -120,7 +170,7 @@ export class DriversService {
     return this.prisma.order.findMany({
       where: {
         driverId: profile.id,
-        status: { in: ['OUT_FOR_DELIVERY', 'DELIVERED'] },
+        status: { in: ['READY', 'OUT_FOR_DELIVERY', 'DELIVERED'] },
       },
       orderBy: { assignedAt: 'desc' },
       take: 20,

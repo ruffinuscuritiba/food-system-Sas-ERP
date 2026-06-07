@@ -30,6 +30,7 @@ import {
   Bot,
   Bike,
   MapPin,
+  MapPinned,
   Landmark,
   CreditCard,
   Megaphone,
@@ -124,8 +125,9 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: "Operação",
     items: [
       { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue" },
-      { href: "/orders",  label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
-      { href: "/kitchen", label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
+      { href: "/orders",             label: "Pedidos",       icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
+      { href: "/kitchen",            label: "Cozinha",       icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
+      { href: "/delivery-tracking",  label: "Rastreamento",  icon: <MapPinned size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
       { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables" },
     ],
   },
@@ -306,10 +308,28 @@ export default function ClientShell({ children }: { children: React.ReactNode })
   }
 
   const isPdv = pathname === "/pdv";
+  const isDriverPage = pathname?.startsWith("/driver");
+
+  // Redirect DELIVERY role away from admin shell into the driver PWA
+  useEffect(() => {
+    if (user?.role === "DELIVERY" && !isDriverPage) {
+      router.replace("/driver");
+    }
+  }, [user?.role, isDriverPage, router]);
 
   if (isPublicPage) {
     // Páginas públicas (login, cardápio digital, etc.) — ThemeProvider sem companyId
     // (cardápio digital tem próprio fetch de tema via param da URL)
+    return (
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        {children}
+      </ThemeProvider>
+    );
+  }
+
+  // Driver PWA — auth required but no admin sidebar; driver layout owns its own shell
+  if (isDriverPage) {
     return (
       <ThemeProvider>
         <Toaster position="top-right" />

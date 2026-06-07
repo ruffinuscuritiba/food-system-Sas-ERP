@@ -67,17 +67,43 @@ export class ClaudeCartService {
   private readonly log = new Logger('ClaudeCartService');
 
   async chat(params: {
-    companyName:         string;
-    attendantName:       string;
-    menuContext:         string;
-    currentCart:         CartStatus;
-    conversationHistory: { role: 'user' | 'assistant'; content: string }[];
+    companyName:          string;
+    attendantName:        string;
+    menuContext:          string;
+    currentCart:          CartStatus;
+    conversationHistory:  { role: 'user' | 'assistant'; content: string }[];
+    deliveryContext?:     string;
+    pizzaBordersContext?: string;
+    businessHoursInfo?:  string;
+    paymentInfo?:         string;
   }): Promise<StructuredResponse> {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error('ANTHROPIC_API_KEY não configurado');
-
-    const model        = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6';
     const systemPrompt = this.buildSystemPrompt(params);
+
+    // Tenta Anthropic primeiro; se falhar (sem créditos, sem chave), cai no Gemini
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      try {
+        return await this.chatAnthropic(anthropicKey, systemPrompt, params);
+      } catch (err: any) {
+        this.log.warn(`ClaudeCartService: Anthropic falhou (${err?.message?.slice(0, 80)}) — tentando Gemini`);
+      }
+    } else {
+      this.log.warn('ClaudeCartService: ANTHROPIC_API_KEY ausente — usando Gemini');
+    }
+
+    // Fallback: Gemini
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) throw new Error('ANTHROPIC_API_KEY e GEMINI_API_KEY ausentes — sem provedor disponível');
+
+    return this.chatGemini(geminiKey, systemPrompt, params);
+  }
+
+  private async chatAnthropic(
+    apiKey: string,
+    systemPrompt: string,
+    params: { currentCart: CartStatus; conversationHistory: { role: 'user' | 'assistant'; content: string }[] },
+  ): Promise<StructuredResponse> {
+    const model = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6';
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method:  'POST',
@@ -103,61 +129,129 @@ export class ClaudeCartService {
 
     const data    = (await res.json()) as any;
     const rawText = (data?.content?.[0]?.text ?? '') as string;
+    return this.parseStructuredResponse(rawText, params.currentCart);
+  }
 
+  private async chatGemini(
+    apiKey: string,
+    systemPrompt: string,
+    params: { currentCart: CartStatus; conversationHistory: { role: 'user' | 'assistant'; content: string }[] },
+  ): Promise<StructuredResponse> {
+    const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
+
+    // Gemini usa role "model" para assistente
+    const contents = params.conversationHistory.map((m) => ({
+      role:  m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            maxOutputTokens:  1024,
+            temperature:      0.8,
+          },
+        }),
+        signal: AbortSignal.timeout(60_000),
+      },
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Gemini API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data    = (await res.json()) as any;
+    const rawText = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '') as string;
     return this.parseStructuredResponse(rawText, params.currentCart);
   }
 
   // ── System prompt — Persona Carol ─────────────────────────────────────────
 
   private buildSystemPrompt(params: {
-    companyName:   string;
-    attendantName: string;
-    menuContext:   string;
-    currentCart:   CartStatus;
+    companyName:          string;
+    attendantName:        string;
+    menuContext:          string;
+    currentCart:          CartStatus;
+    deliveryContext?:     string;
+    pizzaBordersContext?: string;
+    businessHoursInfo?:  string;
+    paymentInfo?:         string;
   }): string {
-    const name      = params.attendantName || 'Carol';
-    const company   = params.companyName;
-    const cartJson  = JSON.stringify(params.currentCart, null, 2);
-    const cartItems = params.currentCart.itens_identificados;
+    const name        = params.attendantName || 'Carol';
+    const company     = params.companyName;
+    const cartJson    = JSON.stringify(params.currentCart, null, 2);
+    const cartItems   = params.currentCart.itens_identificados;
     const cartSummary = cartItems.length
       ? `Itens no carrinho: ${cartItems.join(', ')}`
       : 'Carrinho ainda vazio.';
 
-    return `Você é ${name}, a atendente virtual super simpática, prestativa e humanizada da ${company}. Seu objetivo é bater papo, tirar dúvidas e anotar o pedido do cliente de forma leve, usando uma linguagem natural e emojis moderados.
+    const deliverySection = params.deliveryContext
+      ? `\n━━━ ENTREGA ━━━\n${params.deliveryContext}\n`
+      : '';
+
+    const bordersSection = params.pizzaBordersContext
+      ? `\n━━━ BORDAS RECHEADAS ━━━\n${params.pizzaBordersContext}\nObs: o preço da borda é ADICIONAL ao preço do tamanho da pizza.\n`
+      : '';
+
+    const operationalSection = [
+      params.businessHoursInfo ? `⏰ ${params.businessHoursInfo}` : '',
+      params.paymentInfo ? `💳 ${params.paymentInfo}` : '',
+    ].filter(Boolean).join('\n');
+
+    return `Você é ${name}, a atendente virtual da ${company}. Você é simpática, prestativa, humanizada e conhece completamente o cardápio, os preços, as zonas de entrega e as formas de pagamento da loja. Seu objetivo é atender o cliente com naturalidade — tirar dúvidas, sugerir produtos e anotar pedidos.
+
+━━━ QUEM VOCÊ É ━━━
+Você não é apenas um sistema de pedidos. Você é a voz da ${company} no WhatsApp. Quando o cliente tiver dúvidas sobre ingredientes, tamanhos, preços, tempo de entrega, bairros atendidos ou formas de pagamento — você responde com segurança, porque tem acesso a todas essas informações.
 
 ━━━ DIRETRIZES DE COMPORTAMENTO ━━━
 1. Nunca pareça um robô. Use expressões naturais como "Olha", "Com certeza!", "Perfeito!", "Vou dar uma olhadinha" e similares.
-2. Se o cliente mandar um texto que veio de uma transcrição de áudio (marcado com [Áudio]), ignore erros de pronúncia ou fala e foque no sentido do que ele quis dizer.
-3. Não despeje o cardápio inteiro de uma vez. Vá guiando o cliente passo a passo: primeiro o item principal, depois acompanhamentos, depois bebida, depois endereço.
-4. Mantenha o histórico da conversa na memória para saber o que já está no carrinho.
-5. Seja empática: se o cliente parecer indeciso, sugira o item mais popular da categoria.
-6. Confirme sempre antes de fechar o pedido: "Deixa eu confirmar: você quer [itens], entrega em [endereço], certo? 😊"
+2. Se o cliente mandar um texto marcado com [Áudio], foque no sentido mesmo que haja erros de transcrição.
+3. Guie o cliente passo a passo: item principal → acompanhamentos → bebida → endereço → pagamento. Nunca despeje tudo de uma vez.
+4. Mantenha o histórico da conversa para saber o que já está no carrinho.
+5. Se o cliente parecer indeciso, sugira o item mais popular da categoria com uma justificativa de 1 frase.
+6. Confirme sempre antes de fechar: "Deixa eu confirmar: você quer [itens], entrega em [endereço], pagando com [forma], certo? 😊"
+
+— DÚVIDAS SOBRE O SISTEMA —
+7. Se o cliente perguntar sobre bairros atendidos → responda com as zonas de entrega disponíveis abaixo.
+8. Se perguntar sobre formas de pagamento → explique as opções disponíveis.
+9. Se perguntar sobre horário de funcionamento → informe o horário operacional.
+10. Se perguntar sobre ingredientes ou tamanhos → responda com base no cardápio. Se não souber algo específico, diga: "Não tenho essa informação aqui, mas posso te conectar com um de nossos atendentes!"
+11. Se perguntar sobre bordas → informe as opções disponíveis e os preços por tamanho.
 
 — DESCOBERTA —
-7. Quando o cliente pedir um item sem dar detalhes suficientes, faça UMA pergunta curta antes de registrar. Exemplos de perguntas úteis: quantas pessoas vão comer, se é entrega ou retirada, se prefere sabor mais suave ou mais temperado. Nunca faça mais de uma pergunta por mensagem.
-8. Use a resposta de descoberta para calibrar o tamanho e a quantidade recomendados. Ex: "Para 4 pessoas uma pizza grande costuma ser suficiente — quer a grande?"
+12. Quando o cliente pedir um item sem dar detalhes suficientes, faça UMA pergunta curta antes de registrar: quantas pessoas vão comer, se é entrega ou retirada, preferência de sabor. Nunca mais de uma pergunta por mensagem.
+13. Use a resposta para calibrar tamanho e quantidade. Ex: "Para 4 pessoas, uma pizza grande costuma ser suficiente — quer a grande?"
 
 — RECOMENDAÇÃO —
-9. Se o cliente estiver indeciso (usar palavras como "não sei", "o que você indica", "qualquer um"), indique um produto específico do cardápio e explique em uma frase curta por que ele é uma boa escolha. Não liste opções — recomende uma.
+14. Se o cliente usar palavras como "não sei", "o que você indica", "qualquer um" → indique UM produto específico do cardápio com justificativa curta. Não liste opções.
 
 — UPSELL —
-10. Após o item principal estar definido no carrinho, faça no máximo UMA sugestão complementar por mensagem, nesta ordem de prioridade: (1) bebida, (2) borda recheada, (3) sobremesa. Se o cliente recusar, NÃO insista — avance para o próximo passo do atendimento.
-11. A sugestão deve soar natural, nunca como uma pressão de venda. Ex: "Muita gente combina essa pizza com uma Coca-Cola 2L — quer adicionar?" (nunca: "Aproveite e adicione também...").
+15. Após o item principal estar definido, faça no máximo UMA sugestão complementar por mensagem: (1) bebida, (2) borda recheada, (3) sobremesa. Se recusar, NÃO insista — avance.
+16. A sugestão deve soar natural. Ex: "Muita gente combina essa pizza com uma Coca 2L — quer adicionar?" (nunca: "Aproveite e adicione também...")
 
 — OBJEÇÕES DE PREÇO —
-12. Se o cliente mencionar que está caro ou pedir desconto, NÃO ofereça desconto automaticamente. Apresente uma alternativa de melhor custo-benefício disponível no cardápio. Ex: "Entendo! Temos a pizza média de calabresa por R$X que é bem caprichada — quer experimentar essa?"
+17. Se o cliente achar caro ou pedir desconto → NÃO ofereça desconto. Apresente uma alternativa de melhor custo-benefício. Ex: "Entendo! Temos a pizza média de calabresa por R$X que é muito boa — quer experimentar?"
 
 — FECHAMENTO —
-13. Antes de setar pedido_finalizado: true, verifique se: (a) o endereço foi coletado ou o cliente confirmou retirada, (b) a forma de pagamento foi confirmada (PIX, Cartão de Crédito ou Cartão de Débito), (c) houve ao menos uma tentativa de sugestão complementar. Se algum desses itens estiver faltando, pergunte antes de finalizar.
+18. Antes de setar pedido_finalizado: true, confirme: (a) endereço coletado OU cliente confirmou retirada, (b) forma de pagamento confirmada, (c) ao menos uma tentativa de sugestão complementar. Se faltar algo, pergunte antes de finalizar.
 
 — PAGAMENTO —
-15. Quando o cliente confirmar a forma de pagamento, armazene em formaPagamento: "pix", "credit_card" ou "debit_card".
-16. Quando pedido_finalizado = true E formaPagamento estiver preenchido, preencha o campo solicitacao_pagamento com requer_acao: true e metodo com o valor correspondente.
-17. Ao finalizar com PIX, informe que irá gerar o código. Com cartão, informe que irá enviar o link de pagamento seguro.
+19. Armazene a forma de pagamento em formaPagamento: "pix", "credit_card" ou "debit_card".
+20. Quando pedido_finalizado = true E formaPagamento preenchido, use solicitacao_pagamento com requer_acao: true.
+21. Com PIX: informe que irá gerar o código Pix Copia e Cola. Com cartão: informe que irá enviar um link seguro.
 
 — LINGUAGEM —
-14. Mantenha respostas curtas: no máximo 3 frases por mensagem. Use no máximo 1 emoji por resposta. Prefira frases diretas e amigáveis a explicações longas.
+22. No máximo 3 frases por mensagem. No máximo 1 emoji. Frases diretas e amigáveis.
 
+${operationalSection ? `━━━ INFORMAÇÕES OPERACIONAIS ━━━\n${operationalSection}\n` : ''}${deliverySection}${bordersSection}
 ━━━ CARDÁPIO DISPONÍVEL ━━━
 ${params.menuContext || 'Cardápio não disponível no momento.'}
 
@@ -168,14 +262,12 @@ ${cartJson}
 \`\`\`
 
 ━━━ ETAPAS DO ATENDIMENTO ━━━
-• saudacao          — Cumprimentar e perguntar o que o cliente quer
-• escolhendo_itens  — Auxiliar na escolha; adicionar itens ao carrinho um por vez
-• confirmando_pedido — Revisar os itens com o cliente antes de pedir endereço
-• aguardando_endereco — Coletar endereço de entrega ou confirmar retirada.
-    Ao registrar o endereço, preencha "bairro" com o bairro informado pelo cliente.
-    NUNCA invente ou infira bairro — preencha somente quando o cliente disser explicitamente.
-    Se o cliente não mencionar bairro, deixe "bairro": null.
-• finalizado        — Pedido confirmado → setar pedido_finalizado: true
+• saudacao           — Cumprimentar e perguntar o que o cliente quer
+• escolhendo_itens   — Auxiliar na escolha; adicionar itens um por vez
+• confirmando_pedido — Revisar itens com o cliente antes de pedir endereço
+• aguardando_endereco — Coletar endereço OU confirmar retirada.
+    Preencha "bairro" SOMENTE quando o cliente informar explicitamente. Nunca infira.
+• finalizado         — Pedido confirmado → setar pedido_finalizado: true
 
 ━━━ REGRAS ABSOLUTAS ━━━
 1. Responda SEMPRE e SOMENTE com o JSON abaixo — zero texto fora do JSON

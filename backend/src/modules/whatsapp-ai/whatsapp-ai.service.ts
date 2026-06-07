@@ -367,7 +367,7 @@ export class WhatsappAiService {
     // Normalize: Evolution v1 "messages.upsert", v2 "MESSAGES_UPSERT" → same token
     const normalizedEvent = event.toLowerCase().replace(/[_-]/g, '.');
     if (!['messages.upsert', 'message', 'messages.set'].includes(normalizedEvent)) {
-      log.debug(`[WH] ignored event="${event}" connectionId=${connectionId}`);
+      log.log(`[WH] ignored event="${event}" normalised="${normalizedEvent}" connectionId=${connectionId}`);
       return { ok: true };
     }
 
@@ -500,10 +500,28 @@ export class WhatsappAiService {
       data: { lastMessageAt: new Date(), customerName: name },
     });
 
-    // If mode is HUMAN or PAUSED, skip AI
+    // If mode is HUMAN or PAUSED, auto-reset to AI after 60 min of operator inactivity
     if (conv.mode === 'HUMAN' || conv.mode === 'PAUSED') {
-      log.debug(`[AI] conv=${conv.id} mode=${conv.mode} — sem resposta automática`);
-      return;
+      const AUTO_RESET_MIN = 60;
+      const lastAssistantMsg = await this.prisma.whatsappMessage.findFirst({
+        where: { conversationId: conv.id, role: 'ASSISTANT' },
+        orderBy: { createdAt: 'desc' },
+      });
+      const minutesSinceOperator = lastAssistantMsg
+        ? (Date.now() - lastAssistantMsg.createdAt.getTime()) / 60_000
+        : Infinity;
+
+      if (minutesSinceOperator > AUTO_RESET_MIN) {
+        await this.prisma.whatsappConversation.update({
+          where: { id: conv.id },
+          data: { mode: 'AI' },
+        });
+        log.warn(`[AI] conv=${conv.id} phone=${phone} — auto-reset HUMAN→AI (operador inativo há ${Math.round(minutesSinceOperator)}min)`);
+        // Continue — IA assume o atendimento
+      } else {
+        log.warn(`[AI] conv=${conv.id} phone=${phone} mode=${conv.mode} — operador assumiu há ${Math.round(minutesSinceOperator)}min, aguardando`);
+        return;
+      }
     }
     if (!settings) {
       log.warn(`[AI] connection=${connectionId} sem WhatsappAiSettings — AI não configurada para esta conexão`);
@@ -514,7 +532,7 @@ export class WhatsappAiService {
       return;
     }
     if (settings.mode === 'MANUAL') {
-      log.debug(`[AI] connection=${connectionId} mode=MANUAL — sem resposta automática`);
+      log.warn(`[AI] connection=${connectionId} mode=MANUAL — sem resposta automática (configure para AUTO ou HYBRID)`);
       return;
     }
 
@@ -620,7 +638,13 @@ export class WhatsappAiService {
       rawResponse = await geminiChat(aiModel, systemPrompt, aiMessages as any);
     }
 
-    if (!rawResponse) return;
+    if (!rawResponse) {
+      log.warn(`[AI] conv=${conv.id} provider=${aiProvider} model=${aiModel} — resposta vazia (possível filtro de segurança, quota excedida ou candidates:[])`);
+      const emptyFallback = 'Desculpe, não consegui processar sua mensagem agora. Pode tentar de novo em instantes? 🙏';
+      await this.saveMessage(conv.id, companyId, 'ASSISTANT', emptyFallback);
+      await this.dispatchMessage(connection, conv.customerPhone, emptyFallback);
+      return;
+    }
 
     // Parse commands embedded in response
     const { cleanText, addItems, confirmOrder, transferHuman, closeConversation } =
@@ -749,13 +773,48 @@ export class WhatsappAiService {
         content: m.content,
       }));
 
-    // Cardápio e nome da empresa
-    const menuCtx    = buildMenuContext(products, categories);
-    const company    = await this.prisma.company.findUnique({ where: { id: companyId }, select: { name: true } });
+    // Cardápio, empresa e contexto operacional completo
+    const menuCtx     = buildMenuContext(products, categories);
+    const company     = await this.prisma.company.findUnique({ where: { id: companyId }, select: { name: true } });
     const companyName = company?.name ?? 'nossa loja';
     const attendantName = settings.attendantName ?? 'Atendente';
 
-    // Chamar Claude com resposta estruturada
+    // Zonas de entrega
+    let deliveryContext = '';
+    try {
+      const zones = await this.prisma.deliveryZone.findMany({ where: { companyId } });
+      if (zones.length) {
+        const lines = zones.map((z: any) => {
+          const fee = Number(z.clientFee ?? 0).toFixed(2);
+          return `  • ${z.neighborhood ?? z.name ?? z.type}: taxa R$${fee}`;
+        });
+        deliveryContext = `Áreas de entrega disponíveis:\n${lines.join('\n')}`;
+      }
+    } catch {}
+
+    // Bordas de pizza
+    let pizzaBordersContext = '';
+    try {
+      const borders = await (this.prisma as any).pizzaBorder.findMany({
+        where: { companyId },
+        include: { sizes: true },
+      });
+      if (borders?.length) {
+        const lines = (borders as any[]).map((b: any) => {
+          const prices = (b.sizes ?? [])
+            .map((s: any) => `${s.size} R$${Number(s.price).toFixed(2)}`)
+            .join(' | ');
+          return `  • ${b.name}${prices ? ': ' + prices : ''}`;
+        });
+        pizzaBordersContext = `Bordas recheadas disponíveis:\n${lines.join('\n')}`;
+      }
+    } catch {}
+
+    // Informações de horário e pagamento para contexto
+    const businessHoursInfo = `Horário de atendimento: ${settings.businessHoursStart ?? '08:00'} às ${settings.businessHoursEnd ?? '22:00'} (horário de Brasília). Dias: ${settings.businessDays ?? '1,2,3,4,5,6'}.`;
+    const paymentInfo = 'Formas de pagamento aceitas: PIX (pagamento automático via link), Cartão de Crédito (link seguro), Cartão de Débito (link seguro).';
+
+    // Chamar Claude com resposta estruturada + contexto operacional completo
     let structured: StructuredResponse;
     try {
       structured = await this.claudeCart.chat({
@@ -764,6 +823,10 @@ export class WhatsappAiService {
         menuContext: menuCtx,
         currentCart,
         conversationHistory,
+        deliveryContext,
+        pizzaBordersContext,
+        businessHoursInfo,
+        paymentInfo,
       });
     } catch (err: any) {
       log.error(`ClaudeCartService error: ${err?.message}`);

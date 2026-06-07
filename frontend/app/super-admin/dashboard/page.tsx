@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { LogIn, MoreVertical, ShieldOff, Shield, Wrench, Copy, Archive, RotateCcw, Trash2, Plus, Zap } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
 
@@ -31,11 +32,11 @@ const PLAN_LABELS: Record<string, string> = {
   DELIVERY: "Delivery",
 }
 
-const PLAN_COLORS: Record<string, string> = {
-  BASIC: "bg-gray-700 text-gray-300",
-  PROFESSIONAL: "bg-blue-900 text-blue-300",
-  ENTERPRISE: "bg-purple-900 text-purple-300",
-  DELIVERY: "bg-green-900 text-green-300",
+const PLAN_STYLES: Record<string, string> = {
+  BASIC:        "bg-zinc-700/50 text-zinc-300 border border-zinc-600/40",
+  PROFESSIONAL: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
+  ENTERPRISE:   "bg-purple-500/10 text-purple-400 border border-purple-500/20",
+  DELIVERY:     "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
 }
 
 export default function SuperAdminDashboard() {
@@ -49,13 +50,7 @@ export default function SuperAdminDashboard() {
   const [archiving, setArchiving] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [entering, setEntering] = useState<string | null>(null)
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    adminPassword: "",
-    plan: "BASIC",
-    phone: "",
-  })
+  const [form, setForm] = useState({ name: "", email: "", adminPassword: "", plan: "BASIC", phone: "" })
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState("")
   const [seeding, setSeeding] = useState(false)
@@ -66,15 +61,24 @@ export default function SuperAdminDashboard() {
   const [cloneSourceId, setCloneSourceId] = useState("")
   const [cloning, setCloning] = useState(false)
   const [cloneResult, setCloneResult] = useState<{ categories: number; products: number } | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("sa_token")
-    if (!token) {
-      router.push("/super-admin/login")
-      return
-    }
+    if (!token) { router.push("/super-admin/login"); return }
     load()
   }, [showArchived])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   async function load() {
     setLoading(true)
@@ -121,6 +125,7 @@ export default function SuperAdminDashboard() {
 
   async function toggleBlock(id: string) {
     setBlocking(id)
+    setOpenMenuId(null)
     try {
       await saApi.patch(`/super-admin/companies/${id}/block`)
       await load()
@@ -132,6 +137,7 @@ export default function SuperAdminDashboard() {
   async function archiveCompany(id: string, name: string) {
     if (!window.confirm(`Arquivar "${name}"? A empresa ficará oculta da listagem padrão. Os dados serão preservados.`)) return
     setArchiving(id)
+    setOpenMenuId(null)
     try {
       await saApi.patch(`/super-admin/companies/${id}/archive`)
       await load()
@@ -157,10 +163,7 @@ export default function SuperAdminDashboard() {
   async function createCompany(e: React.FormEvent) {
     e.preventDefault()
     setFormError("")
-    if (!form.name || !form.email || !form.adminPassword) {
-      setFormError("Preencha todos os campos obrigatórios")
-      return
-    }
+    if (!form.name || !form.email || !form.adminPassword) { setFormError("Preencha todos os campos obrigatórios"); return }
     setCreating(true)
     try {
       await saApi.post("/super-admin/companies", form)
@@ -176,6 +179,7 @@ export default function SuperAdminDashboard() {
 
   async function fixModules(id: string) {
     setFixingModules(id)
+    setOpenMenuId(null)
     try {
       await saApi.post(`/super-admin/companies/${id}/fix-modules`)
       await load()
@@ -238,57 +242,72 @@ export default function SuperAdminDashboard() {
   }
 
   function statusBadge(c: Company) {
-    if (c.archivedAt) return <span className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-700 text-gray-400">Arquivado</span>
-    if (c.isBlocked) return <span className="px-2 py-1 rounded-lg text-xs font-medium bg-red-900 text-red-300">Bloqueado</span>
-    return <span className="px-2 py-1 rounded-lg text-xs font-medium bg-green-900 text-green-300">Ativo</span>
+    if (c.archivedAt) return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-700/40 text-zinc-500 border border-zinc-700/40">
+        <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+        Arquivado
+      </span>
+    )
+    if (c.isBlocked) return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+        Bloqueado
+      </span>
+    )
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        Ativo
+      </span>
+    )
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-400">Carregando...</p>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-zinc-400">
+          <div className="w-5 h-5 border-2 border-zinc-600 border-t-indigo-500 rounded-full animate-spin" />
+          Carregando...
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 px-8 py-4 flex items-center justify-between">
+      <header className="bg-zinc-900/80 backdrop-blur border-b border-zinc-800 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">⚡</span>
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
           <div>
-            <h1 className="text-lg font-bold">Painel Super Admin</h1>
-            <p className="text-xs text-gray-400">Gestão de restaurantes</p>
+            <h1 className="text-sm font-bold text-white">Painel Super Admin</h1>
+            <p className="text-xs text-zinc-500">Gestão de restaurantes</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="text-sm text-gray-400 hover:text-white transition px-4 py-2 rounded-lg hover:bg-gray-800"
+          className="text-xs text-zinc-500 hover:text-zinc-200 transition px-3 py-1.5 rounded-lg hover:bg-zinc-800 border border-transparent hover:border-zinc-700"
         >
           Sair
         </button>
       </header>
 
-      <main className="p-8">
+      <main className="p-8 max-w-[1600px] mx-auto">
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <p className="text-gray-400 text-sm">Total de Restaurantes</p>
-            <p className="text-4xl font-bold text-white mt-1">{stats.total}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <p className="text-gray-400 text-sm">Ativos</p>
-            <p className="text-4xl font-bold text-green-400 mt-1">{stats.active}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <p className="text-gray-400 text-sm">Bloqueados</p>
-            <p className="text-4xl font-bold text-red-400 mt-1">{stats.blocked}</p>
-          </div>
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <p className="text-gray-400 text-sm">Arquivados</p>
-            <p className="text-4xl font-bold text-gray-400 mt-1">{stats.archived}</p>
-          </div>
+          {[
+            { label: "Total", value: stats.total, color: "text-white" },
+            { label: "Ativos", value: stats.active, color: "text-emerald-400" },
+            { label: "Bloqueados", value: stats.blocked, color: "text-red-400" },
+            { label: "Arquivados", value: stats.archived, color: "text-zinc-400" },
+          ].map((s) => (
+            <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <p className="text-zinc-500 text-xs font-medium uppercase tracking-wider">{s.label}</p>
+              <p className={`text-3xl font-black mt-1.5 ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Demo Central */}
@@ -297,152 +316,180 @@ export default function SuperAdminDashboard() {
         </div>
 
         {/* Actions bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold">Restaurantes</h2>
+            <h2 className="text-base font-bold text-white">Restaurantes</h2>
             <button
               onClick={() => setShowArchived((v) => !v)}
               className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition ${
                 showArchived
-                  ? "bg-gray-700 border-gray-500 text-white"
-                  : "bg-transparent border-gray-700 text-gray-400 hover:text-white hover:border-gray-500"
+                  ? "bg-zinc-700 border-zinc-600 text-white"
+                  : "bg-transparent border-zinc-700 text-zinc-500 hover:text-white hover:border-zinc-600"
               }`}
             >
               {showArchived ? "Ocultar Arquivadas" : "Mostrar Arquivadas"}
             </button>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => window.location.href = "/super-admin/pricing"}
-              className="bg-gray-700 hover:bg-gray-600 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+              onClick={() => (window.location.href = "/super-admin/pricing")}
+              className="text-xs font-semibold px-3.5 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-600 transition"
             >
               💰 Preços
             </button>
             <button
               onClick={runSeed}
               disabled={seeding}
-              className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
-              title="Cria/restaura a empresa-base de seed com 45 produtos (company-seed-001)"
+              className="text-xs font-semibold px-3.5 py-2 rounded-lg border border-emerald-700/50 text-emerald-400 hover:bg-emerald-600/10 disabled:opacity-50 transition"
             >
               {seeding ? "Gerando..." : "🌱 Seed Base"}
             </button>
             <button
               onClick={initDemos}
               disabled={initingDemos}
-              className="bg-violet-700 hover:bg-violet-600 disabled:opacity-50 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
-              title="Cria/reseta as 3 empresas de demonstração comercial (Basic, Pro, Enterprise)"
+              className="text-xs font-semibold px-3.5 py-2 rounded-lg border border-violet-700/50 text-violet-400 hover:bg-violet-600/10 disabled:opacity-50 transition"
             >
-              {initingDemos ? "Criando demos..." : "🎯 Init Demos"}
+              {initingDemos ? "Criando..." : "🎯 Init Demos"}
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 transition rounded-xl px-5 py-2.5 text-sm font-semibold"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
             >
-              + Novo Restaurante
+              <Plus className="w-3.5 h-3.5" />
+              Novo Restaurante
             </button>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800 text-gray-400">
-                <th className="text-left px-6 py-4">Restaurante</th>
-                <th className="text-left px-6 py-4">Email</th>
-                <th className="text-left px-6 py-4">Plano</th>
-                <th className="text-left px-6 py-4">Usuários</th>
-                <th className="text-left px-6 py-4">Pedidos</th>
-                <th className="text-left px-6 py-4">Cadastro</th>
-                <th className="text-left px-6 py-4">Status</th>
-                <th className="px-6 py-4"></th>
+              <tr className="border-b border-zinc-800">
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Restaurante</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Email</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Plano</th>
+                <th className="text-center px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Usuários</th>
+                <th className="text-center px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pedidos</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Cadastro</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-3.5" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/60">
               {companies.map((c) => (
                 <tr
                   key={c.id}
-                  className={`border-b border-gray-800 transition ${
-                    c.archivedAt ? "opacity-50 hover:opacity-70" : "hover:bg-gray-800/50"
+                  className={`transition-colors ${
+                    c.archivedAt ? "opacity-40 hover:opacity-60" : "hover:bg-zinc-800/40"
                   }`}
                 >
-                  <td className="px-6 py-4 font-medium">{c.name}</td>
-                  <td className="px-6 py-4 text-gray-400">{c.email}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${PLAN_COLORS[c.plan] || "bg-gray-700 text-gray-300"}`}>
+                  <td className="px-5 py-3.5">
+                    <span className="font-semibold text-white text-sm">{c.name}</span>
+                  </td>
+                  <td className="px-5 py-3.5 text-zinc-400 text-xs">{c.email}</td>
+                  <td className="px-5 py-3.5">
+                    <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-semibold ${PLAN_STYLES[c.plan] || "bg-zinc-700/50 text-zinc-300 border border-zinc-600/40"}`}>
                       {PLAN_LABELS[c.plan] || c.plan}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-400">{c._count.users}</td>
-                  <td className="px-6 py-4 text-gray-400">{c._count.orders}</td>
-                  <td className="px-6 py-4 text-gray-400">
+                  <td className="px-5 py-3.5 text-center text-zinc-400 text-xs">{c._count.users}</td>
+                  <td className="px-5 py-3.5 text-center text-zinc-400 text-xs">{c._count.orders}</td>
+                  <td className="px-5 py-3.5 text-zinc-500 text-xs">
                     {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                   </td>
-                  <td className="px-6 py-4">{statusBadge(c)}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {!c.archivedAt && (
+                  <td className="px-5 py-3.5">{statusBadge(c)}</td>
+
+                  {/* Actions */}
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center justify-end gap-2">
+                      {!c.archivedAt ? (
                         <>
+                          {/* Primary CTA */}
                           <button
                             onClick={() => enterStore(c.id)}
                             disabled={entering === c.id}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700 text-white"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50 whitespace-nowrap"
                           >
-                            {entering === c.id ? "..." : "Entrar na Loja"}
+                            {entering === c.id
+                              ? <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                              : <LogIn className="w-3 h-3" />
+                            }
+                            Entrar na Loja
                           </button>
-                          <button
-                            onClick={() => toggleBlock(c.id)}
-                            disabled={blocking === c.id}
-                            className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
-                              c.isBlocked
-                                ? "bg-green-600 hover:bg-green-700 text-white"
-                                : "bg-orange-600 hover:bg-orange-700 text-white"
-                            }`}
-                          >
-                            {blocking === c.id ? "..." : c.isBlocked ? "Desbloquear" : "Bloquear"}
-                          </button>
-                          <button
-                            onClick={() => fixModules(c.id)}
-                            disabled={fixingModules === c.id}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-teal-700 hover:bg-teal-600 text-white"
-                          >
-                            {fixingModules === c.id ? "..." : "Fix Módulos"}
-                          </button>
-                          <button
-                            onClick={() => { setCloneTarget(c); setCloneSourceId(""); setCloneResult(null); setShowCloneModal(true) }}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition bg-amber-700 hover:bg-amber-600 text-white"
-                          >
-                            📋 Clonar
-                          </button>
-                          <button
-                            onClick={() => archiveCompany(c.id, c.name)}
-                            disabled={archiving === c.id}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
-                          >
-                            {archiving === c.id ? "..." : "Arquivar"}
-                          </button>
+
+                          {/* Dropdown menu */}
+                          <div className="relative" ref={openMenuId === c.id ? menuRef : undefined}>
+                            <button
+                              onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)}
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/60 transition"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {openMenuId === c.id && (
+                              <div className="absolute right-0 top-8 z-50 w-48 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl shadow-black/40 py-1 overflow-hidden">
+                                <button
+                                  onClick={() => toggleBlock(c.id)}
+                                  disabled={blocking === c.id}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50"
+                                >
+                                  {c.isBlocked
+                                    ? <><Shield className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Desbloquear</span></>
+                                    : <><ShieldOff className="w-3.5 h-3.5 text-orange-400" /><span className="text-orange-400">Bloquear</span></>
+                                  }
+                                </button>
+                                <button
+                                  onClick={() => fixModules(c.id)}
+                                  disabled={fixingModules === c.id}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50 text-teal-400"
+                                >
+                                  <Wrench className="w-3.5 h-3.5" />
+                                  {fixingModules === c.id ? "Corrigindo..." : "Fix Módulos"}
+                                </button>
+                                <button
+                                  onClick={() => { setCloneTarget(c); setCloneSourceId(""); setCloneResult(null); setShowCloneModal(true); setOpenMenuId(null) }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition text-amber-400"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                  Clonar Cardápio
+                                </button>
+                                <div className="border-t border-zinc-800 my-1" />
+                                <button
+                                  onClick={() => archiveCompany(c.id, c.name)}
+                                  disabled={archiving === c.id}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50 text-zinc-400"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                  {archiving === c.id ? "Arquivando..." : "Arquivar"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </>
-                      )}
-                      {c.archivedAt && (
-                        <>
-                          <span className="text-xs text-gray-500">
-                            Arquivado em {new Date(c.archivedAt).toLocaleDateString("pt-BR")}
+                      ) : (
+                        /* Archived row actions */
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-600">
+                            Arquivado {new Date(c.archivedAt!).toLocaleDateString("pt-BR")}
                           </span>
                           <button
                             onClick={() => restoreCompany(c.id)}
                             disabled={archiving === c.id}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-green-700 hover:bg-green-600 text-white"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30 transition disabled:opacity-50"
                           >
-                            {archiving === c.id ? "..." : "Restaurar"}
+                            <RotateCcw className="w-3 h-3" />
+                            Restaurar
                           </button>
                           <button
                             onClick={() => deleteCompany(c.id, c.name)}
                             disabled={deleting === c.id}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 bg-red-900 hover:bg-red-800 text-red-300 hover:text-red-200"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition disabled:opacity-50"
                           >
+                            <Trash2 className="w-3 h-3" />
                             {deleting === c.id ? "..." : "Excluir"}
                           </button>
-                        </>
+                        </div>
                       )}
                     </div>
                   </td>
@@ -450,7 +497,7 @@ export default function SuperAdminDashboard() {
               ))}
               {companies.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-16 text-center text-zinc-600 text-sm">
                     {showArchived ? "Nenhuma empresa arquivada" : "Nenhum restaurante cadastrado"}
                   </td>
                 </tr>
@@ -462,29 +509,37 @@ export default function SuperAdminDashboard() {
 
       {/* Modal — Clonar Cardápio */}
       {showCloneModal && cloneTarget && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-2">Clonar Cardápio</h3>
-            <p className="text-gray-400 text-sm mb-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-7 w-full max-w-md shadow-2xl">
+            <h3 className="text-base font-bold mb-1">Clonar Cardápio</h3>
+            <p className="text-zinc-500 text-sm mb-6">
               Copiar categorias e produtos para <strong className="text-white">{cloneTarget.name}</strong>
             </p>
 
             {cloneResult ? (
-              <div className="bg-green-900/40 border border-green-600 rounded-xl p-5 text-center mb-6">
-                <p className="text-green-300 text-lg font-bold">✅ Cardápio clonado com sucesso!</p>
-                <p className="text-green-400 text-sm mt-2">
-                  {cloneResult.categories} categorias e {cloneResult.products} produtos copiados.
-                </p>
-              </div>
+              <>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 text-center mb-6">
+                  <p className="text-emerald-400 text-base font-bold">✅ Cardápio clonado!</p>
+                  <p className="text-emerald-500 text-sm mt-1.5">
+                    {cloneResult.categories} categorias e {cloneResult.products} produtos copiados.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCloneModal(false)}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium"
+                >
+                  Fechar
+                </button>
+              </>
             ) : (
               <form onSubmit={cloneMenu} className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Copiar cardápio de qual restaurante?</label>
+                  <label className="block text-xs text-zinc-400 mb-1.5">Copiar cardápio de qual restaurante?</label>
                   <select
                     value={cloneSourceId}
                     onChange={(e) => setCloneSourceId(e.target.value)}
                     required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500"
                   >
                     <option value="">Selecione a empresa de origem...</option>
                     {companies
@@ -495,37 +550,27 @@ export default function SuperAdminDashboard() {
                         </option>
                       ))}
                   </select>
-                  <p className="text-gray-500 text-xs mt-1">
-                    ⚠️ Isso adicionará produtos/categorias sem apagar os existentes.
+                  <p className="text-zinc-600 text-xs mt-1.5">
+                    ⚠️ Adiciona produtos/categorias sem apagar os existentes.
                   </p>
                 </div>
-
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowCloneModal(false)}
-                    className="flex-1 bg-gray-800 hover:bg-gray-700 transition rounded-xl py-3 font-medium"
+                    className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={cloning || !cloneSourceId}
-                    className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition rounded-xl py-3 font-semibold"
+                    className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 transition rounded-xl py-3 text-sm font-semibold"
                   >
                     {cloning ? "Clonando..." : "Clonar"}
                   </button>
                 </div>
               </form>
-            )}
-
-            {cloneResult && (
-              <button
-                onClick={() => setShowCloneModal(false)}
-                className="w-full bg-gray-800 hover:bg-gray-700 transition rounded-xl py-3 font-medium"
-              >
-                Fechar
-              </button>
             )}
           </div>
         </div>
@@ -533,50 +578,33 @@ export default function SuperAdminDashboard() {
 
       {/* Modal — Criar Restaurante */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-6">Novo Restaurante</h3>
-
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-7 w-full max-w-md shadow-2xl">
+            <h3 className="text-base font-bold mb-6">Novo Restaurante</h3>
             <form onSubmit={createCompany} className="space-y-4">
+              {[
+                { label: "Nome do restaurante *", key: "name", type: "text", placeholder: "Ex: Pizzaria Bella Napoli" },
+                { label: "Email do admin *", key: "email", type: "email", placeholder: "admin@restaurante.com" },
+                { label: "Senha inicial *", key: "adminPassword", type: "password", placeholder: "Mínimo 6 caracteres" },
+                { label: "Telefone", key: "phone", type: "text", placeholder: "(41) 99999-9999" },
+              ].map((f) => (
+                <div key={f.key}>
+                  <label className="block text-xs text-zinc-400 mb-1.5">{f.label}</label>
+                  <input
+                    type={f.type}
+                    value={(form as any)[f.key]}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    placeholder={f.placeholder}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition"
+                  />
+                </div>
+              ))}
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Nome do restaurante *</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ex: Pizzaria Bella Napoli"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Email do admin *</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="admin@restaurante.com"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Senha inicial *</label>
-                <input
-                  type="password"
-                  value={form.adminPassword}
-                  onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Plano</label>
+                <label className="block text-xs text-zinc-400 mb-1.5">Plano</label>
                 <select
                   value={form.plan}
                   onChange={(e) => setForm({ ...form, plan: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
                 >
                   <option value="BASIC">Básico</option>
                   <option value="PROFESSIONAL">Profissional</option>
@@ -584,34 +612,19 @@ export default function SuperAdminDashboard() {
                   <option value="DELIVERY">Delivery</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Telefone</label>
-                <input
-                  type="text"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="(41) 99999-9999"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              {formError && (
-                <p className="text-red-400 text-sm">{formError}</p>
-              )}
-
-              <div className="flex gap-3 pt-2">
+              {formError && <p className="text-red-400 text-xs">{formError}</p>}
+              <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => { setShowModal(false); setFormError("") }}
-                  className="flex-1 bg-gray-800 hover:bg-gray-700 transition rounded-xl py-3 font-medium"
+                  className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition rounded-xl py-3 font-semibold"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition rounded-xl py-3 text-sm font-semibold"
                 >
                   {creating ? "Criando..." : "Criar"}
                 </button>

@@ -426,11 +426,15 @@ export class WhatsappAiService {
     if (rawPhone.includes('@g.us') || rawPhone.includes('@broadcast')) return { ok: true };
 
     if (!phone || !text.trim()) {
-      log.debug(`[WH] skipped — empty phone/text. event=${event} phone="${rawPhone}" msgType=${JSON.stringify(Object.keys(msgData?.message ?? {}))}`);
+      log.warn(`[WH] skipped — empty phone/text. event="${event}" phone="${rawPhone}" msgType=${JSON.stringify(Object.keys(msgData?.message ?? {}))}`);
       return { ok: true };
     }
 
-    await this.processIncoming(connectionId, phone, name, text.trim());
+    try {
+      await this.processIncoming(connectionId, phone, name, text.trim());
+    } catch (err: any) {
+      log.error(`[WH][Evolution] processIncoming falhou para phone="${phone}" connId="${connectionId}": ${err?.message ?? err}`);
+    }
     return { ok: true };
   }
 
@@ -474,7 +478,11 @@ export class WhatsappAiService {
           }
 
           if (!text.trim()) continue;
-          await this.processIncoming(connectionId, phone, name, text.trim());
+          try {
+            await this.processIncoming(connectionId, phone, name, text.trim());
+          } catch (err: any) {
+            log.error(`[WH][CloudAPI] processIncoming falhou para phone="${phone}" connId="${connectionId}": ${err?.message ?? err}`);
+          }
         }
       }
     }
@@ -484,10 +492,18 @@ export class WhatsappAiService {
   // ── CORE PROCESSING ────────────────────────────────────────────────────────
 
   private async processIncoming(connectionId: string, phone: string, name: string, text: string) {
-    const connection = await this.prisma.whatsappConnection.findUnique({
-      where: { id: connectionId },
-      include: { settings: true },
-    });
+    // ── Carrega conexão (fora do try/catch — sem connection não há como enviar fallback) ──
+    let connection: any;
+    try {
+      connection = await this.prisma.whatsappConnection.findUnique({
+        where: { id: connectionId },
+        include: { settings: true },
+      });
+    } catch (err: any) {
+      log.error(`[AI] DB falhou ao carregar connection ${connectionId}: ${err?.message ?? err}`);
+      return;
+    }
+
     if (!connection) {
       log.warn(`[AI] connectionId=${connectionId} não encontrado — webhook ignorado`);
       return;
@@ -497,6 +513,30 @@ export class WhatsappAiService {
       return;
     }
 
+    // ── A partir daqui temos connection — qualquer erro envia fallback ao cliente ──
+    try {
+      await this._processIncomingWithConnection(connection, phone, name, text);
+    } catch (err: any) {
+      const isApiQuota   = /429|quota|rate.?limit|billing/i.test(err?.message ?? '');
+      const isTimeout    = /timeout|ETIMEDOUT|AbortError/i.test(err?.message ?? '');
+      const isDbError    = /prisma|database|connection.*refused/i.test(err?.message ?? '');
+
+      if (isApiQuota)  log.error(`[AI] SALDO/QUOTA esgotado — provider sem créditos. conn=${connectionId} phone=${phone}: ${err.message}`);
+      else if (isTimeout) log.error(`[AI] TIMEOUT na chamada de IA ou DB. conn=${connectionId} phone=${phone}: ${err.message}`);
+      else if (isDbError) log.error(`[AI] FALHA no banco de dados. conn=${connectionId} phone=${phone}: ${err.message}`);
+      else log.error(`[AI] Erro inesperado. conn=${connectionId} phone=${phone}: ${err?.message ?? err}`);
+
+      // Garante que o cliente sempre recebe uma resposta — nunca silêncio total
+      const contingency =
+        'Olá! No momento estou atualizando nosso sistema, mas você pode fazer seu pedido diretamente pelo nosso cardápio digital ou ligar para nós. Retornaremos em instantes! 🙏';
+      await this.dispatchMessage(connection, phone, contingency).catch((sendErr: any) =>
+        log.error(`[AI] Falha ao enviar contingência para ${phone}: ${sendErr?.message}`)
+      );
+    }
+  }
+
+  /** Lógica principal após connection carregada — erros aqui fazem bubble para o catch mestre */
+  private async _processIncomingWithConnection(connection: any, phone: string, name: string, text: string) {
     const settings = connection.settings;
 
     // Get or create conversation
@@ -533,15 +573,15 @@ export class WhatsappAiService {
       }
     }
     if (!settings) {
-      log.warn(`[AI] connection=${connectionId} sem WhatsappAiSettings — AI não configurada para esta conexão`);
+      log.warn(`[AI] connection=${connection.id} sem WhatsappAiSettings — AI não configurada para esta conexão`);
       return;
     }
     if (!settings.isActive) {
-      log.warn(`[AI] connection=${connectionId} settings.isActive=false — AI inativa`);
+      log.warn(`[AI] connection=${connection.id} settings.isActive=false — AI inativa`);
       return;
     }
     if (settings.mode === 'MANUAL') {
-      log.warn(`[AI] connection=${connectionId} mode=MANUAL — sem resposta automática (configure para AUTO ou HYBRID)`);
+      log.warn(`[AI] connection=${connection.id} mode=MANUAL — sem resposta automática (configure para AUTO ou HYBRID)`);
       return;
     }
 
@@ -571,7 +611,7 @@ export class WhatsappAiService {
     try {
       await this.runAiResponse(connection, settings, conv, text);
     } catch (err: any) {
-      log.error(`AI error for conv ${conv.id}: ${err?.message}`);
+      log.error(`[AI] runAiResponse falhou conv=${conv.id} provider=${settings.aiProvider ?? 'GEMINI'}: ${err?.message}`);
       const fallback = 'Desculpe, tive um problema temporário. Pode repetir sua mensagem?';
       await this.saveMessage(conv.id, connection.companyId, 'ASSISTANT', fallback);
       await this.dispatchMessage(connection, phone, fallback);
@@ -844,7 +884,11 @@ export class WhatsappAiService {
         paymentInfo,
       });
     } catch (err: any) {
-      log.error(`ClaudeCartService error: ${err?.message}`);
+      const isQuota   = /429|quota|rate.?limit|billing|credit/i.test(err?.message ?? '');
+      const isTimeout = /timeout|ETIMEDOUT|AbortError/i.test(err?.message ?? '');
+      if (isQuota)        log.error(`[AI] SALDO/QUOTA esgotado em ClaudeCartService (Anthropic+Gemini). conv=${conv.id}: ${err.message}`);
+      else if (isTimeout) log.error(`[AI] TIMEOUT em ClaudeCartService. conv=${conv.id}: ${err.message}`);
+      else                log.error(`[AI] ClaudeCartService error. conv=${conv.id}: ${err?.message}`);
       const fallback = 'Desculpe, tive um problema temporário. Pode repetir sua mensagem? 🙏';
       await this.saveMessage(conv.id, companyId, 'ASSISTANT', fallback);
       await this.dispatchMessage(connection, conv.customerPhone, fallback);

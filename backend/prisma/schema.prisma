@@ -105,6 +105,32 @@ enum IntegrationProvider {
   MOCK
 }
 
+// ── Impressoras ─────────────────────────────────────────────────────────────
+enum PrinterConnectionType {
+  BROWSER
+  NETWORK
+  USB
+}
+
+enum PrinterPaperWidth {
+  MM_58
+  MM_80
+}
+
+enum PrinterRole {
+  KITCHEN
+  BAR
+  COUNTER
+  DELIVERY
+}
+
+enum PrintJobStatus {
+  PENDING
+  SENT
+  PRINTED
+  FAILED
+}
+
 model Company {
   id String @id @default(cuid())
 
@@ -189,6 +215,10 @@ model Company {
   integrationOrders   IntegrationOrder[]
   integrationEvents   IntegrationEventLog[]
   productCatalogMaps  ProductCatalogMap[]
+
+  printers        Printer[]
+  printerProfiles PrinterProfile[]
+  printerJobs     PrinterJob[]
 
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
@@ -1220,6 +1250,63 @@ model PlanConfig {
   label     String
   tagline   String?
   updatedAt DateTime @updatedAt
+}
+
+// ── Impressoras ─────────────────────────────────────────────────────────────
+
+model Printer {
+  id             String                @id @default(cuid())
+  companyId      String
+  company        Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  brand          String?
+  connectionType PrinterConnectionType @default(BROWSER)
+  address        String?               // IP:port para NETWORK, caminho de dispositivo para USB
+  paperWidth     PrinterPaperWidth     @default(MM_80)
+  isOnline       Boolean               @default(false)
+  isActive       Boolean               @default(true)
+  lastSeenAt     DateTime?
+  profiles       PrinterProfile[]
+  jobs           PrinterJob[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([companyId])
+}
+
+model PrinterProfile {
+  id        String      @id @default(cuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  printerId String
+  printer   Printer     @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  role      PrinterRole
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+
+  @@unique([printerId, role])
+  @@index([companyId])
+}
+
+model PrinterJob {
+  id         String         @id @default(cuid())
+  companyId  String
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  printerId  String
+  printer    Printer        @relation(fields: [printerId], references: [id], onDelete: Cascade)
+  orderId    String?
+  template   String         // "KITCHEN" | "BAR" | "CASHIER" | "DELIVERY"
+  payload    Json
+  status     PrintJobStatus @default(PENDING)
+  attempts   Int            @default(0)
+  printedAt  DateTime?
+  failReason String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@index([companyId, status])
+  @@index([printerId, status])
+  @@index([orderId])
 }
 
 // ─── Smart Import (cadastro inteligente por imagem/PDF/XML) ─────────────────

@@ -38,6 +38,7 @@ import {
   MessageCircle,
   History,
   Cable,
+  Printer,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -168,6 +169,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     items: [
       { href: "/modulos",     label: "Módulos de Integração", icon: <Puzzle size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
       { href: "/integracoes", label: "Integrações",           icon: <Cable size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/impressoras", label: "Impressoras",           icon: <Printer size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {

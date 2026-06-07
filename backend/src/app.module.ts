@@ -38,6 +38,7 @@ import { CompanyModuleModule } from './company-module/company-module.module'
 import { LeadsModule } from './modules/leads/leads.module'
 import { PaymentsModule }      from './modules/payments/payments.module'
 import { IntegrationsModule }   from './modules/integrations/integrations.module'
+import { PrintersModule }       from './modules/printers/printers.module'
 import { AppController } from './app.controller'
 import { AppService }    from './app.service'
 import { DemoGuard }     from './common/guards/demo.guard'
@@ -84,6 +85,7 @@ import { DemoGuard }     from './common/guards/demo.guard'
     LeadsModule,
     PaymentsModule,
     IntegrationsModule,
+    PrintersModule,
   ],
   controllers: [AppController],
   providers: [

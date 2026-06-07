@@ -450,14 +450,17 @@ model Customer {
 model Order {
   id String @id @default(cuid())
 
+  // Número sequencial por tenant — exibição humana (Ex: Pedido #42)
+  number Int @default(0)
+
   customerId String?
 
   customer Customer? @relation(fields: [customerId], references: [id])
 
-  // Fase 2: tipo de atendimento — persiste o que o PDV/menu envia
-  orderType String @default("DINE_IN")
+  // Tipo de atendimento usando enum tipado (antes era String)
+  orderType OrderType @default(DINE_IN)
 
-  // Fase 2: dados do cliente (snapshot no momento do pedido)
+  // Dados do cliente (snapshot no momento do pedido — imutável para histórico/BI)
   customerName    String?
   customerPhone   String?
   deliveryAddress String?
@@ -532,19 +535,14 @@ model Order {
   updatedAt DateTime @updatedAt
 
   @@index([companyId])
-
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
   @@index([status])
-
   @@index([createdAt])
-
   @@index([driverId])
-
   @@index([orderType])
-
   @@index([deliveryZoneId])
-
   @@index([tableId])
-
   @@index([channel])
 }
 

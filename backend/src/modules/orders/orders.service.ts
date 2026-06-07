@@ -200,11 +200,21 @@ export class OrdersService {
 
         async (tx) => {
 
-          // 1. Create the Order without nested items
+          // 1a. Próximo número sequencial por tenant
+          const lastOrder = await tx.order.findFirst({
+            where: { companyId: data.companyId },
+            orderBy: { number: 'desc' },
+            select: { number: true },
+          });
+          const nextNumber = (lastOrder?.number ?? 0) + 1;
+
+          // 1b. Create the Order without nested items
           const createdOrder =
             await tx.order.create({
 
               data: {
+
+                number: nextNumber,
 
                 customerId:
                   data.customerId ?? null,
@@ -257,7 +267,7 @@ export class OrdersService {
               },
             });
 
-          // 2a. DINE_IN: localizar a mesa pelo tableId (direto) ou tableNumber e marcar OCCUPIED
+          // 2. DINE_IN: localizar a mesa pelo tableId (direto) ou tableNumber e marcar OCCUPIED
           if (data.orderType === 'DINE_IN' || !data.orderType) {
             if (data.tableId) {
               await tx.table.update({
@@ -739,7 +749,7 @@ export class OrdersService {
           if (status === OrderStatus.DELIVERED)        { timestamps.deliveredAt = new Date(); timestamps.completedAt = new Date(); }
           if (status === OrderStatus.CANCELLED)        { timestamps.cancelledAt      = new Date(); }
 
-          return tx.order.update({
+          const updated = await tx.order.update({
 
             where: {
               id,
@@ -750,6 +760,26 @@ export class OrdersService {
               ...timestamps,
             },
           });
+
+          // Auto-free-table: libera mesa quando não restam pedidos ativos
+          const isTerminal = status === OrderStatus.DELIVERED || status === OrderStatus.CANCELLED;
+          if (isTerminal && order.tableId) {
+            const activeCount = await tx.order.count({
+              where: {
+                tableId: order.tableId,
+                id: { not: id },
+                status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+              },
+            });
+            if (activeCount === 0) {
+              await tx.table.update({
+                where: { id: order.tableId },
+                data: { status: 'FREE' },
+              }).catch(() => {});
+            }
+          }
+
+          return updated;
         },
 
         {

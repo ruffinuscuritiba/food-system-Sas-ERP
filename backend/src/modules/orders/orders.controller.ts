@@ -18,6 +18,7 @@ export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CAN
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { CompanyId } from "../../common/decorators/company-id.decorator";
 import { Throttle } from "@nestjs/throttler";
 
 @Controller("orders")
@@ -32,9 +33,9 @@ export class OrdersController {
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER")
   customerLookup(
     @Query("phone") phone: string,
-    @Request() req: any,
+    @CompanyId() companyId: string,
   ) {
-    return this.service.customerLookup(phone, req.user.companyId);
+    return this.service.customerLookup(phone, companyId);
   }
 
   /** PDV — salva/atualiza endereço do cliente para autofill futuro */
@@ -52,7 +53,7 @@ export class OrdersController {
       cidade?: string;
       cep?: string;
     },
-    @Request() req: any,
+    @CompanyId() companyId: string,
   ) {
     return this.service.customerAddressSave(
       body.phone,
@@ -65,15 +66,15 @@ export class OrdersController {
         cidade:      body.cidade      || '',
         cep:         body.cep         || '',
       },
-      req.user.companyId,
+      companyId,
     );
   }
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER", "KITCHEN")
-  findAll(@Request() req: any) {
-    return this.service.findAll(req.user.companyId);
+  findAll(@CompanyId() companyId: string) {
+    return this.service.findAll(companyId);
   }
 
   // ── Adapter Cozinha/Impressão (Item 4 — Caminho 2) ─────────────────────
@@ -81,8 +82,8 @@ export class OrdersController {
   @Get("kitchen")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "KITCHEN", "WAITER")
-  findAllForKitchen(@Request() req: any) {
-    return this.service.findAllForKitchen(req.user.companyId);
+  findAllForKitchen(@CompanyId() companyId: string) {
+    return this.service.findAllForKitchen(companyId);
   }
 
   // PATCH /api/orders/kitchen/PDV/:id/status   |   /api/orders/kitchen/ONLINE/:id/status
@@ -94,17 +95,18 @@ export class OrdersController {
     @Param("id") id: string,
     @Body("status") status: string,
     @Request() req: any,
+    @CompanyId() companyId: string,
   ) {
-    return this.service.updateKitchenStatus(source, id, status, req.user.id, req.user.companyId);
+    return this.service.updateKitchenStatus(source, id, status, req.user.id, companyId);
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER")
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: any, @CompanyId() companyId: string) {
     return this.service.create({
       ...body,
-      companyId: req.user.companyId,
+      companyId,
     });
   }
 
@@ -114,9 +116,10 @@ export class OrdersController {
   updateStatus(
     @Param("id") id: string,
     @Body("status") status: OrderStatus,
-    @Request() req: any
+    @Request() req: any,
+    @CompanyId() companyId: string,
   ) {
-    return this.service.updateStatus(id, status, req.user.id, req.user.companyId);
+    return this.service.updateStatus(id, status, req.user.id, companyId);
   }
 
   @Patch(":id/production-status")
@@ -125,17 +128,17 @@ export class OrdersController {
   updateProductionStatus(
     @Param("id") id: string,
     @Body("productionStatus") productionStatus: OrderStatus,
-    @Request() req: any
+    @Request() req: any,
+    @CompanyId() companyId: string,
   ) {
-    return this.service.updateStatus(id, productionStatus, req.user.id, req.user.companyId);
+    return this.service.updateStatus(id, productionStatus, req.user.id, companyId);
   }
 
   @Get("dashboard")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER", "WAITER", "KITCHEN")
-  dashboard(@Request() req: any) {
-    console.log("USER DASHBOARD:", req.user);
-    return this.service.dashboard(req.user.companyId);
+  dashboard(@CompanyId() companyId: string) {
+    return this.service.dashboard(companyId);
   }
 
   // Public endpoint — no auth required (customer ordering from menu)

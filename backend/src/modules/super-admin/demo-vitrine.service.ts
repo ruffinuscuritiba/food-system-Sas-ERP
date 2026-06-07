@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
+import { OrderType } from '@prisma/client'
 import { PrismaService } from '@/database/prisma.service'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -443,7 +444,7 @@ export class DemoVitrineService {
     const subtotal  = items.reduce((s, it) => s + Number(it.salePrice), 0)
     const delivFee  = rnd(4, 9)
     const total     = subtotal + delivFee
-    const orderType = pick(ORDER_TYPES)
+    const orderType = pick(ORDER_TYPES) as OrderType
 
     const ts = (offset: number) => new Date(p.createdAt.getTime() + offset * 60_000)
     const isDelivered = p.status === 'DELIVERED'

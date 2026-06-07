@@ -1,4 +1,7 @@
-export const SUPPORT_WHATSAPP = "5541988729370";
+// Número do WhatsApp de suporte — configurar NEXT_PUBLIC_SUPPORT_WHATSAPP no Vercel.
+// Deve ser o número conectado à instância Evolution API onde a Kely está ativa.
+export const SUPPORT_WHATSAPP =
+  process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "5541988729370";
 
 export interface SupportMessageOpts {
   companyName?: string;

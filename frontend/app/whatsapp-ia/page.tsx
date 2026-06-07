@@ -6,8 +6,8 @@ import {
   MessageSquare, Plus, Trash2, Settings2, BarChart2,
   Phone, Wifi, WifiOff, Bot, User, ChevronRight,
   RefreshCw, Send, AlertCircle, CheckCircle2, Clock,
-  Zap, Shield, ToggleLeft, ToggleRight, Copy, Eye,
-  MessageCircle, TrendingUp, Users, ShoppingBag,
+  Zap, Shield, ToggleLeft, ToggleRight, Copy, Eye, EyeOff, Pencil,
+  MessageCircle, TrendingUp, Users, ShoppingBag, X,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -322,6 +322,43 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
   });
   const [saving, setSaving] = useState(false);
 
+  // ── Edit state ─────────────────────────────────────────────────────────────
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "", instanceName: "", apiUrl: "",
+    apiToken: "", phoneNumberId: "", webhookToken: "", phoneNumber: "",
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [showDetailsId, setShowDetailsId] = useState<string | null>(null);
+  const [showTokenId, setShowTokenId] = useState<string | null>(null);
+
+  const startEdit = (conn: Connection) => {
+    setEditingId(conn.id);
+    setEditForm({
+      name:          conn.name          ?? "",
+      instanceName:  conn.instanceName  ?? "",
+      apiUrl:        conn.apiUrl        ?? "",
+      apiToken:      conn.apiToken      ?? "",
+      phoneNumberId: conn.phoneNumberId ?? "",
+      webhookToken:  conn.webhookToken  ?? "",
+      phoneNumber:   conn.phoneNumber   ?? "",
+    });
+  };
+
+  const saveEdit = async (id: string) => {
+    setEditSaving(true);
+    try {
+      await api.patch(`/whatsapp-ai/connections/${id}`, editForm);
+      toast.success("Conexão atualizada!");
+      setEditingId(null);
+      onRefresh();
+    } catch {
+      toast.error("Erro ao atualizar conexão");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleProviderTypeChange = (type: ProviderType) => {
     setProviderType(type);
     setForm((f) => ({
@@ -496,13 +533,30 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                 <span className="text-xs text-slate-500 bg-slate-800 px-2.5 py-1 rounded-lg">
                   {conn._count?.conversations ?? 0} conversas
                 </span>
-                <button onClick={() => toggle(conn)} className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition text-slate-400">
+                <button onClick={() => toggle(conn)} title="Ativar/Desativar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition text-slate-400">
                   {conn.isActive ? <ToggleRight size={16} className="text-green-400" /> : <ToggleLeft size={16} />}
                 </button>
-                <button onClick={() => onSelect(conn)} className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-800 flex items-center justify-center transition text-slate-400 hover:text-blue-300">
+                {/* Olho — ver detalhes técnicos */}
+                <button
+                  onClick={() => setShowDetailsId(showDetailsId === conn.id ? null : conn.id)}
+                  title="Ver detalhes técnicos"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${showDetailsId === conn.id ? "bg-indigo-800 text-indigo-300" : "bg-slate-800 hover:bg-indigo-900/40 text-slate-400 hover:text-indigo-300"}`}
+                >
+                  {showDetailsId === conn.id ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+                {/* Lápis — editar */}
+                <button
+                  onClick={() => editingId === conn.id ? setEditingId(null) : startEdit(conn)}
+                  title="Editar conexão"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${editingId === conn.id ? "bg-amber-800 text-amber-300" : "bg-slate-800 hover:bg-amber-900/40 text-slate-400 hover:text-amber-300"}`}
+                >
+                  <Pencil size={13} />
+                </button>
+                {/* IA config */}
+                <button onClick={() => onSelect(conn)} title="Configurar IA" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-blue-800 flex items-center justify-center transition text-slate-400 hover:text-blue-300">
                   <Settings2 size={14} />
                 </button>
-                <button onClick={() => remove(conn.id)} className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-red-900/30 flex items-center justify-center transition text-slate-400 hover:text-red-400">
+                <button onClick={() => remove(conn.id)} title="Remover" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-red-900/30 flex items-center justify-center transition text-slate-400 hover:text-red-400">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -517,6 +571,86 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                 <Copy size={13} />
               </button>
             </div>
+
+            {/* ── Painel de detalhes técnicos (olho) ── */}
+            {showDetailsId === conn.id && (
+              <div className="mt-3 bg-slate-800/70 border border-indigo-800/40 rounded-xl p-4 space-y-2">
+                <p className="text-xs font-bold text-indigo-400 mb-3 flex items-center gap-1.5"><Eye size={12} /> Detalhes técnicos</p>
+                {[
+                  { label: "Phone Number ID", value: conn.phoneNumberId },
+                  { label: "Número", value: conn.phoneNumber },
+                  { label: "Instance Name", value: conn.instanceName },
+                  { label: "API URL", value: conn.apiUrl },
+                  { label: "Webhook Token", value: conn.webhookToken },
+                  { label: "API Token", value: conn.apiToken, secret: true },
+                ].map(({ label, value, secret }) =>
+                  value ? (
+                    <div key={label} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-400 w-32 shrink-0">{label}</span>
+                      <span className="text-xs text-slate-200 font-mono flex-1 truncate">
+                        {secret && showTokenId !== conn.id ? "••••••••••••" : value}
+                      </span>
+                      <div className="flex gap-1 shrink-0">
+                        {secret && (
+                          <button
+                            onClick={() => setShowTokenId(showTokenId === conn.id ? null : conn.id)}
+                            className="text-slate-500 hover:text-white transition"
+                          >
+                            {showTokenId === conn.id ? <EyeOff size={11} /> : <Eye size={11} />}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(value); toast.success("Copiado!"); }}
+                          className="text-slate-500 hover:text-white transition"
+                        >
+                          <Copy size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : null
+                )}
+              </div>
+            )}
+
+            {/* ── Form de edição inline (lápis) ── */}
+            {editingId === conn.id && (
+              <div className="mt-3 bg-slate-800/70 border border-amber-700/40 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-bold text-amber-400 flex items-center gap-1.5"><Pencil size={12} /> Editar conexão</p>
+                  <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-white transition"><X size={14} /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Nome" value={editForm.name} onChange={(v) => setEditForm({ ...editForm, name: v })} placeholder="Nome da conexão" />
+                  <Field label="Número do WhatsApp" value={editForm.phoneNumber} onChange={(v) => setEditForm({ ...editForm, phoneNumber: v })} placeholder="5511999999999" />
+                  {conn.provider === "CLOUD_API" ? (
+                    <>
+                      <Field label="Phone Number ID" value={editForm.phoneNumberId} onChange={(v) => setEditForm({ ...editForm, phoneNumberId: v })} placeholder="863109456886497" />
+                      <Field label="API Token" value={editForm.apiToken} onChange={(v) => setEditForm({ ...editForm, apiToken: v })} placeholder="Token Meta" type="password" />
+                      <Field label="Webhook Token (opcional)" value={editForm.webhookToken} onChange={(v) => setEditForm({ ...editForm, webhookToken: v })} placeholder="Token de verificação" />
+                    </>
+                  ) : (
+                    <>
+                      <Field label="URL da API" value={editForm.apiUrl} onChange={(v) => setEditForm({ ...editForm, apiUrl: v })} placeholder="https://api.evolution.io" />
+                      <Field label="Nome da Instância" value={editForm.instanceName} onChange={(v) => setEditForm({ ...editForm, instanceName: v })} placeholder="minha-instancia" />
+                      <Field label="API Token" value={editForm.apiToken} onChange={(v) => setEditForm({ ...editForm, apiToken: v })} placeholder="Token de autenticação" type="password" />
+                      <Field label="Webhook Token (opcional)" value={editForm.webhookToken} onChange={(v) => setEditForm({ ...editForm, webhookToken: v })} placeholder="Token de verificação" />
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => saveEdit(conn.id)}
+                    disabled={editSaving}
+                    className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-sm font-bold transition"
+                  >
+                    {editSaving ? "Salvando..." : "Salvar alterações"}
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-5 py-2 rounded-xl text-sm font-semibold transition">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))
       )}

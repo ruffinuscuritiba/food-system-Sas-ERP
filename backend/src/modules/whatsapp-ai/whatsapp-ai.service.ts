@@ -365,27 +365,37 @@ export class WhatsappAiService {
   async handleEvolutionWebhook(connectionId: string, body: any) {
     const event: string = body?.event ?? '';
     // Normalize: Evolution v1 "messages.upsert", v2 "MESSAGES_UPSERT" → same token
-    const normalizedEvent = event.toLowerCase().replace(/_/g, '.');
-    if (!['messages.upsert', 'message'].includes(normalizedEvent)) return { ok: true };
+    const normalizedEvent = event.toLowerCase().replace(/[_-]/g, '.');
+    if (!['messages.upsert', 'message', 'messages.set'].includes(normalizedEvent)) {
+      log.debug(`[WH] ignored event="${event}" connectionId=${connectionId}`);
+      return { ok: true };
+    }
 
     const data = body?.data;
     if (!data) return { ok: true };
 
-    const fromMe: boolean = data?.key?.fromMe ?? false;
+    // Evolution API v2 wraps messages in array; v1 has direct key/message on data root.
+    // Support both to avoid silent drops when the instance is on v2.
+    const msgData = Array.isArray(data?.messages) && data.messages.length > 0
+      ? data.messages[0]
+      : data;
+
+    const fromMe: boolean = msgData?.key?.fromMe ?? false;
     if (fromMe) return { ok: true }; // ignore own messages
 
-    const rawPhone: string = data?.key?.remoteJid ?? '';
-    const phone = rawPhone.replace('@s.whatsapp.net', '').replace('@c.us', '');
-    const name: string = data?.pushName ?? data?.key?.remoteJid ?? phone;
+    const rawPhone: string = msgData?.key?.remoteJid ?? '';
+    const phone = rawPhone.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@g.us', '');
+    const name: string = msgData?.pushName ?? msgData?.key?.remoteJid ?? phone;
 
     let text: string =
-      data?.message?.conversation ??
-      data?.message?.extendedTextMessage?.text ??
-      data?.message?.imageMessage?.caption ??
+      msgData?.message?.conversation ??
+      msgData?.message?.extendedTextMessage?.text ??
+      msgData?.message?.imageMessage?.caption ??
+      msgData?.message?.buttonsResponseMessage?.selectedDisplayText ??
       '';
 
     // ── Suporte a áudio (PTT e audioMessage) via Whisper ──────────────────
-    const audioMsg = data?.message?.audioMessage ?? data?.message?.pttMessage;
+    const audioMsg = msgData?.message?.audioMessage ?? msgData?.message?.pttMessage;
     if (!text.trim() && audioMsg?.url) {
       try {
         const connection = await this.prisma.whatsappConnection.findUnique({
@@ -403,7 +413,14 @@ export class WhatsappAiService {
       }
     }
 
-    if (!phone || !text.trim()) return { ok: true };
+    // Skip group messages (@g.us), status updates, and non-text types
+    if (rawPhone.includes('@g.us') || rawPhone.includes('@broadcast')) return { ok: true };
+
+    if (!phone || !text.trim()) {
+      log.debug(`[WH] skipped — empty phone/text. event=${event} phone="${rawPhone}" msgType=${JSON.stringify(Object.keys(msgData?.message ?? {}))}`);
+      return { ok: true };
+    }
+
     await this.processIncoming(connectionId, phone, name, text.trim());
     return { ok: true };
   }
@@ -462,7 +479,14 @@ export class WhatsappAiService {
       where: { id: connectionId },
       include: { settings: true },
     });
-    if (!connection || !connection.isActive) return;
+    if (!connection) {
+      log.warn(`[AI] connectionId=${connectionId} não encontrado — webhook ignorado`);
+      return;
+    }
+    if (!connection.isActive) {
+      log.warn(`[AI] connection=${connectionId} isActive=false — AI desativada`);
+      return;
+    }
 
     const settings = connection.settings;
 
@@ -477,9 +501,22 @@ export class WhatsappAiService {
     });
 
     // If mode is HUMAN or PAUSED, skip AI
-    if (conv.mode === 'HUMAN' || conv.mode === 'PAUSED') return;
-    if (!settings || !settings.isActive) return;
-    if (settings.mode === 'MANUAL') return;
+    if (conv.mode === 'HUMAN' || conv.mode === 'PAUSED') {
+      log.debug(`[AI] conv=${conv.id} mode=${conv.mode} — sem resposta automática`);
+      return;
+    }
+    if (!settings) {
+      log.warn(`[AI] connection=${connectionId} sem WhatsappAiSettings — AI não configurada para esta conexão`);
+      return;
+    }
+    if (!settings.isActive) {
+      log.warn(`[AI] connection=${connectionId} settings.isActive=false — AI inativa`);
+      return;
+    }
+    if (settings.mode === 'MANUAL') {
+      log.debug(`[AI] connection=${connectionId} mode=MANUAL — sem resposta automática`);
+      return;
+    }
 
     // Check business hours
     if (!isBusinessHours(settings)) {

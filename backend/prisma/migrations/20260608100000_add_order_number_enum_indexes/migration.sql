@@ -21,9 +21,15 @@ BEGIN
     SET "orderType" = 'DINE_IN'
     WHERE "orderType" NOT IN ('DELIVERY', 'DINE_IN', 'PICKUP');
 
+    -- Drop default antes do cast (PostgreSQL não faz cast automático de DEFAULT text→enum)
+    ALTER TABLE "Order" ALTER COLUMN "orderType" DROP DEFAULT;
+
     ALTER TABLE "Order"
       ALTER COLUMN "orderType" TYPE "OrderType"
       USING "orderType"::"OrderType";
+
+    -- Restaura o default como enum
+    ALTER TABLE "Order" ALTER COLUMN "orderType" SET DEFAULT 'DINE_IN'::"OrderType";
   END IF;
 END
 $$;

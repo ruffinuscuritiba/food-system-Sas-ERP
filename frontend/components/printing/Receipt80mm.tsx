@@ -48,7 +48,7 @@ export function buildReceipt80mm(
     ? `${fmtDate(order.confirmedAt)} ${fmtTime(order.confirmedAt)}`
     : fmtDate(order.createdAt);
 
-  const orderSeq    = order.id.slice(-8).toUpperCase();
+  const orderSeq    = order.number ? String(order.number) : order.id.slice(-8).toUpperCase();
 
   const deliveryFee = Number(order.deliveryFee ?? 0);
   const driverFee   = Number(order.driverFee   ?? 0);

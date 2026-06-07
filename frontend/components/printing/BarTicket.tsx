@@ -31,7 +31,7 @@ const BAR_CSS = `
 export function buildBarTicket(order: PrintableOrder): string {
   const typeLabel = TYPE_LABELS[order.orderType || "DINE_IN"] || "🍽️ Balcão";
   const clientName = order.customerName || order.customer?.name || order.notes || "—";
-  const orderSeq  = order.id.slice(-8).toUpperCase();
+  const orderSeq  = order.number ? String(order.number) : order.id.slice(-8).toUpperCase();
   const time      = fmtTime(order.createdAt || new Date().toISOString());
 
   const items = (Array.isArray(order.items) ? order.items : [])

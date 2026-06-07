@@ -32,7 +32,7 @@ const DELIVERY_CSS = `
 `;
 
 export function buildDeliveryLabel(order: PrintableOrder): string {
-  const orderSeq   = order.id.slice(-8).toUpperCase();
+  const orderSeq   = order.number ? String(order.number) : order.id.slice(-8).toUpperCase();
   const time       = fmtTime(order.createdAt || new Date().toISOString());
   const clientName = order.customerName || order.customer?.name || "—";
   const clientPhone= order.customerPhone || order.customer?.phone || "";

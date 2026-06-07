@@ -57,9 +57,15 @@ function Column({
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <h3 className="text-xl font-bold truncate max-w-[55%]">
-                          {order.customer?.name || order.customerName || "Pedido"}
-                        </h3>
+                        {/* Número sequencial — destaque principal */}
+                        <span className="text-2xl font-black text-gray-900 shrink-0">
+                          #{order.number || order.id.slice(-4)}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold truncate text-gray-700 leading-tight">
+                            {order.customer?.name || order.customerName || "—"}
+                          </h3>
+                        </div>
                         {/* Adapter Item 4 — fonte do pedido */}
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide shrink-0 ${
                           order.source === "ONLINE"
@@ -74,7 +80,7 @@ function Column({
                         </span>
                       </div>
                       <span className={`
-                        px-3 py-1 rounded-full text-xs font-bold text-white
+                        px-3 py-1 rounded-full text-xs font-bold text-white shrink-0
                         ${getOrderTime(order.createdAt) > 30
                           ? "bg-red-500"
                           : getOrderTime(order.createdAt) > 15

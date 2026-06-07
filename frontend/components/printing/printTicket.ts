@@ -31,6 +31,8 @@ export type PrintableItem = {
 
 export type PrintableOrder = {
   id: string;
+  /** Número sequencial por tenant — exibição humana (ex: #42) */
+  number?: number;
   /** Adapter Caminho 2 — "PDV" | "ONLINE" */
   source?: string;
   orderType?: string;

@@ -44,7 +44,7 @@ export function buildKitchenTicket(order: PrintableOrder): string {
   const clientPhone = order.customerPhone || order.customer?.phone || "";
 
   const items    = Array.isArray(order.items) ? order.items : [];
-  const orderSeq = order.id.slice(-8).toUpperCase();
+  const orderSeq = order.number ? String(order.number) : order.id.slice(-8).toUpperCase();
   const time     = fmtTime(order.createdAt || new Date().toISOString());
 
   // Kitchen ticket: show prices only as secondary info

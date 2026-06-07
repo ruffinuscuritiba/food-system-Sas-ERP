@@ -64,7 +64,7 @@ export function buildCustomerReceipt(
   const rawStatus   = order.status || order.orderStatus || "";
   const statusPt    = STATUS_PT[rawStatus.toUpperCase()] || rawStatus;
 
-  const orderSeq    = order.id.slice(-8).toUpperCase();
+  const orderSeq    = order.number ? String(order.number) : order.id.slice(-8).toUpperCase();
   const dateStr     = fmtDate(order.createdAt);
   const timeStr     = fmtTime(order.createdAt);
 

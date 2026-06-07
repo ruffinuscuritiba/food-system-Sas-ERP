@@ -758,6 +758,17 @@ export class WhatsappAiService {
         where: { id: conv.id },
         data: { mode: 'HUMAN', status: 'TRANSFERRED' },
       });
+      const operatorPhone = process.env.WHATSAPP_OPERATOR_PHONE;
+      if (operatorPhone) {
+        const notice =
+          `⚠️ *Atendimento Humano Solicitado*\n\n` +
+          `Cliente: ${conv.customerPhone}\n` +
+          `Mensagem: "${userText}"\n\n` +
+          `Acesse o WhatsApp para continuar o atendimento.`;
+        this.dispatchMessage(connection, operatorPhone, notice).catch((err: any) =>
+          log.warn(`[AI] Falha ao notificar operador: ${err?.message}`),
+        );
+      }
     }
 
     // Process CLOSE

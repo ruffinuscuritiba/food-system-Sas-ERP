@@ -7,5 +7,6 @@ import { PrismaModule } from 'src/database/prisma.module';
   imports: [PrismaModule], // 🔥 ESSA LINHA RESOLVE TUDO
   controllers: [CategoriesController],
   providers: [CategoriesService],
+  exports:   [CategoriesService],
 })
 export class CategoriesModule {}

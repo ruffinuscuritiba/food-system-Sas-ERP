@@ -461,6 +461,7 @@ model Order {
   customerName    String?
   customerPhone   String?
   deliveryAddress String?
+  neighborhood    String?
 
   status OrderStatus @default(PENDING)
 

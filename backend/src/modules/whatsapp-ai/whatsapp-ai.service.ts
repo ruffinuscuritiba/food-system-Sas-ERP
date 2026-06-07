@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, Inject, Optional, forwardRef } from '@nestjs/common';
 import { PrismaService }    from '@/database/prisma.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { UpdateSettingsDto }   from './dto/update-settings.dto';
@@ -6,6 +6,8 @@ import { WhisperService }   from './services/whisper.service';
 import { ClaudeCartService, CartStatus, StructuredResponse } from './services/claude-cart.service';
 import { WaPaymentService } from './services/wa-payment.service';
 import { OrdersService }    from '@/modules/orders/orders.service';
+import { ProductsService }  from '@/modules/products/products.service';
+import { CategoriesService } from '@/modules/categories/categories.service';
 import { OrderStatus }      from '@prisma/client';
 
 const log = new Logger('WhatsappAiService');
@@ -250,6 +252,13 @@ export class WhatsappAiService {
     private waPayment:    WaPaymentService,
     @Inject(forwardRef(() => OrdersService))
     private ordersService?: OrdersService,
+    // Injetados via forwardRef para que qualquer mudança de regra de negócio
+    // (soft-delete, sortOrder, isActive, novos campos) seja refletida na Kely
+    // automaticamente — a IA não duplica lógica de produto.
+    @Optional() @Inject(forwardRef(() => ProductsService))
+    private productsService?: ProductsService,
+    @Optional() @Inject(forwardRef(() => CategoriesService))
+    private categoriesService?: CategoriesService,
   ) {}
 
   // ── CONNECTIONS ────────────────────────────────────────────────────────────
@@ -572,13 +581,19 @@ export class WhatsappAiService {
   private async runAiResponse(connection: any, settings: any, conv: any, userText: string) {
     const companyId = connection.companyId;
 
-    // Fetch menu context
+    // Busca cardápio via services unificados — qualquer mudança de regra
+    // (soft-delete, sortOrder, isActive, tamanhos) aplica-se automaticamente.
+    // Fallback para Prisma direto apenas se os services não estiverem disponíveis.
     const [products, categories] = await Promise.all([
-      this.prisma.product.findMany({
-        where: { companyId, isActive: true, deletedAt: null },
-        include: { sizes: true, category: { select: { name: true } } },
-      }),
-      this.prisma.category.findMany({ where: { companyId } }),
+      this.productsService
+        ? this.productsService.publicMenu(companyId)
+        : this.prisma.product.findMany({
+            where: { companyId, isActive: true, deletedAt: null },
+            include: { sizes: true, category: { select: { name: true } } },
+          }),
+      this.categoriesService
+        ? this.categoriesService.findAll(companyId)
+        : this.prisma.category.findMany({ where: { companyId } }),
     ]);
 
     const menuCtx = buildMenuContext(products, categories);
@@ -652,7 +667,7 @@ export class WhatsappAiService {
 
     // Process ADD_ITEM commands — update cart in context
     if (addItems.length > 0) {
-      const productMap = new Map(products.map((p) => [p.id, p]));
+      const productMap = new Map<string, any>((products as any[]).map((p) => [p.id as string, p] as [string, any]));
       const updatedCart = [...cart];
       for (const cmd of addItems) {
         const prod = productMap.get(cmd.productId);
@@ -663,8 +678,8 @@ export class WhatsappAiService {
         } else {
           updatedCart.push({
             productId: cmd.productId,
-            name: prod.name,
-            price: Number(prod.salePrice ?? 0),
+            name: (prod as any).name,
+            price: Number((prod as any).salePrice ?? 0),
             qty: cmd.qty,
           });
         }

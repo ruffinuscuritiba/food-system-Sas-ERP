@@ -243,6 +243,9 @@ export class OrdersService {
                 deliveryAddress:
                   data.deliveryAddress || null,
 
+                neighborhood:
+                  data.neighborhood || null,
+
                 ...(data.tableId && { tableId: data.tableId }),
 
                 ...(data.channel        && { channel:         data.channel }),

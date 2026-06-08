@@ -2,7 +2,7 @@ import {
   Controller, Get, Post, Patch, Delete, Put,
   Param, Body, Query, Request, UseGuards, Res, HttpCode, Headers,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard }   from '@/common/guards/roles.guard';
@@ -23,7 +23,7 @@ export class WhatsappAiController {
    */
   @Get('bridge/outbox/:connectionId')
   @HttpCode(200)
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @SkipThrottle()
   async bridgeOutbox(
     @Param('connectionId') connectionId: string,
     @Query('after') afterId?: string,

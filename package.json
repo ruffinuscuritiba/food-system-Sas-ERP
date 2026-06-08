@@ -5,5 +5,8 @@
   "workspaces": [
     "frontend",
     "backend"
-  ]
+  ],
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0"
+  }
 }

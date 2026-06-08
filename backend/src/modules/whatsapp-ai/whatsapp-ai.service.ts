@@ -1178,6 +1178,46 @@ export class WhatsappAiService {
     }
   }
 
+  // ── BRIDGE (para script local Baileys) ─────────────────────────────────────
+
+  /**
+   * Retorna mensagens ASSISTANT pendentes de envio (últimos 30s).
+   * O script local Baileys faz polling e envia via WhatsApp.
+   */
+  async getBridgeOutbox(connectionId: string, afterId?: string) {
+    const since = new Date(Date.now() - 30_000); // últimos 30 segundos
+
+    const where: any = {
+      conversation: { connectionId },
+      role: 'ASSISTANT',
+      createdAt: { gte: since },
+    };
+    if (afterId) {
+      where.id = { gt: afterId };
+    }
+
+    const messages = await this.prisma.whatsappMessage.findMany({
+      where,
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        conversation: {
+          select: { customerPhone: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 10,
+    });
+
+    return messages.map((m: any) => ({
+      id: m.id,
+      phone: m.conversation?.customerPhone,
+      text: m.content,
+      createdAt: m.createdAt,
+    }));
+  }
+
   // ── MERCADO PAGO WEBHOOK (WhatsApp orders) ────────────────────────────────
 
   /**

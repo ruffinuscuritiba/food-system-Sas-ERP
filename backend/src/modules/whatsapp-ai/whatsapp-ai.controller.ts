@@ -15,6 +15,22 @@ import { UpdateSettingsDto }   from './dto/update-settings.dto';
 export class WhatsappAiController {
   constructor(private service: WhatsappAiService) {}
 
+  // ── BRIDGE (sem auth — para script local Baileys) ─────────────────────────
+
+  /**
+   * Bridge: retorna mensagens ASSISTANT pendentes de envio (criadas nos últimos 30s).
+   * GET /api/whatsapp-ai/bridge/outbox/:connectionId?after=lastMessageId
+   */
+  @Get('bridge/outbox/:connectionId')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  async bridgeOutbox(
+    @Param('connectionId') connectionId: string,
+    @Query('after') afterId?: string,
+  ) {
+    return this.service.getBridgeOutbox(connectionId, afterId);
+  }
+
   // ── WEBHOOKS (sem auth) ───────────────────────────────────────────────────
 
   /**

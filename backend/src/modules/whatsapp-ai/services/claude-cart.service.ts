@@ -152,7 +152,7 @@ export class ClaudeCartService {
       conversationHistory: { role: 'user' | 'assistant'; content: string }[];
     },
   ): Promise<StructuredResponse> {
-    const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
+    const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
 
     // Gemini usa role "model" para assistente
     const contents = params.conversationHistory.map((m) => ({

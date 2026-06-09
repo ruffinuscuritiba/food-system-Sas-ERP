@@ -1,19 +1,45 @@
 import {
-  Controller, Get, Post, Patch, Delete, Put,
-  Param, Body, Query, Request, UseGuards, Res, HttpCode, Headers,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Put,
+  Param,
+  Body,
+  Query,
+  Request,
+  UseGuards,
+  Res,
+  HttpCode,
+  Headers,
 } from '@nestjs/common';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { RolesGuard }   from '@/common/guards/roles.guard';
-import { Roles }        from '@/common/decorators/roles.decorator';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { WhatsappAiService } from './whatsapp-ai.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
-import { UpdateSettingsDto }   from './dto/update-settings.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Controller('whatsapp-ai')
 export class WhatsappAiController {
   constructor(private service: WhatsappAiService) {}
+
+  // ── HEALTH CHECK (sem auth) ───────────────────────────────────────────────
+
+  /**
+   * GET /api/whatsapp-ai/health
+   * Returns env key presence + DB connection counts.
+   * No auth — safe (returns only booleans and counts, no secrets).
+   */
+  @Get('health')
+  @HttpCode(200)
+  @SkipThrottle()
+  async health() {
+    return this.service.getHealth();
+  }
 
   // ── BRIDGE (sem auth — para script local Baileys) ─────────────────────────
 
@@ -54,7 +80,7 @@ export class WhatsappAiController {
   async webhookVerify(
     @Param('connectionId') connectionId: string,
     @Query('hub.verify_token') verifyToken: string,
-    @Query('hub.challenge')    challenge: string,
+    @Query('hub.challenge') challenge: string,
     @Res({ passthrough: false }) res: Response,
   ) {
     // Cloud API challenge
@@ -124,7 +150,10 @@ export class WhatsappAiController {
   @Get('settings/:connectionId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  getSettings(@Param('connectionId') connectionId: string, @Request() req: any) {
+  getSettings(
+    @Param('connectionId') connectionId: string,
+    @Request() req: any,
+  ) {
     return this.service.getSettings(connectionId, req.user.companyId);
   }
 
@@ -144,7 +173,10 @@ export class WhatsappAiController {
   @Get('conversations')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
-  findConversations(@Request() req: any, @Query('connectionId') connectionId?: string) {
+  findConversations(
+    @Request() req: any,
+    @Query('connectionId') connectionId?: string,
+  ) {
     return this.service.findConversations(req.user.companyId, connectionId);
   }
 

@@ -782,7 +782,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     const companyId = connection.companyId;
 
     const _diagProvider = settings.aiProvider ?? 'GEMINI';
-    const _diagModel = settings.aiModel ?? 'gemini-1.5-flash';
+    const _diagModel = settings.aiModel ?? this.config.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
     log.warn(
       `[DIAG][runAiResponse] START conv=${conv.id} provider=${_diagProvider} model=${_diagModel} ` +
         `GEMINI_KEY=${!!this.config.get('GEMINI_API_KEY')} ANTHROPIC_KEY=${!!this.config.get('ANTHROPIC_API_KEY')}`,
@@ -882,18 +882,37 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     }
 
     let rawResponse = '';
-    const aiModel = settings.aiModel ?? 'gemini-1.5-flash';
+    const aiModel =
+      settings.aiModel ??
+      this.config.get('GEMINI_MODEL') ??
+      'gemini-2.0-flash';
 
     if (aiProvider === 'ANTHROPIC') {
       const anthropicMsgs = aiMessages.map((m) => ({
         role: m.role === 'model' ? ('assistant' as const) : ('user' as const),
         text: m.text,
       }));
-      rawResponse = await this.anthropicChat(
-        aiModel,
-        systemPrompt,
-        anthropicMsgs,
-      );
+      try {
+        rawResponse = await this.anthropicChat(
+          aiModel,
+          systemPrompt,
+          anthropicMsgs,
+        );
+      } catch (anthropicErr: unknown) {
+        const errMsg = (anthropicErr as Error)?.message ?? '';
+        log.warn(
+          `[AI] conv=${conv.id} Anthropic falhou (${errMsg.slice(0, 100)}). Tentando Gemini como fallback...`,
+        );
+        const geminiModel =
+          this.config.get('GEMINI_MODEL') ??
+          settings.aiModel ??
+          'gemini-2.0-flash';
+        rawResponse = await this.geminiChat(
+          geminiModel,
+          systemPrompt,
+          aiMessages,
+        );
+      }
     } else {
       rawResponse = await this.geminiChat(aiModel, systemPrompt, aiMessages);
     }

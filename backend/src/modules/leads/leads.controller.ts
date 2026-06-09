@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { LeadsService, LeadUpsertDto } from './leads.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';

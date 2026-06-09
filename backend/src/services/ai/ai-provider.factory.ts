@@ -9,13 +9,19 @@ export class AIProviderFactory {
     const chain: AIProvider[] = [];
 
     // 1. Gemini Flash — primary (free tier, best OCR)
-    try { chain.push(new GeminiProvider()); } catch {}
+    try {
+      chain.push(new GeminiProvider());
+    } catch {}
 
     // 2. OpenRouter — fallback (free models)
-    try { chain.push(new OpenRouterProvider()); } catch {}
+    try {
+      chain.push(new OpenRouterProvider());
+    } catch {}
 
     // 3. Anthropic — last resort (premium, optional)
-    try { chain.push(new AnthropicProvider()); } catch {}
+    try {
+      chain.push(new AnthropicProvider());
+    } catch {}
 
     return chain;
   }
@@ -30,7 +36,9 @@ export class AIProviderFactory {
     onAttempt?: (providerName: string) => void,
   ): Promise<{ result: string; provider: string }> {
     if (providers.length === 0) {
-      throw new Error('Nenhum provedor de IA configurado. Adicione GEMINI_API_KEY ao .env');
+      throw new Error(
+        'Nenhum provedor de IA configurado. Adicione GEMINI_API_KEY ao .env',
+      );
     }
 
     const errors: string[] = [];
@@ -55,6 +63,8 @@ export class AIProviderFactory {
     if (errors.length > 0) {
       throw new Error(errors[0]);
     }
-    throw new Error('Não foi possível processar a imagem agora. Tente novamente em alguns instantes.');
+    throw new Error(
+      'Não foi possível processar a imagem agora. Tente novamente em alguns instantes.',
+    );
   }
 }

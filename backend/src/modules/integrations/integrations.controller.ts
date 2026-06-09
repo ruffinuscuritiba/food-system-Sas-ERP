@@ -13,10 +13,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { Throttle }        from '@nestjs/throttler';
-import { JwtAuthGuard }    from '@/common/guards/jwt-auth.guard';
-import { RolesGuard }      from '@/common/guards/roles.guard';
-import { Roles }           from '@/common/decorators/roles.decorator';
+import { Throttle } from '@nestjs/throttler';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { IntegrationsService } from './integrations.service';
 
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as const;
@@ -37,13 +37,17 @@ export class IntegrationsController {
   @Put('config')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ADMIN_ROLES)
-  upsertConfig(@Req() req: any, @Body() body: {
-    provider:       string;
-    merchantId?:    string;
-    webhookSecret?: string;
-    sandboxMode?:   boolean;
-    isActive?:      boolean;
-  }) {
+  upsertConfig(
+    @Req() req: any,
+    @Body()
+    body: {
+      provider: string;
+      merchantId?: string;
+      webhookSecret?: string;
+      sandboxMode?: boolean;
+      isActive?: boolean;
+    },
+  ) {
     return this.service.upsertConfig(req.user.companyId, body);
   }
 
@@ -59,13 +63,17 @@ export class IntegrationsController {
   @Put('catalog/maps')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ADMIN_ROLES)
-  upsertCatalogMap(@Req() req: any, @Body() body: {
-    provider:           string;
-    externalProductId:  string;
-    internalProductId:  string;
-    externalVariantId?: string;
-    sizeMapping?:       Record<string, unknown>;
-  }) {
+  upsertCatalogMap(
+    @Req() req: any,
+    @Body()
+    body: {
+      provider: string;
+      externalProductId: string;
+      internalProductId: string;
+      externalVariantId?: string;
+      sizeMapping?: Record<string, unknown>;
+    },
+  ) {
     return this.service.upsertCatalogMap(req.user.companyId, body);
   }
 
@@ -82,14 +90,20 @@ export class IntegrationsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ADMIN_ROLES)
   listEvents(@Req() req: any, @Query('limit') limit?: string) {
-    return this.service.listEvents(req.user.companyId, limit ? Number(limit) : 50);
+    return this.service.listEvents(
+      req.user.companyId,
+      limit ? Number(limit) : 50,
+    );
   }
 
   @Get('orders')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ADMIN_ROLES)
   listIntegrationOrders(@Req() req: any, @Query('limit') limit?: string) {
-    return this.service.listIntegrationOrders(req.user.companyId, limit ? Number(limit) : 50);
+    return this.service.listIntegrationOrders(
+      req.user.companyId,
+      limit ? Number(limit) : 50,
+    );
   }
 
   // ── Mock simulation (PASSO 6) ─────────────────────────────────────────────
@@ -97,15 +111,23 @@ export class IntegrationsController {
   @Post('mock/simulate-order')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(...ADMIN_ROLES)
-  simulateMockOrder(@Req() req: any, @Body() body: {
-    customerName:  string;
-    customerPhone: string;
-    neighborhood?: string;
-    items: Array<{ internalProductId: string; quantity: number; unitPrice: number }>;
-    paymentMethod?: string;
-    deliveryFee?:   number;
-    notes?:         string;
-  }) {
+  simulateMockOrder(
+    @Req() req: any,
+    @Body()
+    body: {
+      customerName: string;
+      customerPhone: string;
+      neighborhood?: string;
+      items: Array<{
+        internalProductId: string;
+        quantity: number;
+        unitPrice: number;
+      }>;
+      paymentMethod?: string;
+      deliveryFee?: number;
+      notes?: string;
+    },
+  ) {
     return this.service.simulateMockOrder(req.user.companyId, body);
   }
 
@@ -118,12 +140,18 @@ export class IntegrationsController {
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async handleWebhook(
     @Param('companyId') companyId: string,
-    @Param('provider')  provider: string,
+    @Param('provider') provider: string,
     @Req() req: RawBodyRequest<Request>,
     @Body() body: unknown,
   ) {
     const headers = req.headers as Record<string, string>;
     const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(body));
-    return this.service.processWebhook(companyId, provider, headers, body, rawBody);
+    return this.service.processWebhook(
+      companyId,
+      provider,
+      headers,
+      body,
+      rawBody,
+    );
   }
 }

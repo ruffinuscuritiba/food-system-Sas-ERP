@@ -1,14 +1,22 @@
 import {
-  Controller, Get, Post, Patch, Delete,
-  Param, Body, Query, Request, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard }  from '@/common/guards/jwt-auth.guard';
-import { RolesGuard }    from '@/common/guards/roles.guard';
-import { Roles }         from '@/common/decorators/roles.decorator';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { PrintersService } from './printers.service';
 import { CreatePrinterDto } from './dto/create-printer.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
-import { PrintJobStatus }   from '@prisma/client';
+import { PrintJobStatus } from '@prisma/client';
 
 @Controller('printers')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,7 +42,11 @@ export class PrintersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<CreatePrinterDto>, @Request() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreatePrinterDto>,
+    @Request() req: any,
+  ) {
     return this.service.update(id, req.user.companyId, dto);
   }
 
@@ -73,6 +85,11 @@ export class PrintersController {
     @Body() body: { status: PrintJobStatus; failReason?: string },
     @Request() req: any,
   ) {
-    return this.service.updateJobStatus(id, req.user.companyId, body.status, body.failReason);
+    return this.service.updateJobStatus(
+      id,
+      req.user.companyId,
+      body.status,
+      body.failReason,
+    );
   }
 }

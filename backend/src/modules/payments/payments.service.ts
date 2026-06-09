@@ -22,8 +22,8 @@ export interface CreateCheckoutDto {
 }
 
 const PLAN_PRICES: Record<string, { amount: number; label: string }> = {
-  BASIC:      { amount: 9700,  label: 'Plano Básico — FoodSaaS' },
-  DELIVERY:   { amount: 19700, label: 'Plano Profissional — FoodSaaS' },
+  BASIC: { amount: 9700, label: 'Plano Básico — FoodSaaS' },
+  DELIVERY: { amount: 19700, label: 'Plano Profissional — FoodSaaS' },
   ENTERPRISE: { amount: 39700, label: 'Plano Enterprise — FoodSaaS' },
 };
 
@@ -34,44 +34,64 @@ export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
 
   constructor(
-    private readonly prisma:         PrismaService,
-    private readonly config:         ConfigService,
-    private readonly notifications:  NotificationsService,
-    private readonly socket:         SocketGateway,
-    private readonly onlineOrders:   OnlineOrdersService,
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
+    private readonly socket: SocketGateway,
+    private readonly onlineOrders: OnlineOrdersService,
   ) {}
 
   // ─── Subscription checkout ─────────────────────────────────────────────────
 
-  async createCheckout(dto: CreateCheckoutDto): Promise<{ checkoutUrl: string; paymentId: string }> {
+  async createCheckout(
+    dto: CreateCheckoutDto,
+  ): Promise<{ checkoutUrl: string; paymentId: string }> {
     const planData = PLAN_PRICES[dto.plan];
     if (!planData) throw new BadRequestException('Plano inválido.');
 
-    const company = await this.prisma.company.findUnique({ where: { id: dto.companyId } });
+    const company = await this.prisma.company.findUnique({
+      where: { id: dto.companyId },
+    });
     if (!company) throw new BadRequestException('Empresa não encontrada.');
 
-    if (dto.provider === 'MERCADO_PAGO') return this.createMercadoPagoCheckout(dto, planData, company);
+    if (dto.provider === 'MERCADO_PAGO')
+      return this.createMercadoPagoCheckout(dto, planData, company);
     return this.createStripeCheckout(dto, planData, company);
   }
 
-  private async createMercadoPagoCheckout(dto: CreateCheckoutDto, planData: { amount: number; label: string }, company: any) {
+  private async createMercadoPagoCheckout(
+    dto: CreateCheckoutDto,
+    planData: { amount: number; label: string },
+    company: any,
+  ) {
     const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const backendUrl  = this.config.get<string>('BACKEND_URL')  || 'http://localhost:3001';
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const backendUrl =
+      this.config.get<string>('BACKEND_URL') || 'http://localhost:3001';
 
     if (!accessToken) {
       this.logger.warn('MERCADOPAGO_ACCESS_TOKEN not configured.');
       return {
         checkoutUrl: `${frontendUrl}/pagamento/sucesso?plan=${dto.plan}&companyId=${dto.companyId}&mock=1`,
-        paymentId:   `mock_mp_${Date.now()}`,
+        paymentId: `mock_mp_${Date.now()}`,
       };
     }
 
     const body = {
-      items: [{ title: planData.label, quantity: 1, unit_price: planData.amount / 100, currency_id: 'BRL' }],
+      items: [
+        {
+          title: planData.label,
+          quantity: 1,
+          unit_price: planData.amount / 100,
+          currency_id: 'BRL',
+        },
+      ],
       back_urls: {
-        success: dto.successUrl || `${frontendUrl}/pagamento/sucesso?plan=${dto.plan}&companyId=${dto.companyId}`,
-        failure: dto.cancelUrl  || `${frontendUrl}/pagamento/cancelado`,
+        success:
+          dto.successUrl ||
+          `${frontendUrl}/pagamento/sucesso?plan=${dto.plan}&companyId=${dto.companyId}`,
+        failure: dto.cancelUrl || `${frontendUrl}/pagamento/cancelado`,
         pending: `${frontendUrl}/pagamento/pendente`,
       },
       auto_return: 'approved',
@@ -80,11 +100,17 @@ export class PaymentsService {
       metadata: { companyId: dto.companyId, plan: dto.plan },
     };
 
-    const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify(body),
-    });
+    const response = await fetch(
+      'https://api.mercadopago.com/checkout/preferences',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      },
+    );
 
     if (!response.ok) {
       const err = await response.text();
@@ -96,15 +122,20 @@ export class PaymentsService {
     return { checkoutUrl: data.init_point, paymentId: data.id };
   }
 
-  private async createStripeCheckout(dto: CreateCheckoutDto, planData: { amount: number; label: string }, company: any) {
-    const secretKey  = this.config.get<string>('STRIPE_SECRET_KEY');
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+  private async createStripeCheckout(
+    dto: CreateCheckoutDto,
+    planData: { amount: number; label: string },
+    company: any,
+  ) {
+    const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
     if (!secretKey) {
       this.logger.warn('STRIPE_SECRET_KEY not configured.');
       return {
         checkoutUrl: `${frontendUrl}/pagamento/sucesso?plan=${dto.plan}&companyId=${dto.companyId}&mock=1`,
-        paymentId:   `mock_stripe_${Date.now()}`,
+        paymentId: `mock_stripe_${Date.now()}`,
       };
     }
 
@@ -115,17 +146,25 @@ export class PaymentsService {
       'line_items[0][price_data][unit_amount]': String(planData.amount),
       'line_items[0][quantity]': '1',
       mode: 'payment',
-      success_url: dto.successUrl || `${frontendUrl}/pagamento/sucesso?plan=${dto.plan}&companyId=${dto.companyId}`,
-      cancel_url:  dto.cancelUrl  || `${frontendUrl}/pagamento/cancelado`,
+      success_url:
+        dto.successUrl ||
+        `${frontendUrl}/pagamento/sucesso?plan=${dto.plan}&companyId=${dto.companyId}`,
+      cancel_url: dto.cancelUrl || `${frontendUrl}/pagamento/cancelado`,
       'metadata[companyId]': dto.companyId,
-      'metadata[plan]':      dto.plan,
+      'metadata[plan]': dto.plan,
     });
 
-    const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Bearer ${secretKey}` },
-      body: params.toString(),
-    });
+    const response = await fetch(
+      'https://api.stripe.com/v1/checkout/sessions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Bearer ${secretKey}`,
+        },
+        body: params.toString(),
+      },
+    );
 
     if (!response.ok) {
       const err = await response.text();
@@ -147,23 +186,30 @@ export class PaymentsService {
     }
 
     const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
-    const backendUrl  = this.config.get<string>('BACKEND_URL') || 'http://localhost:3001';
+    const backendUrl =
+      this.config.get<string>('BACKEND_URL') || 'http://localhost:3001';
 
     if (!accessToken) {
-      this.logger.warn('MERCADOPAGO_ACCESS_TOKEN not configured — returning mock PIX.');
-      const mockExpires = new Date(Date.now() + PIX_EXPIRATION_MINUTES * 60_000);
+      this.logger.warn(
+        'MERCADOPAGO_ACCESS_TOKEN not configured — returning mock PIX.',
+      );
+      const mockExpires = new Date(
+        Date.now() + PIX_EXPIRATION_MINUTES * 60_000,
+      );
       await this.onlineOrders.updatePayment(onlineOrderId, {
-        mercadopagoPaymentId:    `mock_pix_${Date.now()}`,
-        pixQrcode:               undefined,
-        pixCopyPaste:            '00020101021226580014BR.GOV.BCB.PIX0136mock-pix-key-for-testing5204000053039865802BR5925MOCK RESTAURANTE TEST6009SAO PAULO62140510mock12345630461C3',
-        pixExpiresAt:            mockExpires,
+        mercadopagoPaymentId: `mock_pix_${Date.now()}`,
+        pixQrcode: undefined,
+        pixCopyPaste:
+          '00020101021226580014BR.GOV.BCB.PIX0136mock-pix-key-for-testing5204000053039865802BR5925MOCK RESTAURANTE TEST6009SAO PAULO62140510mock12345630461C3',
+        pixExpiresAt: mockExpires,
       });
       return {
-        pixCopyPaste: '00020101021226580014BR.GOV.BCB.PIX0136mock-pix-key-for-testing5204000053039865802BR5925MOCK RESTAURANTE TEST6009SAO PAULO62140510mock12345630461C3',
-        pixQrcode:    null,
-        expiresAt:    mockExpires,
-        paymentId:    `mock_pix_${Date.now()}`,
-        mock:         true,
+        pixCopyPaste:
+          '00020101021226580014BR.GOV.BCB.PIX0136mock-pix-key-for-testing5204000053039865802BR5925MOCK RESTAURANTE TEST6009SAO PAULO62140510mock12345630461C3',
+        pixQrcode: null,
+        expiresAt: mockExpires,
+        paymentId: `mock_pix_${Date.now()}`,
+        mock: true,
       };
     }
 
@@ -171,34 +217,40 @@ export class PaymentsService {
     const expiresIso = expiresAt.toISOString().replace('Z', '-03:00');
 
     const itemsArr: any[] = Array.isArray(order.items) ? order.items : [];
-    const description = itemsArr.length > 0
-      ? itemsArr.map((i: any) => i.productName || i.name || 'Item').join(', ').slice(0, 100)
-      : `Pedido online #${order.id.slice(-6).toUpperCase()}`;
+    const description =
+      itemsArr.length > 0
+        ? itemsArr
+            .map((i: any) => i.productName || i.name || 'Item')
+            .join(', ')
+            .slice(0, 100)
+        : `Pedido online #${order.id.slice(-6).toUpperCase()}`;
 
-    const payerEmail = order.customerEmail || `${order.customerPhone.replace(/\D/g, '')}@pedido.app`;
-    const nameParts  = order.customerName.trim().split(' ');
-    const firstName  = nameParts[0] || 'Cliente';
-    const lastName   = nameParts.slice(1).join(' ') || 'Online';
+    const payerEmail =
+      order.customerEmail ||
+      `${order.customerPhone.replace(/\D/g, '')}@pedido.app`;
+    const nameParts = order.customerName.trim().split(' ');
+    const firstName = nameParts[0] || 'Cliente';
+    const lastName = nameParts.slice(1).join(' ') || 'Online';
 
     const body = {
       transaction_amount: Number(order.total),
       description,
-      payment_method_id:  'pix',
+      payment_method_id: 'pix',
       date_of_expiration: expiresIso,
-      notification_url:   `${backendUrl}/api/payments/webhook/online-order`,
+      notification_url: `${backendUrl}/api/payments/webhook/online-order`,
       external_reference: `ONLINE_ORDER|${order.id}|${companyId}`,
       payer: {
-        email:      payerEmail,
+        email: payerEmail,
         first_name: firstName,
-        last_name:  lastName,
+        last_name: lastName,
       },
     };
 
     const response = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
-        'Content-Type':  'application/json',
-        Authorization:   `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
         'X-Idempotency-Key': `pix-${order.id}`,
       },
       body: JSON.stringify(body),
@@ -211,15 +263,15 @@ export class PaymentsService {
     }
 
     const mp: any = await response.json();
-    const txData   = mp.point_of_interaction?.transaction_data;
-    const pixCopyPaste = txData?.qr_code        || undefined;
-    const pixQrcode    = txData?.qr_code_base64  || undefined;
+    const txData = mp.point_of_interaction?.transaction_data;
+    const pixCopyPaste = txData?.qr_code || undefined;
+    const pixQrcode = txData?.qr_code_base64 || undefined;
 
     await this.onlineOrders.updatePayment(onlineOrderId, {
-      mercadopagoPaymentId:    String(mp.id),
+      mercadopagoPaymentId: String(mp.id),
       pixQrcode,
       pixCopyPaste,
-      pixExpiresAt:            expiresAt,
+      pixExpiresAt: expiresAt,
     });
 
     this.logger.log(`PIX created: mpId=${mp.id} order=${onlineOrderId}`);
@@ -229,7 +281,7 @@ export class PaymentsService {
       pixQrcode,
       expiresAt,
       paymentId: String(mp.id),
-      mock:      false,
+      mock: false,
     };
   }
 
@@ -239,8 +291,8 @@ export class PaymentsService {
     const order = await this.onlineOrders.findOne(onlineOrderId, companyId);
     return {
       paymentStatus: order.paymentStatus,
-      orderStatus:   order.orderStatus,
-      paidAt:        order.paidAt,
+      orderStatus: order.orderStatus,
+      paidAt: order.paidAt,
     };
   }
 
@@ -259,13 +311,22 @@ export class PaymentsService {
     // https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
     const secret = this.config.get<string>('MP_WEBHOOK_SECRET');
     if (secret) {
-      const valid = this.verifyMpSignature(String(mpPaymentId), xSignature ?? '', xRequestId ?? '', secret);
+      const valid = this.verifyMpSignature(
+        String(mpPaymentId),
+        xSignature ?? '',
+        xRequestId ?? '',
+        secret,
+      );
       if (!valid) {
-        this.logger.warn(`[MP Webhook] Rejected — invalid signature for eventId=${mpPaymentId}`);
+        this.logger.warn(
+          `[MP Webhook] Rejected — invalid signature for eventId=${mpPaymentId}`,
+        );
         throw new UnauthorizedException('Invalid webhook signature.');
       }
     } else {
-      this.logger.warn('[MP Webhook] MP_WEBHOOK_SECRET not configured — signature check skipped (dev mode)');
+      this.logger.warn(
+        '[MP Webhook] MP_WEBHOOK_SECRET not configured — signature check skipped (dev mode)',
+      );
     }
 
     const eventId = String(mpPaymentId);
@@ -281,9 +342,14 @@ export class PaymentsService {
 
     // Log raw webhook
     await this.prisma.paymentWebhook.upsert({
-      where:  { gateway_eventId: { gateway: 'MERCADOPAGO', eventId } },
+      where: { gateway_eventId: { gateway: 'MERCADOPAGO', eventId } },
       update: { payload: body as any },
-      create: { gateway: 'MERCADOPAGO', eventId, event: body?.type || 'payment', payload: body as any },
+      create: {
+        gateway: 'MERCADOPAGO',
+        eventId,
+        event: body?.type || 'payment',
+        payload: body as any,
+      },
     });
 
     const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
@@ -291,9 +357,12 @@ export class PaymentsService {
 
     let mp: any;
     try {
-      const res = await fetch(`https://api.mercadopago.com/v1/payments/${mpPaymentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await fetch(
+        `https://api.mercadopago.com/v1/payments/${mpPaymentId}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
       mp = await res.json();
     } catch (err) {
       this.logger.error(`Failed to fetch MP payment: ${err}`);
@@ -308,9 +377,13 @@ export class PaymentsService {
 
     const mpStatus: string = mp.status;
     const paymentStatus =
-      mpStatus === 'approved' ? 'APPROVED' :
-      mpStatus === 'rejected' ? 'REJECTED' :
-      mpStatus === 'cancelled' ? 'EXPIRED' : 'PENDING';
+      mpStatus === 'approved'
+        ? 'APPROVED'
+        : mpStatus === 'rejected'
+          ? 'REJECTED'
+          : mpStatus === 'cancelled'
+            ? 'EXPIRED'
+            : 'PENDING';
 
     await this.onlineOrders.updatePayment(onlineOrderId, {
       paymentStatus: paymentStatus as any,
@@ -321,29 +394,43 @@ export class PaymentsService {
     if (paymentStatus === 'APPROVED') {
       await this.onlineOrders.updateOrderStatus(onlineOrderId, 'CONFIRMED');
       // → Kitchen / dashboard (company room)
-      this.socket.emitOnlineOrderPaid(companyId, { onlineOrderId, paymentStatus, orderStatus: 'CONFIRMED' });
+      this.socket.emitOnlineOrderPaid(companyId, {
+        onlineOrderId,
+        paymentStatus,
+        orderStatus: 'CONFIRMED',
+      });
       // → Customer tracking page (order room — /pedido/confirmado listens here)
-      this.socket.emitOrderStatusChanged(onlineOrderId, { status: 'CONFIRMED', source: 'PAYMENT' });
-      this.logger.log(`OnlineOrder ${onlineOrderId} PAID — emitting to company ${companyId} and order room`);
+      this.socket.emitOrderStatusChanged(onlineOrderId, {
+        status: 'CONFIRMED',
+        source: 'PAYMENT',
+      });
+      this.logger.log(
+        `OnlineOrder ${onlineOrderId} PAID — emitting to company ${companyId} and order room`,
+      );
 
       // → Payment confirmed email to customer (fire-and-forget)
-      this.onlineOrders.findOne(onlineOrderId, companyId).then((o) => {
-        if (!o.customerEmail) return;
-        return this.notifications.send({
-          to:   o.customerEmail,
-          type: 'ORDER_STATUS',
-          data: {
-            orderId: onlineOrderId.slice(-8).toUpperCase(),
-            status:  'Pagamento confirmado — pedido em preparo',
-          },
-        });
-      }).catch((e: any) => this.logger.warn(`[OnlineOrderWebhook] email failed: ${e?.message}`));
+      this.onlineOrders
+        .findOne(onlineOrderId, companyId)
+        .then((o) => {
+          if (!o.customerEmail) return;
+          return this.notifications.send({
+            to: o.customerEmail,
+            type: 'ORDER_STATUS',
+            data: {
+              orderId: onlineOrderId.slice(-8).toUpperCase(),
+              status: 'Pagamento confirmado — pedido em preparo',
+            },
+          });
+        })
+        .catch((e: any) =>
+          this.logger.warn(`[OnlineOrderWebhook] email failed: ${e?.message}`),
+        );
     }
 
     // Mark webhook as processed
     await this.prisma.paymentWebhook.update({
-      where:  { gateway_eventId: { gateway: 'MERCADOPAGO', eventId } },
-      data:   { processed: true, companyId },
+      where: { gateway_eventId: { gateway: 'MERCADOPAGO', eventId } },
+      data: { processed: true, companyId },
     });
   }
 
@@ -356,9 +443,12 @@ export class PaymentsService {
     const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
     if (!accessToken) return;
 
-    const res     = await fetch(`https://api.mercadopago.com/v1/payments/${body.data.id}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetch(
+      `https://api.mercadopago.com/v1/payments/${body.data.id}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
     const payment: any = await res.json();
 
     if (payment.status === 'approved') {
@@ -386,26 +476,39 @@ export class PaymentsService {
 
   // ─── Legacy order checkout (PDV) ───────────────────────────────────────────
 
-  async createOrderCheckout(dto: { orderId: string; companyId: string }): Promise<{ checkoutUrl: string; paymentId: string }> {
-    const order = await this.prisma.order.findUnique({ where: { id: dto.orderId }, include: { items: true } });
-    if (!order || order.companyId !== dto.companyId) throw new BadRequestException('Pedido não encontrado.');
+  async createOrderCheckout(dto: {
+    orderId: string;
+    companyId: string;
+  }): Promise<{ checkoutUrl: string; paymentId: string }> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: dto.orderId },
+      include: { items: true },
+    });
+    if (!order || order.companyId !== dto.companyId)
+      throw new BadRequestException('Pedido não encontrado.');
 
     const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const backendUrl  = this.config.get<string>('BACKEND_URL')  || 'http://localhost:3001';
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const backendUrl =
+      this.config.get<string>('BACKEND_URL') || 'http://localhost:3001';
 
     let checkoutUrl: string;
     let externalId: string;
 
     if (!accessToken) {
-      this.logger.warn('MERCADOPAGO_ACCESS_TOKEN not configured — mock order checkout.');
-      externalId  = `mock_order_${Date.now()}`;
+      this.logger.warn(
+        'MERCADOPAGO_ACCESS_TOKEN not configured — mock order checkout.',
+      );
+      externalId = `mock_order_${Date.now()}`;
       checkoutUrl = `${frontendUrl}/pedido/confirmado?orderId=${dto.orderId}&mock=1`;
     } else {
       const body = {
         items: order.items.map((item) => ({
-          title: item.productName, quantity: Number(item.quantity),
-          unit_price: Number(item.unitPrice), currency_id: 'BRL',
+          title: item.productName,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unitPrice),
+          currency_id: 'BRL',
         })),
         back_urls: {
           success: `${frontendUrl}/pedido/confirmado?orderId=${dto.orderId}`,
@@ -417,11 +520,17 @@ export class PaymentsService {
         external_reference: `ORDER|${dto.orderId}|${dto.companyId}`,
       };
 
-      const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch(
+        'https://api.mercadopago.com/checkout/preferences',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(body),
+        },
+      );
 
       if (!res.ok) {
         const err = await res.text();
@@ -431,11 +540,18 @@ export class PaymentsService {
 
       const data: any = await res.json();
       checkoutUrl = data.init_point;
-      externalId  = data.id;
+      externalId = data.id;
     }
 
     const payment = await this.prisma.payment.create({
-      data: { orderId: dto.orderId, companyId: dto.companyId, externalId, status: 'PENDING', provider: 'MERCADO_PAGO', amount: order.total },
+      data: {
+        orderId: dto.orderId,
+        companyId: dto.companyId,
+        externalId,
+        status: 'PENDING',
+        provider: 'MERCADO_PAGO',
+        amount: order.total,
+      },
     });
 
     return { checkoutUrl, paymentId: payment.id };
@@ -448,21 +564,33 @@ export class PaymentsService {
     const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
     if (!accessToken) return;
 
-    const res = await fetch(`https://api.mercadopago.com/v1/payments/${body.data.id}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetch(
+      `https://api.mercadopago.com/v1/payments/${body.data.id}`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    );
     const mpPayment: any = await res.json();
     const parts = (mpPayment.external_reference || '').split('|');
     if (parts[0] !== 'ORDER' || !parts[1]) return;
 
     const [, orderId, companyId] = parts;
     const status: 'APPROVED' | 'REJECTED' | 'PENDING' =
-      mpPayment.status === 'approved' ? 'APPROVED' :
-      mpPayment.status === 'rejected' ? 'REJECTED' : 'PENDING';
+      mpPayment.status === 'approved'
+        ? 'APPROVED'
+        : mpPayment.status === 'rejected'
+          ? 'REJECTED'
+          : 'PENDING';
 
-    await this.prisma.payment.updateMany({ where: { orderId, companyId }, data: { status, externalId: String(body.data.id) } });
+    await this.prisma.payment.updateMany({
+      where: { orderId, companyId },
+      data: { status, externalId: String(body.data.id) },
+    });
     if (status === 'APPROVED') {
-      await this.prisma.order.update({ where: { id: orderId }, data: { status: 'CONFIRMED' } });
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'CONFIRMED' },
+      });
       this.logger.log(`Order ${orderId} confirmed via payment webhook.`);
     }
   }
@@ -475,23 +603,25 @@ export class PaymentsService {
 
     await this.prisma.company.update({
       where: { id: companyId },
-      data:  { plan, subscriptionStatus: 'ACTIVE', dueDate, isBlocked: false },
+      data: { plan, subscriptionStatus: 'ACTIVE', dueDate, isBlocked: false },
     });
 
     const company = await this.prisma.company.findUnique({
-      where:   { id: companyId },
+      where: { id: companyId },
       include: { users: { where: { role: 'ADMIN' }, take: 1 } },
     });
 
     if (company?.users?.[0]?.email) {
       await this.notifications.send({
-        to:   company.users[0].email,
+        to: company.users[0].email,
         type: 'PAYMENT_CONFIRMED',
         data: { plan, dueDate: dueDate.toLocaleDateString('pt-BR') },
       });
     }
 
-    this.logger.log(`Subscription activated: company=${companyId} plan=${plan}`);
+    this.logger.log(
+      `Subscription activated: company=${companyId} plan=${plan}`,
+    );
   }
 
   // ─── MercadoPago webhook signature verification ────────────────────────────
@@ -520,7 +650,9 @@ export class PaymentsService {
     if (!ts || !v1) return false;
 
     const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-    const computed = createHmac('sha256', secret).update(manifest).digest('hex');
+    const computed = createHmac('sha256', secret)
+      .update(manifest)
+      .digest('hex');
 
     // Constant-time comparison to prevent timing attacks
     return timingSafeEqual(Buffer.from(computed), Buffer.from(v1));

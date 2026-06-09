@@ -1,6 +1,14 @@
 import {
-  Body, Controller, Get, Headers, Param, Post, Query,
-  RawBodyRequest, Req, UseGuards,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  RawBodyRequest,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -13,7 +21,16 @@ export class PaymentsController {
 
   @Post('checkout')
   @UseGuards(JwtAuthGuard)
-  createCheckout(@Body() body: { companyId: string; plan: string; provider: 'MERCADO_PAGO' | 'STRIPE'; successUrl?: string; cancelUrl?: string }) {
+  createCheckout(
+    @Body()
+    body: {
+      companyId: string;
+      plan: string;
+      provider: 'MERCADO_PAGO' | 'STRIPE';
+      successUrl?: string;
+      cancelUrl?: string;
+    },
+  ) {
     return this.service.createCheckout(body);
   }
 
@@ -36,10 +53,7 @@ export class PaymentsController {
 
   /** Public — poll payment status */
   @Get('status/:id')
-  getStatus(
-    @Param('id') id: string,
-    @Query('companyId') companyId: string,
-  ) {
+  getStatus(@Param('id') id: string, @Query('companyId') companyId: string) {
     return this.service.getOnlinePaymentStatus(id, companyId);
   }
 
@@ -50,10 +64,15 @@ export class PaymentsController {
   webhookOnlineOrder(
     @Body() body: any,
     @Query() query: any,
-    @Headers('x-signature')   xSignature: string,
-    @Headers('x-request-id')  xRequestId: string,
+    @Headers('x-signature') xSignature: string,
+    @Headers('x-request-id') xRequestId: string,
   ) {
-    return this.service.handleOnlineOrderWebhook(body, query, xSignature, xRequestId);
+    return this.service.handleOnlineOrderWebhook(
+      body,
+      query,
+      xSignature,
+      xRequestId,
+    );
   }
 
   /** Webhook for subscription plans */

@@ -1,21 +1,14 @@
-import { Module } from '@nestjs/common'
+import { Module } from '@nestjs/common';
 
-import { PrismaModule } from '@/database/prisma.module'
+import { PrismaModule } from '@/database/prisma.module';
 
-import { AuditService } from './audit.service'
+import { AuditService } from './audit.service';
 
 @Module({
+  imports: [PrismaModule],
 
-  imports: [
-    PrismaModule,
-  ],
+  providers: [AuditService],
 
-  providers: [
-    AuditService,
-  ],
-
-  exports: [
-    AuditService,
-  ],
+  exports: [AuditService],
 })
 export class AuditModule {}

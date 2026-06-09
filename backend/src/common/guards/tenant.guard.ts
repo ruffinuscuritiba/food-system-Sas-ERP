@@ -4,9 +4,9 @@ import {
   ForbiddenException,
   Injectable,
   UnauthorizedException,
-} from '@nestjs/common'
+} from '@nestjs/common';
 
-import { PrismaService } from '@/database/prisma.service'
+import { PrismaService } from '@/database/prisma.service';
 
 /**
  * Validates tenant (company) is active and the JWT's companyId is legitimate.
@@ -19,28 +19,30 @@ export class TenantGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest()
-    const user = req.user
+    const req = context.switchToHttp().getRequest();
+    const user = req.user;
 
     if (!user?.companyId) {
-      throw new UnauthorizedException('Token sem tenant associado')
+      throw new UnauthorizedException('Token sem tenant associado');
     }
 
     const company = await this.prisma.company.findUnique({
       where: { id: user.companyId },
       select: { id: true, isBlocked: true, subscriptionStatus: true },
-    })
+    });
 
     if (!company) {
-      throw new ForbiddenException('Empresa não encontrada')
+      throw new ForbiddenException('Empresa não encontrada');
     }
 
     if (company.isBlocked) {
-      throw new ForbiddenException('Empresa bloqueada — verifique sua assinatura')
+      throw new ForbiddenException(
+        'Empresa bloqueada — verifique sua assinatura',
+      );
     }
 
-    req.tenantId = company.id
+    req.tenantId = company.id;
 
-    return true
+    return true;
   }
 }

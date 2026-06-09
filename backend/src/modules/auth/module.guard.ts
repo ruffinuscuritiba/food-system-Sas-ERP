@@ -17,17 +17,17 @@ import { PrismaService } from 'src/database/prisma.service';
  * PROFESSIONAL / DELIVERY → aliases para PRO (empresas legadas)
  */
 const PLAN_INCLUDES: Record<string, string[]> = {
-  BASIC:        ['TABLES', 'CASH'],
-  PRO:          ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
+  BASIC: ['TABLES', 'CASH'],
+  PRO: ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
   PROFESSIONAL: ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
-  ENTERPRISE:   ['*'],
-  DELIVERY:     ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
+  ENTERPRISE: ['*'],
+  DELIVERY: ['TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY'],
 };
 
 @Injectable()
 export class ModuleGuard implements CanActivate {
   constructor(
-    private prisma:    PrismaService,
+    private prisma: PrismaService,
     private reflector: Reflector,
   ) {}
 

@@ -14,13 +14,17 @@ export class CompanyModuleService {
 
   async getCompanyModules(companyId: string) {
     const [catalog, companyModules] = await Promise.all([
-      this.prisma.module.findMany({ where: { isActive: true }, orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }] }),
+      this.prisma.module.findMany({
+        where: { isActive: true },
+        orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
+      }),
       this.prisma.companyModule.findMany({ where: { companyId } }),
     ]);
 
     return catalog.map((mod) => {
       const cm = companyModules.find((cm) => cm.moduleSlug === mod.slug);
-      const isTrialExpired = cm?.status === 'TRIAL' && cm.trialEndsAt && new Date() > cm.trialEndsAt;
+      const isTrialExpired =
+        cm?.status === 'TRIAL' && cm.trialEndsAt && new Date() > cm.trialEndsAt;
       return {
         ...mod,
         companyModuleId: cm?.id ?? null,
@@ -61,7 +65,12 @@ export class CompanyModuleService {
   async activateModule(companyId: string, moduleSlug: string) {
     return this.prisma.companyModule.upsert({
       where: { id: `cm-${moduleSlug}-${companyId}` },
-      update: { status: 'ACTIVE', active: true, activatedAt: new Date(), trialEndsAt: null },
+      update: {
+        status: 'ACTIVE',
+        active: true,
+        activatedAt: new Date(),
+        trialEndsAt: null,
+      },
       create: {
         id: `cm-${moduleSlug}-${companyId}`,
         module: moduleSlug.toUpperCase(),
@@ -82,7 +91,9 @@ export class CompanyModuleService {
   }
 
   findAll() {
-    return this.prisma.companyModule.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.companyModule.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   create(data: any) {

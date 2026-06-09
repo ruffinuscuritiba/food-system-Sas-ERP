@@ -48,14 +48,20 @@ export class PizzaBordersService {
   }
 
   async update(id: string, companyId: string, dto: UpdateBorderDto) {
-    const border = await this.prisma.pizzaBorder.findFirst({ where: { id, companyId } });
+    const border = await this.prisma.pizzaBorder.findFirst({
+      where: { id, companyId },
+    });
     if (!border) throw new NotFoundException('Borda não encontrada');
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.sizes !== undefined) {
         await tx.pizzaBorderSize.deleteMany({ where: { pizzaBorderId: id } });
         await tx.pizzaBorderSize.createMany({
-          data: dto.sizes.map((s) => ({ pizzaBorderId: id, size: s.size, price: s.price })),
+          data: dto.sizes.map((s) => ({
+            pizzaBorderId: id,
+            size: s.size,
+            price: s.price,
+          })),
         });
       }
 
@@ -71,7 +77,9 @@ export class PizzaBordersService {
   }
 
   async remove(id: string, companyId: string) {
-    const border = await this.prisma.pizzaBorder.findFirst({ where: { id, companyId } });
+    const border = await this.prisma.pizzaBorder.findFirst({
+      where: { id, companyId },
+    });
     if (!border) throw new NotFoundException('Borda não encontrada');
     return this.prisma.pizzaBorder.delete({ where: { id } });
   }

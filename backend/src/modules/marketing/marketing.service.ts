@@ -2,14 +2,15 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { GenerateCampaignDto } from './dto/generate-campaign.dto';
 
 export interface CampaignResult {
-  nome_campanha:    string;
-  copy_whatsapp:    string;
+  nome_campanha: string;
+  copy_whatsapp: string;
   sugestao_publico: string;
-  melhor_horario:   string;
-  insight_ia:       string;
+  melhor_horario: string;
+  insight_ia: string;
 }
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models';
 
 @Injectable()
 export class MarketingService {
@@ -19,11 +20,13 @@ export class MarketingService {
     const prompt = this.buildPrompt(dto);
 
     // Gemini text-only call with JSON mode
-    const apiKey   = process.env.GEMINI_API_KEY;
-    const model    = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
+    const apiKey = process.env.GEMINI_API_KEY;
+    const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
 
     if (!apiKey) {
-      throw new BadRequestException('GEMINI_API_KEY não configurada no servidor.');
+      throw new BadRequestException(
+        'GEMINI_API_KEY não configurada no servidor.',
+      );
     }
 
     const url = `${GEMINI_API_URL}/${model}:generateContent?key=${apiKey}`;
@@ -32,7 +35,7 @@ export class MarketingService {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         maxOutputTokens: 2048,
-        temperature:     0.7,   // Criativo mas coerente
+        temperature: 0.7, // Criativo mas coerente
         responseMimeType: 'application/json',
       },
     };
@@ -40,20 +43,24 @@ export class MarketingService {
     let res: Response;
     try {
       res = await fetch(url, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-        signal:  AbortSignal.timeout(60_000),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(60_000),
       });
     } catch (err: any) {
       this.logger.error('Gemini fetch error:', err?.message);
-      throw new BadRequestException('Falha ao conectar com a IA. Tente novamente.');
+      throw new BadRequestException(
+        'Falha ao conectar com a IA. Tente novamente.',
+      );
     }
 
     if (!res.ok) {
       const errText = await res.text();
       this.logger.error(`Gemini ${res.status}: ${errText.slice(0, 300)}`);
-      throw new BadRequestException(`Erro da IA (${res.status}). Tente novamente.`);
+      throw new BadRequestException(
+        `Erro da IA (${res.status}). Tente novamente.`,
+      );
     }
 
     const data = (await res.json()) as any;
@@ -61,7 +68,9 @@ export class MarketingService {
 
     if (!text) {
       const reason = data?.candidates?.[0]?.finishReason ?? 'unknown';
-      throw new BadRequestException(`IA retornou resposta vazia (motivo: ${reason}).`);
+      throw new BadRequestException(
+        `IA retornou resposta vazia (motivo: ${reason}).`,
+      );
     }
 
     try {
@@ -79,7 +88,9 @@ export class MarketingService {
       return parsed;
     } catch {
       this.logger.error('Falha ao parsear JSON da IA:', text.slice(0, 500));
-      throw new BadRequestException('A IA retornou um formato inesperado. Tente novamente.');
+      throw new BadRequestException(
+        'A IA retornou um formato inesperado. Tente novamente.',
+      );
     }
   }
 

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { CreatePrinterDto } from './dto/create-printer.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
@@ -52,7 +56,11 @@ export class PrintersService {
   findProfiles(companyId: string) {
     return this.prisma.printerProfile.findMany({
       where: { companyId },
-      include: { printer: { select: { name: true, connectionType: true, isOnline: true } } },
+      include: {
+        printer: {
+          select: { name: true, connectionType: true, isOnline: true },
+        },
+      },
     });
   }
 
@@ -70,7 +78,9 @@ export class PrintersService {
   }
 
   async removeProfile(id: string, companyId: string) {
-    const p = await this.prisma.printerProfile.findFirst({ where: { id, companyId } });
+    const p = await this.prisma.printerProfile.findFirst({
+      where: { id, companyId },
+    });
     if (!p) throw new NotFoundException('Perfil não encontrado');
     return this.prisma.printerProfile.delete({ where: { id } });
   }
@@ -86,8 +96,15 @@ export class PrintersService {
     });
   }
 
-  async updateJobStatus(id: string, companyId: string, status: PrintJobStatus, failReason?: string) {
-    const job = await this.prisma.printerJob.findFirst({ where: { id, companyId } });
+  async updateJobStatus(
+    id: string,
+    companyId: string,
+    status: PrintJobStatus,
+    failReason?: string,
+  ) {
+    const job = await this.prisma.printerJob.findFirst({
+      where: { id, companyId },
+    });
     if (!job) throw new NotFoundException('Job não encontrado');
     return this.prisma.printerJob.update({
       where: { id },
@@ -110,12 +127,12 @@ export class PrintersService {
   }) {
     return this.prisma.printerJob.create({
       data: {
-        companyId:  params.companyId,
-        printerId:  params.printerId,
-        orderId:    params.orderId,
-        template:   params.template,
-        payload:    params.payload,
-        status:     'PENDING',
+        companyId: params.companyId,
+        printerId: params.printerId,
+        orderId: params.orderId,
+        template: params.template,
+        payload: params.payload,
+        status: 'PENDING',
       },
     });
   }

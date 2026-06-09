@@ -3,10 +3,10 @@ import { Injectable, Logger } from '@nestjs/common';
 // ─── Tipos públicos ────────────────────────────────────────────────────────────
 
 export interface CartItem {
-  productId:  string;
-  nome:       string;
+  productId: string;
+  nome: string;
   quantidade: number;
-  preco:      number;
+  preco: number;
 }
 
 export type CartStep =
@@ -18,18 +18,18 @@ export type CartStep =
 
 export interface CartStatus {
   /** Objetos completos com productId — usados internamente para criar o Order */
-  itens:              CartItem[];
+  itens: CartItem[];
   /** Lista legível de nomes para exibição e histórico da conversa */
   itens_identificados: string[];
   /** Etapa atual do fluxo de atendimento */
-  etapa_atual:         CartStep;
+  etapa_atual: CartStep;
   /** true quando o pedido está confirmado e deve ser registrado no banco */
-  pedido_finalizado:   boolean;
-  endereco?:           string | null;
+  pedido_finalizado: boolean;
+  endereco?: string | null;
   /** Bairro extraído do endereço — somente quando o cliente informar explicitamente */
-  bairro?:             string | null;
-  telefone?:           string | null;
-  formaPagamento?:     string | null;
+  bairro?: string | null;
+  telefone?: string | null;
+  formaPagamento?: string | null;
 }
 
 export interface SolicitacaoPagamento {
@@ -40,8 +40,8 @@ export interface SolicitacaoPagamento {
 
 export interface StructuredResponse {
   resposta_para_o_cliente: string;
-  status_carrinho:         CartStatus;
-  solicitacao_pagamento?:  SolicitacaoPagamento;
+  status_carrinho: CartStatus;
+  solicitacao_pagamento?: SolicitacaoPagamento;
 }
 
 /**
@@ -67,15 +67,15 @@ export class ClaudeCartService {
   private readonly log = new Logger('ClaudeCartService');
 
   async chat(params: {
-    companyName:          string;
-    attendantName:        string;
-    menuContext:          string;
-    currentCart:          CartStatus;
-    conversationHistory:  { role: 'user' | 'assistant'; content: string }[];
-    deliveryContext?:     string;
+    companyName: string;
+    attendantName: string;
+    menuContext: string;
+    currentCart: CartStatus;
+    conversationHistory: { role: 'user' | 'assistant'; content: string }[];
+    deliveryContext?: string;
     pizzaBordersContext?: string;
-    businessHoursInfo?:  string;
-    paymentInfo?:         string;
+    businessHoursInfo?: string;
+    paymentInfo?: string;
   }): Promise<StructuredResponse> {
     const systemPrompt = this.buildSystemPrompt(params);
 
@@ -85,15 +85,22 @@ export class ClaudeCartService {
       try {
         return await this.chatAnthropic(anthropicKey, systemPrompt, params);
       } catch (err: any) {
-        this.log.warn(`ClaudeCartService: Anthropic falhou (${err?.message?.slice(0, 80)}) — tentando Gemini`);
+        this.log.warn(
+          `ClaudeCartService: Anthropic falhou (${err?.message?.slice(0, 80)}) — tentando Gemini`,
+        );
       }
     } else {
-      this.log.warn('ClaudeCartService: ANTHROPIC_API_KEY ausente — usando Gemini');
+      this.log.warn(
+        'ClaudeCartService: ANTHROPIC_API_KEY ausente — usando Gemini',
+      );
     }
 
     // Fallback: Gemini
     const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) throw new Error('ANTHROPIC_API_KEY e GEMINI_API_KEY ausentes — sem provedor disponível');
+    if (!geminiKey)
+      throw new Error(
+        'ANTHROPIC_API_KEY e GEMINI_API_KEY ausentes — sem provedor disponível',
+      );
 
     return this.chatGemini(geminiKey, systemPrompt, params);
   }
@@ -101,22 +108,25 @@ export class ClaudeCartService {
   private async chatAnthropic(
     apiKey: string,
     systemPrompt: string,
-    params: { currentCart: CartStatus; conversationHistory: { role: 'user' | 'assistant'; content: string }[] },
+    params: {
+      currentCart: CartStatus;
+      conversationHistory: { role: 'user' | 'assistant'; content: string }[];
+    },
   ): Promise<StructuredResponse> {
     const model = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6';
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:  'POST',
+      method: 'POST',
       headers: {
-        'Content-Type':      'application/json',
-        'x-api-key':         apiKey,
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model,
-        system:      systemPrompt,
-        messages:    params.conversationHistory,
-        max_tokens:  1024,
+        system: systemPrompt,
+        messages: params.conversationHistory,
+        max_tokens: 1024,
         temperature: 0.8,
       }),
       signal: AbortSignal.timeout(45_000),
@@ -124,10 +134,12 @@ export class ClaudeCartService {
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Anthropic API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      throw new Error(
+        `Anthropic API HTTP ${res.status}: ${errText.slice(0, 200)}`,
+      );
     }
 
-    const data    = (await res.json()) as any;
+    const data = (await res.json()) as any;
     const rawText = (data?.content?.[0]?.text ?? '') as string;
     return this.parseStructuredResponse(rawText, params.currentCart);
   }
@@ -135,28 +147,31 @@ export class ClaudeCartService {
   private async chatGemini(
     apiKey: string,
     systemPrompt: string,
-    params: { currentCart: CartStatus; conversationHistory: { role: 'user' | 'assistant'; content: string }[] },
+    params: {
+      currentCart: CartStatus;
+      conversationHistory: { role: 'user' | 'assistant'; content: string }[];
+    },
   ): Promise<StructuredResponse> {
     const model = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
 
     // Gemini usa role "model" para assistente
     const contents = params.conversationHistory.map((m) => ({
-      role:  m.role === 'assistant' ? 'model' : 'user',
+      role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     }));
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents,
           generationConfig: {
             responseMimeType: 'application/json',
-            maxOutputTokens:  1024,
-            temperature:      0.8,
+            maxOutputTokens: 1024,
+            temperature: 0.8,
           },
         }),
         signal: AbortSignal.timeout(60_000),
@@ -165,30 +180,33 @@ export class ClaudeCartService {
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Gemini API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      throw new Error(
+        `Gemini API HTTP ${res.status}: ${errText.slice(0, 200)}`,
+      );
     }
 
-    const data    = (await res.json()) as any;
-    const rawText = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '') as string;
+    const data = (await res.json()) as any;
+    const rawText = (data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      '') as string;
     return this.parseStructuredResponse(rawText, params.currentCart);
   }
 
   // ── System prompt — Persona Carol ─────────────────────────────────────────
 
   private buildSystemPrompt(params: {
-    companyName:          string;
-    attendantName:        string;
-    menuContext:          string;
-    currentCart:          CartStatus;
-    deliveryContext?:     string;
+    companyName: string;
+    attendantName: string;
+    menuContext: string;
+    currentCart: CartStatus;
+    deliveryContext?: string;
     pizzaBordersContext?: string;
-    businessHoursInfo?:  string;
-    paymentInfo?:         string;
+    businessHoursInfo?: string;
+    paymentInfo?: string;
   }): string {
-    const name        = params.attendantName || 'Carol';
-    const company     = params.companyName;
-    const cartJson    = JSON.stringify(params.currentCart, null, 2);
-    const cartItems   = params.currentCart.itens_identificados;
+    const name = params.attendantName || 'Carol';
+    const company = params.companyName;
+    const cartJson = JSON.stringify(params.currentCart, null, 2);
+    const cartItems = params.currentCart.itens_identificados;
     const cartSummary = cartItems.length
       ? `Itens no carrinho: ${cartItems.join(', ')}`
       : 'Carrinho ainda vazio.';
@@ -204,7 +222,9 @@ export class ClaudeCartService {
     const operationalSection = [
       params.businessHoursInfo ? `⏰ ${params.businessHoursInfo}` : '',
       params.paymentInfo ? `💳 ${params.paymentInfo}` : '',
-    ].filter(Boolean).join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     return `Você é ${name}, a atendente virtual da ${company}. Você é simpática, prestativa, humanizada e conhece completamente o cardápio, os preços, as zonas de entrega e as formas de pagamento da loja. Seu objetivo é atender o cliente com naturalidade — tirar dúvidas, sugerir produtos e anotar pedidos.
 
@@ -307,7 +327,10 @@ ${cartJson}
 
   // ── Parser da resposta ─────────────────────────────────────────────────────
 
-  private parseStructuredResponse(rawText: string, fallbackCart: CartStatus): StructuredResponse {
+  private parseStructuredResponse(
+    rawText: string,
+    fallbackCart: CartStatus,
+  ): StructuredResponse {
     const tryParse = (text: string): StructuredResponse | null => {
       try {
         const parsed = JSON.parse(text) as StructuredResponse;
@@ -318,9 +341,10 @@ ${cartJson}
         ) {
           // Garantir backward compat: se Claude omitir itens_identificados, derivar dos itens
           if (!Array.isArray(parsed.status_carrinho.itens_identificados)) {
-            parsed.status_carrinho.itens_identificados = parsed.status_carrinho.itens.map(
-              (i) => `${i.nome} x${i.quantidade}`,
-            );
+            parsed.status_carrinho.itens_identificados =
+              parsed.status_carrinho.itens.map(
+                (i) => `${i.nome} x${i.quantidade}`,
+              );
           }
           return parsed;
         }
@@ -340,9 +364,13 @@ ${cartJson}
     }
 
     // Fallback: preserva carrinho atual, usa texto bruto como resposta
-    this.log.warn(`ClaudeCartService: resposta não parseável — raw: "${rawText.slice(0, 80)}"`);
+    this.log.warn(
+      `ClaudeCartService: resposta não parseável — raw: "${rawText.slice(0, 80)}"`,
+    );
     return {
-      resposta_para_o_cliente: rawText.trim() || 'Desculpa, tive um probleminha aqui! Pode repetir? 🙏',
+      resposta_para_o_cliente:
+        rawText.trim() ||
+        'Desculpa, tive um probleminha aqui! Pode repetir? 🙏',
       status_carrinho: fallbackCart,
     };
   }
@@ -351,10 +379,10 @@ ${cartJson}
 
   static emptyCart(): CartStatus {
     return {
-      itens:              [],
+      itens: [],
       itens_identificados: [],
-      etapa_atual:         'saudacao',
-      pedido_finalizado:   false,
+      etapa_atual: 'saudacao',
+      pedido_finalizado: false,
     };
   }
 
@@ -365,7 +393,8 @@ ${cartJson}
   static formatCartSummary(cart: CartStatus): string {
     if (!cart.itens.length) return 'Carrinho vazio.';
     const lines = cart.itens.map(
-      (i) => `• ${i.quantidade}x ${i.nome} — R$${(i.preco * i.quantidade).toFixed(2)}`,
+      (i) =>
+        `• ${i.quantidade}x ${i.nome} — R$${(i.preco * i.quantidade).toFixed(2)}`,
     );
     const total = ClaudeCartService.cartTotal(cart);
     return lines.join('\n') + `\n*Total: R$${total.toFixed(2)}*`;

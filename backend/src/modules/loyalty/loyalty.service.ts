@@ -8,8 +8,8 @@ import { PrismaService } from '@/database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 // Regras configuráveis por loja (idealmente viria de Company settings)
-const POINTS_PER_REAL = 1;        // 1 ponto por R$ 1,00
-const CASHBACK_RATE = 0.02;       // 2% cashback
+const POINTS_PER_REAL = 1; // 1 ponto por R$ 1,00
+const CASHBACK_RATE = 0.02; // 2% cashback
 
 @Injectable()
 export class LoyaltyService {
@@ -25,7 +25,9 @@ export class LoyaltyService {
     orderAmount: number,
   ) {
     const points = Math.floor(orderAmount * POINTS_PER_REAL);
-    const cashback = new Decimal(orderAmount * CASHBACK_RATE).toDecimalPlaces(2);
+    const cashback = new Decimal(orderAmount * CASHBACK_RATE).toDecimalPlaces(
+      2,
+    );
 
     const account = await this.upsertAccount(customerId, companyId);
 
@@ -92,7 +94,8 @@ export class LoyaltyService {
     let discount = 0;
     if (coupon.type === 'PERCENTAGE') {
       discount = orderAmount * (Number(coupon.value) / 100);
-      if (coupon.maxDiscount) discount = Math.min(discount, Number(coupon.maxDiscount));
+      if (coupon.maxDiscount)
+        discount = Math.min(discount, Number(coupon.maxDiscount));
     } else if (coupon.type === 'FIXED_AMOUNT') {
       discount = Math.min(Number(coupon.value), orderAmount);
     }
@@ -116,7 +119,8 @@ export class LoyaltyService {
       where: { customerId_companyId: { customerId, companyId } },
     });
 
-    if (!account) throw new NotFoundException('Conta de fidelidade não encontrada');
+    if (!account)
+      throw new NotFoundException('Conta de fidelidade não encontrada');
     if (account.totalPoints < pointsToRedeem) {
       throw new BadRequestException(
         `Saldo insuficiente. Você tem ${account.totalPoints} pontos`,
@@ -124,7 +128,9 @@ export class LoyaltyService {
     }
 
     // 100 pontos = R$ 5,00
-    const discountValue = new Decimal(pointsToRedeem / 100 * 5).toDecimalPlaces(2);
+    const discountValue = new Decimal(
+      (pointsToRedeem / 100) * 5,
+    ).toDecimalPlaces(2);
 
     // Gera cupom temporário
     const couponCode = `PONTOS${Date.now().toString(36).toUpperCase()}`;

@@ -29,7 +29,7 @@ export class StorageService {
     } else {
       this.logger.warn(
         'Storage: CLOUDINARY_URL not set — falling back to base64 (DB storage). ' +
-        'Set CLOUDINARY_URL on Render for persistent CDN URLs.',
+          'Set CLOUDINARY_URL on Render for persistent CDN URLs.',
       );
     }
   }
@@ -40,7 +40,11 @@ export class StorageService {
    * @param mimeType MIME type string, e.g. "image/jpeg"
    * @param folder  Cloudinary folder name (ignored for base64 path)
    */
-  async upload(buffer: Buffer, mimeType: string, folder = 'food-system'): Promise<string> {
+  async upload(
+    buffer: Buffer,
+    mimeType: string,
+    folder = 'food-system',
+  ): Promise<string> {
     if (!buffer || buffer.length === 0) {
       throw new Error('Empty file received');
     }
@@ -59,18 +63,25 @@ export class StorageService {
         this.logger.log(`Storage: Cloudinary OK → ${url.slice(0, 80)}…`);
         return url;
       } catch (err: any) {
-        this.logger.error(`Storage: Cloudinary failed (${err?.message}) — falling back to base64`);
+        this.logger.error(
+          `Storage: Cloudinary failed (${err?.message}) — falling back to base64`,
+        );
       }
     }
 
     // ── 2. Base64 data URL ────────────────────────────────────────────────────
     const b64 = buffer.toString('base64');
     const dataUrl = `data:${mimeType};base64,${b64}`;
-    this.logger.log(`Storage: base64 data URL created (${(dataUrl.length / 1024).toFixed(0)} KB)`);
+    this.logger.log(
+      `Storage: base64 data URL created (${(dataUrl.length / 1024).toFixed(0)} KB)`,
+    );
     return dataUrl;
   }
 
-  private async uploadToCloudinary(buffer: Buffer, folder: string): Promise<string> {
+  private async uploadToCloudinary(
+    buffer: Buffer,
+    folder: string,
+  ): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const cloudinary = require('cloudinary').v2;
     cloudinary.config({ cloudinary_url: this.cloudinaryUrl });

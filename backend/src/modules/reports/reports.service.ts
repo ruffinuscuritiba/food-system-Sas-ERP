@@ -17,7 +17,13 @@ export interface RevenueReport {
   cancelledCount: number;
   byPaymentMethod: Record<string, number>;
   byType: { delivery: number; dineIn: number; pickup: number };
-  dailySeries: { date: string; revenue: number; cmv: number; profit: number; orders: number }[];
+  dailySeries: {
+    date: string;
+    revenue: number;
+    cmv: number;
+    profit: number;
+    orders: number;
+  }[];
 }
 
 export interface ProductRanking {
@@ -54,7 +60,10 @@ function toNum(d: Decimal | null | undefined): number {
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async getRevenue(companyId: string, range: DateRange): Promise<RevenueReport> {
+  async getRevenue(
+    companyId: string,
+    range: DateRange,
+  ): Promise<RevenueReport> {
     const orders = await this.prisma.order.findMany({
       where: {
         companyId,
@@ -73,10 +82,14 @@ export class ReportsService {
       },
     });
 
-    let totalRevenue = 0, totalCmv = 0;
+    let totalRevenue = 0,
+      totalCmv = 0;
     const byPaymentMethod: Record<string, number> = {};
     const byType = { delivery: 0, dineIn: 0, pickup: 0 };
-    const dailyMap: Record<string, { revenue: number; cmv: number; profit: number; orders: number }> = {};
+    const dailyMap: Record<
+      string,
+      { revenue: number; cmv: number; profit: number; orders: number }
+    > = {};
 
     for (const order of orders) {
       const rev = toNum(order.total);
@@ -93,7 +106,8 @@ export class ReportsService {
       else byType.dineIn += rev;
 
       const day = order.createdAt.toISOString().slice(0, 10);
-      if (!dailyMap[day]) dailyMap[day] = { revenue: 0, cmv: 0, profit: 0, orders: 0 };
+      if (!dailyMap[day])
+        dailyMap[day] = { revenue: 0, cmv: 0, profit: 0, orders: 0 };
       dailyMap[day].revenue += rev;
       dailyMap[day].cmv += cmv;
       dailyMap[day].profit += rev - cmv;
@@ -123,7 +137,11 @@ export class ReportsService {
     };
   }
 
-  async getProductRanking(companyId: string, range: DateRange, limit = 10): Promise<ProductRanking[]> {
+  async getProductRanking(
+    companyId: string,
+    range: DateRange,
+    limit = 10,
+  ): Promise<ProductRanking[]> {
     const items = await this.prisma.orderItem.findMany({
       where: {
         companyId,
@@ -136,7 +154,15 @@ export class ReportsService {
     for (const item of items) {
       const key = item.productId;
       if (!map[key]) {
-        map[key] = { productId: key, productName: item.productName, quantity: 0, revenue: 0, cmv: 0, profit: 0, margin: 0 };
+        map[key] = {
+          productId: key,
+          productName: item.productName,
+          quantity: 0,
+          revenue: 0,
+          cmv: 0,
+          profit: 0,
+          margin: 0,
+        };
       }
       const rev = toNum(item.subtotal);
       const cmv = toNum(item.cmv);
@@ -154,8 +180,10 @@ export class ReportsService {
 
   async getExecutiveKpis(companyId: string): Promise<ExecutiveKpis> {
     const now = new Date();
-    const start30 = new Date(now); start30.setDate(now.getDate() - 30);
-    const start60 = new Date(now); start60.setDate(now.getDate() - 60);
+    const start30 = new Date(now);
+    start30.setDate(now.getDate() - 30);
+    const start60 = new Date(now);
+    start60.setDate(now.getDate() - 60);
 
     const [current, previous] = await Promise.all([
       this.getRevenue(companyId, { from: start30, to: now }),
@@ -163,9 +191,12 @@ export class ReportsService {
     ]);
 
     const growth = (cur: number, prev: number) =>
-      prev > 0 ? ((cur - prev) / prev) : 0;
+      prev > 0 ? (cur - prev) / prev : 0;
 
-    const topProducts = await this.getProductRanking(companyId, { from: start30, to: now });
+    const topProducts = await this.getProductRanking(companyId, {
+      from: start30,
+      to: now,
+    });
 
     const last30Days = current.dailySeries.map((d) => ({
       date: d.date,
@@ -183,9 +214,13 @@ export class ReportsService {
       avgTicket: current.avgTicket,
       ticketGrowth: growth(current.avgTicket, previous.avgTicket),
       cmv: current.totalCmv,
-      cmvRatio: current.totalRevenue > 0 ? current.totalCmv / current.totalRevenue : 0,
-      cancelRate: (current.orderCount + current.cancelledCount) > 0
-        ? current.cancelledCount / (current.orderCount + current.cancelledCount) : 0,
+      cmvRatio:
+        current.totalRevenue > 0 ? current.totalCmv / current.totalRevenue : 0,
+      cancelRate:
+        current.orderCount + current.cancelledCount > 0
+          ? current.cancelledCount /
+            (current.orderCount + current.cancelledCount)
+          : 0,
       topProducts,
       last30Days,
     };
@@ -193,10 +228,19 @@ export class ReportsService {
 
   async materializeKpiSnapshot(companyId: string) {
     const now = new Date();
-    const from = new Date(now); from.setDate(now.getDate() - 1);
+    const from = new Date(now);
+    from.setDate(now.getDate() - 1);
     const r = await this.getRevenue(companyId, { from, to: now });
 
-    const snapshotAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0, 0);
+    const snapshotAt = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      0,
+      0,
+      0,
+    );
 
     await this.prisma.kpiSnapshot.upsert({
       where: { companyId_snapshotAt: { companyId, snapshotAt } },
@@ -214,7 +258,9 @@ export class ReportsService {
         dineInCount: r.byType.dineIn > 0 ? 1 : 0,
         pickupCount: r.byType.pickup > 0 ? 1 : 0,
         pixRevenue: r.byPaymentMethod['PIX'] ?? 0,
-        cardRevenue: (r.byPaymentMethod['CREDIT_CARD'] ?? 0) + (r.byPaymentMethod['DEBIT_CARD'] ?? 0),
+        cardRevenue:
+          (r.byPaymentMethod['CREDIT_CARD'] ?? 0) +
+          (r.byPaymentMethod['DEBIT_CARD'] ?? 0),
         cashRevenue: r.byPaymentMethod['CASH'] ?? 0,
       },
       update: {
@@ -226,7 +272,9 @@ export class ReportsService {
         avgTicket: r.avgTicket,
         cancelledCount: r.cancelledCount,
         pixRevenue: r.byPaymentMethod['PIX'] ?? 0,
-        cardRevenue: (r.byPaymentMethod['CREDIT_CARD'] ?? 0) + (r.byPaymentMethod['DEBIT_CARD'] ?? 0),
+        cardRevenue:
+          (r.byPaymentMethod['CREDIT_CARD'] ?? 0) +
+          (r.byPaymentMethod['DEBIT_CARD'] ?? 0),
         cashRevenue: r.byPaymentMethod['CASH'] ?? 0,
       },
     });

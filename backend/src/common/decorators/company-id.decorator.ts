@@ -1,4 +1,8 @@
-import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  createParamDecorator,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 /**
  * Extrai companyId do JWT de forma segura e tipada.
@@ -16,7 +20,7 @@ import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@
  */
 export const CompanyId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string => {
-    const req       = ctx.switchToHttp().getRequest();
+    const req = ctx.switchToHttp().getRequest();
     const companyId = req.user?.companyId as string | undefined;
 
     if (!companyId) {

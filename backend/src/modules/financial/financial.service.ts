@@ -35,7 +35,8 @@ export class FinancialService {
     return {
       entries: Number(entries._sum.amount || 0),
       exits: Number(exits._sum.amount || 0),
-      balance: Number(entries._sum.amount || 0) - Number(exits._sum.amount || 0),
+      balance:
+        Number(entries._sum.amount || 0) - Number(exits._sum.amount || 0),
       totalSales,
       totalOrders: orders.length,
       ticketAverage: Number(ticketAverage.toFixed(2)),

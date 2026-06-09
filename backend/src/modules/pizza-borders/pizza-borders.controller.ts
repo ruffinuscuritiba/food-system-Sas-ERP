@@ -1,5 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
-import { PizzaBordersService, CreateBorderDto, UpdateBorderDto } from './pizza-borders.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  PizzaBordersService,
+  CreateBorderDto,
+  UpdateBorderDto,
+} from './pizza-borders.service';
 import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -18,7 +32,11 @@ export class PizzaBordersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: UpdateBorderDto, @Request() req: any) {
+  update(
+    @Param('id') id: string,
+    @Body() body: UpdateBorderDto,
+    @Request() req: any,
+  ) {
     return this.service.update(id, req.user.companyId, body);
   }
 

@@ -13,20 +13,45 @@ export class ReportsController {
   }
 
   @Get('revenue')
-  revenue(@Req() req: any, @Query('from') from: string, @Query('to') to: string) {
+  revenue(
+    @Req() req: any,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
     const range = {
-      from: from ? new Date(from) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; })(),
+      from: from
+        ? new Date(from)
+        : (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            return d;
+          })(),
       to: to ? new Date(to) : new Date(),
     };
     return this.reports.getRevenue(req.user.companyId, range);
   }
 
   @Get('products')
-  products(@Req() req: any, @Query('from') from: string, @Query('to') to: string, @Query('limit') limit: string) {
+  products(
+    @Req() req: any,
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('limit') limit: string,
+  ) {
     const range = {
-      from: from ? new Date(from) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; })(),
+      from: from
+        ? new Date(from)
+        : (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            return d;
+          })(),
       to: to ? new Date(to) : new Date(),
     };
-    return this.reports.getProductRanking(req.user.companyId, range, limit ? Number(limit) : 10);
+    return this.reports.getProductRanking(
+      req.user.companyId,
+      range,
+      limit ? Number(limit) : 10,
+    );
   }
 }

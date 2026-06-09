@@ -1,13 +1,13 @@
-import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common'
-import { PrismaService } from '@/database/prisma.service'
-import { SuperAdminService } from './super-admin.service'
-import { DemoVitrineService } from './demo-vitrine.service'
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
+import { PrismaService } from '@/database/prisma.service';
+import { SuperAdminService } from './super-admin.service';
+import { DemoVitrineService } from './demo-vitrine.service';
 
 const DEMO_EMAILS = [
   'demo-basic@foodsaas.demo',
   'demo-pro@foodsaas.demo',
   'demo-enterprise@foodsaas.demo',
-]
+];
 
 /**
  * Ensures the 3 demo accounts (basic / pro / enterprise) always exist after
@@ -22,7 +22,7 @@ const DEMO_EMAILS = [
  */
 @Injectable()
 export class DemoBootstrapService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(DemoBootstrapService.name)
+  private readonly logger = new Logger(DemoBootstrapService.name);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -33,26 +33,28 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
   onApplicationBootstrap(): void {
     this.ensureDemoAccounts().catch((err) =>
       this.logger.error('Demo bootstrap failed', err?.message ?? String(err)),
-    )
+    );
   }
 
   private async ensureDemoAccounts(): Promise<void> {
-    await this.prisma.readyPromise
+    await this.prisma.readyPromise;
 
     const count = await this.prisma.user.count({
       where: { email: { in: DEMO_EMAILS } },
-    })
+    });
 
     if (count >= 3) {
-      this.logger.debug('Demo accounts present — running idempotent patches.')
-      await this.vitrine.patchDemoCategoryNames()
-      await this.vitrine.patchDemoThemesAndModules()
-      return
+      this.logger.debug('Demo accounts present — running idempotent patches.');
+      await this.vitrine.patchDemoCategoryNames();
+      await this.vitrine.patchDemoThemesAndModules();
+      return;
     }
 
-    this.logger.log(`Demo accounts missing (${count}/3) — bootstrapping demo companies…`)
-    await this.superAdmin.initDemoCompanies()
-    await this.vitrine.populateAll()
-    this.logger.log('Demo bootstrap complete.')
+    this.logger.log(
+      `Demo accounts missing (${count}/3) — bootstrapping demo companies…`,
+    );
+    await this.superAdmin.initDemoCompanies();
+    await this.vitrine.populateAll();
+    this.logger.log('Demo bootstrap complete.');
   }
 }

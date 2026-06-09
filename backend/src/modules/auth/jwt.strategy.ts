@@ -1,57 +1,47 @@
-import {
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 
-import { ConfigService } from '@nestjs/config'
+import { ConfigService } from '@nestjs/config';
 
-import { PassportStrategy } from '@nestjs/passport'
+import { PassportStrategy } from '@nestjs/passport';
 
-import {
-  ExtractJwt,
-  Strategy,
-} from 'passport-jwt'
+import { ExtractJwt, Strategy } from 'passport-jwt';
 
-import { PrismaService } from '@/database/prisma.service'
+import { PrismaService } from '@/database/prisma.service';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(
-  Strategy,
-) {
+export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
 
     private readonly prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest:
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
 
       ignoreExpiration: false,
 
       secretOrKey:
         configService.get<string>('JWT_SECRET') ||
-        (() => { throw new Error('JWT_SECRET env var is required') })(),
-    })
+        (() => {
+          throw new Error('JWT_SECRET env var is required');
+        })(),
+    });
   }
 
   async validate(payload: {
-    sub: string
-    email: string
-    companyId: string
-    role: string
+    sub: string;
+    email: string;
+    companyId: string;
+    role: string;
   }) {
-    const user =
-      await this.prisma.user.findUnique({
-        where: {
-          id: payload.sub,
-        },
-      })
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+    });
 
     if (!user) {
-      throw new UnauthorizedException(
-        'Usuário não encontrado',
-      )
+      throw new UnauthorizedException('Usuário não encontrado');
     }
 
     return {
@@ -62,6 +52,6 @@ export class JwtStrategy extends PassportStrategy(
       companyId: payload.companyId,
 
       role: payload.role,
-    }
+    };
   }
 }

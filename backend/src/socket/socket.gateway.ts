@@ -6,20 +6,18 @@ import {
   WebSocketServer,
   MessageBody,
   ConnectedSocket,
-} from '@nestjs/websockets'
+} from '@nestjs/websockets';
 
-import { Server, Socket } from 'socket.io'
+import { Server, Socket } from 'socket.io';
 
-import { JwtService } from '@nestjs/jwt'
+import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
   cors: { origin: '*' },
 })
-export class SocketGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server!: Server
+  server!: Server;
 
   constructor(private readonly jwtService: JwtService) {}
 
@@ -27,20 +25,20 @@ export class SocketGateway
     try {
       const token =
         (client.handshake.auth?.token as string) ||
-        (client.handshake.query?.token as string)
+        (client.handshake.query?.token as string);
 
       if (!token) {
         // Public clients (e.g. customer order-status page) connect without a token.
         // They don't join any room so they never receive tenant-scoped events.
-        return
+        return;
       }
 
-      const payload = this.jwtService.verify<{ companyId: string }>(token)
+      const payload = this.jwtService.verify<{ companyId: string }>(token);
 
       if (payload?.companyId) {
         // Each company has its own room — events never cross tenant boundaries
-        client.join(`company:${payload.companyId}`)
-        client.data.companyId = payload.companyId
+        client.join(`company:${payload.companyId}`);
+        client.data.companyId = payload.companyId;
       }
     } catch {
       // Invalid token — treat as unauthenticated, don't disconnect
@@ -52,23 +50,23 @@ export class SocketGateway
   }
 
   emitOrderCreated(order: { companyId: string }) {
-    this.server.to(`company:${order.companyId}`).emit('orderCreated', order)
+    this.server.to(`company:${order.companyId}`).emit('orderCreated', order);
   }
 
   emitKitchenUpdate(order: { companyId: string }) {
-    this.server.to(`company:${order.companyId}`).emit('kitchenUpdate', order)
+    this.server.to(`company:${order.companyId}`).emit('kitchenUpdate', order);
   }
 
   emitDashboardUpdate(companyId: string, data: unknown) {
-    this.server.to(`company:${companyId}`).emit('dashboardUpdate', data)
+    this.server.to(`company:${companyId}`).emit('dashboardUpdate', data);
   }
 
   emitTableUpdate(companyId: string, data: unknown) {
-    this.server.to(`company:${companyId}`).emit('tableUpdate', data)
+    this.server.to(`company:${companyId}`).emit('tableUpdate', data);
   }
 
   emitOnlineOrderPaid(companyId: string, data: unknown) {
-    this.server.to(`company:${companyId}`).emit('onlineOrderPaid', data)
+    this.server.to(`company:${companyId}`).emit('onlineOrderPaid', data);
   }
 
   /**
@@ -83,26 +81,29 @@ export class SocketGateway
     @ConnectedSocket() client: Socket,
   ) {
     if (data?.orderId) {
-      client.join(`order:${data.orderId}`)
-      return { ok: true, joined: `order:${data.orderId}` }
+      client.join(`order:${data.orderId}`);
+      return { ok: true, joined: `order:${data.orderId}` };
     }
-    return { ok: false }
+    return { ok: false };
   }
 
   /**
    * Emit para a room específica do pedido (cliente público escutando).
    * Usado em updateKitchenStatus e criação de OnlineOrder.
    */
-  emitOrderStatusChanged(orderId: string, payload: {
-    status: string;
-    source?: string;
-    updatedAt?: string;
-    [k: string]: unknown;
-  }) {
+  emitOrderStatusChanged(
+    orderId: string,
+    payload: {
+      status: string;
+      source?: string;
+      updatedAt?: string;
+      [k: string]: unknown;
+    },
+  ) {
     this.server.to(`order:${orderId}`).emit('orderStatusChanged', {
       orderId,
       ...payload,
       updatedAt: payload.updatedAt ?? new Date().toISOString(),
-    })
+    });
   }
 }

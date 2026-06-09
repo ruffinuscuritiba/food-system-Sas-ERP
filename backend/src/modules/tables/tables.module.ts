@@ -9,15 +9,9 @@ import { TablesService } from './tables.service';
 import { SocketModule } from '../../socket/socket.module';
 
 @Module({
-
-
-  imports: [
-  PrismaModule,
-  SocketModule,
-],
+  imports: [PrismaModule, SocketModule],
   controllers: [TablesController],
 
   providers: [TablesService],
 })
-
 export class TablesModule {}

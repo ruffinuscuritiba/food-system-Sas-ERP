@@ -32,9 +32,14 @@ export class CashService {
     });
     if (!cash) return null;
 
-    const entries = type === 'SUPPLY' ? Number(cash.entries) + value : Number(cash.entries);
-    const exits = type === 'WITHDRAW' ? Number(cash.exits) + value : Number(cash.exits);
-    const balance = type === 'SUPPLY' ? Number(cash.balance) + value : Number(cash.balance) - value;
+    const entries =
+      type === 'SUPPLY' ? Number(cash.entries) + value : Number(cash.entries);
+    const exits =
+      type === 'WITHDRAW' ? Number(cash.exits) + value : Number(cash.exits);
+    const balance =
+      type === 'SUPPLY'
+        ? Number(cash.balance) + value
+        : Number(cash.balance) - value;
 
     return this.prisma.cash.update({
       where: { id: cash.id },
@@ -48,6 +53,9 @@ export class CashService {
       orderBy: { createdAt: 'desc' },
     });
     if (!cash) return null;
-    return this.prisma.cash.update({ where: { id: cash.id }, data: { isOpen: false } });
+    return this.prisma.cash.update({
+      where: { id: cash.id },
+      data: { isOpen: false },
+    });
   }
 }

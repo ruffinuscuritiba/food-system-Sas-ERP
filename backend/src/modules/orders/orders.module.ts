@@ -14,7 +14,6 @@ import { WhatsappAiModule } from '../whatsapp-ai/whatsapp-ai.module';
 import { DeliveryConfigModule } from '../delivery-config/delivery-config.module';
 
 @Module({
-
   imports: [
     PrismaModule,
     StockModule,

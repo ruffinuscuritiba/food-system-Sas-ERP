@@ -7,7 +7,12 @@ import { SocketModule } from '@/socket/socket.module';
 import { OnlineOrdersModule } from '@/modules/online-orders/online-orders.module';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, SocketModule, OnlineOrdersModule],
+  imports: [
+    PrismaModule,
+    NotificationsModule,
+    SocketModule,
+    OnlineOrdersModule,
+  ],
   controllers: [PaymentsController],
   providers: [PaymentsService],
   exports: [PaymentsService],

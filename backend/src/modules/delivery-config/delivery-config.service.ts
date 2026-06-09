@@ -28,7 +28,9 @@ export class DeliveryConfigService {
   }
 
   async update(id: string, companyId: string, data: any) {
-    const zone = await this.prisma.deliveryZone.findFirst({ where: { id, companyId } });
+    const zone = await this.prisma.deliveryZone.findFirst({
+      where: { id, companyId },
+    });
     if (!zone) throw new NotFoundException('Zona não encontrada');
 
     return this.prisma.deliveryZone.update({
@@ -36,18 +38,28 @@ export class DeliveryConfigService {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.type !== undefined && { type: data.type }),
-        ...(data.neighborhood !== undefined && { neighborhood: data.neighborhood }),
+        ...(data.neighborhood !== undefined && {
+          neighborhood: data.neighborhood,
+        }),
         ...(data.baseFee !== undefined && { baseFee: Number(data.baseFee) }),
-        ...(data.pricePerKm !== undefined && { pricePerKm: Number(data.pricePerKm) }),
-        ...(data.clientFee !== undefined && { clientFee: Number(data.clientFee) }),
-        ...(data.driverShare !== undefined && { driverShare: Number(data.driverShare) }),
+        ...(data.pricePerKm !== undefined && {
+          pricePerKm: Number(data.pricePerKm),
+        }),
+        ...(data.clientFee !== undefined && {
+          clientFee: Number(data.clientFee),
+        }),
+        ...(data.driverShare !== undefined && {
+          driverShare: Number(data.driverShare),
+        }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
   }
 
   async remove(id: string, companyId: string) {
-    const zone = await this.prisma.deliveryZone.findFirst({ where: { id, companyId } });
+    const zone = await this.prisma.deliveryZone.findFirst({
+      where: { id, companyId },
+    });
     if (!zone) throw new NotFoundException('Zona não encontrada');
     return this.prisma.deliveryZone.delete({ where: { id } });
   }
@@ -57,7 +69,13 @@ export class DeliveryConfigService {
     return this.prisma.deliveryZone.findMany({
       where: { companyId, isActive: true },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, neighborhood: true, clientFee: true, type: true },
+      select: {
+        id: true,
+        name: true,
+        neighborhood: true,
+        clientFee: true,
+        type: true,
+      },
     });
   }
 

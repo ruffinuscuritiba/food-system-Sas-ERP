@@ -15,7 +15,8 @@ export class UsersController {
   @Roles('SUPER_ADMIN', 'ADMIN')
   async create(@Body() dto: CreateUserDto, @Request() req: any) {
     // SUPER_ADMIN pode criar em qualquer empresa (impersonation), ADMIN só na sua
-    const companyId = req.user.role === 'SUPER_ADMIN' ? dto.companyId : req.user.companyId;
+    const companyId =
+      req.user.role === 'SUPER_ADMIN' ? dto.companyId : req.user.companyId;
     return this.usersService.create({ ...dto, companyId });
   }
 }

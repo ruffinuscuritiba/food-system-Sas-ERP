@@ -1,17 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 
-import { PrismaService }
-from "@/database/prisma.service";
+import { PrismaService } from '@/database/prisma.service';
 
 @Injectable()
 export class AuditService {
-
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async log(data: {
-
     action: string;
 
     entity: string;
@@ -30,37 +25,25 @@ export class AuditService {
 
     userAgent?: string;
   }) {
-
     return this.prisma.auditLog.create({
-
       data: {
+        action: data.action,
 
-        action:
-          data.action,
+        entity: data.entity,
 
-        entity:
-          data.entity,
+        entityId: data.entityId,
 
-        entityId:
-          data.entityId,
+        description: data.description,
 
-        description:
-          data.description,
+        metadata: data.metadata,
 
-        metadata:
-          data.metadata,
+        companyId: data.companyId,
 
-        companyId:
-          data.companyId,
+        userId: data.userId,
 
-        userId:
-          data.userId,
+        ipAddress: data.ipAddress,
 
-        ipAddress:
-          data.ipAddress,
-
-        userAgent:
-          data.userAgent,
+        userAgent: data.userAgent,
       },
     });
   }

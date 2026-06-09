@@ -24,13 +24,18 @@ export class CouponsController {
     if (!body.code || !body.companyId) {
       throw new BadRequestException('code e companyId são obrigatórios.');
     }
-    return this.service.validate(body.code, body.companyId, body.orderTotal ?? 0);
+    return this.service.validate(
+      body.code,
+      body.companyId,
+      body.orderTotal ?? 0,
+    );
   }
 
   /** PUBLIC — called after successful order to increment usedCount */
   @Post('redeem')
   redeem(@Body() body: { couponId: string }) {
-    if (!body.couponId) throw new BadRequestException('couponId é obrigatório.');
+    if (!body.couponId)
+      throw new BadRequestException('couponId é obrigatório.');
     return this.service.redeem(body.couponId);
   }
 

@@ -1,15 +1,17 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { PrismaService } from 'src/database/prisma.service';
 
 const VALID_PLANS = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
-type Plan = typeof VALID_PLANS[number];
+type Plan = (typeof VALID_PLANS)[number];
 
 @Injectable()
 export class CompanyService {
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async findAll() {
     return this.prisma.company.findMany({
@@ -30,7 +32,13 @@ export class CompanyService {
       include: {
         modules: true,
         users: {
-          select: { id: true, name: true, email: true, role: true, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            isActive: true,
+          },
         },
       },
     });
@@ -76,29 +84,52 @@ export class CompanyService {
   /** Retorna plano + módulos ativos + preços de plano para a página /assinatura */
   async getSubscription(companyId: string) {
     const [company, planConfigs] = await Promise.all([
-      this.prisma.company.findUnique({ where: { id: companyId }, include: { modules: true } }),
+      this.prisma.company.findUnique({
+        where: { id: companyId },
+        include: { modules: true },
+      }),
       this.prisma.planConfig.findMany().catch(() => []),
     ]);
     if (!company) throw new NotFoundException('Empresa não encontrada');
 
     const fallback = {
-      BASIC:      { price: 149, label: 'Basic',      tagline: 'Para começar com o essencial' },
-      PRO:        { price: 249, label: 'Pro',         tagline: 'Para operações em crescimento' },
-      ENTERPRISE: { price: 399, label: 'Enterprise',  tagline: 'Tudo liberado, sem limites' },
+      BASIC: {
+        price: 149,
+        label: 'Basic',
+        tagline: 'Para começar com o essencial',
+      },
+      PRO: {
+        price: 249,
+        label: 'Pro',
+        tagline: 'Para operações em crescimento',
+      },
+      ENTERPRISE: {
+        price: 399,
+        label: 'Enterprise',
+        tagline: 'Tudo liberado, sem limites',
+      },
     } as Record<string, { price: number; label: string; tagline: string }>;
 
-    const planPrices = planConfigs.length > 0
-      ? planConfigs.reduce((acc: any, c: any) => ({
-          ...acc,
-          [c.plan]: { price: Number(c.price), label: c.label, tagline: c.tagline },
-        }), {})
-      : fallback;
+    const planPrices =
+      planConfigs.length > 0
+        ? planConfigs.reduce(
+            (acc: any, c: any) => ({
+              ...acc,
+              [c.plan]: {
+                price: Number(c.price),
+                label: c.label,
+                tagline: c.tagline,
+              },
+            }),
+            {},
+          )
+        : fallback;
 
     return {
-      plan:               company.plan || 'BASIC',
+      plan: company.plan || 'BASIC',
       subscriptionStatus: company.subscriptionStatus,
-      dueDate:            company.dueDate,
-      modules:            company.modules,
+      dueDate: company.dueDate,
+      modules: company.modules,
       planPrices,
     };
   }
@@ -112,7 +143,7 @@ export class CompanyService {
     }
     return this.prisma.company.update({
       where: { id: companyId },
-      data:  { plan },
+      data: { plan },
       select: { id: true, name: true, plan: true, subscriptionStatus: true },
     });
   }

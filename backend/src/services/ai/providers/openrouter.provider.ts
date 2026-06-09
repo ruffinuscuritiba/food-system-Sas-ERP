@@ -10,16 +10,28 @@ export class OpenRouterProvider implements AIProvider {
     if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
     this.apiKey = apiKey;
     // Default to a free vision-capable model
-    this.model = process.env.OPENROUTER_MODEL ?? 'google/gemini-2.0-flash-exp:free';
+    this.model =
+      process.env.OPENROUTER_MODEL ?? 'google/gemini-2.0-flash-exp:free';
   }
 
-  async analyzeImage({ prompt, imageBase64, mimeType, textContent }: AIImageRequest): Promise<string> {
+  async analyzeImage({
+    prompt,
+    imageBase64,
+    mimeType,
+    textContent,
+  }: AIImageRequest): Promise<string> {
     // Build message content: text-only for spreadsheets, image+text otherwise
     const contentParts: any[] = [];
     if (textContent) {
-      contentParts.push({ type: 'text', text: `${prompt}\n\nDados do arquivo:\n${textContent}` });
+      contentParts.push({
+        type: 'text',
+        text: `${prompt}\n\nDados do arquivo:\n${textContent}`,
+      });
     } else if (imageBase64 && mimeType) {
-      contentParts.push({ type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } });
+      contentParts.push({
+        type: 'image_url',
+        image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+      });
       contentParts.push({ type: 'text', text: prompt });
     } else {
       contentParts.push({ type: 'text', text: prompt });

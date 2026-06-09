@@ -33,14 +33,17 @@ export class AlertsScheduler {
         this.logger.error(`Failed for company ${companyId}: ${e.message}`);
       }
       // Yield to event loop between companies — lets GC reclaim heap
-      if (i < companies.length - 1) await new Promise(r => setTimeout(r, 500));
+      if (i < companies.length - 1)
+        await new Promise((r) => setTimeout(r, 500));
     }
   }
 
   private async generateAlerts(companyId: string) {
     const now = new Date();
-    const from7 = new Date(now); from7.setDate(now.getDate() - 7);
-    const from14 = new Date(now); from14.setDate(now.getDate() - 14);
+    const from7 = new Date(now);
+    from7.setDate(now.getDate() - 7);
+    const from14 = new Date(now);
+    from14.setDate(now.getDate() - 14);
 
     const [current, previous] = await Promise.all([
       this.reports.getRevenue(companyId, { from: from7, to: now }),
@@ -49,7 +52,8 @@ export class AlertsScheduler {
 
     // Revenue drop > 20%
     if (previous.totalRevenue > 0) {
-      const drop = (previous.totalRevenue - current.totalRevenue) / previous.totalRevenue;
+      const drop =
+        (previous.totalRevenue - current.totalRevenue) / previous.totalRevenue;
       if (drop > 0.2) {
         await this.alerts.createAlert({
           companyId,
@@ -57,7 +61,11 @@ export class AlertsScheduler {
           severity: drop > 0.4 ? 'CRITICAL' : 'WARNING',
           title: 'Queda de Faturamento',
           message: `Faturamento caiu ${(drop * 100).toFixed(1)}% em relação à semana anterior.`,
-          metadata: { drop, current: current.totalRevenue, previous: previous.totalRevenue },
+          metadata: {
+            drop,
+            current: current.totalRevenue,
+            previous: previous.totalRevenue,
+          },
         });
       }
     }
@@ -70,7 +78,11 @@ export class AlertsScheduler {
         severity: current.grossMargin < 0.3 ? 'CRITICAL' : 'WARNING',
         title: 'CMV Elevado',
         message: `Margem bruta está em ${(current.grossMargin * 100).toFixed(1)}%. Revise os custos dos produtos.`,
-        metadata: { margin: current.grossMargin, cmv: current.totalCmv, revenue: current.totalRevenue },
+        metadata: {
+          margin: current.grossMargin,
+          cmv: current.totalCmv,
+          revenue: current.totalRevenue,
+        },
       });
     }
 
@@ -96,14 +108,21 @@ export class AlertsScheduler {
       select: { id: true, name: true, stock: true, minimumStock: true },
     });
     for (const ing of lowStock) {
-      if (Number(ing.stock) <= Number(ing.minimumStock) && Number(ing.minimumStock) > 0) {
+      if (
+        Number(ing.stock) <= Number(ing.minimumStock) &&
+        Number(ing.minimumStock) > 0
+      ) {
         await this.alerts.createAlert({
           companyId,
           type: 'LOW_STOCK',
           severity: Number(ing.stock) <= 0 ? 'CRITICAL' : 'WARNING',
           title: 'Estoque Baixo',
           message: `${ing.name} está com estoque baixo: ${Number(ing.stock)} unidades (mínimo: ${Number(ing.minimumStock)}).`,
-          metadata: { ingredientId: ing.id, stock: Number(ing.stock), minimum: Number(ing.minimumStock) },
+          metadata: {
+            ingredientId: ing.id,
+            stock: Number(ing.stock),
+            minimum: Number(ing.minimumStock),
+          },
         });
       }
     }

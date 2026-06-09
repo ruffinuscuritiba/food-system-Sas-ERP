@@ -21,7 +21,12 @@ export class CouponsService {
     orderTotal: number,
   ): Promise<CouponValidationResult> {
     if (!code || !companyId) {
-      return { valid: false, discount: 0, isPercent: false, message: 'Código inválido.' };
+      return {
+        valid: false,
+        discount: 0,
+        isPercent: false,
+        message: 'Código inválido.',
+      };
     }
 
     const coupon = await this.prisma.coupon.findUnique({
@@ -29,15 +34,30 @@ export class CouponsService {
     });
 
     if (!coupon || !coupon.isActive) {
-      return { valid: false, discount: 0, isPercent: false, message: 'Cupom inválido ou inativo.' };
+      return {
+        valid: false,
+        discount: 0,
+        isPercent: false,
+        message: 'Cupom inválido ou inativo.',
+      };
     }
 
     if (coupon.expiresAt && coupon.expiresAt < new Date()) {
-      return { valid: false, discount: 0, isPercent: false, message: 'Cupom expirado.' };
+      return {
+        valid: false,
+        discount: 0,
+        isPercent: false,
+        message: 'Cupom expirado.',
+      };
     }
 
     if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
-      return { valid: false, discount: 0, isPercent: false, message: 'Cupom esgotado.' };
+      return {
+        valid: false,
+        discount: 0,
+        isPercent: false,
+        message: 'Cupom esgotado.',
+      };
     }
 
     const rawDiscount = Number(coupon.discount);
@@ -49,12 +69,21 @@ export class CouponsService {
       ? `${rawDiscount}% de desconto aplicado! 🎉`
       : `R$ ${rawDiscount.toFixed(2)} de desconto aplicado! 🎉`;
 
-    return { valid: true, discount, isPercent: coupon.isPercent, message, couponId: coupon.id };
+    return {
+      valid: true,
+      discount,
+      isPercent: coupon.isPercent,
+      message,
+      couponId: coupon.id,
+    };
   }
 
   async redeem(couponId: string): Promise<void> {
     await this.prisma.coupon
-      .update({ where: { id: couponId }, data: { usedCount: { increment: 1 } } })
+      .update({
+        where: { id: couponId },
+        data: { usedCount: { increment: 1 } },
+      })
       .catch((err) => this.logger.warn(`Coupon redeem failed: ${err}`));
   }
 
@@ -89,8 +118,13 @@ export class CouponsService {
 
   // Admin: toggle active
   async toggle(id: string, companyId: string) {
-    const coupon = await this.prisma.coupon.findFirst({ where: { id, companyId } });
+    const coupon = await this.prisma.coupon.findFirst({
+      where: { id, companyId },
+    });
     if (!coupon) return null;
-    return this.prisma.coupon.update({ where: { id }, data: { isActive: !coupon.isActive } });
+    return this.prisma.coupon.update({
+      where: { id },
+      data: { isActive: !coupon.isActive },
+    });
   }
 }

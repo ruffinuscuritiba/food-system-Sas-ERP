@@ -24,8 +24,7 @@ export class AppController {
     return {
       version: '3.0.0-complete',
       status: 'active',
-      features: ['gateway', 'loyalty', 'chatbot', 'meta-pixel', 'ga4']
+      features: ['gateway', 'loyalty', 'chatbot', 'meta-pixel', 'ga4'],
     };
   }
-
 }

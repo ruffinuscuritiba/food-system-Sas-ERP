@@ -1,87 +1,92 @@
-import {
-  IsBoolean,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from 'class-validator'
-import { Transform } from 'class-transformer'
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateProductDto {
   @IsString()
-  name!: string
+  name!: string;
 
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
   @IsOptional()
   @IsString()
-  sku?: string
+  sku?: string;
 
   @IsOptional()
   @IsString()
-  barcode?: string
+  barcode?: string;
 
   @IsOptional()
   @IsString()
-  unit?: string
+  unit?: string;
 
   @IsOptional()
   @IsString()
-  size?: string
+  size?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (value !== undefined && value !== '' ? parseFloat(value) : undefined))
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseFloat(value) : undefined,
+  )
   @IsNumber()
-  weight?: number
+  weight?: number;
 
   @IsOptional()
   @IsString()
-  imageUrl?: string
+  imageUrl?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (value !== undefined && value !== '' ? parseFloat(value) : 0))
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseFloat(value) : 0,
+  )
   @IsNumber()
-  costPrice?: number
+  costPrice?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value !== undefined && value !== '' ? parseFloat(value) : 0))
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseFloat(value) : 0,
+  )
   @IsNumber()
-  profitMargin?: number
+  profitMargin?: number;
 
   @IsOptional()
-  @Transform(({ value }) => (value !== undefined && value !== '' ? parseFloat(value) : 0))
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseFloat(value) : 0,
+  )
   @IsNumber()
-  salePrice?: number
+  salePrice?: number;
 
   // Legacy alias — some forms still send "price"
   @IsOptional()
-  @Transform(({ value }) => (value !== undefined && value !== '' ? parseFloat(value) : undefined))
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseFloat(value) : undefined,
+  )
   @IsNumber()
-  price?: number
+  price?: number;
 
   @IsOptional()
   @IsString()
-  categoryId?: string
+  categoryId?: string;
 
   @IsOptional()
   @IsString()
-  companyId?: string
+  companyId?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
-  isActive?: boolean
+  isActive?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
-  trackStock?: boolean
+  trackStock?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
-  allowNegativeStock?: boolean
+  allowNegativeStock?: boolean;
 
   /**
    * JSON string: [{ size, price, cost? }]
@@ -89,22 +94,22 @@ export class CreateProductDto {
    */
   @IsOptional()
   @IsString()
-  sizes?: string
+  sizes?: string;
 
   @IsOptional()
   @IsString()
-  videoUrl?: string
+  videoUrl?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
-  hasVideo?: boolean
+  hasVideo?: boolean;
 
   @IsOptional()
   @IsString()
-  productType?: string
+  productType?: string;
 
   @IsOptional()
   @IsString()
-  eanCode?: string
+  eanCode?: string;
 }

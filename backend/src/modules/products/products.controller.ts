@@ -4,41 +4,32 @@ import {
   Get,
   Param,
   Post,
-Delete,
-Patch,
+  Delete,
+  Patch,
   Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
-} from "@nestjs/common";
+} from '@nestjs/common';
 
-import { ConfigService }
-from "@nestjs/config";
+import { ConfigService } from '@nestjs/config';
 
-import { FileInterceptor }
-from "@nestjs/platform-express";
+import { FileInterceptor } from '@nestjs/platform-express';
 
-import { memoryStorage }
-from "multer";
+import { memoryStorage } from 'multer';
 
-import { ProductsService }
-from "./products.service";
+import { ProductsService } from './products.service';
 
-import { JwtAuthGuard }
-from "@/common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
-import { RolesGuard }
-from "@/common/guards/roles.guard";
+import { RolesGuard } from '@/common/guards/roles.guard';
 
-import { Roles }
-from "@/common/decorators/roles.decorator";
+import { Roles } from '@/common/decorators/roles.decorator';
 
-import { CreateProductDto }
-from "./dto/create-product.dto";
+import { CreateProductDto } from './dto/create-product.dto';
 
-@Controller("products")
+@Controller('products')
 export class ProductsController {
-
   constructor(
     private readonly service: ProductsService,
 
@@ -46,45 +37,21 @@ export class ProductsController {
   ) {}
 
   @Get()
-
-  @UseGuards(
-    JwtAuthGuard,
-    RolesGuard,
-  )
-
-  @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-    "CASHIER",
-    "WAITER",
-    "KITCHEN",
-  )
-
-  findAll(
-    @Request() req: any,
-  ) {
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER', 'KITCHEN')
+  findAll(@Request() req: any) {
     return this.service.findAll(req.user.companyId);
   }
 
   @Post()
-
-  @UseGuards(
-    JwtAuthGuard,
-    RolesGuard,
-  )
-
-  @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-  )
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @UseInterceptors(
-    FileInterceptor("image", { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }),
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
   )
-
   async create(
     @Request() req: any,
     @UploadedFile() file: Express.Multer.File,
@@ -97,13 +64,17 @@ export class ProductsController {
     }
 
     // companyId always from JWT — never trust the body
-    return this.service.create({ ...body, imageUrl, companyId: req.user.companyId });
+    return this.service.create({
+      ...body,
+      imageUrl,
+      companyId: req.user.companyId,
+    });
   }
 
   // IMPORTANTE: rota literal "reorder" precisa ficar ANTES de "@Patch(':id')" para não casar como id.
-  @Patch("reorder")
+  @Patch('reorder')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("SUPER_ADMIN", "ADMIN", "MANAGER")
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   reorder(
     @Body() body: { items: { id: string; sortOrder: number }[] },
     @Request() req: any,
@@ -111,25 +82,17 @@ export class ProductsController {
     return this.service.reorder(req.user.companyId, body?.items ?? []);
   }
 
-  @Patch(":id")
-
-  @UseGuards(
-    JwtAuthGuard,
-    RolesGuard,
-  )
-
-  @Roles(
-    "SUPER_ADMIN",
-    "ADMIN",
-    "MANAGER",
-  )
-
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @UseInterceptors(
-    FileInterceptor("image", { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }),
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
   )
-
   async update(
-    @Param("id") id: string,
+    @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
     @Body() body: any,
     @Request() req: any,
@@ -140,7 +103,11 @@ export class ProductsController {
       imageUrl = await this.resolveImageUrl(file);
     }
 
-    return this.service.update(id, { ...body, companyId: req.user.companyId, ...(imageUrl !== undefined ? { imageUrl } : {}) });
+    return this.service.update(id, {
+      ...body,
+      companyId: req.user.companyId,
+      ...(imageUrl !== undefined ? { imageUrl } : {}),
+    });
   }
 
   /**
@@ -149,19 +116,22 @@ export class ProductsController {
    * Local-disk fallback removed: Render's filesystem is ephemeral.
    */
   private async resolveImageUrl(file: Express.Multer.File): Promise<string> {
-    const cloudinaryUrl = this.configService.get<string>("CLOUDINARY_URL");
+    const cloudinaryUrl = this.configService.get<string>('CLOUDINARY_URL');
 
     if (cloudinaryUrl) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const cloudinary = require("cloudinary").v2;
+        const cloudinary = require('cloudinary').v2;
         cloudinary.config({ cloudinary_url: cloudinaryUrl });
         const result = await new Promise<any>((resolve, reject) => {
           // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const { Readable } = require("stream");
+          const { Readable } = require('stream');
           const stream = cloudinary.uploader.upload_stream(
-            { folder: "food-system", resource_type: "image" },
-            (error: any, res: any) => { if (error) reject(error); else resolve(res); },
+            { folder: 'food-system', resource_type: 'image' },
+            (error: any, res: any) => {
+              if (error) reject(error);
+              else resolve(res);
+            },
           );
           Readable.from(file.buffer).pipe(stream);
         });
@@ -172,85 +142,45 @@ export class ProductsController {
     }
 
     // Fallback: base64 data URL — permanent (stored in DB), no external service needed
-    const mime = file.mimetype?.startsWith("image/") ? file.mimetype : "image/jpeg";
-    return `data:${mime};base64,${file.buffer.toString("base64")}`;
+    const mime = file.mimetype?.startsWith('image/')
+      ? file.mimetype
+      : 'image/jpeg';
+    return `data:${mime};base64,${file.buffer.toString('base64')}`;
   }
 
-  @Get(
-    "public/menu/:companyId",
-  )
-
+  @Get('public/menu/:companyId')
   publicMenu(
-    @Param("companyId")
+    @Param('companyId')
     companyId: string,
   ) {
-
-    return this.service.publicMenu(
-      companyId,
-    );
+    return this.service.publicMenu(companyId);
   }
-  @Get("trash")
+  @Get('trash')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  findTrash(@Request() req: any) {
+    return this.service.findTrash(req.user.companyId);
+  }
 
-@UseGuards(
-  JwtAuthGuard,
-  RolesGuard,
-)
+  @Patch('restore/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  restore(
+    @Param('id')
+    id: string,
+    @Request() req: any,
+  ) {
+    return this.service.restore(id, req.user.companyId);
+  }
 
-@Roles(
-  "SUPER_ADMIN",
-  "ADMIN",
-)
-
-findTrash(@Request() req: any) {
-
-  return this.service.findTrash(req.user.companyId);
-}
-
-@Patch("restore/:id")
-
-@UseGuards(
-  JwtAuthGuard,
-  RolesGuard,
-)
-
-@Roles(
-  "SUPER_ADMIN",
-  "ADMIN",
-)
-
-restore(
-  @Param("id")
-  id: string,
-  @Request() req: any,
-) {
-
-  return this.service.restore(
-    id,
-    req.user.companyId,
-  );
-}
-
-  @Delete(":id")
-
-@UseGuards(
-  JwtAuthGuard,
-  RolesGuard,
-)
-
-@Roles(
-  "SUPER_ADMIN",
-  "ADMIN",
-)
-
-remove(
-  @Param("id")
-  id: string,
-  @Request() req: any,
-) {
-
-  return this.service.remove(
-    id,
-    req.user.companyId,
-  );
-}
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  remove(
+    @Param('id')
+    id: string,
+    @Request() req: any,
+  ) {
+    return this.service.remove(id, req.user.companyId);
+  }
 }

@@ -23,13 +23,17 @@ export class IfoodProvider implements IIntegrationProvider {
     headers: Record<string, string>,
     rawBody: Buffer,
   ): boolean {
-    const signature = headers['x-ifood-signature'] ?? headers['x-signature'] ?? '';
+    const signature =
+      headers['x-ifood-signature'] ?? headers['x-signature'] ?? '';
     if (!signature || !secret) return false;
     const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
     return signature === expected;
   }
 
-  parseEvent(body: unknown, _headers: Record<string, string>): IntegrationEvent {
+  parseEvent(
+    body: unknown,
+    _headers: Record<string, string>,
+  ): IntegrationEvent {
     const b = body as Record<string, any>;
 
     // iFood envia eventos no formato { fullCode, orderId, ... }
@@ -48,67 +52,67 @@ export class IfoodProvider implements IIntegrationProvider {
     return {
       type,
       externalOrderId: b.orderId,
-      externalStatus:  eventCode,
-      orderType:       delivery?.mode === 'DEFAULT' ? 'DELIVERY' : 'PICKUP',
+      externalStatus: eventCode,
+      orderType: delivery?.mode === 'DEFAULT' ? 'DELIVERY' : 'PICKUP',
       customer: {
-        name:        customer?.name ?? '',
-        phone:       customer?.phone?.localizer ?? customer?.phone ?? '',
-        address:     address?.formattedAddress ?? address?.streetName ?? '',
+        name: customer?.name ?? '',
+        phone: customer?.phone?.localizer ?? customer?.phone ?? '',
+        address: address?.formattedAddress ?? address?.streetName ?? '',
         addressNumber: address?.streetNumber ?? '',
         neighborhood: address?.neighborhood ?? '',
-        city:        address?.city ?? '',
-        state:       address?.state ?? '',
-        zipCode:     address?.postalCode ?? '',
+        city: address?.city ?? '',
+        state: address?.state ?? '',
+        zipCode: address?.postalCode ?? '',
       },
       items: (order?.items ?? []).map((i: any) => ({
         externalProductId: i.id ?? i.externalId,
         externalVariantId: i.externalCode,
-        productName:       i.name ?? 'Item iFood',
-        quantity:          Number(i.quantity ?? 1),
-        unitPrice:         Number(i.unitPrice ?? i.price ?? 0),
-        notes:             i.observations ?? '',
+        productName: i.name ?? 'Item iFood',
+        quantity: Number(i.quantity ?? 1),
+        unitPrice: Number(i.unitPrice ?? i.price ?? 0),
+        notes: i.observations ?? '',
       })),
       paymentMethod: this.mapPaymentMethod(
         order?.payments?.methods?.[0]?.type ?? 'PIX',
       ),
-      subtotal:    Number(order?.subTotal ?? 0),
+      subtotal: Number(order?.subTotal ?? 0),
       deliveryFee: Number(delivery?.deliveryFee ?? 0),
-      total:       Number(order?.totalPrice ?? 0),
-      notes:       order?.observations ?? '',
-      rawPayload:  body,
+      total: Number(order?.totalPrice ?? 0),
+      notes: order?.observations ?? '',
+      rawPayload: body,
     };
   }
 
   mapOrderStatus(externalStatus: string): string {
     const map: Record<string, string> = {
-      PLC:  'PENDING',
-      CFM:  'CONFIRMED',
-      PRP:  'PREPARING',
-      RDY:  'READY',
-      DSP:  'OUT_FOR_DELIVERY',
-      CON:  'DELIVERED',
-      CAN:  'CANCELLED',
+      PLC: 'PENDING',
+      CFM: 'CONFIRMED',
+      PRP: 'PREPARING',
+      RDY: 'READY',
+      DSP: 'OUT_FOR_DELIVERY',
+      CON: 'DELIVERED',
+      CAN: 'CANCELLED',
       // fullCode format
-      PLACED:      'PENDING',
-      CONFIRMED:   'CONFIRMED',
+      PLACED: 'PENDING',
+      CONFIRMED: 'CONFIRMED',
       PREPARATION_STARTED: 'PREPARING',
       READY_TO_PICKUP: 'READY',
-      DISPATCHED:  'OUT_FOR_DELIVERY',
-      CONCLUDED:   'DELIVERED',
-      CANCELLED:   'CANCELLED',
+      DISPATCHED: 'OUT_FOR_DELIVERY',
+      CONCLUDED: 'DELIVERED',
+      CANCELLED: 'CANCELLED',
     };
     return map[externalStatus?.toUpperCase()] ?? 'PENDING';
   }
 
   mapPaymentMethod(externalPayment: string): string {
     const map: Record<string, string> = {
-      ONLINE:      'PIX',
-      PIX:         'PIX',
-      CREDIT:      'CREDIT_CARD',
-      DEBIT:       'DEBIT_CARD',
-      CASH:        'CASH',
-      DINHEIRO:    'CASH',
-      VOUCHER:     'CREDIT_CARD',
+      ONLINE: 'PIX',
+      PIX: 'PIX',
+      CREDIT: 'CREDIT_CARD',
+      DEBIT: 'DEBIT_CARD',
+      CASH: 'CASH',
+      DINHEIRO: 'CASH',
+      VOUCHER: 'CREDIT_CARD',
     };
     return map[externalPayment?.toUpperCase()] ?? 'PIX';
   }

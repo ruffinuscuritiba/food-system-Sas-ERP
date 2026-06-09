@@ -21,7 +21,10 @@ export interface LeadStats {
   porPlano: { BASIC: number; PRO: number; ENTERPRISE: number };
 }
 
-function resolveStatus(currentStatus: string | undefined, dto: LeadUpsertDto): string {
+function resolveStatus(
+  currentStatus: string | undefined,
+  dto: LeadUpsertDto,
+): string {
   const qualifies = !!(dto.recommendedPlan || dto.whatsapp);
   if (!currentStatus) return qualifies ? 'QUALIFICADO' : 'NOVO';
   // Never downgrade from CONTATADO/PERDIDO; upgrade NOVO → QUALIFICADO
@@ -37,7 +40,13 @@ export class LeadsService {
 
   async upsert(dto: LeadUpsertDto): Promise<{ id: string } | null> {
     // Do not persist anonymous sessions with no qualifying data
-    if (!dto.name && !dto.company && !dto.whatsapp && !dto.recommendedPlan && !dto.waClicked) {
+    if (
+      !dto.name &&
+      !dto.company &&
+      !dto.whatsapp &&
+      !dto.recommendedPlan &&
+      !dto.waClicked
+    ) {
       return null;
     }
 
@@ -64,10 +73,15 @@ export class LeadsService {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.company !== undefined && { company: dto.company }),
         ...(dto.whatsapp !== undefined && { whatsapp: dto.whatsapp }),
-        ...(dto.recommendedPlan !== undefined && { recommendedPlan: dto.recommendedPlan }),
-        ...(dto.conversationSummary !== undefined && { conversationSummary: dto.conversationSummary }),
+        ...(dto.recommendedPlan !== undefined && {
+          recommendedPlan: dto.recommendedPlan,
+        }),
+        ...(dto.conversationSummary !== undefined && {
+          conversationSummary: dto.conversationSummary,
+        }),
         // First-touch: only set waClickedAt once (attribution)
-        ...(dto.waClicked && !existing?.waClickedAt && { waClickedAt: new Date() }),
+        ...(dto.waClicked &&
+          !existing?.waClickedAt && { waClickedAt: new Date() }),
         status: newStatus,
         updatedAt: new Date(),
       },
@@ -115,7 +129,10 @@ export class LeadsService {
     const [total, byStatus, byPlan, waClicked] = await Promise.all([
       this.prisma.lead.count(),
       this.prisma.lead.groupBy({ by: ['status'], _count: { _all: true } }),
-      this.prisma.lead.groupBy({ by: ['recommendedPlan'], _count: { _all: true } }),
+      this.prisma.lead.groupBy({
+        by: ['recommendedPlan'],
+        _count: { _all: true },
+      }),
       this.prisma.lead.count({ where: { waClickedAt: { not: null } } }),
     ]);
 

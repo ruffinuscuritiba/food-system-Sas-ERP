@@ -12,8 +12,8 @@ import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
 
-type OnlineOrderType = typeof ORDER_TYPES[number];
-type OnlinePaymentMethodType = typeof PAYMENT_METHODS[number];
+type OnlineOrderType = (typeof ORDER_TYPES)[number];
+type OnlinePaymentMethodType = (typeof PAYMENT_METHODS)[number];
 
 export interface CreateOnlineOrderDto {
   companyId: string;
@@ -36,10 +36,10 @@ export interface CreateOnlineOrderDto {
     notes?: string;
     complements?: Array<{
       complementOptionId: string;
-      complementName:     string;
-      optionName:         string;
-      price:              number;
-      quantity:           number;
+      complementName: string;
+      optionName: string;
+      price: number;
+      quantity: number;
     }>;
   }>;
   subtotal: number;
@@ -79,7 +79,8 @@ export class OnlineOrdersService {
     });
 
     if (!company) throw new NotFoundException('Empresa não encontrada.');
-    if (company.isBlocked) throw new BadRequestException('Empresa não está aceitando pedidos.');
+    if (company.isBlocked)
+      throw new BadRequestException('Empresa não está aceitando pedidos.');
     if (!dto.items?.length) throw new BadRequestException('Pedido sem itens.');
 
     const subtotal = Number(dto.subtotal);
@@ -116,7 +117,11 @@ export class OnlineOrdersService {
     // que o frontend seja burlado. Tudo filtrado por companyId.
     for (const item of dto.items) {
       const groups: any[] = await this.prisma.complement.findMany({
-        where: { productId: item.productId, companyId: dto.companyId, isActive: true },
+        where: {
+          productId: item.productId,
+          companyId: dto.companyId,
+          isActive: true,
+        },
         include: { options: { where: { isActive: true } } },
       });
       if (groups.length === 0) continue;
@@ -130,7 +135,7 @@ export class OnlineOrdersService {
       }
 
       for (const g of groups) {
-        const sent  = sentByGroup.get(g.name) ?? [];
+        const sent = sentByGroup.get(g.name) ?? [];
         const count = sent.length;
 
         if (g.required && count < Math.max(1, g.minOptions || 1)) {
@@ -149,17 +154,13 @@ export class OnlineOrdersService {
           );
         }
         if (!g.multipleChoice && count > 1) {
-          throw new BadRequestException(
-            `"${g.name}" aceita apenas 1 escolha.`,
-          );
+          throw new BadRequestException(`"${g.name}" aceita apenas 1 escolha.`);
         }
         // Cada opção enviada precisa existir no grupo (anti-spoof de ID)
         const validIds = new Set<string>(g.options.map((o: any) => o.id));
         for (const s of sent) {
           if (!validIds.has(s.id)) {
-            throw new BadRequestException(
-              `Opção inválida em "${g.name}".`,
-            );
+            throw new BadRequestException(`Opção inválida em "${g.name}".`);
           }
         }
       }
@@ -169,25 +170,25 @@ export class OnlineOrdersService {
     // This is the ONLY source of truth. Events fire only after this resolves.
     const order = await this.prisma.onlineOrder.create({
       data: {
-        companyId:     dto.companyId,
-        customerName:  dto.customerName.trim(),
+        companyId: dto.companyId,
+        customerName: dto.customerName.trim(),
         customerPhone: dto.customerPhone.trim(),
         customerEmail: dto.customerEmail?.trim() || null,
         orderType,
-        address:       dto.address?.trim() || null,
+        address: dto.address?.trim() || null,
         addressNumber: dto.addressNumber?.trim() || null,
-        neighborhood:  dto.neighborhood?.trim() || null,
-        city:          dto.city?.trim() || null,
-        state:         dto.state?.trim() || null,
-        zipcode:       dto.zipcode?.trim() || null,
-        complement:    dto.complement?.trim() || null,
-        items:         dto.items as any,
+        neighborhood: dto.neighborhood?.trim() || null,
+        city: dto.city?.trim() || null,
+        state: dto.state?.trim() || null,
+        zipcode: dto.zipcode?.trim() || null,
+        complement: dto.complement?.trim() || null,
+        items: dto.items as any,
         subtotal,
         deliveryFee,
         discount,
         total,
         paymentMethod,
-        notes:         dto.notes?.trim() || null,
+        notes: dto.notes?.trim() || null,
       },
     });
 
@@ -208,21 +209,25 @@ export class OnlineOrdersService {
 
         this.logger.log(
           `[OnlineOrder] id=${order.id} company=${dto.companyId} ` +
-          `total=${total} type=${orderType} — socket events emitted`,
+            `total=${total} type=${orderType} — socket events emitted`,
         );
 
         // → New order confirmation email (fire-and-forget — never blocks the order)
         if (order.customerEmail) {
-          this.notifications.send({
-            to: order.customerEmail,
-            type: 'NEW_ORDER',
-            data: {
-              orderId:      order.id.slice(-8).toUpperCase(),
-              customerName: order.customerName,
-              total:        Number(order.total).toFixed(2),
-              orderType:    order.orderType,
-            },
-          }).catch((e: any) => this.logger.warn(`[OnlineOrder] email failed: ${e?.message}`));
+          this.notifications
+            .send({
+              to: order.customerEmail,
+              type: 'NEW_ORDER',
+              data: {
+                orderId: order.id.slice(-8).toUpperCase(),
+                customerName: order.customerName,
+                total: Number(order.total).toFixed(2),
+                orderType: order.orderType,
+              },
+            })
+            .catch((e: any) =>
+              this.logger.warn(`[OnlineOrder] email failed: ${e?.message}`),
+            );
         }
       } catch (err: any) {
         // Socket failure must never affect the already-created order
@@ -271,7 +276,12 @@ export class OnlineOrdersService {
   async updatePayment(
     id: string,
     data: {
-      paymentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDED' | 'EXPIRED';
+      paymentStatus?:
+        | 'PENDING'
+        | 'APPROVED'
+        | 'REJECTED'
+        | 'REFUNDED'
+        | 'EXPIRED';
       mercadopagoPaymentId?: string;
       mercadopagoPreferenceId?: string;
       pixQrcode?: string;

@@ -8,11 +8,11 @@ import {
   Post,
   Query,
   UseGuards,
-} from '@nestjs/common'
-import { SuperAdminService } from './super-admin.service'
-import { SuperAdminGuard } from './super-admin.guard'
-import { DemoVitrineService } from './demo-vitrine.service'
-import { LeadsService } from '../leads/leads.service'
+} from '@nestjs/common';
+import { SuperAdminService } from './super-admin.service';
+import { SuperAdminGuard } from './super-admin.guard';
+import { DemoVitrineService } from './demo-vitrine.service';
+import { LeadsService } from '../leads/leads.service';
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -24,19 +24,19 @@ export class SuperAdminController {
 
   @Post('auth/login')
   login(@Body() body: { email: string; password: string }) {
-    return this.service.login(body.email, body.password)
+    return this.service.login(body.email, body.password);
   }
 
   @Get('stats')
   @UseGuards(SuperAdminGuard)
   getStats() {
-    return this.service.getStats()
+    return this.service.getStats();
   }
 
   @Get('companies')
   @UseGuards(SuperAdminGuard)
   listCompanies(@Query('showArchived') showArchived?: string) {
-    return this.service.listCompanies(showArchived === 'true')
+    return this.service.listCompanies(showArchived === 'true');
   }
 
   @Post('companies')
@@ -44,65 +44,62 @@ export class SuperAdminController {
   createCompany(
     @Body()
     body: {
-      name: string
-      email: string
-      adminPassword: string
-      plan?: string
-      phone?: string
+      name: string;
+      email: string;
+      adminPassword: string;
+      plan?: string;
+      phone?: string;
     },
   ) {
-    return this.service.createCompany(body)
+    return this.service.createCompany(body);
   }
 
   @Patch('companies/:id/block')
   @UseGuards(SuperAdminGuard)
   toggleBlock(@Param('id') id: string) {
-    return this.service.toggleBlock(id)
+    return this.service.toggleBlock(id);
   }
 
   @Patch('companies/:id/archive')
   @UseGuards(SuperAdminGuard)
   archiveCompany(@Param('id') id: string) {
-    return this.service.archiveCompany(id)
+    return this.service.archiveCompany(id);
   }
 
   @Patch('companies/:id/restore')
   @UseGuards(SuperAdminGuard)
   restoreCompany(@Param('id') id: string) {
-    return this.service.restoreCompany(id)
+    return this.service.restoreCompany(id);
   }
 
   @Post('companies/:id/impersonate')
   @UseGuards(SuperAdminGuard)
   impersonateCompany(@Param('id') id: string) {
-    return this.service.impersonateCompany(id)
+    return this.service.impersonateCompany(id);
   }
 
   @Delete('companies/:id')
   @UseGuards(SuperAdminGuard)
   deleteCompany(@Param('id') id: string) {
-    return this.service.deleteCompany(id)
+    return this.service.deleteCompany(id);
   }
 
   @Post('companies/:id/clone-menu')
   @UseGuards(SuperAdminGuard)
-  cloneMenu(
-    @Param('id') targetId: string,
-    @Body() body: { sourceId: string },
-  ) {
-    return this.service.cloneMenu(body.sourceId, targetId)
+  cloneMenu(@Param('id') targetId: string, @Body() body: { sourceId: string }) {
+    return this.service.cloneMenu(body.sourceId, targetId);
   }
 
   @Post('seed')
   @UseGuards(SuperAdminGuard)
   runSeed() {
-    return this.service.runDemoSeed()
+    return this.service.runDemoSeed();
   }
 
   @Post('companies/:id/fix-modules')
   @UseGuards(SuperAdminGuard)
   fixModules(@Param('id') id: string) {
-    return this.service.fixModules(id)
+    return this.service.fixModules(id);
   }
 
   /**
@@ -113,7 +110,7 @@ export class SuperAdminController {
   @Post('demo/init')
   @UseGuards(SuperAdminGuard)
   initDemoCompanies() {
-    return this.service.initDemoCompanies()
+    return this.service.initDemoCompanies();
   }
 
   // ── Precificação ────────────────────────────────────────────────────────────
@@ -121,7 +118,7 @@ export class SuperAdminController {
   @Get('plan-config')
   @UseGuards(SuperAdminGuard)
   getPlanConfig() {
-    return this.service.getPlanConfig()
+    return this.service.getPlanConfig();
   }
 
   @Patch('plan-config/:plan')
@@ -130,13 +127,13 @@ export class SuperAdminController {
     @Param('plan') plan: string,
     @Body() body: { price?: number; label?: string; tagline?: string },
   ) {
-    return this.service.updatePlanConfig(plan, body)
+    return this.service.updatePlanConfig(plan, body);
   }
 
   @Get('modules')
   @UseGuards(SuperAdminGuard)
   listModuleCatalog() {
-    return this.service.listModuleCatalog()
+    return this.service.listModuleCatalog();
   }
 
   @Patch('modules/:slug/price')
@@ -145,27 +142,27 @@ export class SuperAdminController {
     @Param('slug') slug: string,
     @Body() body: { price: number; isFree?: boolean },
   ) {
-    return this.service.updateModulePrice(slug, body.price, body.isFree)
+    return this.service.updateModulePrice(slug, body.price, body.isFree);
   }
 
   /** POST /api/super-admin/demo/vitrine — popula as 3 demos com dados realistas */
   @Post('demo/vitrine')
   @UseGuards(SuperAdminGuard)
   populateVitrine() {
-    return this.vitrine.populateAll()
+    return this.vitrine.populateAll();
   }
 
   /** GET /api/super-admin/leads/stats — KPIs de leads da Kely */
   @Get('leads/stats')
   @UseGuards(SuperAdminGuard)
   leadsStats() {
-    return this.leads.getStats()
+    return this.leads.getStats();
   }
 
   /** GET /api/super-admin/leads — lista todos os leads capturados pela Kely */
   @Get('leads')
   @UseGuards(SuperAdminGuard)
   listLeads() {
-    return this.leads.findAll()
+    return this.leads.findAll();
   }
 }

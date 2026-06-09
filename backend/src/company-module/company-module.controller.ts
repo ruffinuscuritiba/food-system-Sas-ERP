@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CompanyModuleService } from './company-module.service';
 import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
 
@@ -31,7 +39,10 @@ export class CompanyModuleController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':companyId/:moduleSlug')
-  deactivateModule(@Param('companyId') companyId: string, @Param('moduleSlug') moduleSlug: string) {
+  deactivateModule(
+    @Param('companyId') companyId: string,
+    @Param('moduleSlug') moduleSlug: string,
+  ) {
     return this.service.deactivateModule(companyId, moduleSlug);
   }
 

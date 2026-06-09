@@ -206,12 +206,22 @@ export class IaService {
   private readonly logger = new Logger(IaService.name);
   private genai: GoogleGenerativeAI;
 
-  constructor(private prisma: PrismaService, private reports: ReportsService) {
+  constructor(
+    private prisma: PrismaService,
+    private reports: ReportsService,
+  ) {
     this.genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
   }
 
-  async ask(companyId: string, userId: string, conversationId: string | null, question: string) {
-    const kpis = await this.reports.getExecutiveKpis(companyId).catch(() => null);
+  async ask(
+    companyId: string,
+    userId: string,
+    conversationId: string | null,
+    question: string,
+  ) {
+    const kpis = await this.reports
+      .getExecutiveKpis(companyId)
+      .catch(() => null);
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
       select: { name: true, plan: true },
@@ -226,7 +236,10 @@ CONTEXTO DO NEGÓCIO (últimos 30 dias):
 - Pedidos: ${kpis.orderCount} | Ticket médio: R$ ${kpis.avgTicket.toFixed(2)}
 - CMV: R$ ${kpis.cmv.toFixed(2)} (${(kpis.cmvRatio * 100).toFixed(1)}% do faturamento)
 - Taxa de cancelamento: ${(kpis.cancelRate * 100).toFixed(1)}%
-- Top produtos: ${kpis.topProducts.slice(0, 5).map((p) => `${p.productName} (R$ ${p.revenue.toFixed(0)})`).join(', ')}
+- Top produtos: ${kpis.topProducts
+          .slice(0, 5)
+          .map((p) => `${p.productName} (R$ ${p.revenue.toFixed(0)})`)
+          .join(', ')}
 `
       : '';
 
@@ -236,7 +249,9 @@ Use dados reais do negócio quando disponíveis. Foque em insights acionáveis.
 ${contextBlock}`;
 
     let conv = conversationId
-      ? await this.prisma.aiConversation.findFirst({ where: { id: conversationId, companyId } })
+      ? await this.prisma.aiConversation.findFirst({
+          where: { id: conversationId, companyId },
+        })
       : null;
 
     if (!conv) {
@@ -266,12 +281,18 @@ ${contextBlock}`;
     const result = await chat.sendMessage(question);
     const answer = result.response.text();
     const usage = result.response.usageMetadata;
-    const tokensUsed = (usage?.promptTokenCount ?? 0) + (usage?.candidatesTokenCount ?? 0);
+    const tokensUsed =
+      (usage?.promptTokenCount ?? 0) + (usage?.candidatesTokenCount ?? 0);
 
     await this.prisma.aiMessage.createMany({
       data: [
         { conversationId: conv.id, role: 'USER', content: question },
-        { conversationId: conv.id, role: 'ASSISTANT', content: answer, tokensUsed },
+        {
+          conversationId: conv.id,
+          role: 'ASSISTANT',
+          content: answer,
+          tokensUsed,
+        },
       ],
     });
 
@@ -295,7 +316,11 @@ ${contextBlock}`;
   }
 
   /** Public streaming endpoint — Claude primary, Gemini fallback, no auth, no DB */
-  async streamPlatformDemo(messages: DemoMessage[], res: any, leadInfo?: LeadInfo): Promise<void> {
+  async streamPlatformDemo(
+    messages: DemoMessage[],
+    res: any,
+    leadInfo?: LeadInfo,
+  ): Promise<void> {
     if (messages.length === 0) {
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return;
@@ -306,16 +331,27 @@ ${contextBlock}`;
     // ── Primary: Anthropic Claude ────────────────────────────────────
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (anthropicKey) {
-      const ok = await this.tryStreamClaude(messages, res, anthropicKey, systemPrompt);
+      const ok = await this.tryStreamClaude(
+        messages,
+        res,
+        anthropicKey,
+        systemPrompt,
+      );
       if (ok) return;
-      this.logger.warn('Claude failed — falling back to Gemini for platform demo');
+      this.logger.warn(
+        'Claude failed — falling back to Gemini for platform demo',
+      );
     } else {
-      this.logger.warn('ANTHROPIC_API_KEY absent — using Gemini directly for platform demo');
+      this.logger.warn(
+        'ANTHROPIC_API_KEY absent — using Gemini directly for platform demo',
+      );
     }
 
     // ── Fallback: Google Gemini ──────────────────────────────────────
     if (!process.env.GEMINI_API_KEY) {
-      this.logger.error('Platform demo: both ANTHROPIC_API_KEY and GEMINI_API_KEY are missing');
+      this.logger.error(
+        'Platform demo: both ANTHROPIC_API_KEY and GEMINI_API_KEY are missing',
+      );
       res.write(
         `data: ${JSON.stringify({ text: 'Olá! Sou a Kely. Para ativar o chat, as chaves de API precisam ser configuradas no servidor.' })}\n\n`,
       );
@@ -366,7 +402,9 @@ ${contextBlock}`;
 
       if (!response.ok || !response.body) {
         const errBody = await response.text().catch(() => 'unknown');
-        this.logger.warn(`Anthropic platform-demo failed: status=${response.status} body=${errBody.slice(0, 200)}`);
+        this.logger.warn(
+          `Anthropic platform-demo failed: status=${response.status} body=${errBody.slice(0, 200)}`,
+        );
         return false;
       }
 
@@ -388,9 +426,13 @@ ${contextBlock}`;
               parsed.delta?.type === 'text_delta' &&
               parsed.delta.text
             ) {
-              res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
+              res.write(
+                `data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`,
+              );
             }
-          } catch { /* skip malformed SSE line */ }
+          } catch {
+            /* skip malformed SSE line */
+          }
         }
       }
 
@@ -426,7 +468,9 @@ ${contextBlock}`;
       const firstUserIdx = rawHistory.findIndex((h) => h.role === 'user');
       const history = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : [];
 
-      this.logger.debug(`[DIAG-GEMINI-HISTORY] roles=[${[...history.map((h) => h.role), 'user'].join(', ')}]`);
+      this.logger.debug(
+        `[DIAG-GEMINI-HISTORY] roles=[${[...history.map((h) => h.role), 'user'].join(', ')}]`,
+      );
 
       const chat = model.startChat({ history });
       const result = await chat.sendMessageStream(lastMsg.content);

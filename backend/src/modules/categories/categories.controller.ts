@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -17,13 +27,19 @@ export class CategoriesController {
 
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  create(@Body() body: { name: string; allowMultipleFlavors?: boolean }, @Request() req: any) {
+  create(
+    @Body() body: { name: string; allowMultipleFlavors?: boolean },
+    @Request() req: any,
+  ) {
     return this.service.create({ ...body, companyId: req.user.companyId });
   }
 
   @Patch('reorder')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  reorder(@Body() body: { items: { id: string; sortOrder: number }[] }, @Request() req: any) {
+  reorder(
+    @Body() body: { items: { id: string; sortOrder: number }[] },
+    @Request() req: any,
+  ) {
     return this.service.reorder(req.user.companyId, body?.items ?? []);
   }
 
@@ -31,7 +47,13 @@ export class CategoriesController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   update(
     @Param('id') id: string,
-    @Body() body: { name?: string; allowMultipleFlavors?: boolean; categoryType?: string; displayColumns?: number },
+    @Body()
+    body: {
+      name?: string;
+      allowMultipleFlavors?: boolean;
+      categoryType?: string;
+      displayColumns?: number;
+    },
     @Request() req: any,
   ) {
     return this.service.update(id, req.user.companyId, body);

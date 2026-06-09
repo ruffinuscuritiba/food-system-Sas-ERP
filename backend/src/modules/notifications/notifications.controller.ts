@@ -11,7 +11,9 @@ export class NotificationsController {
   @Post('send')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN')
-  async send(@Body() body: { to: string; type: string; data?: Record<string, any> }) {
+  async send(
+    @Body() body: { to: string; type: string; data?: Record<string, any> },
+  ) {
     await this.service.send({
       to: body.to,
       type: body.type as any,

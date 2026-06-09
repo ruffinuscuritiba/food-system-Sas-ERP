@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { RecipesService } from './recipes.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -21,6 +29,9 @@ export class RecipesController {
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   create(@Body() body: any, @Request() req: any) {
-    return this.recipesService.create({ ...body, companyId: req.user.companyId });
+    return this.recipesService.create({
+      ...body,
+      companyId: req.user.companyId,
+    });
   }
 }

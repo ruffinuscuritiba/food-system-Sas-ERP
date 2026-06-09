@@ -16,7 +16,9 @@ import { OrdersService } from '@/modules/orders/orders.service';
 
 @Injectable()
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/tracking' })
-export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class TrackingGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(TrackingGateway.name);
 
@@ -28,9 +30,14 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth?.token ?? (client.handshake.query?.token as string);
+      const token =
+        client.handshake.auth?.token ??
+        (client.handshake.query?.token as string);
       if (token) {
-        const payload = this.jwtService.verify<{ sub: string; companyId: string }>(token);
+        const payload = this.jwtService.verify<{
+          sub: string;
+          companyId: string;
+        }>(token);
         client.data = { userId: payload.sub, companyId: payload.companyId };
       }
     } catch {
@@ -45,14 +52,20 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   // Customer joins room to track an order
   @SubscribeMessage('track:order')
-  handleTrackOrder(@MessageBody() orderId: string, @ConnectedSocket() client: Socket) {
+  handleTrackOrder(
+    @MessageBody() orderId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
     client.join(`order:${orderId}`);
     client.emit('track:joined', { orderId });
   }
 
   // Driver registers presence (joins their own room)
   @SubscribeMessage('driver:register')
-  handleDriverRegister(@MessageBody() driverId: string, @ConnectedSocket() client: Socket) {
+  handleDriverRegister(
+    @MessageBody() driverId: string,
+    @ConnectedSocket() client: Socket,
+  ) {
     client.join(`driver:${driverId}`);
     client.emit('driver:registered', { driverId });
   }
@@ -60,7 +73,8 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
   // Driver sends GPS location — broadcasts to all customers tracking their active order
   @SubscribeMessage('driver:location')
   async handleLocation(
-    @MessageBody() payload: { driverId: string; orderId: string; lat: number; lng: number },
+    @MessageBody()
+    payload: { driverId: string; orderId: string; lat: number; lng: number },
     @ConnectedSocket() client: Socket,
   ) {
     const { driverId, orderId, lat, lng } = payload;
@@ -91,7 +105,9 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
         data: { pickedUpAt: new Date() },
       });
     } catch {}
-    this.server.to(`order:${payload.orderId}`).emit('order:picked_up', { orderId: payload.orderId });
+    this.server
+      .to(`order:${payload.orderId}`)
+      .emit('order:picked_up', { orderId: payload.orderId });
   }
 
   // Driver marks order as delivered — routes through OrdersService (stock, socket, loyalty, audit)
@@ -100,12 +116,22 @@ export class TrackingGateway implements OnGatewayConnection, OnGatewayDisconnect
     @MessageBody() payload: { orderId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { userId, companyId } = (client.data ?? {}) as { userId?: string; companyId?: string };
+    const { userId, companyId } = (client.data ?? {}) as {
+      userId?: string;
+      companyId?: string;
+    };
     if (!userId || !companyId) return;
 
     try {
-      await this.ordersService.updateStatus(payload.orderId, OrderStatus.DELIVERED, userId, companyId);
+      await this.ordersService.updateStatus(
+        payload.orderId,
+        OrderStatus.DELIVERED,
+        userId,
+        companyId,
+      );
     } catch {}
-    this.server.to(`order:${payload.orderId}`).emit('order:delivered', { orderId: payload.orderId });
+    this.server
+      .to(`order:${payload.orderId}`)
+      .emit('order:delivered', { orderId: payload.orderId });
   }
 }

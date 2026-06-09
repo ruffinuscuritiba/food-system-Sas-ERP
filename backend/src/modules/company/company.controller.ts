@@ -10,15 +10,13 @@ import {
 } from '@nestjs/common';
 
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { RolesGuard }   from '@/common/guards/roles.guard';
-import { Roles }        from '@/common/decorators/roles.decorator';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { CompanyService } from './company.service';
 
 @Controller('company')
 export class CompanyController {
-  constructor(
-    private service: CompanyService,
-  ) {}
+  constructor(private service: CompanyService) {}
 
   @Get()
   findAll() {
@@ -52,10 +50,7 @@ export class CompanyController {
   @Patch(':id/plan')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
-  updatePlan(
-    @Param('id') id: string,
-    @Body() body: { plan: string },
-  ) {
+  updatePlan(@Param('id') id: string, @Body() body: { plan: string }) {
     return this.service.updatePlan(id, body.plan);
   }
 

@@ -1,24 +1,31 @@
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GenerateCampaignDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   tipoNegocio!: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   objetivo!: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   produto!: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   precoDe!: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   precoPor?: string;
 
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   tomVoz!: string;
 
-  @IsString() @IsOptional()
+  @IsString()
+  @IsOptional()
   contextoExtra?: string;
 }

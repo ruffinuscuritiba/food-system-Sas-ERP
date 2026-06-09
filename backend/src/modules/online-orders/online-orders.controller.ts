@@ -1,5 +1,8 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { OnlineOrdersService, CreateOnlineOrderDto } from './online-orders.service';
+import {
+  OnlineOrdersService,
+  CreateOnlineOrderDto,
+} from './online-orders.service';
 
 @Controller('online-orders')
 export class OnlineOrdersController {
@@ -23,10 +26,7 @@ export class OnlineOrdersController {
 
   /** Public — customer checks order status (com companyId) */
   @Get(':id')
-  findOne(
-    @Param('id') id: string,
-    @Query('companyId') companyId: string,
-  ) {
+  findOne(@Param('id') id: string, @Query('companyId') companyId: string) {
     return this.service.findOne(id, companyId);
   }
 

@@ -37,32 +37,35 @@ export class OrderNotificationService {
    * Inclui: número, itens, total, pagamento e endereço.
    */
   async notifyOrderConfirmed(params: {
-    companyId:     string;
-    orderId:       string;
+    companyId: string;
+    orderId: string;
     customerPhone: string;
     customerName?: string;
-    items:         { name: string; quantity: number; unitPrice?: number }[];
-    total:         number;
+    items: { name: string; quantity: number; unitPrice?: number }[];
+    total: number;
     paymentMethod: string;
-    address?:      string;
+    address?: string;
   }): Promise<void> {
     const phone = formatPhoneInternational(params.customerPhone);
     if (!phone || phone.length < 10) {
-      this.log.warn(`notifyOrderConfirmed: telefone inválido "${params.customerPhone}"`);
+      this.log.warn(
+        `notifyOrderConfirmed: telefone inválido "${params.customerPhone}"`,
+      );
       return;
     }
 
     const connection = await this.findActiveConnection(params.companyId);
     if (!connection) return;
 
-    const shortId  = params.orderId.slice(-6).toUpperCase();
-    const items    = formatOrderItems(params.items);
-    const total    = `R$ ${params.total.toFixed(2).replace('.', ',')}`;
-    const payment  = PAYMENT_LABELS[params.paymentMethod] ?? params.paymentMethod;
-    const address  = params.address?.trim() || 'Retirada no balcão';
+    const shortId = params.orderId.slice(-6).toUpperCase();
+    const items = formatOrderItems(params.items);
+    const total = `R$ ${params.total.toFixed(2).replace('.', ',')}`;
+    const payment =
+      PAYMENT_LABELS[params.paymentMethod] ?? params.paymentMethod;
+    const address = params.address?.trim() || 'Retirada no balcão';
 
     const message = tplOrderConfirmed({
-      name:    params.customerName ?? '',
+      name: params.customerName ?? '',
       orderId: shortId,
       items,
       total,
@@ -83,21 +86,25 @@ export class OrderNotificationService {
    * Anti-loop: não re-envia se status for igual ao anterior (caller deve checar).
    */
   async notifyStatusChange(params: {
-    companyId:     string;
-    orderId:       string;
+    companyId: string;
+    orderId: string;
     customerPhone: string;
     customerName?: string;
-    newStatus:     OrderStatusKey;
+    newStatus: OrderStatusKey;
   }): Promise<void> {
     const phone = formatPhoneInternational(params.customerPhone);
     if (!phone || phone.length < 10) {
-      this.log.warn(`notifyStatusChange: telefone inválido "${params.customerPhone}"`);
+      this.log.warn(
+        `notifyStatusChange: telefone inválido "${params.customerPhone}"`,
+      );
       return;
     }
 
     const templateFn = STATUS_TEMPLATES[params.newStatus];
     if (!templateFn) {
-      this.log.debug(`notifyStatusChange: status "${params.newStatus}" sem template — ignorado`);
+      this.log.debug(
+        `notifyStatusChange: status "${params.newStatus}" sem template — ignorado`,
+      );
       return;
     }
 
@@ -108,7 +115,9 @@ export class OrderNotificationService {
     const message = templateFn(shortId, params.customerName);
 
     await this.dispatch(connection, phone, message);
-    this.log.log(`Status "${params.newStatus}" notificado — order #${shortId} → ${phone}`);
+    this.log.log(
+      `Status "${params.newStatus}" notificado — order #${shortId} → ${phone}`,
+    );
   }
 
   // ── Helpers privados ─────────────────────────────────────────────────────────
@@ -129,38 +138,52 @@ export class OrderNotificationService {
     }
   }
 
-  private async dispatch(connection: any, phone: string, text: string): Promise<void> {
+  private async dispatch(
+    connection: any,
+    phone: string,
+    text: string,
+  ): Promise<void> {
     try {
-      if (connection.provider === 'EVOLUTION' && connection.apiUrl && connection.instanceName) {
+      if (
+        connection.provider === 'EVOLUTION' &&
+        connection.apiUrl &&
+        connection.instanceName
+      ) {
         const url = `${String(connection.apiUrl).replace(/\/$/, '')}/message/sendText/${connection.instanceName}`;
         const res = await fetch(url, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', apikey: connection.apiToken ?? '' },
-          body:    JSON.stringify({ number: phone, text }),
-          signal:  AbortSignal.timeout(15_000),
-        });
-        if (!res.ok) this.log.warn(`Evolution dispatch HTTP ${res.status}`);
-
-      } else if (connection.provider === 'CLOUD_API' && connection.phoneNumberId) {
-        const url = `https://graph.facebook.com/v18.0/${connection.phoneNumberId}/messages`;
-        const res = await fetch(url, {
-          method:  'POST',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization:  `Bearer ${connection.apiToken ?? ''}`,
+            apikey: connection.apiToken ?? '',
+          },
+          body: JSON.stringify({ number: phone, text }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!res.ok) this.log.warn(`Evolution dispatch HTTP ${res.status}`);
+      } else if (
+        connection.provider === 'CLOUD_API' &&
+        connection.phoneNumberId
+      ) {
+        const url = `https://graph.facebook.com/v18.0/${connection.phoneNumberId}/messages`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${connection.apiToken ?? ''}`,
           },
           body: JSON.stringify({
             messaging_product: 'whatsapp',
-            to:   phone,
+            to: phone,
             type: 'text',
             text: { body: text },
           }),
           signal: AbortSignal.timeout(15_000),
         });
         if (!res.ok) this.log.warn(`Cloud API dispatch HTTP ${res.status}`);
-
       } else {
-        this.log.warn(`dispatch: provider "${connection.provider}" não suportado ou incompleto`);
+        this.log.warn(
+          `dispatch: provider "${connection.provider}" não suportado ou incompleto`,
+        );
       }
     } catch (err: any) {
       this.log.warn(`dispatch error: ${err?.message}`);

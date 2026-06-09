@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
@@ -13,7 +18,9 @@ export class DriversService {
   findAll(companyId: string) {
     return this.prisma.driverProfile.findMany({
       where: { companyId },
-      include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
+      include: {
+        user: { select: { id: true, name: true, email: true, isActive: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -24,7 +31,11 @@ export class DriversService {
       include: {
         user: { select: { id: true, name: true, email: true, isActive: true } },
         orders: {
-          where: { status: { in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'] } },
+          where: {
+            status: {
+              in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'],
+            },
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
@@ -57,15 +68,20 @@ export class DriversService {
         vehiclePlate,
         companyId,
       },
-      include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
+      include: {
+        user: { select: { id: true, name: true, email: true, isActive: true } },
+      },
     });
   }
 
   async update(id: string, companyId: string, data: any) {
-    const profile = await this.prisma.driverProfile.findFirst({ where: { id, companyId } });
+    const profile = await this.prisma.driverProfile.findFirst({
+      where: { id, companyId },
+    });
     if (!profile) throw new NotFoundException('Entregador não encontrado');
 
-    const { name, isActive, phone, vehicleType, vehiclePlate, isAvailable } = data;
+    const { name, isActive, phone, vehicleType, vehiclePlate, isAvailable } =
+      data;
 
     if (name || isActive !== undefined) {
       await this.prisma.user.update({
@@ -85,7 +101,9 @@ export class DriversService {
         ...(vehiclePlate !== undefined && { vehiclePlate }),
         ...(isAvailable !== undefined && { isAvailable }),
       },
-      include: { user: { select: { id: true, name: true, email: true, isActive: true } } },
+      include: {
+        user: { select: { id: true, name: true, email: true, isActive: true } },
+      },
     });
   }
 
@@ -96,11 +114,20 @@ export class DriversService {
     });
   }
 
-  async assignOrder(orderId: string, driverId: string, companyId: string, userId: string) {
-    const driver = await this.prisma.driverProfile.findFirst({ where: { id: driverId, companyId } });
+  async assignOrder(
+    orderId: string,
+    driverId: string,
+    companyId: string,
+    userId: string,
+  ) {
+    const driver = await this.prisma.driverProfile.findFirst({
+      where: { id: driverId, companyId },
+    });
     if (!driver) throw new NotFoundException('Entregador não encontrado');
 
-    const order = await this.prisma.order.findFirst({ where: { id: orderId, companyId } });
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, companyId },
+    });
     if (!order) throw new NotFoundException('Pedido não encontrado');
 
     // Persist driver assignment fields outside the status transaction
@@ -110,11 +137,18 @@ export class DriversService {
     });
 
     // Delegate status transition via OrdersService (stock, socket, loyalty, audit)
-    return this.ordersService.updateStatus(orderId, OrderStatus.OUT_FOR_DELIVERY, userId, companyId);
+    return this.ordersService.updateStatus(
+      orderId,
+      OrderStatus.OUT_FOR_DELIVERY,
+      userId,
+      companyId,
+    );
   }
 
   async updateMyLocation(userId: string, lat: number, lng: number) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
     return this.prisma.driverProfile.update({
       where: { id: profile.id },
@@ -123,7 +157,9 @@ export class DriversService {
   }
 
   async availableOrders(userId: string) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
 
     return this.prisma.order.findMany({
@@ -139,7 +175,9 @@ export class DriversService {
   }
 
   async acceptOrder(userId: string, orderId: string) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
 
     // Serializable transaction: check-and-assign atomically to prevent double-assignment
@@ -149,7 +187,10 @@ export class DriversService {
           where: { id: orderId, companyId: profile.companyId },
         });
         if (!order) throw new NotFoundException('Pedido não encontrado');
-        if (order.driverId !== null) throw new ConflictException('Pedido já foi aceito por outro entregador');
+        if (order.driverId !== null)
+          throw new ConflictException(
+            'Pedido já foi aceito por outro entregador',
+          );
 
         await tx.order.update({
           where: { id: orderId },
@@ -160,11 +201,18 @@ export class DriversService {
     );
 
     // Status transition outside transaction (triggers stock, socket, loyalty, audit)
-    return this.ordersService.updateStatus(orderId, OrderStatus.OUT_FOR_DELIVERY, userId, profile.companyId);
+    return this.ordersService.updateStatus(
+      orderId,
+      OrderStatus.OUT_FOR_DELIVERY,
+      userId,
+      profile.companyId,
+    );
   }
 
   async myOrders(userId: string) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
 
     return this.prisma.order.findMany({
@@ -192,7 +240,14 @@ export class DriversService {
       where: { driverProfileId, companyId },
       orderBy: { createdAt: 'desc' },
       include: {
-        order: { select: { id: true, createdAt: true, total: true, deliveryAddress: true } },
+        order: {
+          select: {
+            id: true,
+            createdAt: true,
+            total: true,
+            deliveryAddress: true,
+          },
+        },
       },
     });
   }
@@ -202,33 +257,52 @@ export class DriversService {
       where: { driverProfileId, companyId },
       orderBy: { createdAt: 'desc' },
       include: {
-        earnings: { select: { id: true, orderId: true, driverAmount: true, status: true } },
+        earnings: {
+          select: { id: true, orderId: true, driverAmount: true, status: true },
+        },
       },
     });
   }
 
   async myEarnings(userId: string) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
     return this.listEarnings(profile.id, profile.companyId);
   }
 
   async myPayments(userId: string) {
-    const profile = await this.prisma.driverProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
     return this.listPayments(profile.id, profile.companyId);
   }
 
   async createPayment(driverProfileId: string, companyId: string) {
-    const driver = await this.prisma.driverProfile.findFirst({ where: { id: driverProfileId, companyId } });
+    const driver = await this.prisma.driverProfile.findFirst({
+      where: { id: driverProfileId, companyId },
+    });
     if (!driver) throw new NotFoundException('Entregador não encontrado');
 
     const earnings = await this.prisma.driverEarning.findMany({
-      where: { driverProfileId, companyId, status: 'PENDING', driverPaymentId: null },
+      where: {
+        driverProfileId,
+        companyId,
+        status: 'PENDING',
+        driverPaymentId: null,
+      },
     });
-    if (!earnings.length) throw new BadRequestException('Nenhum repasse pendente para este entregador');
+    if (!earnings.length)
+      throw new BadRequestException(
+        'Nenhum repasse pendente para este entregador',
+      );
 
-    const totalAmount = earnings.reduce((sum, e) => sum + Number(e.driverAmount), 0);
+    const totalAmount = earnings.reduce(
+      (sum, e) => sum + Number(e.driverAmount),
+      0,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.driverPayment.create({
@@ -245,10 +319,13 @@ export class DriversService {
   async payPayment(paymentId: string, companyId: string) {
     const payment = await this.prisma.driverPayment.findFirst({
       where: { id: paymentId, companyId },
-      include: { driverProfile: { include: { user: { select: { name: true } } } } },
+      include: {
+        driverProfile: { include: { user: { select: { name: true } } } },
+      },
     });
     if (!payment) throw new NotFoundException('Pagamento não encontrado');
-    if (payment.status === 'PAID') throw new BadRequestException('Pagamento já quitado');
+    if (payment.status === 'PAID')
+      throw new BadRequestException('Pagamento já quitado');
 
     return this.prisma.$transaction(async (tx) => {
       const financial = await tx.financial.create({

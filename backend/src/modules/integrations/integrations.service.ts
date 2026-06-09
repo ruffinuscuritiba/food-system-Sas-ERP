@@ -4,34 +4,37 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService }              from '@/database/prisma.service';
-import { OrdersService }              from '@/modules/orders/orders.service';
+import { PrismaService } from '@/database/prisma.service';
+import { OrdersService } from '@/modules/orders/orders.service';
 import { IntegrationProviderFactory } from './providers/integration-provider.factory';
-import { IntegrationEvent }           from './providers/integration-provider.interface';
+import { IntegrationEvent } from './providers/integration-provider.interface';
 
 @Injectable()
 export class IntegrationsService {
   private readonly logger = new Logger(IntegrationsService.name);
 
   constructor(
-    private readonly prisma:           PrismaService,
-    private readonly ordersService:    OrdersService,
-    private readonly providerFactory:  IntegrationProviderFactory,
+    private readonly prisma: PrismaService,
+    private readonly ordersService: OrdersService,
+    private readonly providerFactory: IntegrationProviderFactory,
   ) {}
 
   // ── Config ──────────────────────────────────────────────────────────────
 
-  async upsertConfig(companyId: string, dto: {
-    provider:       string;
-    merchantId?:    string;
-    webhookSecret?: string;
-    sandboxMode?:   boolean;
-    isActive?:      boolean;
-  }) {
+  async upsertConfig(
+    companyId: string,
+    dto: {
+      provider: string;
+      merchantId?: string;
+      webhookSecret?: string;
+      sandboxMode?: boolean;
+      isActive?: boolean;
+    },
+  ) {
     const provider = dto.provider as any;
     const { provider: _p, ...rest } = dto;
     return this.prisma.integrationConfig.upsert({
-      where:  { companyId_provider: { companyId, provider } },
+      where: { companyId_provider: { companyId, provider } },
       create: { companyId, provider, ...rest },
       update: { provider, ...rest, updatedAt: new Date() },
     });
@@ -40,19 +43,29 @@ export class IntegrationsService {
   async getConfig(companyId: string, provider?: string) {
     if (provider) {
       return this.prisma.integrationConfig.findUnique({
-        where:  { companyId_provider: { companyId, provider: provider as any } },
+        where: { companyId_provider: { companyId, provider: provider as any } },
         select: {
-          id: true, provider: true, isActive: true, sandboxMode: true,
-          merchantId: true, tokenExpiresAt: true, updatedAt: true,
+          id: true,
+          provider: true,
+          isActive: true,
+          sandboxMode: true,
+          merchantId: true,
+          tokenExpiresAt: true,
+          updatedAt: true,
           // nunca retornar apiKeyEncrypted / webhookSecret / tokens
         },
       });
     }
     return this.prisma.integrationConfig.findMany({
-      where:  { companyId },
+      where: { companyId },
       select: {
-        id: true, provider: true, isActive: true, sandboxMode: true,
-        merchantId: true, tokenExpiresAt: true, updatedAt: true,
+        id: true,
+        provider: true,
+        isActive: true,
+        sandboxMode: true,
+        merchantId: true,
+        tokenExpiresAt: true,
+        updatedAt: true,
       },
     });
   }
@@ -61,63 +74,85 @@ export class IntegrationsService {
 
   async listCatalogMaps(companyId: string, provider?: string) {
     return this.prisma.productCatalogMap.findMany({
-      where: { companyId, ...(provider && { provider: provider as any }), isActive: true },
-      include: { product: { select: { id: true, name: true, imageUrl: true, salePrice: true } } },
+      where: {
+        companyId,
+        ...(provider && { provider: provider as any }),
+        isActive: true,
+      },
+      include: {
+        product: {
+          select: { id: true, name: true, imageUrl: true, salePrice: true },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async upsertCatalogMap(companyId: string, dto: {
-    provider:          string;
-    externalProductId: string;
-    internalProductId: string;
-    externalVariantId?: string;
-    sizeMapping?:       Record<string, unknown>;
-  }) {
+  async upsertCatalogMap(
+    companyId: string,
+    dto: {
+      provider: string;
+      externalProductId: string;
+      internalProductId: string;
+      externalVariantId?: string;
+      sizeMapping?: Record<string, unknown>;
+    },
+  ) {
     const product = await this.prisma.product.findFirst({
       where: { id: dto.internalProductId, companyId, deletedAt: null },
     });
-    if (!product) throw new NotFoundException('Produto interno não encontrado.');
+    if (!product)
+      throw new NotFoundException('Produto interno não encontrado.');
 
     return this.prisma.productCatalogMap.upsert({
       where: {
         companyId_provider_externalProductId: {
           companyId,
-          provider:          dto.provider as any,
+          provider: dto.provider as any,
           externalProductId: dto.externalProductId,
         },
       },
-      create: { companyId, ...dto as any, isActive: true },
-      update: { ...dto as any, isActive: true, updatedAt: new Date() },
+      create: { companyId, ...(dto as any), isActive: true },
+      update: { ...(dto as any), isActive: true, updatedAt: new Date() },
     });
   }
 
   async deleteCatalogMap(id: string, companyId: string) {
-    const map = await this.prisma.productCatalogMap.findFirst({ where: { id, companyId } });
+    const map = await this.prisma.productCatalogMap.findFirst({
+      where: { id, companyId },
+    });
     if (!map) throw new NotFoundException('Mapeamento não encontrado.');
-    return this.prisma.productCatalogMap.update({ where: { id }, data: { isActive: false } });
+    return this.prisma.productCatalogMap.update({
+      where: { id },
+      data: { isActive: false },
+    });
   }
 
   // ── Event log (leitura) ───────────────────────────────────────────────────
 
   async listEvents(companyId: string, limit = 50) {
     return this.prisma.integrationEventLog.findMany({
-      where:   { companyId },
+      where: { companyId },
       orderBy: { createdAt: 'desc' },
-      take:    limit,
-      select:  {
-        id: true, provider: true, eventType: true,
-        externalOrderId: true, status: true,
-        errorMessage: true, processedAt: true, createdAt: true,
+      take: limit,
+      select: {
+        id: true,
+        provider: true,
+        eventType: true,
+        externalOrderId: true,
+        status: true,
+        errorMessage: true,
+        processedAt: true,
+        createdAt: true,
       },
     });
   }
 
   async listIntegrationOrders(companyId: string, limit = 50) {
     return this.prisma.integrationOrder.findMany({
-      where:   { companyId },
+      where: { companyId },
       orderBy: { createdAt: 'desc' },
-      take:    limit,
+      take: limit,
     });
   }
 
@@ -130,22 +165,31 @@ export class IntegrationsService {
     body: unknown,
     rawBody: Buffer,
   ): Promise<{ received: boolean }> {
-
     // 1. Carrega config
     const config = await this.prisma.integrationConfig.findUnique({
-      where: { companyId_provider: { companyId, provider: providerName as any } },
+      where: {
+        companyId_provider: { companyId, provider: providerName as any },
+      },
     });
     if (!config || !config.isActive) {
-      this.logger.warn(`[Integrations] webhook rejeitado — config inexistente ou inativa: ${companyId}/${providerName}`);
+      this.logger.warn(
+        `[Integrations] webhook rejeitado — config inexistente ou inativa: ${companyId}/${providerName}`,
+      );
       return { received: false };
     }
 
     // 2. Valida assinatura (pula em sandboxMode)
     const provider = this.providerFactory.get(providerName);
     if (!config.sandboxMode && config.webhookSecret) {
-      const valid = provider.validateWebhookSignature(config.webhookSecret, headers, rawBody);
+      const valid = provider.validateWebhookSignature(
+        config.webhookSecret,
+        headers,
+        rawBody,
+      );
       if (!valid) {
-        this.logger.warn(`[Integrations] assinatura inválida: ${companyId}/${providerName}`);
+        this.logger.warn(
+          `[Integrations] assinatura inválida: ${companyId}/${providerName}`,
+        );
         return { received: false };
       }
     }
@@ -155,56 +199,86 @@ export class IntegrationsService {
     try {
       event = provider.parseEvent(body, headers);
     } catch (err: any) {
-      await this.logEvent(companyId, providerName, 'PARSE_ERROR', null, 'ERROR', err?.message, body);
+      await this.logEvent(
+        companyId,
+        providerName,
+        'PARSE_ERROR',
+        null,
+        'ERROR',
+        err?.message,
+        body,
+      );
       return { received: true }; // ACK para não gerar retry
     }
 
     // 4. Log do evento (append-only)
-    await this.logEvent(companyId, providerName, event.type, event.externalOrderId, 'RECEIVED', null, body);
+    await this.logEvent(
+      companyId,
+      providerName,
+      event.type,
+      event.externalOrderId,
+      'RECEIVED',
+      null,
+      body,
+    );
 
     // 5. Processa de forma assíncrona — ACK imediato
-    setImmediate(() => this.handleEvent(companyId, config.id, providerName, event));
+    setImmediate(() =>
+      this.handleEvent(companyId, config.id, providerName, event),
+    );
 
     return { received: true };
   }
 
   // ── Simulação manual (PASSO 6 — Mock) ────────────────────────────────────
 
-  async simulateMockOrder(companyId: string, dto: {
-    customerName:  string;
-    customerPhone: string;
-    neighborhood?: string;
-    items: Array<{ internalProductId: string; quantity: number; unitPrice: number }>;
-    paymentMethod?: string;
-    deliveryFee?:   number;
-    notes?:         string;
-  }) {
+  async simulateMockOrder(
+    companyId: string,
+    dto: {
+      customerName: string;
+      customerPhone: string;
+      neighborhood?: string;
+      items: Array<{
+        internalProductId: string;
+        quantity: number;
+        unitPrice: number;
+      }>;
+      paymentMethod?: string;
+      deliveryFee?: number;
+      notes?: string;
+    },
+  ) {
     const config = await this.prisma.integrationConfig.findUnique({
       where: { companyId_provider: { companyId, provider: 'MOCK' as any } },
     });
     if (!config) {
-      throw new BadRequestException('Configure o provider MOCK antes de simular.');
+      throw new BadRequestException(
+        'Configure o provider MOCK antes de simular.',
+      );
     }
 
     const externalOrderId = `MOCK-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    const subtotal = dto.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const subtotal = dto.items.reduce(
+      (s, i) => s + i.unitPrice * i.quantity,
+      0,
+    );
     const deliveryFee = dto.deliveryFee ?? 0;
 
     const mockBody = {
-      type:            'ORDER_CREATED',
+      type: 'ORDER_CREATED',
       externalOrderId,
-      status:          'PLACED',
-      orderType:       'DELIVERY',
+      status: 'PLACED',
+      orderType: 'DELIVERY',
       customer: {
-        name:         dto.customerName,
-        phone:        dto.customerPhone,
+        name: dto.customerName,
+        phone: dto.customerPhone,
         neighborhood: dto.neighborhood ?? '',
       },
       items: dto.items.map((i) => ({
         externalProductId: i.internalProductId, // Mock: ID externo = ID interno
-        productName:       'Produto Mock',
-        quantity:          i.quantity,
-        unitPrice:         i.unitPrice,
+        productName: 'Produto Mock',
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
       })),
       paymentMethod: dto.paymentMethod ?? 'PIX',
       subtotal,
@@ -241,10 +315,29 @@ export class IntegrationsService {
           externalStatus: 'CANCELLED',
         });
       }
-      await this.logEvent(companyId, providerName, event.type, event.externalOrderId, 'PROCESSED', null, null);
+      await this.logEvent(
+        companyId,
+        providerName,
+        event.type,
+        event.externalOrderId,
+        'PROCESSED',
+        null,
+        null,
+      );
     } catch (err: any) {
-      this.logger.error(`[Integrations] handleEvent failed: ${err?.message}`, err?.stack);
-      await this.logEvent(companyId, providerName, event.type, event.externalOrderId, 'ERROR', err?.message, null);
+      this.logger.error(
+        `[Integrations] handleEvent failed: ${err?.message}`,
+        err?.stack,
+      );
+      await this.logEvent(
+        companyId,
+        providerName,
+        event.type,
+        event.externalOrderId,
+        'ERROR',
+        err?.message,
+        null,
+      );
     }
   }
 
@@ -259,7 +352,9 @@ export class IntegrationsService {
       where: { externalOrderId: event.externalOrderId },
     });
     if (existing) {
-      this.logger.log(`[Integrations] ORDER_CREATED ignorado — já existe: ${event.externalOrderId}`);
+      this.logger.log(
+        `[Integrations] ORDER_CREATED ignorado — já existe: ${event.externalOrderId}`,
+      );
       return;
     }
 
@@ -268,10 +363,10 @@ export class IntegrationsService {
       data: {
         companyId,
         configId,
-        provider:        providerName as any,
+        provider: providerName as any,
         externalOrderId: event.externalOrderId,
-        externalStatus:  event.externalStatus ?? 'PLACED',
-        rawPayload:      event.rawPayload as any,
+        externalStatus: event.externalStatus ?? 'PLACED',
+        rawPayload: event.rawPayload as any,
       },
     });
 
@@ -285,29 +380,31 @@ export class IntegrationsService {
     );
 
     if (resolvedItems.length === 0) {
-      throw new BadRequestException('Nenhum item do pedido pôde ser mapeado para produtos internos.');
+      throw new BadRequestException(
+        'Nenhum item do pedido pôde ser mapeado para produtos internos.',
+      );
     }
 
     // Cria pedido via OrdersService (fonte de verdade — dispara estoque, loyalty, socket, WhatsApp)
     const order = await this.ordersService.create({
       companyId,
-      channel:          providerName,
-      externalOrderId:  event.externalOrderId,
-      orderType:        event.orderType ?? 'DELIVERY',
-      customerName:     event.customer?.name ?? 'Cliente',
-      customerPhone:    event.customer?.phone ?? '',
-      deliveryAddress:  this.formatAddress(event.customer),
-      neighborhood:     event.customer?.neighborhood,
-      paymentMethod:    provider.mapPaymentMethod(event.paymentMethod ?? 'PIX'),
-      items:            resolvedItems,
-      deliveryFee:      event.deliveryFee ?? 0,
-      notes:            event.notes,
+      channel: providerName,
+      externalOrderId: event.externalOrderId,
+      orderType: event.orderType ?? 'DELIVERY',
+      customerName: event.customer?.name ?? 'Cliente',
+      customerPhone: event.customer?.phone ?? '',
+      deliveryAddress: this.formatAddress(event.customer),
+      neighborhood: event.customer?.neighborhood,
+      paymentMethod: provider.mapPaymentMethod(event.paymentMethod ?? 'PIX'),
+      items: resolvedItems,
+      deliveryFee: event.deliveryFee ?? 0,
+      notes: event.notes,
     });
 
     // Vincula IntegrationOrder ao Order interno
     await this.prisma.integrationOrder.update({
       where: { id: intOrder.id },
-      data:  { orderId: order.id, ackSentAt: new Date() },
+      data: { orderId: order.id, ackSentAt: new Date() },
     });
 
     this.logger.log(
@@ -324,7 +421,9 @@ export class IntegrationsService {
       where: { externalOrderId: event.externalOrderId },
     });
     if (!intOrder?.orderId) {
-      this.logger.warn(`[Integrations] STATUS_CHANGED sem orderId interno: ${event.externalOrderId}`);
+      this.logger.warn(
+        `[Integrations] STATUS_CHANGED sem orderId interno: ${event.externalOrderId}`,
+      );
       return;
     }
 
@@ -340,7 +439,7 @@ export class IntegrationsService {
 
     await this.prisma.integrationOrder.update({
       where: { id: intOrder.id },
-      data:  { externalStatus: event.externalStatus, updatedAt: new Date() },
+      data: { externalStatus: event.externalStatus, updatedAt: new Date() },
     });
   }
 
@@ -349,16 +448,21 @@ export class IntegrationsService {
   private async resolveItems(
     companyId: string,
     providerName: string,
-    externalItems: Array<{ externalProductId: string; quantity: number; unitPrice: number; notes?: string }>,
+    externalItems: Array<{
+      externalProductId: string;
+      quantity: number;
+      unitPrice: number;
+      notes?: string;
+    }>,
     isMock: boolean,
   ) {
     if (isMock) {
       // Mock: externalProductId === internalProductId — sem necessidade de mapeamento
       return externalItems.map((i) => ({
         productId: i.externalProductId,
-        quantity:  i.quantity,
+        quantity: i.quantity,
         unitPrice: i.unitPrice,
-        notes:     i.notes,
+        notes: i.notes,
       }));
     }
 
@@ -366,21 +470,23 @@ export class IntegrationsService {
     const maps = await this.prisma.productCatalogMap.findMany({
       where: {
         companyId,
-        provider:          providerName as any,
+        provider: providerName as any,
         externalProductId: { in: externalIds },
-        isActive:          true,
+        isActive: true,
       },
     });
 
-    const mapIndex = new Map(maps.map((m) => [m.externalProductId, m.internalProductId]));
+    const mapIndex = new Map(
+      maps.map((m) => [m.externalProductId, m.internalProductId]),
+    );
 
     return externalItems
       .filter((i) => mapIndex.has(i.externalProductId))
       .map((i) => ({
         productId: mapIndex.get(i.externalProductId)!,
-        quantity:  i.quantity,
+        quantity: i.quantity,
         unitPrice: i.unitPrice,
-        notes:     i.notes,
+        notes: i.notes,
       }));
   }
 
@@ -392,7 +498,9 @@ export class IntegrationsService {
       customer.neighborhood,
       customer.city,
       customer.state,
-    ].filter(Boolean).join(', ');
+    ]
+      .filter(Boolean)
+      .join(', ');
   }
 
   private async logEvent(
@@ -408,13 +516,13 @@ export class IntegrationsService {
       await this.prisma.integrationEventLog.create({
         data: {
           companyId,
-          provider:       provider as any,
+          provider: provider as any,
           eventType,
           externalOrderId: externalOrderId ?? null,
           status,
-          errorMessage:   errorMessage ?? null,
-          rawPayload:     rawPayload ? (rawPayload as any) : undefined,
-          processedAt:    status !== 'RECEIVED' ? new Date() : undefined,
+          errorMessage: errorMessage ?? null,
+          rawPayload: rawPayload ? (rawPayload as any) : undefined,
+          processedAt: status !== 'RECEIVED' ? new Date() : undefined,
         },
       });
     } catch (e: any) {

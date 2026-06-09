@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { CreateComplementDto } from './dto/create-complement.dto';
 import { CreateComplementOptionDto } from './dto/create-complement-option.dto';
@@ -37,14 +41,21 @@ import { CreateComplementOptionDto } from './dto/create-complement-option.dto';
  */
 
 type Scope = 'PRODUCT' | 'CATEGORY' | 'GLOBAL';
-const SCOPE_PRIORITY: Record<Scope, number> = { PRODUCT: 0, CATEGORY: 1, GLOBAL: 2 };
+const SCOPE_PRIORITY: Record<Scope, number> = {
+  PRODUCT: 0,
+  CATEGORY: 1,
+  GLOBAL: 2,
+};
 
 function dedupKey(name: string): string {
   return (name ?? '').toLowerCase().trim();
 }
 
-function scopeOf(c: { productId: string | null; categoryId: string | null }): Scope {
-  if (c.productId)  return 'PRODUCT';
+function scopeOf(c: {
+  productId: string | null;
+  categoryId: string | null;
+}): Scope {
+  if (c.productId) return 'PRODUCT';
   if (c.categoryId) return 'CATEGORY';
   return 'GLOBAL';
 }
@@ -64,15 +75,16 @@ export class ComplementsService {
     // Anota prioridade
     const annotated = groups.map((g) => ({
       ...g,
-      _scope:    scopeOf(g),
+      _scope: scopeOf(g),
       _priority: SCOPE_PRIORITY[scopeOf(g)],
-      _key:      dedupKey(g.name),
+      _key: dedupKey(g.name),
     }));
 
     // Ordena: prioridade (P=0 primeiro), depois sortOrder, depois createdAt asc (estável)
     annotated.sort((a, b) => {
       if (a._priority !== b._priority) return a._priority - b._priority;
-      const sa = Number(a.sortOrder ?? 0), sb = Number(b.sortOrder ?? 0);
+      const sa = Number(a.sortOrder ?? 0),
+        sb = Number(b.sortOrder ?? 0);
       if (sa !== sb) return sa - sb;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
@@ -95,7 +107,7 @@ export class ComplementsService {
   async findByProduct(productId: string, companyId: string) {
     // 1. Resolve categoria do produto (escopo intermediário)
     const product = await this.prisma.product.findFirst({
-      where:  { id: productId, companyId },
+      where: { id: productId, companyId },
       select: { id: true, categoryId: true },
     });
     if (!product) return []; // produto inexistente/outra empresa → sem grupos
@@ -106,9 +118,11 @@ export class ComplementsService {
         companyId,
         isActive: true,
         OR: [
-          { productId },                                                       // P
-          ...(product.categoryId ? [{ productId: null, categoryId: product.categoryId }] : []), // C
-          { productId: null, categoryId: null },                               // G
+          { productId }, // P
+          ...(product.categoryId
+            ? [{ productId: null, categoryId: product.categoryId }]
+            : []), // C
+          { productId: null, categoryId: null }, // G
         ],
       },
       include: {
@@ -128,10 +142,14 @@ export class ComplementsService {
   async findAll(companyId: string) {
     return this.prisma.complement.findMany({
       where: { companyId },
-      orderBy: [{ productId: 'asc' }, { categoryId: 'asc' }, { sortOrder: 'asc' }],
+      orderBy: [
+        { productId: 'asc' },
+        { categoryId: 'asc' },
+        { sortOrder: 'asc' },
+      ],
       include: {
-        options:  { orderBy: { sortOrder: 'asc' } },
-        product:  { select: { id: true, name: true } },
+        options: { orderBy: { sortOrder: 'asc' } },
+        product: { select: { id: true, name: true } },
         category: { select: { id: true, name: true } },
       },
     });
@@ -140,44 +158,64 @@ export class ComplementsService {
   // ── CREATE ─────────────────────────────────────────────────────────────────
 
   async create(dto: CreateComplementDto, companyId: string) {
-    await this.assertScopeAndOwnership(dto.productId, dto.categoryId, companyId);
+    await this.assertScopeAndOwnership(
+      dto.productId,
+      dto.categoryId,
+      companyId,
+    );
     return this.prisma.complement.create({
       data: {
         companyId,
-        name:           dto.name,
-        productId:      dto.productId  ?? null,
-        categoryId:     dto.categoryId ?? null,
-        type:           dto.type ?? 'INGREDIENTES',
-        required:       dto.required ?? false,
-        chargesExtra:   dto.chargesExtra ?? true,
+        name: dto.name,
+        productId: dto.productId ?? null,
+        categoryId: dto.categoryId ?? null,
+        type: dto.type ?? 'INGREDIENTES',
+        required: dto.required ?? false,
+        chargesExtra: dto.chargesExtra ?? true,
         multipleChoice: dto.multipleChoice ?? false,
-        minOptions:     dto.minOptions ?? 0,
-        maxOptions:     dto.maxOptions ?? 1,
-        sortOrder:      dto.sortOrder ?? 0,
+        minOptions: dto.minOptions ?? 0,
+        maxOptions: dto.maxOptions ?? 1,
+        sortOrder: dto.sortOrder ?? 0,
       },
       include: { options: true },
     });
   }
 
-  async update(id: string, companyId: string, data: Partial<CreateComplementDto>) {
+  async update(
+    id: string,
+    companyId: string,
+    data: Partial<CreateComplementDto>,
+  ) {
     await this.assertOwnership(id, companyId);
     // Se trocar escopo no edit, revalida
     if (data.productId !== undefined || data.categoryId !== undefined) {
-      await this.assertScopeAndOwnership(data.productId, data.categoryId, companyId);
+      await this.assertScopeAndOwnership(
+        data.productId,
+        data.categoryId,
+        companyId,
+      );
     }
     return this.prisma.complement.update({
       where: { id },
       data: {
-        ...(data.name           !== undefined && { name:           data.name }),
-        ...(data.productId      !== undefined && { productId:      data.productId  || null }),
-        ...(data.categoryId     !== undefined && { categoryId:     data.categoryId || null }),
-        ...(data.type           !== undefined && { type:           data.type }),
-        ...(data.required       !== undefined && { required:       data.required }),
-        ...(data.chargesExtra   !== undefined && { chargesExtra:   data.chargesExtra }),
-        ...(data.multipleChoice !== undefined && { multipleChoice: data.multipleChoice }),
-        ...(data.minOptions     !== undefined && { minOptions:     data.minOptions }),
-        ...(data.maxOptions     !== undefined && { maxOptions:     data.maxOptions }),
-        ...(data.sortOrder      !== undefined && { sortOrder:      data.sortOrder }),
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.productId !== undefined && {
+          productId: data.productId || null,
+        }),
+        ...(data.categoryId !== undefined && {
+          categoryId: data.categoryId || null,
+        }),
+        ...(data.type !== undefined && { type: data.type }),
+        ...(data.required !== undefined && { required: data.required }),
+        ...(data.chargesExtra !== undefined && {
+          chargesExtra: data.chargesExtra,
+        }),
+        ...(data.multipleChoice !== undefined && {
+          multipleChoice: data.multipleChoice,
+        }),
+        ...(data.minOptions !== undefined && { minOptions: data.minOptions }),
+        ...(data.maxOptions !== undefined && { maxOptions: data.maxOptions }),
+        ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
       },
       include: { options: true },
     });
@@ -202,7 +240,7 @@ export class ComplementsService {
     const max = await this.prisma.complement.aggregate({
       where: {
         companyId,
-        productId:  src.productId,
+        productId: src.productId,
         categoryId: src.categoryId,
       },
       _max: { sortOrder: true },
@@ -211,22 +249,22 @@ export class ComplementsService {
     return this.prisma.complement.create({
       data: {
         companyId,
-        name:           `${src.name} (cópia)`,
-        productId:      src.productId,
-        categoryId:     src.categoryId,
-        type:           src.type,
-        required:       src.required,
-        chargesExtra:   src.chargesExtra,
+        name: `${src.name} (cópia)`,
+        productId: src.productId,
+        categoryId: src.categoryId,
+        type: src.type,
+        required: src.required,
+        chargesExtra: src.chargesExtra,
         multipleChoice: src.multipleChoice,
-        minOptions:     src.minOptions,
-        maxOptions:     src.maxOptions,
-        sortOrder:      (max._max.sortOrder ?? 0) + 1,
+        minOptions: src.minOptions,
+        maxOptions: src.maxOptions,
+        sortOrder: (max._max.sortOrder ?? 0) + 1,
         options: {
           create: src.options.map((o: any, idx: number) => ({
-            name:      o.name,
-            price:     o.price,
-            imageUrl:  o.imageUrl,
-            isActive:  o.isActive,
+            name: o.name,
+            price: o.price,
+            imageUrl: o.imageUrl,
+            isActive: o.isActive,
             sortOrder: idx,
           })),
         },
@@ -237,7 +275,10 @@ export class ComplementsService {
 
   // ── B4 — REORDER GRUPOS (por escopo) ───────────────────────────────────────
 
-  async reorderGroups(companyId: string, items: { id: string; sortOrder: number }[]) {
+  async reorderGroups(
+    companyId: string,
+    items: { id: string; sortOrder: number }[],
+  ) {
     if (!Array.isArray(items) || items.length === 0) {
       throw new BadRequestException('items é obrigatório');
     }
@@ -253,7 +294,7 @@ export class ComplementsService {
       items.map((i) =>
         this.prisma.complement.update({
           where: { id: i.id },
-          data:  { sortOrder: i.sortOrder },
+          data: { sortOrder: i.sortOrder },
         }),
       ),
     );
@@ -270,19 +311,23 @@ export class ComplementsService {
     });
   }
 
-  async createOption(complementId: string, dto: CreateComplementOptionDto, companyId: string) {
+  async createOption(
+    complementId: string,
+    dto: CreateComplementOptionDto,
+    companyId: string,
+  ) {
     await this.assertOwnership(complementId, companyId);
     const max = await this.prisma.complementOption.aggregate({
       where: { complementId },
-      _max:  { sortOrder: true },
+      _max: { sortOrder: true },
     });
     return this.prisma.complementOption.create({
       data: {
         complementId,
-        name:      dto.name,
-        price:     dto.price ?? 0,
-        imageUrl:  dto.imageUrl ?? null,  // B3 — aceita base64/URL
-        isActive:  dto.isActive ?? true,
+        name: dto.name,
+        price: dto.price ?? 0,
+        imageUrl: dto.imageUrl ?? null, // B3 — aceita base64/URL
+        isActive: dto.isActive ?? true,
         sortOrder: dto.sortOrder ?? (max._max.sortOrder ?? 0) + 1,
       },
     });
@@ -298,16 +343,20 @@ export class ComplementsService {
     return this.prisma.complementOption.update({
       where: { id: optionId },
       data: {
-        ...(dto.name      !== undefined && { name:      dto.name }),
-        ...(dto.price     !== undefined && { price:     dto.price }),
-        ...(dto.imageUrl  !== undefined && { imageUrl:  dto.imageUrl }),  // B3
-        ...(dto.isActive  !== undefined && { isActive:  dto.isActive }),
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.price !== undefined && { price: dto.price }),
+        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }), // B3
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
       },
     });
   }
 
-  async removeOption(optionId: string, complementId: string, companyId: string) {
+  async removeOption(
+    optionId: string,
+    complementId: string,
+    companyId: string,
+  ) {
     await this.assertOwnership(complementId, companyId);
     return this.prisma.complementOption.delete({ where: { id: optionId } });
   }
@@ -335,7 +384,7 @@ export class ComplementsService {
       items.map((i) =>
         this.prisma.complementOption.update({
           where: { id: i.id },
-          data:  { sortOrder: i.sortOrder },
+          data: { sortOrder: i.sortOrder },
         }),
       ),
     );
@@ -356,9 +405,9 @@ export class ComplementsService {
    * productId/categoryId. Usado em CREATE e em UPDATE quando o escopo muda.
    */
   private async assertScopeAndOwnership(
-    productId:  string | undefined | null,
+    productId: string | undefined | null,
     categoryId: string | undefined | null,
-    companyId:  string,
+    companyId: string,
   ) {
     if (productId && categoryId) {
       throw new BadRequestException(
@@ -367,15 +416,19 @@ export class ComplementsService {
     }
     if (productId) {
       const p = await this.prisma.product.findFirst({
-        where: { id: productId, companyId }, select: { id: true },
+        where: { id: productId, companyId },
+        select: { id: true },
       });
-      if (!p) throw new NotFoundException('Produto não encontrado nesta empresa.');
+      if (!p)
+        throw new NotFoundException('Produto não encontrado nesta empresa.');
     }
     if (categoryId) {
       const c = await this.prisma.category.findFirst({
-        where: { id: categoryId, companyId }, select: { id: true },
+        where: { id: categoryId, companyId },
+        select: { id: true },
       });
-      if (!c) throw new NotFoundException('Categoria não encontrada nesta empresa.');
+      if (!c)
+        throw new NotFoundException('Categoria não encontrada nesta empresa.');
     }
   }
 }

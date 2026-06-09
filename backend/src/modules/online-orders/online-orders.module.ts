@@ -7,7 +7,12 @@ import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 
 @Module({
-  imports: [PrismaModule, SocketModule, NotificationsModule, DeliveryConfigModule],
+  imports: [
+    PrismaModule,
+    SocketModule,
+    NotificationsModule,
+    DeliveryConfigModule,
+  ],
   controllers: [OnlineOrdersController],
   providers: [OnlineOrdersService],
   exports: [OnlineOrdersService],

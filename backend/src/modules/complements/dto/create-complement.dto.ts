@@ -1,13 +1,18 @@
 import {
-  IsString, IsOptional, IsBoolean, IsInt, IsEnum, Min,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  IsEnum,
+  Min,
 } from 'class-validator';
 
 // Mirror do enum Prisma — evita depender do client antes de `prisma generate`
 export enum ComplementTypeEnum {
-  INGREDIENTES   = 'INGREDIENTES',
+  INGREDIENTES = 'INGREDIENTES',
   ESPECIFICACOES = 'ESPECIFICACOES',
-  CROSS_SELL     = 'CROSS_SELL',
-  DESCARTAVEIS   = 'DESCARTAVEIS',
+  CROSS_SELL = 'CROSS_SELL',
+  DESCARTAVEIS = 'DESCARTAVEIS',
 }
 
 export class CreateComplementDto {

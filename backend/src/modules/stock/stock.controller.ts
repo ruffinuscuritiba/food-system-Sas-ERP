@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { StockService } from './stock.service';
 import { StockMovementType } from '@prisma/client';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -33,7 +41,10 @@ export class StockController {
 
   @Post('entry')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  async addStock(@Body() body: { ingredientId: string; quantity: number; reason?: string }, @Request() req: any) {
+  async addStock(
+    @Body() body: { ingredientId: string; quantity: number; reason?: string },
+    @Request() req: any,
+  ) {
     return this.stockService.createMovement({
       ingredientId: body.ingredientId,
       quantity: body.quantity,
@@ -45,7 +56,10 @@ export class StockController {
 
   @Post('loss')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  async registerLoss(@Body() body: { ingredientId: string; quantity: number; reason?: string }, @Request() req: any) {
+  async registerLoss(
+    @Body() body: { ingredientId: string; quantity: number; reason?: string },
+    @Request() req: any,
+  ) {
     return this.stockService.createMovement({
       ingredientId: body.ingredientId,
       quantity: body.quantity,
@@ -57,7 +71,10 @@ export class StockController {
 
   @Patch('inventory')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  async inventoryAdjust(@Body() body: { ingredientId: string; quantity: number; reason?: string }, @Request() req: any) {
+  async inventoryAdjust(
+    @Body() body: { ingredientId: string; quantity: number; reason?: string },
+    @Request() req: any,
+  ) {
     return this.stockService.createMovement({
       ingredientId: body.ingredientId,
       quantity: body.quantity,
@@ -69,7 +86,10 @@ export class StockController {
 
   @Patch('adjustment')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  async adjustment(@Body() body: { ingredientId: string; quantity: number; reason?: string }, @Request() req: any) {
+  async adjustment(
+    @Body() body: { ingredientId: string; quantity: number; reason?: string },
+    @Request() req: any,
+  ) {
     return this.stockService.createMovement({
       ingredientId: body.ingredientId,
       quantity: body.quantity,

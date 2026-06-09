@@ -1,8 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AIProvider, AIImageRequest } from '../ai-provider.interface';
 
-const VALID_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
-type ValidMime = typeof VALID_MIMES[number];
+const VALID_MIMES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+] as const;
+type ValidMime = (typeof VALID_MIMES)[number];
 
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic';
@@ -14,20 +19,36 @@ export class AnthropicProvider implements AIProvider {
     this.client = new Anthropic({ apiKey });
   }
 
-  async analyzeImage({ prompt, imageBase64, mimeType, textContent }: AIImageRequest): Promise<string> {
+  async analyzeImage({
+    prompt,
+    imageBase64,
+    mimeType,
+    textContent,
+  }: AIImageRequest): Promise<string> {
     let content: any[];
 
     if (textContent) {
       // Text-only request (PDF with extracted text, spreadsheet, etc.)
-      content = [{ type: 'text', text: `${prompt}\n\nDados do arquivo:\n${textContent}` }];
-    } else if (imageBase64) {
-      const validMime: ValidMime = VALID_MIMES.find(m => m === mimeType) ?? 'image/jpeg';
       content = [
-        { type: 'image', source: { type: 'base64', media_type: validMime, data: imageBase64 } },
+        {
+          type: 'text',
+          text: `${prompt}\n\nDados do arquivo:\n${textContent}`,
+        },
+      ];
+    } else if (imageBase64) {
+      const validMime: ValidMime =
+        VALID_MIMES.find((m) => m === mimeType) ?? 'image/jpeg';
+      content = [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: validMime, data: imageBase64 },
+        },
         { type: 'text', text: prompt },
       ];
     } else {
-      throw new Error('Anthropic: nenhum conteúdo fornecido (sem imagem nem texto)');
+      throw new Error(
+        'Anthropic: nenhum conteúdo fornecido (sem imagem nem texto)',
+      );
     }
 
     const response = await this.client.messages.create({

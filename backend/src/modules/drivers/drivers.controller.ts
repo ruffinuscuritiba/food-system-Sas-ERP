@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -90,8 +100,16 @@ export class DriversController {
   @Post('assign')
   @UseGuards(RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  assignOrder(@Body() body: { orderId: string; driverId: string }, @Req() req: any) {
-    return this.service.assignOrder(body.orderId, body.driverId, req.user.companyId, req.user.userId);
+  assignOrder(
+    @Body() body: { orderId: string; driverId: string },
+    @Req() req: any,
+  ) {
+    return this.service.assignOrder(
+      body.orderId,
+      body.driverId,
+      req.user.companyId,
+      req.user.userId,
+    );
   }
 
   // ── Admin: earnings & payments ───────────────────────────────────────────

@@ -15,24 +15,41 @@ export class ChatController {
   /** Standard (non-streaming) — kept for backward compat */
   @Post('message')
   async sendMessage(
-    @Body() body: { companyId: string; messages: ChatMessage[]; sessionId?: string },
+    @Body()
+    body: {
+      companyId: string;
+      messages: ChatMessage[];
+      sessionId?: string;
+    },
   ) {
-    if (!body.companyId) throw new BadRequestException('companyId é obrigatório.');
+    if (!body.companyId)
+      throw new BadRequestException('companyId é obrigatório.');
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       throw new BadRequestException('messages deve ser um array não vazio.');
     }
-    const reply = await this.service.sendMessage(body.companyId, body.messages, body.sessionId);
+    const reply = await this.service.sendMessage(
+      body.companyId,
+      body.messages,
+      body.sessionId,
+    );
     return { reply };
   }
 
   /** SSE streaming — ChatWidget uses this */
   @Post('stream')
   async streamMessage(
-    @Body() body: { companyId: string; messages: ChatMessage[]; sessionId?: string },
+    @Body()
+    body: { companyId: string; messages: ChatMessage[]; sessionId?: string },
     @Res() res: Response,
   ): Promise<void> {
-    if (!body.companyId || !Array.isArray(body.messages) || body.messages.length === 0) {
-      res.status(400).json({ message: 'companyId e messages são obrigatórios.' });
+    if (
+      !body.companyId ||
+      !Array.isArray(body.messages) ||
+      body.messages.length === 0
+    ) {
+      res
+        .status(400)
+        .json({ message: 'companyId e messages são obrigatórios.' });
       return;
     }
 
@@ -42,7 +59,12 @@ export class ChatController {
     // CORS headers são gerenciados pelo middleware global (não sobreescrever aqui)
     res.flushHeaders();
 
-    await this.service.streamMessage(body.companyId, body.messages, body.sessionId, res);
+    await this.service.streamMessage(
+      body.companyId,
+      body.messages,
+      body.sessionId,
+      res,
+    );
     res.end();
   }
 }

@@ -1,6 +1,14 @@
 import {
-  Controller, Get, Post, Patch, Delete,
-  Param, Body, Request, UseGuards, Query,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Request,
+  UseGuards,
+  Query,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -78,7 +86,11 @@ export class ComplementsController {
     @Body() body: { items: { id: string; sortOrder: number }[] },
     @Request() req: any,
   ) {
-    return this.service.reorderOptions(id, req.user.companyId, body?.items ?? []);
+    return this.service.reorderOptions(
+      id,
+      req.user.companyId,
+      body?.items ?? [],
+    );
   }
 
   /** PATCH /api/complements/:id */

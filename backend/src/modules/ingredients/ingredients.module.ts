@@ -7,14 +7,8 @@ import { IngredientsService } from './ingredients.service';
 import { PrismaService } from 'src/database/prisma.service';
 
 @Module({
+  controllers: [IngredientsController],
 
-  controllers: [
-    IngredientsController,
-  ],
-
-  providers: [
-    IngredientsService,
-    PrismaService,
-  ],
+  providers: [IngredientsService, PrismaService],
 })
 export class IngredientsModule {}

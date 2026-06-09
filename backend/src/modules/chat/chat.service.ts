@@ -26,7 +26,9 @@ export class ChatService {
     const context = await this.buildContext(companyId);
 
     if (!apiKey) {
-      this.logger.warn('ANTHROPIC_API_KEY not configured — returning mock response.');
+      this.logger.warn(
+        'ANTHROPIC_API_KEY not configured — returning mock response.',
+      );
       return `Oi! Sou a Bia, atendente virtual do ${context.companyName} 😊 Para ativar o chat com IA real, configure a chave ANTHROPIC_API_KEY no painel do sistema.`;
     }
 
@@ -55,10 +57,13 @@ export class ChatService {
       }
 
       const data: any = await response.json();
-      const reply = data.content?.[0]?.text || 'Não entendi muito bem. Pode reformular?';
+      const reply =
+        data.content?.[0]?.text || 'Não entendi muito bem. Pode reformular?';
 
       if (sessionId) {
-        this.persistMessages(companyId, sessionId, messages, reply).catch(() => {});
+        this.persistMessages(companyId, sessionId, messages, reply).catch(
+          () => {},
+        );
       }
 
       return reply;
@@ -110,7 +115,9 @@ export class ChatService {
       if (!response.ok || !response.body) {
         const err = await response.text().catch(() => 'unknown');
         this.logger.error(`Anthropic stream error: ${err}`);
-        res.write(`data: ${JSON.stringify({ text: 'Tive um probleminha agora. Tenta de novo? 🙏' })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({ text: 'Tive um probleminha agora. Tenta de novo? 🙏' })}\n\n`,
+        );
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         return;
       }
@@ -138,7 +145,9 @@ export class ChatService {
               parsed.delta.text
             ) {
               fullContent += parsed.delta.text;
-              res.write(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`);
+              res.write(
+                `data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`,
+              );
             }
           } catch {
             /* skip malformed */
@@ -147,20 +156,27 @@ export class ChatService {
       }
     } catch (err) {
       this.logger.error(`Stream error: ${err}`);
-      res.write(`data: ${JSON.stringify({ text: 'Erro de conexão. Tenta de novo!' })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ text: 'Erro de conexão. Tenta de novo!' })}\n\n`,
+      );
     }
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
 
     // Persist session asynchronously (fire-and-forget)
     if (sessionId && fullContent) {
-      this.persistMessages(companyId, sessionId, messages, fullContent).catch(() => {});
+      this.persistMessages(companyId, sessionId, messages, fullContent).catch(
+        () => {},
+      );
     }
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
 
-  private buildSystemPrompt(context: { companyName: string; menuText: string }): string {
+  private buildSystemPrompt(context: {
+    companyName: string;
+    menuText: string;
+  }): string {
     return `Você é a Bia, atendente virtual do restaurante "${context.companyName}". Você ama comida de verdade e conhece cada detalhe do cardápio. Seu jeito de atender é caloroso, natural e descontraído — como uma atendente real que gosta do que faz.
 
 COMO VOCÊ SE COMUNICA:

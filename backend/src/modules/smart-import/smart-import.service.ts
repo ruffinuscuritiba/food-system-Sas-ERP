@@ -86,9 +86,12 @@ export class SmartImportService {
 
   constructor(private prisma: PrismaService) {
     this.aiProviders = AIProviderFactory.buildChain();
-    this.xmlParser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+    this.xmlParser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+    });
 
-    const names = this.aiProviders.map(p => p.name).join(', ') || 'nenhum';
+    const names = this.aiProviders.map((p) => p.name).join(', ') || 'nenhum';
     console.log(`[SmartImport] AI providers disponíveis: ${names}`);
   }
 
@@ -108,15 +111,19 @@ export class SmartImportService {
     // Diagnostic: log raw data shape from DB
     if (session.items.length > 0) {
       const first = session.items[0];
-      console.log(`[SmartImport getSession] item[0].data type=${typeof first.data}, value=`, JSON.stringify(first.data)?.slice(0, 300));
+      console.log(
+        `[SmartImport getSession] item[0].data type=${typeof first.data}, value=`,
+        JSON.stringify(first.data)?.slice(0, 300),
+      );
     }
 
     // Flatten data fields onto each item so the frontend can read them directly
     // (guards against Json column serialization quirks in Prisma/Supabase)
     return {
       ...session,
-      items: session.items.map(item => {
-        const d: any = (typeof item.data === 'object' && item.data !== null) ? item.data : {};
+      items: session.items.map((item) => {
+        const d: any =
+          typeof item.data === 'object' && item.data !== null ? item.data : {};
         return {
           ...item,
           name: d.name ?? '',
@@ -139,13 +146,25 @@ export class SmartImportService {
       where: { companyId },
       orderBy: { createdAt: 'desc' },
       take: 20,
-      select: { id: true, type: true, status: true, createdAt: true, _count: { select: { items: true } } },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        createdAt: true,
+        _count: { select: { items: true } },
+      },
     });
   }
 
   // ── Menu image processing ──────────────────────────────────────────────────
 
-  async processMenuImage(buffer: Buffer, mimeType: string, companyId: string, fileUrl?: string, filename?: string) {
+  async processMenuImage(
+    buffer: Buffer,
+    mimeType: string,
+    companyId: string,
+    fileUrl?: string,
+    filename?: string,
+  ) {
     const session = await this.prisma.importSession.create({
       data: { companyId, type: 'MENU', status: 'PROCESSING', fileUrl },
     });
@@ -157,21 +176,34 @@ export class SmartImportService {
       'application/vnd.ms-excel',
     ];
     const isSpreadsheet =
-      SPREADSHEET_MIMES.some(t => mimeType.includes(t)) ||
+      SPREADSHEET_MIMES.some((t) => mimeType.includes(t)) ||
       ['xlsx', 'xlsm', 'xls'].includes(ext);
 
     if (isSpreadsheet) {
-      setImmediate(() => this.runSpreadsheetExtraction(session.id, buffer, companyId));
+      setImmediate(() =>
+        this.runSpreadsheetExtraction(session.id, buffer, companyId),
+      );
     } else {
-      setImmediate(() => this.runMenuExtraction(session.id, buffer, mimeType, companyId));
+      setImmediate(() =>
+        this.runMenuExtraction(session.id, buffer, mimeType, companyId),
+      );
     }
     return { sessionId: session.id, status: 'PROCESSING' };
   }
 
-  private async runMenuExtraction(sessionId: string, buffer: Buffer, mimeType: string, companyId: string) {
+  private async runMenuExtraction(
+    sessionId: string,
+    buffer: Buffer,
+    mimeType: string,
+    companyId: string,
+  ) {
     try {
       const isPdf = mimeType === 'application/pdf';
-      await this.log(sessionId, 'INFO', isPdf ? 'Extraindo texto do PDF...' : 'Analisando imagem...');
+      await this.log(
+        sessionId,
+        'INFO',
+        isPdf ? 'Extraindo texto do PDF...' : 'Analisando imagem...',
+      );
 
       let aiParams: import('src/services/ai/ai-provider.interface').AIImageRequest;
 
@@ -187,15 +219,26 @@ export class SmartImportService {
 
         if (!pdfText || pdfText.length < 30) {
           // Scanned PDF (image-only) — fall back to Gemini inline_data vision
-          await this.log(sessionId, 'INFO', 'PDF escaneado detectado, usando visão computacional...');
+          await this.log(
+            sessionId,
+            'INFO',
+            'PDF escaneado detectado, usando visão computacional...',
+          );
           aiParams = {
             prompt: MENU_PROMPT,
             imageBase64: buffer.toString('base64'),
             mimeType: 'application/pdf',
           };
         } else {
-          await this.log(sessionId, 'INFO', `Texto extraído do PDF (${pdfText.length} chars). Analisando com IA...`);
-          aiParams = { prompt: MENU_PROMPT, textContent: pdfText.slice(0, 40_000) };
+          await this.log(
+            sessionId,
+            'INFO',
+            `Texto extraído do PDF (${pdfText.length} chars). Analisando com IA...`,
+          );
+          aiParams = {
+            prompt: MENU_PROMPT,
+            textContent: pdfText.slice(0, 40_000),
+          };
         }
       } else {
         aiParams = {
@@ -213,45 +256,81 @@ export class SmartImportService {
         (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
       );
 
-      await this.log(sessionId, 'INFO', `Extraindo produtos (via ${provider})...`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `Extraindo produtos (via ${provider})...`,
+      );
 
       const parsed = this.parseJson(result);
-      const rawItems: any[] = parsed?.items ?? parsed?.products ?? parsed?.menu ?? [];
+      const rawItems: any[] =
+        parsed?.items ?? parsed?.products ?? parsed?.menu ?? [];
 
       // Log a preview of the raw response for debugging
-      console.log(`[SmartImport ${sessionId}] Raw response preview (${provider}):`, JSON.stringify(parsed).slice(0, 500));
+      console.log(
+        `[SmartImport ${sessionId}] Raw response preview (${provider}):`,
+        JSON.stringify(parsed).slice(0, 500),
+      );
 
       // Normalize: Gemini sometimes nests fields under "data" or returns alt field names.
       // Flatten so item.name / item.price / item.description / item.category are top-level.
-      const items = rawItems.map((raw: any) => {
-        const src = raw?.data && typeof raw.data === 'object' ? { ...raw, ...raw.data } : raw;
-        return {
-          name: src.name ?? src.title ?? src.product_name ?? src.productName ?? src.nome ?? '',
-          description: src.description ?? src.desc ?? src.descricao ?? null,
-          price: typeof src.price === 'number' ? src.price
-               : typeof src.preco === 'number' ? src.preco
-               : typeof src.valor === 'number' ? src.valor
-               : src.price ? Number(String(src.price).replace(',', '.')) || null
-               : null,
-          category: src.category ?? src.categoria ?? src.cat ?? null,
-          sizes: src.sizes ?? src.tamanhos ?? [],
-          notes: src.notes ?? src.observacoes ?? null,
-          confidence: typeof src.confidence === 'number' ? src.confidence
-                    : typeof raw.confidence === 'number' ? raw.confidence
-                    : null,
-        };
-      }).filter((it: any) => it.name && String(it.name).trim().length > 0);
+      const items = rawItems
+        .map((raw: any) => {
+          const src =
+            raw?.data && typeof raw.data === 'object'
+              ? { ...raw, ...raw.data }
+              : raw;
+          return {
+            name:
+              src.name ??
+              src.title ??
+              src.product_name ??
+              src.productName ??
+              src.nome ??
+              '',
+            description: src.description ?? src.desc ?? src.descricao ?? null,
+            price:
+              typeof src.price === 'number'
+                ? src.price
+                : typeof src.preco === 'number'
+                  ? src.preco
+                  : typeof src.valor === 'number'
+                    ? src.valor
+                    : src.price
+                      ? Number(String(src.price).replace(',', '.')) || null
+                      : null,
+            category: src.category ?? src.categoria ?? src.cat ?? null,
+            sizes: src.sizes ?? src.tamanhos ?? [],
+            notes: src.notes ?? src.observacoes ?? null,
+            confidence:
+              typeof src.confidence === 'number'
+                ? src.confidence
+                : typeof raw.confidence === 'number'
+                  ? raw.confidence
+                  : null,
+          };
+        })
+        .filter((it: any) => it.name && String(it.name).trim().length > 0);
 
       if (items.length === 0) {
-        throw new Error('Nenhum produto encontrado na imagem. Verifique se a imagem contém um cardápio legível.');
+        throw new Error(
+          'Nenhum produto encontrado na imagem. Verifique se a imagem contém um cardápio legível.',
+        );
       }
 
-      await this.log(sessionId, 'INFO', `${items.length} produto(s) identificado(s)`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `${items.length} produto(s) identificado(s)`,
+      );
       await this.log(sessionId, 'INFO', 'Organizando categorias...');
 
       // Diagnostic: log first item shape so we can verify data in Render logs
       if (items.length > 0) {
-        console.log(`[SmartImport ${sessionId}] First item shape:`, JSON.stringify(items[0]).slice(0, 300));
+        console.log(
+          `[SmartImport ${sessionId}] First item shape:`,
+          JSON.stringify(items[0]).slice(0, 300),
+        );
       }
 
       const categories = await this.prisma.category.findMany({
@@ -259,12 +338,18 @@ export class SmartImportService {
         select: { id: true, name: true },
       });
 
-      const enriched = items.map(item => ({
+      const enriched = items.map((item) => ({
         ...item,
-        suggestedCategoryId: categories.find(c =>
-          c.name.toLowerCase().includes((item.category ?? '').toLowerCase()) ||
-          (item.category ?? '').toLowerCase().includes(c.name.toLowerCase())
-        )?.id ?? null,
+        suggestedCategoryId:
+          categories.find(
+            (c) =>
+              c.name
+                .toLowerCase()
+                .includes((item.category ?? '').toLowerCase()) ||
+              (item.category ?? '')
+                .toLowerCase()
+                .includes(c.name.toLowerCase()),
+          )?.id ?? null,
       }));
 
       await this.prisma.$transaction([
@@ -272,14 +357,22 @@ export class SmartImportService {
           where: { id: sessionId },
           data: { status: 'DONE', rawResult: parsed as any },
         }),
-        ...enriched.map(item =>
+        ...enriched.map((item) =>
           this.prisma.importItem.create({
-            data: { sessionId, data: JSON.parse(JSON.stringify(item)), confidence: item.confidence ?? null },
-          })
+            data: {
+              sessionId,
+              data: JSON.parse(JSON.stringify(item)),
+              confidence: item.confidence ?? null,
+            },
+          }),
         ),
       ]);
 
-      await this.log(sessionId, 'INFO', `Extração concluída — ${items.length} produto(s) prontos para revisão`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `Extração concluída — ${items.length} produto(s) prontos para revisão`,
+      );
     } catch (err: any) {
       const userMsg = this.toUserMessage(err?.message);
       await this.prisma.importSession.update({
@@ -292,7 +385,11 @@ export class SmartImportService {
 
   // ── Spreadsheet processing ─────────────────────────────────────────────────
 
-  private async runSpreadsheetExtraction(sessionId: string, buffer: Buffer, companyId: string) {
+  private async runSpreadsheetExtraction(
+    sessionId: string,
+    buffer: Buffer,
+    companyId: string,
+  ) {
     try {
       await this.log(sessionId, 'INFO', 'Lendo planilha Excel...');
 
@@ -305,10 +402,16 @@ export class SmartImportService {
       const csvText = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
 
       if (!csvText || csvText.trim().length < 5) {
-        throw new Error('A planilha parece estar vazia. Verifique se há dados na primeira aba.');
+        throw new Error(
+          'A planilha parece estar vazia. Verifique se há dados na primeira aba.',
+        );
       }
 
-      await this.log(sessionId, 'INFO', `Planilha lida (${workbook.SheetNames.length} aba(s)). Analisando com IA...`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `Planilha lida (${workbook.SheetNames.length} aba(s)). Analisando com IA...`,
+      );
 
       const { result, provider } = await AIProviderFactory.analyzeWithFallback(
         this.aiProviders,
@@ -316,28 +419,44 @@ export class SmartImportService {
         (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
       );
 
-      await this.log(sessionId, 'INFO', `Extraindo produtos (via ${provider})...`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `Extraindo produtos (via ${provider})...`,
+      );
 
       const parsed = this.parseJson(result);
       const items: any[] = parsed?.items ?? [];
 
       if (items.length === 0) {
-        throw new Error('Nenhum produto encontrado na planilha. Verifique se há colunas de nome e preço.');
+        throw new Error(
+          'Nenhum produto encontrado na planilha. Verifique se há colunas de nome e preço.',
+        );
       }
 
-      await this.log(sessionId, 'INFO', `${items.length} produto(s) identificado(s)`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `${items.length} produto(s) identificado(s)`,
+      );
 
       const categories = await this.prisma.category.findMany({
         where: { companyId },
         select: { id: true, name: true },
       });
 
-      const enriched = items.map(item => ({
+      const enriched = items.map((item) => ({
         ...item,
-        suggestedCategoryId: categories.find(c =>
-          c.name.toLowerCase().includes((item.category ?? '').toLowerCase()) ||
-          (item.category ?? '').toLowerCase().includes(c.name.toLowerCase())
-        )?.id ?? null,
+        suggestedCategoryId:
+          categories.find(
+            (c) =>
+              c.name
+                .toLowerCase()
+                .includes((item.category ?? '').toLowerCase()) ||
+              (item.category ?? '')
+                .toLowerCase()
+                .includes(c.name.toLowerCase()),
+          )?.id ?? null,
       }));
 
       await this.prisma.$transaction([
@@ -345,14 +464,22 @@ export class SmartImportService {
           where: { id: sessionId },
           data: { status: 'DONE', rawResult: parsed as any },
         }),
-        ...enriched.map(item =>
+        ...enriched.map((item) =>
           this.prisma.importItem.create({
-            data: { sessionId, data: JSON.parse(JSON.stringify(item)), confidence: item.confidence ?? null },
-          })
+            data: {
+              sessionId,
+              data: JSON.parse(JSON.stringify(item)),
+              confidence: item.confidence ?? null,
+            },
+          }),
         ),
       ]);
 
-      await this.log(sessionId, 'INFO', `Extração concluída — ${items.length} produto(s) prontos para revisão`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `Extração concluída — ${items.length} produto(s) prontos para revisão`,
+      );
     } catch (err: any) {
       const userMsg = this.toUserMessage(err?.message);
       await this.prisma.importSession.update({
@@ -365,7 +492,12 @@ export class SmartImportService {
 
   // ── Invoice processing ─────────────────────────────────────────────────────
 
-  async processInvoice(buffer: Buffer, mimeType: string, companyId: string, fileUrl?: string) {
+  async processInvoice(
+    buffer: Buffer,
+    mimeType: string,
+    companyId: string,
+    fileUrl?: string,
+  ) {
     const session = await this.prisma.importSession.create({
       data: { companyId, type: 'INVOICE', status: 'PROCESSING', fileUrl },
     });
@@ -373,12 +505,16 @@ export class SmartImportService {
     setImmediate(() =>
       isXml
         ? this.runXmlExtraction(session.id, buffer, companyId)
-        : this.runInvoiceVision(session.id, buffer, mimeType, companyId)
+        : this.runInvoiceVision(session.id, buffer, mimeType, companyId),
     );
     return { sessionId: session.id, status: 'PROCESSING' };
   }
 
-  private async runXmlExtraction(sessionId: string, buffer: Buffer, _companyId: string) {
+  private async runXmlExtraction(
+    sessionId: string,
+    buffer: Buffer,
+    _companyId: string,
+  ) {
     try {
       await this.log(sessionId, 'INFO', 'Processando XML de NF-e...');
       const xml = buffer.toString('utf-8');
@@ -386,7 +522,11 @@ export class SmartImportService {
 
       const nfe = doc?.nfeProc?.NFe?.infNFe ?? doc?.NFe?.infNFe ?? {};
       const emit = nfe?.emit ?? {};
-      const det = nfe?.det ? (Array.isArray(nfe.det) ? nfe.det : [nfe.det]) : [];
+      const det = nfe?.det
+        ? Array.isArray(nfe.det)
+          ? nfe.det
+          : [nfe.det]
+        : [];
 
       const supplier = {
         name: emit?.xNome ?? 'Fornecedor',
@@ -408,7 +548,11 @@ export class SmartImportService {
         confidence: 1.0,
       }));
 
-      await this.log(sessionId, 'INFO', `XML processado: ${items.length} item(ns) encontrado(s)`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `XML processado: ${items.length} item(ns) encontrado(s)`,
+      );
       await this.saveInvoiceResult(sessionId, { supplier, document, items });
     } catch (err: any) {
       const userMsg = this.toUserMessage(err?.message);
@@ -420,10 +564,21 @@ export class SmartImportService {
     }
   }
 
-  private async runInvoiceVision(sessionId: string, buffer: Buffer, mimeType: string, _companyId: string) {
+  private async runInvoiceVision(
+    sessionId: string,
+    buffer: Buffer,
+    mimeType: string,
+    _companyId: string,
+  ) {
     try {
       const isPdf = mimeType === 'application/pdf';
-      await this.log(sessionId, 'INFO', isPdf ? 'Extraindo texto do PDF fiscal...' : 'Analisando documento fiscal...');
+      await this.log(
+        sessionId,
+        'INFO',
+        isPdf
+          ? 'Extraindo texto do PDF fiscal...'
+          : 'Analisando documento fiscal...',
+      );
 
       let aiParams: import('src/services/ai/ai-provider.interface').AIImageRequest;
 
@@ -432,16 +587,33 @@ export class SmartImportService {
         try {
           const parsed = await pdfParse(buffer);
           pdfText = (parsed.text ?? '').trim();
-        } catch { pdfText = ''; }
+        } catch {
+          pdfText = '';
+        }
 
         if (!pdfText || pdfText.length < 30) {
-          aiParams = { prompt: INVOICE_PROMPT, imageBase64: buffer.toString('base64'), mimeType: 'application/pdf' };
+          aiParams = {
+            prompt: INVOICE_PROMPT,
+            imageBase64: buffer.toString('base64'),
+            mimeType: 'application/pdf',
+          };
         } else {
-          await this.log(sessionId, 'INFO', `Texto extraído (${pdfText.length} chars). Analisando...`);
-          aiParams = { prompt: INVOICE_PROMPT, textContent: pdfText.slice(0, 40_000) };
+          await this.log(
+            sessionId,
+            'INFO',
+            `Texto extraído (${pdfText.length} chars). Analisando...`,
+          );
+          aiParams = {
+            prompt: INVOICE_PROMPT,
+            textContent: pdfText.slice(0, 40_000),
+          };
         }
       } else {
-        aiParams = { prompt: INVOICE_PROMPT, imageBase64: buffer.toString('base64'), mimeType: this.toSafeMime(mimeType) };
+        aiParams = {
+          prompt: INVOICE_PROMPT,
+          imageBase64: buffer.toString('base64'),
+          mimeType: this.toSafeMime(mimeType),
+        };
       }
 
       await this.log(sessionId, 'INFO', 'Conectando ao serviço de IA...');
@@ -452,10 +624,18 @@ export class SmartImportService {
         (name) => this.log(sessionId, 'INFO', `Tentando provedor: ${name}...`),
       );
 
-      await this.log(sessionId, 'INFO', `Extraindo dados do documento (via ${provider})...`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `Extraindo dados do documento (via ${provider})...`,
+      );
 
       const parsed = this.parseJson(result);
-      await this.log(sessionId, 'INFO', `${parsed?.items?.length ?? 0} item(ns) extraído(s)`);
+      await this.log(
+        sessionId,
+        'INFO',
+        `${parsed?.items?.length ?? 0} item(ns) extraído(s)`,
+      );
       await this.saveInvoiceResult(sessionId, parsed);
     } catch (err: any) {
       const userMsg = this.toUserMessage(err?.message);
@@ -474,13 +654,21 @@ export class SmartImportService {
         where: { id: sessionId },
         data: { status: 'DONE', rawResult: data as any },
       }),
-      ...items.map(item =>
+      ...items.map((item) =>
         this.prisma.importItem.create({
-          data: { sessionId, data: JSON.parse(JSON.stringify(item)), confidence: item.confidence ?? null },
-        })
+          data: {
+            sessionId,
+            data: JSON.parse(JSON.stringify(item)),
+            confidence: item.confidence ?? null,
+          },
+        }),
       ),
     ]);
-    await this.log(sessionId, 'INFO', `Extração concluída — ${items.length} item(ns) prontos para revisão`);
+    await this.log(
+      sessionId,
+      'INFO',
+      `Extração concluída — ${items.length} item(ns) prontos para revisão`,
+    );
   }
 
   // ── Confirm: save products ─────────────────────────────────────────────────
@@ -517,7 +705,7 @@ export class SmartImportService {
       // When sizes exist, set salePrice to the lowest variant so the Product row
       // stays valid. The real per-variant prices live in ProductSize.
       const baseSalePrice = hasSizes
-        ? Math.min(...item.sizes!.map(s => s.price))
+        ? Math.min(...item.sizes!.map((s) => s.price))
         : (item.price ?? 0);
 
       // ── Upsert logic: find existing product by companyId + name to prevent
@@ -573,7 +761,7 @@ export class SmartImportService {
       // Runs for both new and updated products.
       if (hasSizes) {
         await this.prisma.productSize.createMany({
-          data: item.sizes!.map(s => ({
+          data: item.sizes!.map((s) => ({
             productId: product.id,
             companyId,
             size: s.size,
@@ -600,17 +788,33 @@ export class SmartImportService {
 
   async confirmInvoiceItems(
     sessionId: string,
-    items: Array<{ itemId: string; name: string; quantity: number; unitCost: number; unit?: string; createProduct?: boolean }>,
+    items: Array<{
+      itemId: string;
+      name: string;
+      quantity: number;
+      unitCost: number;
+      unit?: string;
+      createProduct?: boolean;
+    }>,
     companyId: string,
   ) {
     const results: string[] = [];
     for (const item of items) {
       let ingredient = await this.prisma.ingredient.findFirst({
-        where: { companyId, name: { contains: item.name, mode: 'insensitive' } },
+        where: {
+          companyId,
+          name: { contains: item.name, mode: 'insensitive' },
+        },
       });
       if (!ingredient && item.createProduct) {
         ingredient = await this.prisma.ingredient.create({
-          data: { name: item.name, stock: 0, unit: item.unit ?? 'un', cost: item.unitCost, companyId },
+          data: {
+            name: item.name,
+            stock: 0,
+            unit: item.unit ?? 'un',
+            cost: item.unitCost,
+            companyId,
+          },
         });
       }
       if (ingredient) {
@@ -647,17 +851,24 @@ export class SmartImportService {
 
   private parseJson(raw: string): any {
     // Strip markdown fences if any
-    let cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    let cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
 
     // Direct parse
-    try { return JSON.parse(cleaned); } catch {}
+    try {
+      return JSON.parse(cleaned);
+    } catch {}
 
     // Try to slice from first '{' to last '}'
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace >= 0 && lastBrace > firstBrace) {
       const slice = cleaned.slice(firstBrace, lastBrace + 1);
-      try { return JSON.parse(slice); } catch {}
+      try {
+        return JSON.parse(slice);
+      } catch {}
     }
 
     // Truncated array recovery: find "items": [ and parse items one by one
@@ -678,24 +889,42 @@ export class SmartImportService {
         const objStart = i;
         for (; i < cleaned.length; i++) {
           const c = cleaned[i];
-          if (escape) { escape = false; continue; }
-          if (c === '\\') { escape = true; continue; }
-          if (c === '"') { inStr = !inStr; continue; }
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (c === '\\') {
+            escape = true;
+            continue;
+          }
+          if (c === '"') {
+            inStr = !inStr;
+            continue;
+          }
           if (inStr) continue;
           if (c === '{') depth++;
           else if (c === '}') {
             depth--;
-            if (depth === 0) { i++; break; }
+            if (depth === 0) {
+              i++;
+              break;
+            }
           }
         }
         if (depth !== 0) break; // truncated mid-object, stop
         const objStr = cleaned.slice(objStart, i);
-        try { items.push(JSON.parse(objStr)); } catch { /* skip invalid */ }
+        try {
+          items.push(JSON.parse(objStr));
+        } catch {
+          /* skip invalid */
+        }
       }
       if (items.length) return { items };
     }
 
-    throw new Error('Resposta da IA não é um JSON válido. Tente novamente com uma imagem mais nítida.');
+    throw new Error(
+      'Resposta da IA não é um JSON válido. Tente novamente com uma imagem mais nítida.',
+    );
   }
 
   private toSafeMime(mimeType: string): string {
@@ -717,12 +946,22 @@ export class SmartImportService {
       msg.includes('Planilha') ||
       msg.includes('formato inválido') ||
       msg.includes('PDF')
-    ) return msg;
+    )
+      return msg;
     // Map common API errors to friendlier text
-    if (msg.includes('Gemini 404') || msg.includes('404') || msg.includes('not found for API')) {
+    if (
+      msg.includes('Gemini 404') ||
+      msg.includes('404') ||
+      msg.includes('not found for API')
+    ) {
       return 'O modelo de IA configurado não existe mais. Atualize GEMINI_MODEL no servidor para gemini-1.5-flash.';
     }
-    if (msg.includes('Gemini 429') || msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+    if (
+      msg.includes('Gemini 429') ||
+      msg.includes('429') ||
+      msg.includes('quota') ||
+      msg.includes('RESOURCE_EXHAUSTED')
+    ) {
       return 'Cota da IA esgotada. Aguarde alguns minutos e tente novamente.';
     }
     if (msg.includes('credit balance is too low')) {
@@ -731,7 +970,11 @@ export class SmartImportService {
     if (msg.includes('GEMINI_API_KEY')) {
       return 'Chave da API Gemini não configurada no servidor. Adicione GEMINI_API_KEY nas variáveis de ambiente do Render.';
     }
-    if (msg.includes('aborted') || msg.includes('timeout') || msg.includes('TimeoutError')) {
+    if (
+      msg.includes('aborted') ||
+      msg.includes('timeout') ||
+      msg.includes('TimeoutError')
+    ) {
       return 'Tempo limite atingido ao processar a imagem. Tente com uma imagem menor ou mais simples.';
     }
     // Expose at least a short hint of the real error to help diagnosis

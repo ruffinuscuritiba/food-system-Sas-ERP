@@ -1,6 +1,7 @@
 import { AIProvider, AIImageRequest } from '../ai-provider.interface';
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_API_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models';
 
 export class GeminiProvider implements AIProvider {
   readonly name = 'gemini';
@@ -26,7 +27,7 @@ export class GeminiProvider implements AIProvider {
     // Try primary model first, then fallbacks
     const modelsToTry = [
       this.primaryModel,
-      ...GeminiProvider.FALLBACK_MODELS.filter(m => m !== this.primaryModel),
+      ...GeminiProvider.FALLBACK_MODELS.filter((m) => m !== this.primaryModel),
     ];
 
     let lastError: Error = new Error('Gemini: nenhum modelo disponível');
@@ -44,7 +45,9 @@ export class GeminiProvider implements AIProvider {
           msg.includes('RESOURCE_EXHAUSTED') ||
           msg.includes('quota')
         ) {
-          console.warn(`[GeminiProvider] Model ${model} failed (${msg.slice(0, 80)}), trying next…`);
+          console.warn(
+            `[GeminiProvider] Model ${model} failed (${msg.slice(0, 80)}), trying next…`,
+          );
           continue;
         }
         // For other errors (network, timeout, bad response) don't retry
@@ -95,7 +98,9 @@ export class GeminiProvider implements AIProvider {
     if (!text) {
       // Log finish reason to help diagnose safety/quota blocks
       const finishReason = data?.candidates?.[0]?.finishReason ?? 'unknown';
-      throw new Error(`Gemini retornou resposta vazia (model=${model}, finishReason=${finishReason})`);
+      throw new Error(
+        `Gemini retornou resposta vazia (model=${model}, finishReason=${finishReason})`,
+      );
     }
     return text;
   }

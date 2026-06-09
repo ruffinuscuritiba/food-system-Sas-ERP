@@ -4,44 +4,28 @@ import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class ThemesService {
+  constructor(private prisma: PrismaService) {}
 
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  async getTheme(companyId: string) {
+    let theme = await this.prisma.companyTheme.findUnique({
+      where: {
+        companyId,
+      },
+    });
 
-  async getTheme(
-    companyId: string,
-  ) {
-
-    let theme =
-      await this.prisma.companyTheme.findUnique({
-
-        where: {
+    if (!theme) {
+      theme = await this.prisma.companyTheme.create({
+        data: {
           companyId,
         },
       });
-
-    if (!theme) {
-
-      theme =
-        await this.prisma.companyTheme.create({
-
-          data: {
-            companyId,
-          },
-        });
     }
 
     return theme;
   }
 
-  async updateTheme(
-    companyId: string,
-    data: any,
-  ) {
-
+  async updateTheme(companyId: string, data: any) {
     return this.prisma.companyTheme.upsert({
-
       where: {
         companyId,
       },
@@ -49,7 +33,6 @@ export class ThemesService {
       update: data,
 
       create: {
-
         companyId,
 
         ...data,

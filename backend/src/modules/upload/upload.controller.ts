@@ -26,7 +26,9 @@ export class UploadController {
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Nenhum arquivo recebido.');
     if (!ALLOWED_MIMES.includes(file.mimetype)) {
-      throw new BadRequestException(`Tipo de arquivo não suportado: ${file.mimetype}`);
+      throw new BadRequestException(
+        `Tipo de arquivo não suportado: ${file.mimetype}`,
+      );
     }
 
     const cloudinaryUrl = this.config.get<string>('CLOUDINARY_URL');
@@ -43,7 +45,10 @@ export class UploadController {
           const { Readable } = require('stream');
           const stream = cloudinary.uploader.upload_stream(
             { folder: 'food-system', resource_type: 'image' },
-            (error: any, res: any) => { if (error) reject(error); else resolve(res); },
+            (error: any, res: any) => {
+              if (error) reject(error);
+              else resolve(res);
+            },
           );
           Readable.from(file.buffer).pipe(stream);
         });
@@ -58,7 +63,9 @@ export class UploadController {
     // ── 2. Base64 data URL (zero infra) ───────────────────────────────────────
     // Stored directly in the database as a data: URI.
     // Works without any cloud storage; PostgreSQL TEXT has no size limit.
-    const mime = ALLOWED_MIMES.includes(file.mimetype) ? file.mimetype : 'image/jpeg';
+    const mime = ALLOWED_MIMES.includes(file.mimetype)
+      ? file.mimetype
+      : 'image/jpeg';
     const dataUrl = `data:${mime};base64,${file.buffer.toString('base64')}`;
     return { url: dataUrl };
   }

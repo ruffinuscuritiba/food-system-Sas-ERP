@@ -11,11 +11,23 @@ const DEFAULT_SIZES: Array<{
   maxFlavors: number;
   sortOrder: number;
 }> = [
-  { size: 'PEQUENA',     label: 'Pequena',      slices: 4,  maxFlavors: 1, sortOrder: 0 },
-  { size: 'MEDIA',       label: 'Média',         slices: 6,  maxFlavors: 2, sortOrder: 1 },
-  { size: 'GRANDE',      label: 'Grande',        slices: 8,  maxFlavors: 3, sortOrder: 2 },
-  { size: 'FAMILIA',     label: 'Família',       slices: 16, maxFlavors: 4, sortOrder: 3 },
-  { size: 'EXTRA_GRANDE', label: 'Extra Grande', slices: 12, maxFlavors: 4, sortOrder: 4 },
+  { size: 'PEQUENA', label: 'Pequena', slices: 4, maxFlavors: 1, sortOrder: 0 },
+  { size: 'MEDIA', label: 'Média', slices: 6, maxFlavors: 2, sortOrder: 1 },
+  { size: 'GRANDE', label: 'Grande', slices: 8, maxFlavors: 3, sortOrder: 2 },
+  {
+    size: 'FAMILIA',
+    label: 'Família',
+    slices: 16,
+    maxFlavors: 4,
+    sortOrder: 3,
+  },
+  {
+    size: 'EXTRA_GRANDE',
+    label: 'Extra Grande',
+    slices: 12,
+    maxFlavors: 4,
+    sortOrder: 4,
+  },
 ];
 
 @Injectable()
@@ -65,17 +77,17 @@ export class PizzaSizeConfigsService {
       create: {
         companyId,
         size,
-        label:      data.label      ?? defaults?.label      ?? size,
-        slices:     data.slices     ?? defaults?.slices     ?? 8,
+        label: data.label ?? defaults?.label ?? size,
+        slices: data.slices ?? defaults?.slices ?? 8,
         maxFlavors: data.maxFlavors ?? defaults?.maxFlavors ?? 1,
-        isActive:   data.isActive   ?? true,
-        sortOrder:  defaults?.sortOrder ?? 0,
+        isActive: data.isActive ?? true,
+        sortOrder: defaults?.sortOrder ?? 0,
       },
       update: {
-        ...(data.label      !== undefined && { label:      data.label }),
-        ...(data.slices     !== undefined && { slices:     data.slices }),
+        ...(data.label !== undefined && { label: data.label }),
+        ...(data.slices !== undefined && { slices: data.slices }),
         ...(data.maxFlavors !== undefined && { maxFlavors: data.maxFlavors }),
-        ...(data.isActive   !== undefined && { isActive:   data.isActive }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
   }

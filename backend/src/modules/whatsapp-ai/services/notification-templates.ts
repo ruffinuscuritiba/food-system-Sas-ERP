@@ -24,10 +24,10 @@ export type OrderStatusKey =
 // ─── Confirmação de pedido fechado ────────────────────────────────────────────
 
 export function tplOrderConfirmed(params: {
-  name:    string;
+  name: string;
   orderId: string;
-  items:   string;
-  total:   string;
+  items: string;
+  total: string;
   payment: string;
   address: string;
 }): string {
@@ -46,8 +46,10 @@ Acompanhe pelo nosso sistema. Qualquer dúvida, é só chamar! 😊`;
 
 // ─── Templates de mudança de status ─────────────────────────────────────────
 
-export const STATUS_TEMPLATES: Record<OrderStatusKey, (orderId: string, name?: string) => string> = {
-
+export const STATUS_TEMPLATES: Record<
+  OrderStatusKey,
+  (orderId: string, name?: string) => string
+> = {
   CONFIRMED: (orderId, name) => {
     const g = name ? `Olá, *${name}*! ` : '';
     return `${g}✅ Seu pedido *#${orderId}* foi confirmado! Em breve começamos a prepará-lo.`;
@@ -88,9 +90,12 @@ export const STATUS_TEMPLATES: Record<OrderStatusKey, (orderId: string, name?: s
  *   "+5541999887766"  → "5541999887766"
  *   "5541999887766"   → "5541999887766"
  */
-export function formatPhoneInternational(phone: string, countryCode = '55'): string {
+export function formatPhoneInternational(
+  phone: string,
+  countryCode = '55',
+): string {
   const digits = phone.replace(/\D/g, '');
-  if (digits.length >= 12) return digits;           // já tem DDD + DDI
+  if (digits.length >= 12) return digits; // já tem DDD + DDI
   if (digits.length === 11) return `${countryCode}${digits}`; // DDD + 9 dígitos
   if (digits.length === 10) return `${countryCode}${digits}`; // DDD + 8 dígitos (fixo)
   return digits;
@@ -98,13 +103,16 @@ export function formatPhoneInternational(phone: string, countryCode = '55'): str
 
 // ─── Formatação de itens do pedido ───────────────────────────────────────────
 
-export function formatOrderItems(items: { name: string; quantity: number; unitPrice?: number }[]): string {
+export function formatOrderItems(
+  items: { name: string; quantity: number; unitPrice?: number }[],
+): string {
   return items
     .slice(0, 10)
     .map((i) => {
-      const price = i.unitPrice != null
-        ? ` — R$ ${(Number(i.unitPrice) * i.quantity).toFixed(2).replace('.', ',')}`
-        : '';
+      const price =
+        i.unitPrice != null
+          ? ` — R$ ${(Number(i.unitPrice) * i.quantity).toFixed(2).replace('.', ',')}`
+          : '';
       return `  • ${i.quantity}x ${i.name}${price}`;
     })
     .join('\n');
@@ -113,9 +121,9 @@ export function formatOrderItems(items: { name: string; quantity: number; unitPr
 // ─── Mapa de formas de pagamento legíveis ─────────────────────────────────────
 
 export const PAYMENT_LABELS: Record<string, string> = {
-  PIX:         'PIX',
-  CASH:        'Dinheiro',
+  PIX: 'PIX',
+  CASH: 'Dinheiro',
   CREDIT_CARD: 'Cartão de Crédito',
-  DEBIT_CARD:  'Cartão de Débito',
-  TRANSFER:    'Transferência',
+  DEBIT_CARD: 'Cartão de Débito',
+  TRANSFER: 'Transferência',
 };

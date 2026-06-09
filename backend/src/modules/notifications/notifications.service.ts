@@ -29,11 +29,14 @@ export class NotificationsService {
     const smtpHost = this.config.get<string>('SMTP_HOST');
     const smtpUser = this.config.get<string>('SMTP_USER');
     const smtpPass = this.config.get<string>('SMTP_PASS');
-    const fromEmail = this.config.get<string>('SMTP_FROM') || 'noreply@foodsaas.com.br';
+    const fromEmail =
+      this.config.get<string>('SMTP_FROM') || 'noreply@foodsaas.com.br';
 
     if (!smtpHost || !smtpUser || !smtpPass) {
       // Log instead of fail — SMTP not configured yet
-      this.logger.warn(`[EMAIL NOT SENT — SMTP not configured] To: ${to} | Subject: ${subject}`);
+      this.logger.warn(
+        `[EMAIL NOT SENT — SMTP not configured] To: ${to} | Subject: ${subject}`,
+      );
       this.logger.debug(`Body: ${body}`);
       return;
     }
@@ -61,7 +64,10 @@ export class NotificationsService {
     }
   }
 
-  private getSubject(type: NotificationType, data?: Record<string, any>): string {
+  private getSubject(
+    type: NotificationType,
+    data?: Record<string, any>,
+  ): string {
     switch (type) {
       case 'WELCOME':
         return '🎉 Bem-vindo ao FoodSaaS!';

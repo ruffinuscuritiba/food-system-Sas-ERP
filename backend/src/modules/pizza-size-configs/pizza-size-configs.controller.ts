@@ -39,7 +39,13 @@ export class PizzaSizeConfigsController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   update(
     @Param('size') size: PizzaSize,
-    @Body() body: { slices?: number; maxFlavors?: number; isActive?: boolean; label?: string },
+    @Body()
+    body: {
+      slices?: number;
+      maxFlavors?: number;
+      isActive?: boolean;
+      label?: string;
+    },
     @Request() req: any,
   ) {
     return this.service.update(req.user.companyId, size, body);

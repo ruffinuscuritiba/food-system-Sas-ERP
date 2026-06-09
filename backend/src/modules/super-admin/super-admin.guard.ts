@@ -3,9 +3,9 @@ import {
   ExecutionContext,
   Injectable,
   UnauthorizedException,
-} from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
-import { ConfigService } from '@nestjs/config'
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class SuperAdminGuard implements CanActivate {
@@ -15,24 +15,27 @@ export class SuperAdminGuard implements CanActivate {
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest()
-    const auth = request.headers.authorization as string | undefined
+    const request = context.switchToHttp().getRequest();
+    const auth = request.headers.authorization as string | undefined;
     if (!auth?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Token não fornecido')
+      throw new UnauthorizedException('Token não fornecido');
     }
-    const token = auth.slice(7)
+    const token = auth.slice(7);
     try {
       const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET') ||
-          (() => { throw new Error('JWT_SECRET env var is required') })(),
-      })
+        secret:
+          this.configService.get<string>('JWT_SECRET') ||
+          (() => {
+            throw new Error('JWT_SECRET env var is required');
+          })(),
+      });
       if (payload.role !== 'SYSTEM_SUPER_ADMIN') {
-        throw new UnauthorizedException('Acesso negado')
+        throw new UnauthorizedException('Acesso negado');
       }
-      request.superAdmin = payload
-      return true
+      request.superAdmin = payload;
+      return true;
     } catch {
-      throw new UnauthorizedException('Token inválido')
+      throw new UnauthorizedException('Token inválido');
     }
   }
 }

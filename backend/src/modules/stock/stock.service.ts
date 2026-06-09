@@ -6,10 +6,7 @@ import {
 
 import { PrismaService } from '../../database/prisma.service';
 
-import {
-  Prisma,
-  StockMovementType,
-} from '@prisma/client';
+import { Prisma, StockMovementType } from '@prisma/client';
 
 interface ConsumeIngredientPayload {
   ingredientId: string;
@@ -23,59 +20,38 @@ interface ConsumeIngredientPayload {
 
 @Injectable()
 export class StockService {
-
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async consumeIngredientTransactional(
     tx: Prisma.TransactionClient,
 
     payload: ConsumeIngredientPayload,
   ) {
+    const ingredient = await tx.ingredient.findFirst({
+      where: {
+        id: payload.ingredientId,
 
-    const ingredient =
-      await tx.ingredient.findFirst({
-
-        where: {
-
-          id:
-            payload.ingredientId,
-
-          companyId:
-            payload.companyId,
-        },
-      });
+        companyId: payload.companyId,
+      },
+    });
 
     if (!ingredient) {
-
-      throw new NotFoundException(
-        'Ingrediente não encontrado',
-      );
+      throw new NotFoundException('Ingrediente não encontrado');
     }
 
-    const currentStock =
-      Number(ingredient.stock);
+    const currentStock = Number(ingredient.stock);
 
-    const quantity =
-      Number(payload.quantity);
+    const quantity = Number(payload.quantity);
 
-    const newStock =
-      currentStock - quantity;
+    const newStock = currentStock - quantity;
 
-    if (
-      newStock < 0 &&
-      !ingredient.allowNegativeStock
-    ) {
-
+    if (newStock < 0 && !ingredient.allowNegativeStock) {
       throw new BadRequestException(
-
         `Estoque insuficiente para ${ingredient.name}`,
       );
     }
 
     await tx.ingredient.update({
-
       where: {
         id: ingredient.id,
       },
@@ -86,62 +62,41 @@ export class StockService {
     });
 
     await tx.stockMovement.create({
-
       data: {
+        ingredientId: ingredient.id,
 
-        ingredientId:
-          ingredient.id,
+        companyId: payload.companyId,
 
-        companyId:
-          payload.companyId,
-
-        type:
-          StockMovementType.SALE,
+        type: StockMovementType.SALE,
 
         quantity,
 
-        previousStock:
-          currentStock,
+        previousStock: currentStock,
 
-        currentStock:
-          newStock,
+        currentStock: newStock,
 
-        unitCost:
-          ingredient.averageCost,
+        unitCost: ingredient.averageCost,
 
-        totalCost:
+        totalCost: Number(ingredient.averageCost) * quantity,
 
-          Number(
-            ingredient.averageCost,
-          ) * quantity,
+        reason: payload.reason,
 
-        reason:
-          payload.reason,
+        referenceId: payload.referenceId,
 
-        referenceId:
-          payload.referenceId,
+        referenceType: payload.referenceType,
 
-        referenceType:
-          payload.referenceType,
-
-        performedById:
-          payload.performedById,
+        performedById: payload.performedById,
 
         metadata: {
-
-          source:
-            'automatic-order-consumption',
+          source: 'automatic-order-consumption',
         },
       },
     });
 
     return {
+      previousStock: currentStock,
 
-      previousStock:
-        currentStock,
-
-      currentStock:
-        newStock,
+      currentStock: newStock,
     };
   }
 
@@ -150,38 +105,25 @@ export class StockService {
 
     payload: ConsumeIngredientPayload,
   ) {
+    const ingredient = await tx.ingredient.findFirst({
+      where: {
+        id: payload.ingredientId,
 
-    const ingredient =
-      await tx.ingredient.findFirst({
-
-        where: {
-
-          id:
-            payload.ingredientId,
-
-          companyId:
-            payload.companyId,
-        },
-      });
+        companyId: payload.companyId,
+      },
+    });
 
     if (!ingredient) {
-
-      throw new NotFoundException(
-        'Ingrediente não encontrado',
-      );
+      throw new NotFoundException('Ingrediente não encontrado');
     }
 
-    const currentStock =
-      Number(ingredient.stock);
+    const currentStock = Number(ingredient.stock);
 
-    const quantity =
-      Number(payload.quantity);
+    const quantity = Number(payload.quantity);
 
-    const newStock =
-      currentStock + quantity;
+    const newStock = currentStock + quantity;
 
     await tx.ingredient.update({
-
       where: {
         id: ingredient.id,
       },
@@ -192,62 +134,41 @@ export class StockService {
     });
 
     await tx.stockMovement.create({
-
       data: {
+        ingredientId: ingredient.id,
 
-        ingredientId:
-          ingredient.id,
+        companyId: payload.companyId,
 
-        companyId:
-          payload.companyId,
-
-        type:
-          StockMovementType.RETURN,
+        type: StockMovementType.RETURN,
 
         quantity,
 
-        previousStock:
-          currentStock,
+        previousStock: currentStock,
 
-        currentStock:
-          newStock,
+        currentStock: newStock,
 
-        unitCost:
-          ingredient.averageCost,
+        unitCost: ingredient.averageCost,
 
-        totalCost:
+        totalCost: Number(ingredient.averageCost) * quantity,
 
-          Number(
-            ingredient.averageCost,
-          ) * quantity,
+        reason: payload.reason,
 
-        reason:
-          payload.reason,
+        referenceId: payload.referenceId,
 
-        referenceId:
-          payload.referenceId,
+        referenceType: payload.referenceType,
 
-        referenceType:
-          payload.referenceType,
-
-        performedById:
-          payload.performedById,
+        performedById: payload.performedById,
 
         metadata: {
-
-          source:
-            'cancelled-order-rollback',
+          source: 'cancelled-order-rollback',
         },
       },
     });
 
     return {
+      previousStock: currentStock,
 
-      previousStock:
-        currentStock,
-
-      currentStock:
-        newStock,
+      currentStock: newStock,
     };
   }
 
@@ -258,34 +179,23 @@ export class StockService {
     quantity: number;
     reason?: string;
   }) {
-
-    const ingredient =
-      await this.prisma.ingredient.findUnique({
-
-        where: {
-          id: data.ingredientId,
-        },
-      });
+    const ingredient = await this.prisma.ingredient.findUnique({
+      where: {
+        id: data.ingredientId,
+      },
+    });
 
     if (!ingredient) {
-
-      throw new NotFoundException(
-        'Ingrediente não encontrado',
-      );
+      throw new NotFoundException('Ingrediente não encontrado');
     }
 
-    const previousStock =
-      Number(ingredient.stock);
+    const previousStock = Number(ingredient.stock);
 
-    let currentStock =
-      Number(previousStock);
+    let currentStock = Number(previousStock);
 
     switch (data.type) {
-
       case StockMovementType.ENTRY:
-
-        currentStock +=
-          Number(data.quantity);
+        currentStock += Number(data.quantity);
 
         break;
 
@@ -294,17 +204,10 @@ export class StockService {
       case StockMovementType.LOSS:
 
       case StockMovementType.SALE:
+        currentStock -= Number(data.quantity);
 
-        currentStock -=
-          Number(data.quantity);
-
-        if (
-          currentStock < 0 &&
-          !ingredient.allowNegativeStock
-        ) {
-
+        if (currentStock < 0 && !ingredient.allowNegativeStock) {
           throw new BadRequestException(
-
             `Estoque insuficiente para ${ingredient.name}`,
           );
         }
@@ -312,81 +215,58 @@ export class StockService {
         break;
 
       case StockMovementType.RETURN:
-
-        currentStock +=
-          Number(data.quantity);
+        currentStock += Number(data.quantity);
 
         break;
 
       case StockMovementType.INVENTORY:
 
       case StockMovementType.ADJUSTMENT:
-
-        currentStock =
-          Number(data.quantity);
+        currentStock = Number(data.quantity);
 
         break;
     }
 
     await this.prisma.ingredient.update({
-
       where: {
         id: ingredient.id,
       },
 
       data: {
-        stock:
-          currentStock,
+        stock: currentStock,
       },
     });
 
     return this.prisma.stockMovement.create({
-
       data: {
-
         ingredient: {
-
           connect: {
             id: ingredient.id,
           },
         },
 
         company: {
-
           connect: {
             id: data.companyId,
           },
         },
 
-        type:
-          data.type,
+        type: data.type,
 
-        quantity:
-          Number(data.quantity),
+        quantity: Number(data.quantity),
 
-        previousStock:
-          Number(previousStock),
+        previousStock: Number(previousStock),
 
-        currentStock:
-          Number(currentStock),
+        currentStock: Number(currentStock),
 
-        unitCost:
-          ingredient.averageCost,
+        unitCost: ingredient.averageCost,
 
-        totalCost:
+        totalCost: Number(ingredient.averageCost) * Number(data.quantity),
 
-          Number(
-            ingredient.averageCost,
-          ) *
-          Number(data.quantity),
-
-        reason:
-          data.reason,
+        reason: data.reason,
 
         metadata: {
-
-          source:
-            'manual-stock-movement',
+          source: 'manual-stock-movement',
         },
       },
     });
@@ -397,152 +277,92 @@ export class StockService {
     quantity: number,
     companyId: string,
   ) {
-
     return this.createMovement({
-
       ingredientId,
 
       quantity,
 
       companyId,
 
-      type:
-        StockMovementType.EXIT,
+      type: StockMovementType.EXIT,
 
-      reason:
-        'Consumo automático pedido',
+      reason: 'Consumo automático pedido',
     });
   }
 
-  async addStock(
-    ingredientId: string,
-    quantity: number,
-    companyId: string,
-  ) {
-
+  async addStock(ingredientId: string, quantity: number, companyId: string) {
     return this.createMovement({
-
       ingredientId,
 
       quantity,
 
       companyId,
 
-      type:
-        StockMovementType.ENTRY,
+      type: StockMovementType.ENTRY,
 
-      reason:
-        'Entrada estoque',
+      reason: 'Entrada estoque',
     });
   }
 
-  async getLowStock(
-    companyId: string,
-  ) {
-
-    const ingredients =
-      await this.prisma.ingredient.findMany({
-
-        where: {
-          companyId,
-        },
-      });
+  async getLowStock(companyId: string) {
+    const ingredients = await this.prisma.ingredient.findMany({
+      where: {
+        companyId,
+      },
+    });
 
     return ingredients.filter(
-
       (ingredient) =>
-
-        Number(ingredient.stock) <=
-        Number(ingredient.minimumStock),
+        Number(ingredient.stock) <= Number(ingredient.minimumStock),
     );
   }
 
-  async dashboard(
-    companyId: string,
-  ) {
+  async dashboard(companyId: string) {
+    const ingredients = await this.prisma.ingredient.findMany({
+      where: {
+        companyId,
+      },
+    });
 
-    const ingredients =
-      await this.prisma.ingredient.findMany({
+    const lowStock = ingredients.filter(
+      (ingredient) =>
+        Number(ingredient.stock) <= Number(ingredient.minimumStock),
+    );
 
-        where: {
-          companyId,
-        },
-      });
-
-    const lowStock =
-      ingredients.filter(
-
-        (ingredient) =>
-
-          Number(ingredient.stock) <=
-          Number(ingredient.minimumStock),
-      );
-
-    const movements =
-      await this.prisma.stockMovement.findMany({
-
-        where: {
-          companyId,
-        },
-      });
+    const movements = await this.prisma.stockMovement.findMany({
+      where: {
+        companyId,
+      },
+    });
 
     let totalStockValue = 0;
 
-    for (
-      const ingredient
-      of ingredients
-    ) {
-
+    for (const ingredient of ingredients) {
       totalStockValue +=
-
         Number(ingredient.stock) *
-
-        Number(
-          ingredient.averageCost ||
-          ingredient.cost,
-        );
+        Number(ingredient.averageCost || ingredient.cost);
     }
 
-    const entries =
-      movements.filter(
+    const entries = movements.filter(
+      (movement) => movement.type === StockMovementType.ENTRY,
+    ).length;
 
-        (movement) =>
+    const exits = movements.filter(
+      (movement) =>
+        movement.type === StockMovementType.EXIT ||
+        movement.type === StockMovementType.SALE,
+    ).length;
 
-          movement.type ===
-          StockMovementType.ENTRY,
-      ).length;
-
-    const exits =
-      movements.filter(
-
-        (movement) =>
-
-          movement.type ===
-          StockMovementType.EXIT ||
-
-          movement.type ===
-          StockMovementType.SALE,
-      ).length;
-
-    const losses =
-      movements.filter(
-
-        (movement) =>
-
-          movement.type ===
-          StockMovementType.LOSS,
-      ).length;
+    const losses = movements.filter(
+      (movement) => movement.type === StockMovementType.LOSS,
+    ).length;
 
     return {
+      totalIngredients: ingredients.length,
 
-      totalIngredients:
-        ingredients.length,
+      lowStockCount: lowStock.length,
 
-      lowStockCount:
-        lowStock.length,
-
-      totalMovements:
-        movements.length,
+      totalMovements: movements.length,
 
       entries,
 
@@ -554,12 +374,8 @@ export class StockService {
     };
   }
 
-  async getMovements(
-    companyId: string,
-  ) {
-
+  async getMovements(companyId: string) {
     return this.prisma.stockMovement.findMany({
-
       where: {
         companyId,
       },

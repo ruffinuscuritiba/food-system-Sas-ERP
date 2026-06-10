@@ -882,10 +882,19 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     }
 
     let rawResponse = '';
-    const aiModel =
+    const DEPRECATED_MODELS: Record<string, string> = {
+      'claude-haiku-20240307': 'claude-haiku-4-5-20251001',
+      'claude-sonnet-20240229': 'claude-sonnet-4-6',
+      'claude-opus-20240229': 'claude-opus-4-8',
+    };
+    const rawAiModel =
       settings.aiModel ??
-      this.config.get('GEMINI_MODEL') ??
-      'gemini-2.0-flash';
+      this.config.get('ANTHROPIC_MODEL') ??
+      'claude-haiku-4-5-20251001';
+    const aiModel = DEPRECATED_MODELS[rawAiModel] ?? rawAiModel;
+    if (aiModel !== rawAiModel) {
+      log.warn(`[AI] Modelo deprecado "${rawAiModel}" migrado automaticamente para "${aiModel}"`);
+    }
 
     if (aiProvider === 'ANTHROPIC') {
       const anthropicMsgs = aiMessages.map((m) => ({

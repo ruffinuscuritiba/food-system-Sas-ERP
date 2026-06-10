@@ -124,6 +124,7 @@ export class ClaudeCartService {
       },
       body: JSON.stringify({
         model,
+        cache_control: { type: 'ephemeral' },
         system: systemPrompt,
         messages: params.conversationHistory,
         max_tokens: 1024,

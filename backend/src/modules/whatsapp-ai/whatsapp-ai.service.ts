@@ -959,7 +959,10 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     let rawResponse = '';
     const DEPRECATED_MODELS: Record<string, string> = {
       'claude-haiku-20240307': 'claude-haiku-4-5-20251001',
+      'claude-3-haiku-20240307': 'claude-haiku-4-5-20251001',
       'claude-sonnet-20240229': 'claude-sonnet-4-6',
+      'claude-3-5-sonnet-20241022': 'claude-sonnet-4-6',
+      'claude-3-5-sonnet-20240620': 'claude-sonnet-4-6',
       'claude-opus-20240229': 'claude-opus-4-8',
     };
     const rawAiModel =

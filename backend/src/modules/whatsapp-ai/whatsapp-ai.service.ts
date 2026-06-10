@@ -226,6 +226,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       },
       body: JSON.stringify({
         model,
+        cache_control: { type: 'ephemeral' },
         system: systemPrompt,
         messages: messages.map((m) => ({ role: m.role, content: m.text })),
         max_tokens: 1024,

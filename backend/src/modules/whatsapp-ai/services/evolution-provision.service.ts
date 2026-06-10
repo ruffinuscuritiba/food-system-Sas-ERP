@@ -26,15 +26,21 @@ export class EvolutionProvisionService {
   }
 
   private async request(method: string, path: string, body?: unknown) {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: this.masterKey,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(20_000),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: this.masterKey,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch (err: any) {
+      this.log.error(`Evolution ${method} ${path} → connection error: ${err?.message ?? err}`);
+      throw new Error(`Não foi possível conectar à Evolution API (${err?.message ?? 'timeout'}). Verifique se o serviço está online.`);
+    }
     const text = await res.text();
     let data: unknown;
     try { data = JSON.parse(text); } catch { data = text; }

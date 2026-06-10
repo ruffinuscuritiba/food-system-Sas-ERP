@@ -88,13 +88,21 @@ export class EvolutionProvisionService {
     return 'close';
   }
 
-  /** Registers a webhook URL on the instance. */
+  /**
+   * Registers a webhook URL on the instance.
+   * Evolution API v2.x exige o payload aninhado em `webhook: {...}` com camelCase
+   * (`webhookByEvents`). O formato antigo flat (`webhook_by_events`) retorna
+   * 400 "instance requires property webhook" na v2.3.x.
+   */
   async setWebhook(instanceName: string, webhookUrl: string): Promise<void> {
     await this.request('POST', `/webhook/set/${instanceName}`, {
-      url: webhookUrl,
-      webhook_by_events: false,
-      webhook_base64: false,
-      events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        webhookByEvents: false,
+        webhookBase64: false,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+      },
     });
   }
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, ExternalLink, MessageCircle, Rocket } from "lucide-react";
+import { Bot, Copy, ExternalLink, MessageCircle, Rocket } from "lucide-react";
 import toast from "react-hot-toast";
+import { saApi } from "@/services/superAdminApi";
 
 const DEMO_URL = "https://food-system-sas-erp-frontend.vercel.app/demo";
 const WA_URL = `https://wa.me/?text=${encodeURIComponent(
@@ -12,6 +13,22 @@ const WA_URL = `https://wa.me/?text=${encodeURIComponent(
 /** Card used in both /dashboard (light) and /super-admin/dashboard (dark). */
 export function DemoCentralCard({ variant = "light" }: { variant?: "light" | "dark" }) {
   const [copied, setCopied] = useState(false);
+  const [enteringAI, setEnteringAI] = useState(false);
+
+  async function configureAI() {
+    setEnteringAI(true);
+    try {
+      const { data } = await saApi.post("/super-admin/platform/impersonate");
+      localStorage.setItem("token", data.accessToken);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("impersonating", JSON.stringify({ companyName: "R FoodSaaS Plataforma", companyId: data.user.companyId }));
+      document.cookie = `token=${data.accessToken}; path=/`;
+      window.location.href = "/whatsapp-ia";
+    } catch {
+      toast.error("Erro ao acessar configuração de IA");
+      setEnteringAI(false);
+    }
+  }
 
   async function copyLink() {
     try {
@@ -111,6 +128,18 @@ export function DemoCentralCard({ variant = "light" }: { variant?: "light" | "da
             <MessageCircle className="h-3.5 w-3.5" />
             Compartilhar WhatsApp
           </a>
+
+          {/* Configurar IA — super admin only */}
+          {isDark && (
+            <button
+              onClick={configureAI}
+              disabled={enteringAI}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-4 py-2 text-xs font-semibold text-cyan-400 transition hover:bg-cyan-500/20 disabled:opacity-50"
+            >
+              <Bot className="h-3.5 w-3.5" />
+              {enteringAI ? "Abrindo..." : "Configurar IA"}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -72,6 +72,12 @@ export class SuperAdminController {
     return this.service.restoreCompany(id);
   }
 
+  @Post('platform/impersonate')
+  @UseGuards(SuperAdminGuard)
+  getPlatformImpersonation() {
+    return this.service.getPlatformImpersonation();
+  }
+
   @Post('companies/:id/impersonate')
   @UseGuards(SuperAdminGuard)
   impersonateCompany(@Param('id') id: string) {

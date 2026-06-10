@@ -152,6 +152,56 @@ export class SuperAdminService {
     });
   }
 
+  async getPlatformImpersonation() {
+    const platformEmail = 'platform@foodsaas.internal';
+
+    let company = await this.prisma.company.findFirst({
+      where: { email: platformEmail },
+    });
+
+    if (!company) {
+      company = await this.prisma.company.create({
+        data: {
+          name: 'R FoodSaaS Plataforma',
+          email: platformEmail,
+          plan: 'ENTERPRISE',
+          subscriptionStatus: 'ACTIVE',
+          isBlocked: false,
+          archivedAt: new Date(), // hidden from companies list
+        },
+      });
+
+      const { randomUUID } = await import('crypto');
+      const { hash } = await import('bcrypt');
+      const pwd = await hash(randomUUID(), 10);
+
+      await this.prisma.user.create({
+        data: {
+          name: 'Admin Plataforma',
+          email: platformEmail,
+          password: pwd,
+          role: 'ADMIN',
+          isActive: true,
+          companyId: company.id,
+        },
+      });
+
+      const ALL_MODULES = [
+        'TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY',
+        'whatsapp', 'whatsapp-ia',
+      ];
+      await Promise.all(
+        ALL_MODULES.map((mod) =>
+          this.prisma.companyModule.create({
+            data: { module: mod, active: true, companyId: company!.id },
+          }),
+        ),
+      );
+    }
+
+    return this.impersonateCompany(company.id);
+  }
+
   async impersonateCompany(companyId: string) {
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },

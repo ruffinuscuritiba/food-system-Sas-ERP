@@ -1,6 +1,7 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   Logger,
   Inject,
   Optional,
@@ -286,7 +287,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
    */
   async provisionConnection(companyId: string, name: string) {
     if (!this.evolutionProvision.isConfigured) {
-      throw new Error('EVOLUTION_API_URL / EVOLUTION_API_KEY não configurados no servidor');
+      throw new BadRequestException('EVOLUTION_API_URL / EVOLUTION_API_KEY não configurados no servidor');
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);

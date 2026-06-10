@@ -220,7 +220,7 @@ export default function WhatsappIaPage() {
           </div>
         ) : (
           <>
-            {tab === "connections"   && <ConnectionsTab connections={connections} onRefresh={loadAll} onSelect={setSelectedConn} copyWebhook={copyWebhook} />}
+            {tab === "connections"   && <ConnectionsTab connections={connections} onRefresh={loadAll} onSelect={(c) => { setSelectedConn(c); setTab("config"); }} copyWebhook={copyWebhook} />}
             {tab === "config"        && <ConfigTab connections={connections} selectedConn={selectedConn} onSelect={setSelectedConn} onRefresh={loadAll} />}
             {tab === "conversations" && (
               <ConversationsTab

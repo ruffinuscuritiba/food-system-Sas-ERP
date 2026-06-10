@@ -11,6 +11,7 @@ import { ClaudeCartService } from './services/claude-cart.service';
 import { OrderNotificationService } from './services/order-notification.service';
 import { WaPaymentService } from './services/wa-payment.service';
 import { WhatsappAiPromptService } from './services/whatsapp-ai-prompt.service';
+import { EvolutionProvisionService } from './services/evolution-provision.service';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { WhatsappAiPromptService } from './services/whatsapp-ai-prompt.service';
     OrderNotificationService,
     WaPaymentService,
     WhatsappAiPromptService,
+    EvolutionProvisionService,
   ],
   exports: [WhatsappAiService, OrderNotificationService],
 })

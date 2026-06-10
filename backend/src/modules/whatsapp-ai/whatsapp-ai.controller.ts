@@ -127,6 +127,29 @@ export class WhatsappAiController {
     return this.service.createConnection(req.user.companyId, dto);
   }
 
+  /**
+   * POST /api/whatsapp-ai/connections/provision
+   * Creates a managed connection + Evolution API instance. Returns QR code.
+   * Body: { name: string }
+   */
+  @Post('connections/provision')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  provisionConnection(@Body() body: { name: string }, @Request() req: any) {
+    return this.service.provisionConnection(req.user.companyId, body.name);
+  }
+
+  /**
+   * GET /api/whatsapp-ai/connections/:id/qr
+   * Returns { qrCode: string|null, state: 'open'|'connecting'|'close' }
+   */
+  @Get('connections/:id/qr')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  getConnectionQr(@Param('id') id: string, @Request() req: any) {
+    return this.service.getConnectionQr(id, req.user.companyId);
+  }
+
   @Patch('connections/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')

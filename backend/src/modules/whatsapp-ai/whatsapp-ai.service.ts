@@ -19,6 +19,7 @@ import {
 } from './services/claude-cart.service';
 import { WaPaymentService } from './services/wa-payment.service';
 import { WhatsappAiPromptService } from './services/whatsapp-ai-prompt.service';
+import { EvolutionProvisionService } from './services/evolution-provision.service';
 import { OrdersService } from '@/modules/orders/orders.service';
 import { ProductsService } from '@/modules/products/products.service';
 import { CategoriesService } from '@/modules/categories/categories.service';
@@ -150,6 +151,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     private claudeCart: ClaudeCartService,
     private waPayment: WaPaymentService,
     private promptService: WhatsappAiPromptService,
+    private evolutionProvision: EvolutionProvisionService,
     @Inject(forwardRef(() => OrdersService))
     private ordersService?: OrdersService,
     // Injetados via forwardRef para que qualquer mudança de regra de negócio
@@ -268,7 +270,78 @@ export class WhatsappAiService implements OnApplicationBootstrap {
 
   async deleteConnection(id: string, companyId: string) {
     await this.assertConnectionOwnership(id, companyId);
+    // Also clean up the Evolution API instance if provisioned by the platform
+    const conn = await this.prisma.whatsappConnection.findUnique({ where: { id } });
+    if (conn?.instanceName && conn.apiUrl === this.evolutionProvision['baseUrl']) {
+      this.evolutionProvision.deleteInstance(conn.instanceName).catch(() => {});
+    }
     return this.prisma.whatsappConnection.delete({ where: { id } });
+  }
+
+  // ── MANAGED PROVISIONING (Evolution API auto-setup) ────────────────────────
+
+  /**
+   * Creates a WhatsApp connection and auto-provisions an Evolution API instance.
+   * The client only needs to scan the returned QR code.
+   */
+  async provisionConnection(companyId: string, name: string) {
+    if (!this.evolutionProvision.isConfigured) {
+      throw new Error('EVOLUTION_API_URL / EVOLUTION_API_KEY não configurados no servidor');
+    }
+
+    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);
+    const instanceName = `${slug}-${companyId.slice(0, 8)}-${Date.now().toString(36)}`;
+    const backendUrl = this.config.get<string>('BACKEND_URL') ?? '';
+    const baseUrl = (this.evolutionProvision as any).baseUrl as string;
+    const masterKey = (this.evolutionProvision as any).masterKey as string;
+
+    const { qrCode } = await this.evolutionProvision.createInstance(instanceName);
+
+    // Save connection immediately so we have the id for the webhook URL
+    const conn = await this.prisma.whatsappConnection.create({
+      data: {
+        name,
+        companyId,
+        provider: 'EVOLUTION',
+        instanceName,
+        apiUrl: baseUrl,
+        apiToken: masterKey,
+        isActive: false, // activated after QR scan
+      },
+    });
+
+    // Register webhook so Evolution notifies us of messages
+    if (backendUrl) {
+      const webhookUrl = `${backendUrl}/api/whatsapp-ai/webhook/${conn.id}`;
+      await this.evolutionProvision.setWebhook(instanceName, webhookUrl).catch((e) =>
+        log.warn(`[Provision] Failed to set webhook: ${e.message}`),
+      );
+    }
+
+    return { connection: conn, qrCode };
+  }
+
+  /** Returns a fresh QR code for display. null = already connected. */
+  async getConnectionQr(connectionId: string, companyId: string) {
+    await this.assertConnectionOwnership(connectionId, companyId);
+    const conn = await this.prisma.whatsappConnection.findUnique({ where: { id: connectionId } });
+    if (!conn?.instanceName) return { qrCode: null, state: 'close' };
+
+    const state = await this.evolutionProvision.getState(conn.instanceName);
+    if (state === 'open') {
+      // Mark as active and try to fetch phone number
+      if (!conn.isActive) {
+        const phone = await this.evolutionProvision.getPhoneNumber(conn.instanceName);
+        await this.prisma.whatsappConnection.update({
+          where: { id: connectionId },
+          data: { isActive: true, phoneNumber: phone ?? conn.phoneNumber },
+        });
+      }
+      return { qrCode: null, state: 'open' };
+    }
+
+    const qrCode = await this.evolutionProvision.getQrCode(conn.instanceName);
+    return { qrCode, state };
   }
 
   // ── SETTINGS ───────────────────────────────────────────────────────────────

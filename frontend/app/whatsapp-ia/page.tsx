@@ -322,6 +322,41 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
   });
   const [saving, setSaving] = useState(false);
 
+  // QR Code modal state
+  const [qrModal, setQrModal] = useState<{
+    open: boolean;
+    connectionId: string;
+    qrCode: string | null;
+    state: string;
+  }>({ open: false, connectionId: "", qrCode: null, state: "connecting" });
+  const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopQrPoll = () => {
+    if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+  };
+
+  const startQrPoll = (connectionId: string) => {
+    stopQrPoll();
+    qrPollRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`/whatsapp-ai/connections/${connectionId}/qr`);
+        const { qrCode, state } = res.data as { qrCode: string | null; state: string };
+        setQrModal((prev) => ({ ...prev, qrCode, state }));
+        if (state === "open") {
+          stopQrPoll();
+          onRefresh();
+          setTimeout(() => setQrModal((prev) => ({ ...prev, open: false })), 2500);
+        }
+      } catch {}
+    }, 4000);
+  };
+
+  const closeQrModal = () => {
+    stopQrPoll();
+    setQrModal({ open: false, connectionId: "", qrCode: null, state: "connecting" });
+    onRefresh();
+  };
+
   // ── Edit state ─────────────────────────────────────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -374,12 +409,23 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
     if (!form.name.trim()) { toast.error("Nome obrigatório"); return; }
     setSaving(true);
     try {
-      await api.post("/whatsapp-ai/connections", form);
-      toast.success("Conexão criada!");
-      setShowForm(false);
-      setProviderType("WHATSAPP_BUSINESS");
-      setForm({ name: "", provider: "EVOLUTION", instanceName: "", apiUrl: "", apiToken: "", phoneNumberId: "", webhookToken: "", phoneNumber: "" });
-      onRefresh();
+      if (providerType === "WHATSAPP_BUSINESS") {
+        // Managed provisioning: platform creates Evolution instance + returns QR
+        const res = await api.post("/whatsapp-ai/connections/provision", { name: form.name.trim() });
+        const { connection, qrCode } = res.data as { connection: { id: string }; qrCode: string | null };
+        setShowForm(false);
+        setForm({ name: "", provider: "EVOLUTION", instanceName: "", apiUrl: "", apiToken: "", phoneNumberId: "", webhookToken: "", phoneNumber: "" });
+        setQrModal({ open: true, connectionId: connection.id, qrCode, state: "connecting" });
+        startQrPoll(connection.id);
+        onRefresh();
+      } else {
+        await api.post("/whatsapp-ai/connections", form);
+        toast.success("Conexão criada!");
+        setShowForm(false);
+        setProviderType("WHATSAPP_BUSINESS");
+        setForm({ name: "", provider: "EVOLUTION", instanceName: "", apiUrl: "", apiToken: "", phoneNumberId: "", webhookToken: "", phoneNumber: "" });
+        onRefresh();
+      }
     } catch {
       toast.error("Erro ao criar conexão");
     } finally {
@@ -499,13 +545,76 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
           <div className="flex gap-2 pt-1">
             <button
               onClick={save} disabled={saving}
-              className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-sm font-bold transition"
+              className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2"
             >
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? <><RefreshCw size={13} className="animate-spin" /> Preparando...</> : providerType === "WHATSAPP_BUSINESS" ? "Conectar via QR Code →" : "Salvar"}
             </button>
             <button onClick={() => setShowForm(false)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2 rounded-xl text-sm font-semibold transition">
               Cancelar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {qrModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-8 w-full max-w-sm mx-4 text-center">
+            <button onClick={closeQrModal} className="absolute top-4 right-4 text-slate-500 hover:text-white transition">
+              <X size={18} />
+            </button>
+
+            {qrModal.state === "open" ? (
+              <div className="py-6">
+                <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 size={32} className="text-green-400" />
+                </div>
+                <p className="text-xl font-black text-white">WhatsApp Conectado!</p>
+                <p className="text-slate-400 text-sm mt-2">A IA já pode receber e responder mensagens.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <p className="font-black text-white text-lg">Escaneie o QR Code</p>
+                  <p className="text-slate-400 text-xs mt-1">Abra o WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+                </div>
+
+                {qrModal.qrCode ? (
+                  <div className="bg-white rounded-xl p-3 inline-block">
+                    <img
+                      src={qrModal.qrCode.startsWith("data:") ? qrModal.qrCode : `data:image/png;base64,${qrModal.qrCode}`}
+                      alt="QR Code WhatsApp"
+                      className="w-52 h-52 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-52 h-52 bg-slate-800 rounded-xl flex items-center justify-center mx-auto">
+                    <RefreshCw size={24} className="text-slate-500 animate-spin" />
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-center gap-2 text-slate-400 text-xs">
+                  <RefreshCw size={11} className="animate-spin" />
+                  Aguardando leitura... (atualiza a cada 4s)
+                </div>
+
+                <button
+                  onClick={() => {
+                    stopQrPoll();
+                    api.get(`/whatsapp-ai/connections/${qrModal.connectionId}/qr`)
+                      .then((r) => {
+                        const { qrCode, state } = r.data as { qrCode: string | null; state: string };
+                        setQrModal((prev) => ({ ...prev, qrCode, state }));
+                        if (state === "open") { onRefresh(); setTimeout(() => setQrModal((p) => ({ ...p, open: false })), 2500); }
+                        else startQrPoll(qrModal.connectionId);
+                      }).catch(() => startQrPoll(qrModal.connectionId));
+                  }}
+                  className="mt-3 text-xs text-slate-500 hover:text-white underline transition"
+                >
+                  Atualizar QR Code
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -533,6 +642,23 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                 <span className="text-xs text-slate-500 bg-slate-800 px-2.5 py-1 rounded-lg">
                   {conn._count?.conversations ?? 0} conversas
                 </span>
+                {/* QR Code — só aparece para conexões Evolution com instanceName */}
+                {conn.instanceName && (
+                  <button
+                    onClick={() => {
+                      api.get(`/whatsapp-ai/connections/${conn.id}/qr`)
+                        .then((r) => {
+                          const { qrCode, state } = r.data as { qrCode: string | null; state: string };
+                          setQrModal({ open: true, connectionId: conn.id, qrCode, state });
+                          if (state !== "open") startQrPoll(conn.id);
+                        }).catch(() => toast.error("Erro ao obter QR Code"));
+                    }}
+                    title="QR Code / Reconectar"
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${conn.isActive ? "bg-green-900/40 text-green-400" : "bg-slate-800 hover:bg-green-900/40 text-slate-400 hover:text-green-400"}`}
+                  >
+                    <Wifi size={15} />
+                  </button>
+                )}
                 <button onClick={() => toggle(conn)} title="Ativar/Desativar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition text-slate-400">
                   {conn.isActive ? <ToggleRight size={16} className="text-green-400" /> : <ToggleLeft size={16} />}
                 </button>

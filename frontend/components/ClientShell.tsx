@@ -127,7 +127,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue" },
       { href: "/orders",             label: "Pedidos",       icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
       { href: "/kitchen",            label: "Cozinha",       icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
-      { href: "/delivery-tracking",  label: "Rastreamento",  icon: <MapPinned size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/delivery-tracking",  label: "Rastreamento",  icon: <MapPinned size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "delivery" },
       { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables" },
     ],
   },
@@ -299,11 +299,17 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     return roles.includes(effectiveRole);
   }
 
-  // Filtragem adicional por módulo — só ativa para DEMO, transparente para demais roles.
-  // Garante que itens com moduleSlug só aparecem quando o módulo está em activeSlugs.
+  // Controle de acesso por módulo.
+  // Regra 1: empresa matriz (R_FoodSaaS) — todos os módulos sempre liberados.
+  // Regra 2: SUPER_ADMIN — acesso irrestrito.
+  // Regra 3: DEMO — mostra todos os módulos como vitrine (escrita bloqueada no backend).
+  // Regra 4: demais roles — verifica activeSlugs carregados do banco.
+  const MATRIX_COMPANY_ID = process.env.NEXT_PUBLIC_MATRIX_COMPANY_ID ?? "cmq7d3dxs0006gw5pabsljy87";
   function canAccessModule(moduleSlug?: string): boolean {
     if (!moduleSlug) return true;
-    if (user?.role !== "DEMO") return true;
+    if (user?.companyId === MATRIX_COMPANY_ID) return true;
+    if (user?.role === "SUPER_ADMIN") return true;
+    if (user?.role === "DEMO") return true;
     return activeSlugs.includes(moduleSlug);
   }
 

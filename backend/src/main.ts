@@ -40,7 +40,7 @@ async function bootstrap() {
   // Configuração de CORS nativa do NestJS (recomendado)
   app.enableCors({
     origin: (origin, callback) => {
-      // Permitir requests sem origin (curl, Render health checks, etc.)
+      // Permitir requests sem origin (curl, probes de saúde, etc.)
       if (!origin) return callback(null, true);
       // Vercel (qualquer subdomínio) + localhost
       const allowed =
@@ -59,7 +59,7 @@ async function bootstrap() {
   const prismaService = app.get(PrismaService);
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    // Root probe (Render TCP health + keepalive ping)
+    // Root probe (VPS TCP health + keepalive ping)
     if (req.path === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
       return res.status(200).json({
         status: 'ok',
@@ -104,12 +104,30 @@ async function bootstrap() {
   const port = configService.get<number>('PORT') || 3001;
   await app.listen(port);
 
+  // ── Validação de variáveis de ambiente críticas ──
+  const dbUrl     = configService.get<string>('DATABASE_URL') || '';
+  const jwtSecret = configService.get<string>('JWT_SECRET')   || '';
+  const backendUrl= configService.get<string>('BACKEND_URL')  || '';
+
+  if (!dbUrl)
+    console.warn(JSON.stringify({ level: 'warn', event: 'env_missing', key: 'DATABASE_URL', timestamp: new Date().toISOString() }));
+  else if (dbUrl.includes('onrender.com') || dbUrl.includes('supabase.co'))
+    console.warn(JSON.stringify({ level: 'warn', event: 'env_stale_db', msg: 'DATABASE_URL aponta para serviço externo gerenciado — confirme se é intencional', timestamp: new Date().toISOString() }));
+
+  if (!jwtSecret)
+    console.warn(JSON.stringify({ level: 'warn', event: 'env_missing', key: 'JWT_SECRET', msg: 'JWT_SECRET não definido — tokens não serão validados corretamente', timestamp: new Date().toISOString() }));
+
+  if (!backendUrl)
+    console.warn(JSON.stringify({ level: 'warn', event: 'env_missing', key: 'BACKEND_URL', msg: 'BACKEND_URL não definido — webhooks e links públicos podem estar quebrados', timestamp: new Date().toISOString() }));
+
   console.log(
     JSON.stringify({
       level: 'info',
       event: 'app_started',
-      version: '1.0.7-nest-cors',
+      version: '1.0.8-vps',
       port,
+      backendUrl: backendUrl || '(não definido)',
+      dbHost: dbUrl ? new URL(dbUrl).hostname : '(não definido)',
       timestamp: new Date().toISOString(),
     }),
   );

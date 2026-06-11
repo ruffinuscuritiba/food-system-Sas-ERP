@@ -70,7 +70,7 @@ const MODE_OPTIONS = [
   { value: "MANUAL", label: "Manual",       desc: "Só operador humano", icon: <User size={15} /> },
 ];
 
-const BACKENDURL = process.env.NEXT_PUBLIC_API_URL ?? "https://food-system-backend-no7d.onrender.com/api";
+const BACKENDURL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.srv1747711.hstgr.cloud/api";
 
 // ─── Main component ───────────────────────────────────────────────────────────
 

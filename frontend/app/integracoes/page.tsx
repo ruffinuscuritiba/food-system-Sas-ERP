@@ -156,9 +156,8 @@ export default function IntegracoesPage() {
   }
 
   const webhookBaseUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin.replace(":3000", ":3001").replace("https://food-system-sas-erp-frontend.vercel.app", "https://food-system-backend-no7d.onrender.com")}/api/integrations/webhook/`
-      : "https://food-system-backend-no7d.onrender.com/api/integrations/webhook/";
+    (process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || "https://api.srv1747711.hstgr.cloud") +
+    "/api/integrations/webhook/";
 
   return (
     <main className="min-h-screen bg-gray-50 p-6 lg:p-10">

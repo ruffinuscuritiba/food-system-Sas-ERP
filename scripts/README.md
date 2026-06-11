@@ -4,7 +4,7 @@ Scripts auxiliares de operação. **Não** executados automaticamente — uso ma
 
 ## `smoke-prod.sh`
 
-Smoke test rápido contra os ambientes de produção (Render + Vercel). Roda em <30s.
+Smoke test rápido contra os ambientes de produção (VPS + Vercel). Roda em <30s.
 
 ### Uso
 ```bash
@@ -14,7 +14,7 @@ bash scripts/smoke-prod.sh
 ### Variáveis de ambiente (todas opcionais)
 | Var | Default | Descrição |
 |---|---|---|
-| `SMOKE_BACK` | `https://food-system-backend-no7d.onrender.com` | URL do backend Render |
+| `SMOKE_BACK` | `https://api.srv1747711.hstgr.cloud` | URL do backend VPS |
 | `SMOKE_FRONT` | `https://food-system-sas-erp-frontend.vercel.app` | URL do frontend Vercel |
 | `SMOKE_EMAIL` | `admin@teste.com` | Email para o teste de login |
 | `SMOKE_PASS` | `123456` | Senha para o teste de login |
@@ -26,7 +26,7 @@ SMOKE_EMAIL=meuemail@x.com SMOKE_PASS='minhaSenha' bash scripts/smoke-prod.sh
 
 ### O que valida (6 testes)
 
-**Backend (Render)**
+**Backend (VPS Hostinger)**
 1. `GET /api/health` retorna 200
 2. `POST /api/auth/login` retorna token
 3. `GET /api/orders/kitchen` autenticado **não** é 404 (Adapter Caminho 2 deployed)

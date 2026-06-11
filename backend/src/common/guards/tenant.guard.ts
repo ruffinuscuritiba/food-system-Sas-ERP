@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '@/database/prisma.service';
+import { isMatrixCompany } from '@/common/utils/matrix';
 
 /**
  * Validates tenant (company) is active and the JWT's companyId is legitimate.
@@ -42,6 +43,8 @@ export class TenantGuard implements CanActivate {
     }
 
     req.tenantId = company.id;
+    // Flag used by ModuleGuard and other guards to bypass restrictions
+    req.isMatrix = isMatrixCompany(company.id);
 
     return true;
   }

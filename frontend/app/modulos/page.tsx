@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  TrendingUp, Check, ChevronRight, Sparkles, Shield, CreditCard, Zap,
+  TrendingUp, Check, ChevronRight, Sparkles, Shield, CreditCard, Zap, Building2, X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
@@ -422,6 +422,10 @@ const MODULE_CATALOG: Record<string, Partial<Mod>> = {
   },
 };
 
+const MATRIX_COMPANY_ID = process.env.NEXT_PUBLIC_MATRIX_COMPANY_ID ?? "cmq7d3dxs0006gw5pabsljy87";
+
+type CompanyOption = { id: string; name: string; plan: string };
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ModulosPage() {
@@ -433,12 +437,28 @@ export default function ModulosPage() {
   const [busy, setBusy]             = useState<Record<string, boolean>>({});
   const [openMenu, setOpenMenu]     = useState<string | null>(null);
   const companyId                   = useRef("");
+  const userRole                    = useRef("");
+  const isMatrix                    = useRef(false);
+
+  // Provisionamento cross-tenant (só matriz/SUPER_ADMIN)
+  const [provisionSlug, setProvisionSlug]         = useState<string | null>(null);
+  const [companies, setCompanies]                 = useState<CompanyOption[]>([]);
+  const [provisionTarget, setProvisionTarget]     = useState("");
+  const [provisionBusy, setProvisionBusy]         = useState(false);
 
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") || "{}");
       companyId.current = u.companyId || "";
+      userRole.current  = u.role || "";
+      isMatrix.current  = u.companyId === MATRIX_COMPANY_ID;
       if (u.companyId) load(u.companyId);
+      // Pré-carrega lista de empresas para matriz/SUPER_ADMIN
+      if (u.companyId === MATRIX_COMPANY_ID || u.role === "SUPER_ADMIN") {
+        api.get("/company-module/admin/companies")
+          .then(r => setCompanies(Array.isArray(r.data) ? r.data : []))
+          .catch(() => {});
+      }
     } catch { setLoading(false); }
   }, []);
 
@@ -500,7 +520,30 @@ export default function ModulosPage() {
       await api.post("/company-module/activate", { companyId: companyId.current, moduleSlug: slug });
       toast.success("✅ Módulo ativado com sucesso!");
       load(companyId.current);
+      // Matriz/SUPER_ADMIN: oferece provisionamento para outra empresa
+      if (isMatrix.current || userRole.current === "SUPER_ADMIN") {
+        setProvisionSlug(slug);
+        setProvisionTarget("");
+      }
     } catch { toast.error("Erro ao ativar módulo"); }
+  }
+
+  async function handleProvision() {
+    if (!provisionSlug || !provisionTarget) return;
+    setProvisionBusy(true);
+    try {
+      await api.post("/company-module/admin/activate", {
+        targetCompanyId: provisionTarget,
+        moduleSlug: provisionSlug,
+      });
+      const company = companies.find(c => c.id === provisionTarget);
+      toast.success(`✅ Módulo ativado para ${company?.name ?? provisionTarget}`);
+      setProvisionSlug(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Erro ao provisionar módulo");
+    } finally {
+      setProvisionBusy(false);
+    }
   }
 
   async function handleDeactivate(slug: string) {
@@ -686,6 +729,74 @@ export default function ModulosPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Modal provisionamento cross-tenant (Matriz / SUPER_ADMIN) ─────────── */}
+      {provisionSlug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-7 relative"
+          >
+            <button
+              onClick={() => setProvisionSlug(null)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center">
+                <Building2 size={20} className="text-violet-600" />
+              </div>
+              <div>
+                <p className="font-black text-gray-900 text-base">Provisionar Módulo</p>
+                <p className="text-xs text-gray-400">Módulo <span className="font-semibold text-violet-600">{provisionSlug}</span> foi ativado para a Matriz</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 mt-4 mb-4">
+              <strong>Além da loja Matriz (R_FoodSaaS)</strong>, este módulo deve ser ativado em qual outro estabelecimento?
+            </p>
+
+            {companies.length > 0 ? (
+              <select
+                value={provisionTarget}
+                onChange={e => setProvisionTarget(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-violet-400 mb-4"
+              >
+                <option value="">— Selecionar empresa —</option>
+                {companies
+                  .filter(c => c.id !== companyId.current)
+                  .map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.plan || "sem plano"})
+                    </option>
+                  ))}
+              </select>
+            ) : (
+              <p className="text-xs text-gray-400 mb-4">Nenhuma outra empresa cadastrada.</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setProvisionSlug(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Pular
+              </button>
+              <button
+                disabled={!provisionTarget || provisionBusy}
+                onClick={handleProvision}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+              >
+                {provisionBusy ? "Ativando…" : "Ativar para esta empresa"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

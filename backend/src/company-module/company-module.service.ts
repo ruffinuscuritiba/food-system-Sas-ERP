@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
+import { isMatrixCompany } from '@/common/utils/matrix';
 
 @Injectable()
 export class CompanyModuleService {
@@ -98,5 +99,44 @@ export class CompanyModuleService {
 
   create(data: any) {
     return this.prisma.companyModule.create({ data });
+  }
+
+  /**
+   * Retorna lista reduzida de empresas para o seletor de provisionamento.
+   * Restrito a SUPER_ADMIN ou empresa matriz.
+   */
+  async listCompaniesForAdmin(requestingCompanyId: string, userRole: string) {
+    if (userRole !== 'SUPER_ADMIN' && !isMatrixCompany(requestingCompanyId)) {
+      throw new ForbiddenException('Acesso restrito a SUPER_ADMIN');
+    }
+    return this.prisma.company.findMany({
+      select: { id: true, name: true, plan: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /**
+   * Ativa um módulo em OUTRA empresa (provisionamento cross-tenant).
+   * Só SUPER_ADMIN ou a empresa matriz podem fazer isso.
+   */
+  async adminActivate(
+    requestingCompanyId: string,
+    userRole: string,
+    targetCompanyId: string,
+    moduleSlug: string,
+  ) {
+    if (userRole !== 'SUPER_ADMIN' && !isMatrixCompany(requestingCompanyId)) {
+      throw new ForbiddenException(
+        'Apenas SUPER_ADMIN pode ativar módulos para outras empresas',
+      );
+    }
+    const target = await this.prisma.company.findUnique({
+      where: { id: targetCompanyId },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new ForbiddenException('Empresa de destino não encontrada');
+    }
+    return this.activateModule(targetCompanyId, moduleSlug);
   }
 }

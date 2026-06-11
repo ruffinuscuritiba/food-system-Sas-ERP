@@ -70,7 +70,7 @@ export class TrackingGateway
     client.emit('driver:registered', { driverId });
   }
 
-  // Driver sends GPS location — broadcasts to all customers tracking their active order
+  // Driver sends GPS location — persists + broadcasts to tracking customers
   @SubscribeMessage('driver:location')
   async handleLocation(
     @MessageBody()
@@ -79,13 +79,19 @@ export class TrackingGateway
   ) {
     const { driverId, orderId, lat, lng } = payload;
 
-    // Persist to DB
+    this.logger.log(
+      `[GPS] driver=${driverId} order=${orderId} lat=${lat} lng=${lng}`,
+    );
+
+    // Persist to DB — failure is non-fatal (don't block broadcast)
     try {
       await this.prisma.driverProfile.update({
         where: { id: driverId },
         data: { currentLat: lat, currentLng: lng },
       });
-    } catch {}
+    } catch (err: any) {
+      this.logger.warn(`[GPS] DB persist failed for driver=${driverId}: ${err?.message}`);
+    }
 
     // Broadcast to customers watching this order
     this.server.to(`order:${orderId}`).emit('driver:location', {
@@ -99,12 +105,15 @@ export class TrackingGateway
   // Driver marks order as picked up
   @SubscribeMessage('driver:picked_up')
   async handlePickedUp(@MessageBody() payload: { orderId: string }) {
+    this.logger.log(`[PICKUP] orderId=${payload.orderId}`);
     try {
       await this.prisma.order.update({
         where: { id: payload.orderId },
         data: { pickedUpAt: new Date() },
       });
-    } catch {}
+    } catch (err: any) {
+      this.logger.warn(`[PICKUP] DB update failed for order=${payload.orderId}: ${err?.message}`);
+    }
     this.server
       .to(`order:${payload.orderId}`)
       .emit('order:picked_up', { orderId: payload.orderId });
@@ -120,7 +129,12 @@ export class TrackingGateway
       userId?: string;
       companyId?: string;
     };
-    if (!userId || !companyId) return;
+    if (!userId || !companyId) {
+      this.logger.warn(`[DELIVERED] rejected: no auth on socket client=${client.id}`);
+      return;
+    }
+
+    this.logger.log(`[DELIVERED] orderId=${payload.orderId} userId=${userId} companyId=${companyId}`);
 
     try {
       await this.ordersService.updateStatus(
@@ -129,7 +143,10 @@ export class TrackingGateway
         userId,
         companyId,
       );
-    } catch {}
+      this.logger.log(`[DELIVERED] status updated OK — orderId=${payload.orderId}`);
+    } catch (err: any) {
+      this.logger.error(`[DELIVERED] updateStatus failed: ${err?.message}`, err?.stack);
+    }
     this.server
       .to(`order:${payload.orderId}`)
       .emit('order:delivered', { orderId: payload.orderId });

@@ -59,7 +59,6 @@ export class AuthService {
       'FINANCIAL',
       'STOCK',
       'RECIPES',
-      'DELIVERY',
     ]) {
       await this.prisma.companyModule.create({
         data: { module: mod, active: true, companyId: company.id },

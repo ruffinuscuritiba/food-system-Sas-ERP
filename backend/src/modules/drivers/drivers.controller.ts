@@ -11,7 +11,9 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
+import { ModuleGuard } from '@/common/guards/module.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
+import { RequiredModule } from '@/common/decorators/required-module.decorator';
 import { DriversService } from './drivers.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 
@@ -20,11 +22,12 @@ import { UpdateLocationDto } from './dto/update-location.dto';
 export class DriversController {
   constructor(private readonly service: DriversService) {}
 
-  // ── Admin endpoints ──────────────────────────────────────────────────────
+  // ── Admin endpoints (requer módulo "delivery" contratado) ───────────────
 
   @Get()
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   findAll(@Req() req: any) {
     return this.service.findAll(req.user.companyId);
   }
@@ -70,36 +73,41 @@ export class DriversController {
   // ── Admin: single driver / CRUD ──────────────────────────────────────────
 
   @Get(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.service.findOne(id, req.user.companyId);
   }
 
   @Post()
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   create(@Body() body: any, @Req() req: any) {
     return this.service.create(req.user.companyId, body);
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   update(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.service.update(id, req.user.companyId, body);
   }
 
   @Patch(':id/location')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   updateLocation(@Param('id') id: string, @Body() body: UpdateLocationDto) {
     return this.service.updateLocation(id, body.lat, body.lng);
   }
 
   @Post('assign')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   assignOrder(
     @Body() body: { orderId: string; driverId: string },
     @Req() req: any,
@@ -115,29 +123,33 @@ export class DriversController {
   // ── Admin: earnings & payments ───────────────────────────────────────────
 
   @Get(':id/earnings')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   listEarnings(@Param('id') id: string, @Req() req: any) {
     return this.service.listEarnings(id, req.user.companyId);
   }
 
   @Get(':id/payments')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   listPayments(@Param('id') id: string, @Req() req: any) {
     return this.service.listPayments(id, req.user.companyId);
   }
 
   @Post(':id/payments')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   createPayment(@Param('id') id: string, @Req() req: any) {
     return this.service.createPayment(id, req.user.companyId);
   }
 
   @Patch('payments/:paymentId/pay')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
   payPayment(@Param('paymentId') paymentId: string, @Req() req: any) {
     return this.service.payPayment(paymentId, req.user.companyId);
   }

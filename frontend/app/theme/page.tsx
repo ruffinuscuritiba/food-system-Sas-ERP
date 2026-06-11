@@ -78,19 +78,21 @@ export default function ThemePage() {
           <p className="mt-1 opacity-70 text-sm">Personalize a aparência do seu cardápio público</p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* ─── Configurações ─────────────────────────────── */}
-          <div className="space-y-5">
+        {/* ─── Grid 2 colunas (md+) / 1 coluna (mobile) ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* ── Coluna Esquerda: Cores + Imagens ── */}
+          <div className="space-y-4">
 
             {/* Cores */}
             <section className="rounded-2xl p-5 border" style={{ borderColor: theme.primaryColor }}>
               <h2 className="text-base font-bold mb-4">Cores</h2>
               <div className="space-y-3">
                 {[
-                  { label: "Cor Primária", key: "primaryColor" },
-                  { label: "Cor Secundária", key: "secondaryColor" },
-                  { label: "Fundo", key: "backgroundColor" },
-                  { label: "Cor do Texto", key: "textColor" },
+                  { label: "Cor Primária",   key: "primaryColor"     },
+                  { label: "Cor Secundária", key: "secondaryColor"   },
+                  { label: "Fundo",          key: "backgroundColor"  },
+                  { label: "Cor do Texto",   key: "textColor"        },
                 ].map(({ label, key }) => (
                   <div key={key}>
                     <label className="block mb-1 text-xs font-semibold opacity-70">{label}</label>
@@ -128,19 +130,68 @@ export default function ThemePage() {
                 </div>
               </div>
             </section>
+          </div>
 
-            {/* Pizza Pricing */}
+          {/* ── Coluna Direita: Preview → Pizza → Analytics ── */}
+          <div className="space-y-4">
+
+            {/* Preview do Tema */}
+            <div className="rounded-2xl overflow-hidden border sticky top-6 self-start" style={{ borderColor: theme.primaryColor }}>
+              <div className="relative h-48">
+                <img
+                  src={theme.bannerUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591"}
+                  className="w-full h-full object-cover"
+                  alt="Banner preview"
+                />
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
+                  {theme.logoUrl && (
+                    <img src={theme.logoUrl} className="h-20 object-contain mb-3" alt="Logo preview" />
+                  )}
+                </div>
+              </div>
+              <div className="p-5" style={{ backgroundColor: theme.backgroundColor }}>
+                <div className="rounded-xl p-4" style={{ backgroundColor: theme.secondaryColor }}>
+                  <h3 className="text-lg font-bold mb-2" style={{ color: theme.textColor }}>
+                    Preview do Tema
+                  </h3>
+                  <button
+                    className="px-4 py-2 rounded-xl font-bold text-white text-sm"
+                    style={{ backgroundColor: theme.primaryColor }}
+                  >
+                    Adicionar ao carrinho
+                  </button>
+                </div>
+                {(theme.metaPixelId || theme.gaId) && (
+                  <div className="mt-3 space-y-1.5">
+                    {theme.metaPixelId && (
+                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
+                        Meta Pixel: <span className="font-mono text-blue-400">{theme.metaPixelId}</span>
+                      </div>
+                    )}
+                    {theme.gaId && (
+                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
+                        <span className="w-2 h-2 bg-primary rounded-full shrink-0" />
+                        GA4: <span className="font-mono text-primary">{theme.gaId}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pizza Meio a Meio */}
             <section className="rounded-2xl p-5 border border-gray-200 bg-gray-50">
               <h2 className="text-base font-bold mb-1">🍕 Pizza Meio a Meio</h2>
               <p className="text-gray-500 text-xs mb-4">Como calcular o preço quando o cliente monta pizza com vários sabores</p>
               <div className="space-y-3">
                 {[
-                  { value: "MAX", label: "Cobrar o valor cheio", desc: "Cobra o preço do sabor mais caro (padrão do mercado)" },
-                  { value: "HALF", label: "Cobrar a média", desc: "Cobra a média dos preços entre os sabores escolhidos" },
+                  { value: "MAX",  label: "Cobrar o valor cheio", desc: "Cobra o preço do sabor mais caro (padrão do mercado)" },
+                  { value: "HALF", label: "Cobrar a média",        desc: "Cobra a média dos preços entre os sabores escolhidos" },
                 ].map(({ value, label, desc }) => (
                   <label
                     key={value}
-                    className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition ${
+                    className={`flex items-center gap-3 p-3.5 rounded-xl cursor-pointer border-2 transition ${
                       (theme.pizzaPricingMode || "MAX") === value
                         ? "border-red-400 bg-red-50"
                         : "border-gray-200 hover:border-gray-300 bg-white"
@@ -152,7 +203,7 @@ export default function ThemePage() {
                       value={value}
                       checked={(theme.pizzaPricingMode || "MAX") === value}
                       onChange={() => setTheme({ ...theme, pizzaPricingMode: value })}
-                      className="w-4 h-4 accent-red-500"
+                      className="w-4 h-4 accent-red-500 shrink-0"
                     />
                     <div>
                       <div className="font-bold text-sm text-gray-800">{label}</div>
@@ -163,13 +214,13 @@ export default function ThemePage() {
               </div>
             </section>
 
-            {/* Rastreamento */}
+            {/* Rastreamento & Analytics */}
             <section className="rounded-2xl p-5 border border-gray-200 bg-gray-50">
               <h2 className="text-base font-bold mb-1">Rastreamento & Analytics</h2>
               <p className="text-gray-500 text-xs mb-4">
                 Configure as integrações de rastreamento para seu cardápio público.
               </p>
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div>
                   <label className="block mb-1 text-sm font-medium">Meta Pixel ID</label>
                   <p className="text-gray-500 text-xs mb-2">
@@ -179,7 +230,7 @@ export default function ThemePage() {
                     value={theme.metaPixelId || ""}
                     onChange={(e) => setTheme({ ...theme, metaPixelId: e.target.value || null })}
                     placeholder="Cole aqui o Pixel ID do Meta"
-                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
                   />
                 </div>
                 <div>
@@ -191,66 +242,24 @@ export default function ThemePage() {
                     value={theme.gaId || ""}
                     onChange={(e) => setTheme({ ...theme, gaId: e.target.value || null })}
                     placeholder="G-XXXXXXXXXX"
-                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
+                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
                   />
                 </div>
               </div>
             </section>
-
-            <button
-              onClick={saveTheme}
-              disabled={saving}
-              className="w-full py-3 rounded-xl font-bold text-base transition disabled:opacity-60"
-              style={{ backgroundColor: theme.primaryColor }}
-            >
-              {saving ? "Salvando..." : "Salvar Tema"}
-            </button>
           </div>
+        </div>
 
-          {/* ─── Preview ───────────────────────────────────── */}
-          <div className="rounded-2xl overflow-hidden border sticky top-6 self-start" style={{ borderColor: theme.primaryColor }}>
-            <div className="relative h-56">
-              <img
-                src={theme.bannerUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591"}
-                className="w-full h-full object-cover"
-                alt="Banner preview"
-              />
-              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
-                {theme.logoUrl && (
-                  <img src={theme.logoUrl} className="h-24 object-contain mb-4" alt="Logo preview" />
-                )}
-              </div>
-            </div>
-            <div className="p-6" style={{ backgroundColor: theme.backgroundColor }}>
-              <div className="rounded-2xl p-5" style={{ backgroundColor: theme.secondaryColor }}>
-                <h3 className="text-xl font-bold mb-3" style={{ color: theme.textColor }}>
-                  Preview do Tema
-                </h3>
-                <button
-                  className="px-5 py-2.5 rounded-xl font-bold text-white"
-                  style={{ backgroundColor: theme.primaryColor }}
-                >
-                  Adicionar ao carrinho
-                </button>
-              </div>
-              {(theme.metaPixelId || theme.gaId) && (
-                <div className="mt-4 space-y-1.5">
-                  {theme.metaPixelId && (
-                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full" />
-                      Meta Pixel: <span className="font-mono text-blue-400">{theme.metaPixelId}</span>
-                    </div>
-                  )}
-                  {theme.gaId && (
-                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
-                      <span className="w-2 h-2 bg-primary rounded-full" />
-                      GA4: <span className="font-mono text-primary">{theme.gaId}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* ── Salvar Tema — largura total, centralizado ── */}
+        <div className="mt-5">
+          <button
+            onClick={saveTheme}
+            disabled={saving}
+            className="w-full md:w-1/2 md:mx-auto block py-3 rounded-xl font-bold text-base text-white transition disabled:opacity-60"
+            style={{ backgroundColor: theme.primaryColor }}
+          >
+            {saving ? "Salvando..." : "Salvar Tema"}
+          </button>
         </div>
       </div>
 

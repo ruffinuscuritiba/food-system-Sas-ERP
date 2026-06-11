@@ -1081,13 +1081,28 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         parsed.reply ||
         'Opa! Pode me contar um pouco mais sobre o que você procura? 😊';
 
+      // Transbordo só trava a conversa se o CLIENTE pediu explicitamente
+      // (evita que a IA se transfira sozinha num "oi" e bloqueie tudo).
       if (parsed.transferHuman) {
-        await this.prisma.whatsappConversation
-          .update({
-            where: { id: conv.id },
-            data: { mode: 'HUMAN', status: 'TRANSFERRED' },
-          })
-          .catch(() => {});
+        const kws = (settings.transferKeywords ?? '')
+          .split(',')
+          .map((k) => k.trim().toLowerCase())
+          .filter(Boolean);
+        const userAskedHuman = kws.some((k) =>
+          userText.toLowerCase().includes(k),
+        );
+        if (userAskedHuman) {
+          await this.prisma.whatsappConversation
+            .update({
+              where: { id: conv.id },
+              data: { mode: 'HUMAN', status: 'TRANSFERRED' },
+            })
+            .catch(() => {});
+        } else {
+          log.warn(
+            `[AI] conv=${conv.id} ambiente=${ambiente} — IA pediu transbordo mas cliente não solicitou; mantendo modo IA`,
+          );
+        }
       }
 
       await this.saveMessage(conv.id, companyId, 'ASSISTANT', reply);

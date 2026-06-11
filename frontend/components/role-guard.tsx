@@ -47,10 +47,9 @@ export function RoleGuard({
       return;
     }
 
-    const hasPermission =
-      allowedRoles.includes(
-        user.role,
-      );
+    // DEMO herda permissões de ADMIN (escrita bloqueada pelo backend)
+    const effectiveRole = user.role === "DEMO" ? "ADMIN" : user.role;
+    const hasPermission = allowedRoles.includes(effectiveRole);
 
     if (!hasPermission) {
 
@@ -64,10 +63,8 @@ export function RoleGuard({
     return null;
   }
 
-  const hasPermission =
-    allowedRoles.includes(
-      user.role,
-    );
+  const effectiveRole = user.role === "DEMO" ? "ADMIN" : user.role;
+  const hasPermission = allowedRoles.includes(effectiveRole);
 
   if (!hasPermission) {
 

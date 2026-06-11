@@ -28,7 +28,14 @@ export class CategoriesController {
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   create(
-    @Body() body: { name: string; allowMultipleFlavors?: boolean },
+    @Body()
+    body: {
+      name: string;
+      allowMultipleFlavors?: boolean;
+      categoryType?: string;
+      displayColumns?: number;
+      bannerImage?: string | null;
+    },
     @Request() req: any,
   ) {
     return this.service.create({ ...body, companyId: req.user.companyId });
@@ -53,6 +60,7 @@ export class CategoriesController {
       allowMultipleFlavors?: boolean;
       categoryType?: string;
       displayColumns?: number;
+      bannerImage?: string | null;
     },
     @Request() req: any,
   ) {

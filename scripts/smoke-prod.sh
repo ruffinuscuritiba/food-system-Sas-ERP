@@ -20,7 +20,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 
-BACK="${SMOKE_BACK:-https://food-system-backend-no7d.onrender.com}"
+BACK="${SMOKE_BACK:-https://api.srv1747711.hstgr.cloud}"
 FRONT="${SMOKE_FRONT:-https://food-system-sas-erp-frontend.vercel.app}"
 EMAIL="${SMOKE_EMAIL:-admin@teste.com}"
 PASS="${SMOKE_PASS:-123456}"

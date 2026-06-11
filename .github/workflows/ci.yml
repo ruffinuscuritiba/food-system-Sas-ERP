@@ -99,5 +99,5 @@ jobs:
         env:
           # apiBaseUrl tem fallback hardcoded em services/env.ts; mas se um dia
           # for obrigatória, defini-la aqui (não vaza secrets — backend é público)
-          NEXT_PUBLIC_API_URL: https://food-system-backend-no7d.onrender.com/api
+          NEXT_PUBLIC_API_URL: https://api.srv1747711.hstgr.cloud/api
         run: npm run build

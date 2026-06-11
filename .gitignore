@@ -3,3 +3,7 @@ node_modules_bak/
 dist/
 .next/
 .env
+
+# Credenciais de sessão WhatsApp (Baileys) — NUNCA commitar
+bridge/auth_kely/
+bridge/auth_*/

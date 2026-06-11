@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
 
-const PROD_BACKEND = "https://food-system-backend-no7d.onrender.com";
+const PROD_BACKEND = "https://api.srv1747711.hstgr.cloud";
 const rawEnv = process.env.NEXT_PUBLIC_API_URL ?? process.env.BACKEND_URL ?? '';
-const resolvedBase = rawEnv.includes("94zd") ? PROD_BACKEND : (rawEnv.replace(/\/api$/, '') || PROD_BACKEND);
+const isStale = (u: string) => u.includes("onrender.com") || u.includes("94zd");
+const resolvedBase = isStale(rawEnv) ? PROD_BACKEND : (rawEnv.replace(/\/api$/, '') || PROD_BACKEND);
 const BACKEND_HEALTH = resolvedBase + '/api/health';
 
-// Evolution API keep-alive — prevents Render free tier from sleeping
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'https://evolution-api-kely.onrender.com';
+// Evolution API keep-alive — VPS Hostinger
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'https://evolution-api-j9ur.srv1747711.hstgr.cloud';
 
 async function pingUrl(url: string, timeoutMs = 25000): Promise<{ ok: boolean; status?: number; error?: string }> {
   try {

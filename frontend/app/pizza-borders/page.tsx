@@ -447,7 +447,7 @@ function SizeConfigCard({
   return (
     <div
       className={`bg-white border rounded-2xl p-5 shadow-sm transition ${
-        isActive ? "border-gray-100" : "border-gray-200 opacity-60"
+        isActive ? "border-gray-100" : "border-gray-200"
       }`}
     >
       <div className="flex items-center justify-between mb-4">

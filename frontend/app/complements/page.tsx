@@ -534,7 +534,16 @@ export default function ComplementsPage() {
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Mínimo</label>
                   <input type="number" min={0} max={99} value={form.minOptions}
-                    onChange={(e) => setForm({ ...form, minOptions: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const newMin = Number(e.target.value);
+                      const newMax = Math.max(form.maxOptions, newMin);
+                      setForm({
+                        ...form,
+                        minOptions: newMin,
+                        maxOptions: newMax,
+                        multipleChoice: newMin > 1 ? true : form.multipleChoice,
+                      });
+                    }}
                     className="w-full border border-gray-200 rounded-xl px-3 text-sm text-gray-900 focus:outline-none focus:border-primary min-h-[44px]" />
                 </div>
                 <div>

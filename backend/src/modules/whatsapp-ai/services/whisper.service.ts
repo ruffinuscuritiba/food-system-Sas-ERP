@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { writeFileSync, unlinkSync, readFileSync } from 'fs';
+import { writeFileSync, unlinkSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -36,63 +36,110 @@ export class WhisperService {
       return '[transcrição de áudio indisponível — OPENAI_API_KEY ausente]';
     }
 
+    this.log.log(
+      `[Whisper] Iniciando transcrição | mimeType=${mimeType} | url=${audioUrl.slice(0, 80)}...`,
+    );
+    this.log.log(
+      `[Whisper] Headers de download: ${JSON.stringify(Object.keys(downloadHeaders))}`,
+    );
+
     const ext = this.mimeToExt(mimeType);
     const tmpPath = join(tmpdir(), `wa_audio_${Date.now()}${ext}`);
 
-    try {
-      // 1. Download do áudio
-      const downloadRes = await fetch(audioUrl, {
-        headers: downloadHeaders,
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!downloadRes.ok) {
-        throw new Error(`Download do áudio falhou: HTTP ${downloadRes.status}`);
-      }
-      const buf = Buffer.from(await downloadRes.arrayBuffer());
-      writeFileSync(tmpPath, buf);
-      this.log.log(`Áudio baixado: ${buf.length} bytes → ${tmpPath}`);
-
-      // 2. Enviar para Whisper API
-      const mimeBase = mimeType.split(';')[0].trim(); // remove '; codecs=opus'
-      const fileBlob = new Blob([readFileSync(tmpPath)], { type: mimeBase });
-      const formData = new FormData();
-      formData.append('file', fileBlob, `audio${ext}`);
-      formData.append('model', 'whisper-1');
-      formData.append('language', 'pt');
-      formData.append('response_format', 'text');
-
-      const whisperRes = await fetch(
-        'https://api.openai.com/v1/audio/transcriptions',
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: formData,
-          signal: AbortSignal.timeout(60_000),
-        },
-      );
-
-      if (!whisperRes.ok) {
-        const errBody = await whisperRes.text();
-        throw new Error(
-          `Whisper API HTTP ${whisperRes.status}: ${errBody.slice(0, 200)}`,
-        );
-      }
-
-      const transcript = (await whisperRes.text()).trim();
-      this.log.log(
-        `Whisper transcreveu (${ext}): "${transcript.slice(0, 100)}"`,
-      );
-      return transcript;
-    } catch (err: any) {
-      this.log.error(`WhisperService.transcribeFromUrl: ${err?.message}`);
-      return '[não foi possível transcrever o áudio]';
-    } finally {
+    // Tenta a transcrição até 2 vezes antes de desistir
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        unlinkSync(tmpPath);
-      } catch {
-        /* arquivo pode não existir */
+        // ── Etapa 1: Download do áudio ─────────────────────────────────────
+        this.log.log(`[Whisper] Tentativa ${attempt}/2 — baixando áudio...`);
+        const downloadRes = await fetch(audioUrl, {
+          headers: downloadHeaders,
+          signal: AbortSignal.timeout(30_000),
+        });
+
+        if (!downloadRes.ok) {
+          const errText = await downloadRes.text().catch(() => '');
+          throw new Error(
+            `Download falhou HTTP ${downloadRes.status}: ${errText.slice(0, 120)}`,
+          );
+        }
+
+        const buf = Buffer.from(await downloadRes.arrayBuffer());
+        this.log.log(
+          `[Whisper] Download OK: ${buf.length} bytes (tipo: ${downloadRes.headers.get('content-type') ?? 'desconhecido'})`,
+        );
+
+        // Arquivo corrompido ou vazio
+        if (buf.length < 100) {
+          throw new Error(
+            `Arquivo de áudio suspeito: apenas ${buf.length} bytes — possível link expirado ou mídia corrompida`,
+          );
+        }
+
+        writeFileSync(tmpPath, buf);
+
+        // ── Etapa 2: Envio para Whisper API ───────────────────────────────
+        const mimeBase = mimeType.split(';')[0].trim(); // remove '; codecs=opus'
+        const fileBlob = new Blob([readFileSync(tmpPath)], { type: mimeBase });
+        const formData = new FormData();
+        formData.append('file', fileBlob, `audio${ext}`);
+        formData.append('model', 'whisper-1');
+        formData.append('language', 'pt');
+        formData.append('response_format', 'text');
+
+        this.log.log(
+          `[Whisper] Enviando para OpenAI Whisper: ${buf.length} bytes, ext=${ext}, mimeBase=${mimeBase}`,
+        );
+
+        const whisperRes = await fetch(
+          'https://api.openai.com/v1/audio/transcriptions',
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            body: formData,
+            signal: AbortSignal.timeout(60_000),
+          },
+        );
+
+        if (!whisperRes.ok) {
+          const errBody = await whisperRes.text();
+          throw new Error(
+            `Whisper API HTTP ${whisperRes.status}: ${errBody.slice(0, 300)}`,
+          );
+        }
+
+        const transcript = (await whisperRes.text()).trim();
+
+        if (!transcript) {
+          throw new Error('Whisper retornou transcrição vazia (áudio silencioso ou formato inválido)');
+        }
+
+        this.log.log(
+          `[Whisper] Transcrição OK (tentativa ${attempt}): "${transcript.slice(0, 120)}"`,
+        );
+        return transcript;
+      } catch (err: any) {
+        this.log.error(
+          `[Whisper] Falha na tentativa ${attempt}/2: ${err?.message}`,
+        );
+        if (attempt === 2) {
+          this.log.error(
+            '[Whisper] Esgotadas as 2 tentativas — retornando placeholder',
+          );
+        } else {
+          this.log.warn('[Whisper] Aguardando 1s antes de retry...');
+          await new Promise((r) => setTimeout(r, 1_000));
+        }
+      } finally {
+        // Limpa arquivo temp independente de sucesso ou falha
+        try {
+          if (existsSync(tmpPath)) unlinkSync(tmpPath);
+        } catch {
+          /* ignora falha de limpeza */
+        }
       }
     }
+
+    return '[não foi possível transcrever o áudio]';
   }
 
   // ── Utilitário: obtém URL real de mídia da Meta Cloud API ──────────────────

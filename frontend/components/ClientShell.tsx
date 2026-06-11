@@ -187,6 +187,20 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   },
 ];
 
+// ─── Matrix / Feature-flag constants ──────────────────────────────────────────
+const MATRIX_COMPANY_ID = process.env.NEXT_PUBLIC_MATRIX_COMPANY_ID ?? "cmq7d3dxs0006gw5pabsljy87";
+
+// Mapa estático pathname → moduleSlug (usado no badge de status por página).
+// Construído uma vez a partir de NAV_SECTIONS + MODULE_NAV.
+const PATHNAME_TO_SLUG: Record<string, string> = (() => {
+  const m: Record<string, string> = {};
+  NAV_SECTIONS.forEach(sec => sec.items.forEach(item => {
+    if (item.moduleSlug) m[item.href] = item.moduleSlug;
+  }));
+  Object.entries(MODULE_NAV).forEach(([slug, item]) => { m[item.href] = slug; });
+  return m;
+})();
+
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN:       "Administrador",
@@ -299,19 +313,23 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     return roles.includes(effectiveRole);
   }
 
-  // Controle de acesso por módulo.
-  // Regra 1: empresa matriz (R_FoodSaaS) — todos os módulos sempre liberados.
+  // ── Controle de acesso por módulo ─────────────────────────────────────────
+  // Regra 1: empresa matriz (R_FoodSaaS) — todos os módulos SEMPRE liberados (catch-all).
   // Regra 2: SUPER_ADMIN — acesso irrestrito.
   // Regra 3: DEMO — mostra todos os módulos como vitrine (escrita bloqueada no backend).
   // Regra 4: demais roles — verifica activeSlugs carregados do banco.
-  const MATRIX_COMPANY_ID = process.env.NEXT_PUBLIC_MATRIX_COMPANY_ID ?? "cmq7d3dxs0006gw5pabsljy87";
+  const isMatrix = user?.companyId === MATRIX_COMPANY_ID || user?.role === "SUPER_ADMIN";
+
   function canAccessModule(moduleSlug?: string): boolean {
     if (!moduleSlug) return true;
-    if (user?.companyId === MATRIX_COMPANY_ID) return true;
-    if (user?.role === "SUPER_ADMIN") return true;
+    if (isMatrix) return true;        // catch-all: matriz vê tudo sempre
     if (user?.role === "DEMO") return true;
     return activeSlugs.includes(moduleSlug);
   }
+
+  // Badge de status do módulo da página atual (só visível para a matriz).
+  const currentPageSlug: string | undefined = PATHNAME_TO_SLUG[pathname ?? ""];
+  const currentPageInDb: boolean = currentPageSlug ? activeSlugs.includes(currentPageSlug) : false;
 
   const isPdv = pathname === "/pdv";
   const isDriverPage = pathname?.startsWith("/driver");
@@ -433,27 +451,40 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                     </p>
                   )}
                   <div className="space-y-0.5">
-                    {visible.map((item) => (
-                      <MenuItem
-                        key={item.href}
-                        href={item.href}
-                        icon={item.icon}
-                        label={item.label}
-                        active={pathname === item.href}
-                        activeColor={item.activeColor}
-                        onClick={() => setSidebarOpen(false)}
-                      />
-                    ))}
-                    {moduleItems.map((item) => (
-                      <MenuItem
-                        key={item.href}
-                        href={item.href}
-                        icon={item.icon}
-                        label={item.label}
-                        active={pathname === item.href}
-                        onClick={() => setSidebarOpen(false)}
-                      />
-                    ))}
+                    {visible.map((item) => {
+                      const badge = isMatrix && item.moduleSlug
+                        ? activeSlugs.includes(item.moduleSlug) ? "active" : "homologation"
+                        : undefined;
+                      return (
+                        <MenuItem
+                          key={item.href}
+                          href={item.href}
+                          icon={item.icon}
+                          label={item.label}
+                          active={pathname === item.href}
+                          activeColor={item.activeColor}
+                          badge={badge as "active" | "homologation" | undefined}
+                          onClick={() => setSidebarOpen(false)}
+                        />
+                      );
+                    })}
+                    {moduleItems.map((item) => {
+                      const slug = PATHNAME_TO_SLUG[item.href];
+                      const badge = isMatrix && slug
+                        ? activeSlugs.includes(slug) ? "active" : "homologation"
+                        : undefined;
+                      return (
+                        <MenuItem
+                          key={item.href}
+                          href={item.href}
+                          icon={item.icon}
+                          label={item.label}
+                          active={pathname === item.href}
+                          badge={badge as "active" | "homologation" | undefined}
+                          onClick={() => setSidebarOpen(false)}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -561,18 +592,34 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           </button>
         </div>
       )}
+
+      {/* ─── Module status badge — só para a conta matriz ─── */}
+      {isMatrix && currentPageSlug && (
+        <div
+          className={`fixed z-[9990] flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg shadow-sm border pointer-events-none select-none ${
+            currentPageInDb
+              ? "bg-green-50 text-green-700 border-green-200"
+              : "bg-amber-50 text-amber-700 border-amber-200"
+          } ${impersonating ? "top-12 right-3" : "top-3 right-3"}`}
+        >
+          <span className={currentPageInDb ? "text-green-500" : "text-amber-500"}>●</span>
+          {currentPageInDb ? "Ativo no Banco" : "Modo Homologação (Inativo no Banco)"}
+        </div>
+      )}
     </ThemeProvider>
   );
 }
 
 function MenuItem({
-  href, icon, label, active, activeColor, onClick,
+  href, icon, label, active, activeColor, badge, onClick,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
   activeColor?: "green" | "blue";
+  /** Ponto colorido de status de módulo — só exibido para a conta matriz. */
+  badge?: "active" | "homologation";
   onClick?: () => void;
 }) {
   const activeCls = activeColor === "blue"
@@ -592,7 +639,15 @@ function MenuItem({
       <span className={`shrink-0 transition-transform group-hover:scale-110 ${active ? "" : "text-slate-500 group-hover:text-slate-200"}`}>
         {icon}
       </span>
-      {label}
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <span
+          title={badge === "active" ? "Ativo no Banco" : "Modo Homologação (Inativo no Banco)"}
+          className={`shrink-0 text-[9px] leading-none ${badge === "active" ? "text-green-400" : "text-amber-400"}`}
+        >
+          ●
+        </span>
+      )}
     </Link>
   );
 }

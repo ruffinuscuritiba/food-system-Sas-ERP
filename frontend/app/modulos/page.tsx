@@ -443,8 +443,21 @@ export default function ModulosPage() {
   // Provisionamento cross-tenant (só matriz/SUPER_ADMIN)
   const [provisionSlug, setProvisionSlug]         = useState<string | null>(null);
   const [companies, setCompanies]                 = useState<CompanyOption[]>([]);
+  const [companiesLoading, setCompaniesLoading]   = useState(false);
   const [provisionTarget, setProvisionTarget]     = useState("");
   const [provisionBusy, setProvisionBusy]         = useState(false);
+
+  async function fetchCompanies() {
+    setCompaniesLoading(true);
+    try {
+      const r = await api.get("/company-module/admin/companies");
+      setCompanies(Array.isArray(r.data) ? r.data : []);
+    } catch {
+      setCompanies([]);
+    } finally {
+      setCompaniesLoading(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -453,12 +466,6 @@ export default function ModulosPage() {
       userRole.current  = u.role || "";
       isMatrix.current  = u.companyId === MATRIX_COMPANY_ID;
       if (u.companyId) load(u.companyId);
-      // Pré-carrega lista de empresas para matriz/SUPER_ADMIN
-      if (u.companyId === MATRIX_COMPANY_ID || u.role === "SUPER_ADMIN") {
-        api.get("/company-module/admin/companies")
-          .then(r => setCompanies(Array.isArray(r.data) ? r.data : []))
-          .catch(() => {});
-      }
     } catch { setLoading(false); }
   }, []);
 
@@ -524,6 +531,7 @@ export default function ModulosPage() {
       if (isMatrix.current || userRole.current === "SUPER_ADMIN") {
         setProvisionSlug(slug);
         setProvisionTarget("");
+        fetchCompanies();
       }
     } catch { toast.error("Erro ao ativar módulo"); }
   }
@@ -759,7 +767,9 @@ export default function ModulosPage() {
               <strong>Além da loja Matriz (R_FoodSaaS)</strong>, este módulo deve ser ativado em qual outro estabelecimento?
             </p>
 
-            {companies.length > 0 ? (
+            {companiesLoading ? (
+              <p className="text-xs text-gray-400 mb-4 text-center">Carregando empresas…</p>
+            ) : companies.filter(c => c.id !== companyId.current).length > 0 ? (
               <select
                 value={provisionTarget}
                 onChange={e => setProvisionTarget(e.target.value)}

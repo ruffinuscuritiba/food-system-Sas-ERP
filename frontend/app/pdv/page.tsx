@@ -585,6 +585,64 @@ export default function PDVPage() {
     setShowPayment(true);
   }
 
+  /** Modo Mesa: envia itens para a cozinha sem cobrar. Mantém a mesa selecionada. */
+  async function launchToKitchen() {
+    if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
+    if (!pdvOrderDetails.tableNumber?.trim()) { toast.error("Informe o número da mesa"); return; }
+    if (paymentSubmitting) return;
+
+    const orderItems = cart.map(({ product, qty, complements, unitPrice }) => ({
+      productId: product.orderProductId || product.id,
+      quantity: qty,
+      notes: product.notes || "",
+      unitPrice: unitPrice != null && unitPrice > 0 ? unitPrice : undefined,
+      complements: (complements || []).map(c => ({
+        complementOptionId: c.complementOptionId,
+        complementName: c.complementName,
+        optionName: c.optionName,
+        price: c.price,
+        quantity: c.quantity,
+      })),
+    }));
+
+    const invalidItem = orderItems.find(i => !i.productId || i.productId.startsWith("pizza-"));
+    if (invalidItem) { toast.error("Item inválido no carrinho. Remova e adicione novamente."); return; }
+
+    setPaymentSubmitting(true);
+    try {
+      const orderRes = await api.post("/orders", {
+        customerName: `Mesa ${pdvOrderDetails.tableNumber}`,
+        customerPhone: "",
+        deliveryAddress: "INTERNO",
+        orderType: "DINE_IN",
+        tableNumber: pdvOrderDetails.tableNumber,
+        paymentMethod: "PIX",
+        notes: `Mesa ${pdvOrderDetails.tableNumber}`,
+        items: orderItems,
+        subtotal: cartTotal,
+        deliveryFee: 0,
+        total: cartTotal,
+      });
+
+      if (orderRes.data?.id) {
+        try {
+          await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" });
+        } catch {
+          toast("⚠️ Pedido criado mas não confirmado automaticamente.", { duration: 4000 });
+        }
+      }
+
+      clearCart();
+      setShowCart(false);
+      toast.success(`Mesa ${pdvOrderDetails.tableNumber} — lançado para a cozinha ✓`, { duration: 3000 });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Erro ao lançar pedido";
+      toast.error(Array.isArray(message) ? message.join(" | ") : String(message), { duration: 6000 });
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  }
+
   async function openTrocarMesa() {
     setShowTrocarMesa(true);
     setLoadingTables(true);
@@ -980,13 +1038,28 @@ export default function PDVPage() {
               )}
             </div>
 
-            {/* Botão fixo no rodapé — sempre visível */}
+            {/* Botão(ões) fixo(s) no rodapé — sempre visível */}
             {cart.length > 0 && (
               <div className="border-t border-[var(--pdv-border,#161b2d)] p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-                <button onClick={openPayment} disabled={!canProceedToPayment}
-                  className="w-full py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
-                  Finalizar Pedido →
-                </button>
+                {pdvOrderDetails.orderType === "DINE_IN" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Lançar: envia para cozinha, mantém mesa aberta */}
+                    <button onClick={launchToKitchen} disabled={paymentSubmitting || !pdvOrderDetails.tableNumber?.trim()}
+                      className="py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
+                      {paymentSubmitting ? "..." : "🍳 Lançar"}
+                    </button>
+                    {/* Fechar Conta: abre modal de pagamento */}
+                    <button onClick={openPayment} disabled={!canProceedToPayment}
+                      className="py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
+                      💳 Fechar Conta
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={openPayment} disabled={!canProceedToPayment}
+                    className="w-full py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
+                    Finalizar Pedido →
+                  </button>
+                )}
               </div>
             )}
           </aside>

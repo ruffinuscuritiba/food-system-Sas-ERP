@@ -351,7 +351,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
 
       {/* Mobile top bar */}
       <div
-        className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${isDemoUser ? "top-8" : impersonating ? "top-9" : "top-0"} ${isPdv ? "border-b" : "bg-white border-b border-gray-100 shadow-sm"}`}
+        className={`md:hidden fixed inset-x-0 z-40 px-4 py-3 flex items-center justify-between ${isDemoUser ? "top-8" : "top-0"} ${isPdv ? "border-b" : "bg-white border-b border-gray-100 shadow-sm"}`}
         style={isPdv ? { background: "var(--pdv-header-bg,#050816)", borderColor: "var(--pdv-border,#161b2d)" } : undefined}
       >
         <div className="flex items-center gap-2.5">
@@ -373,7 +373,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[#030712]" : "bg-[#F5F3EF]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : impersonating ? "md:pt-9 pt-[5.75rem]" : "md:pt-0 pt-14"}`}>
+      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[#030712]" : "bg-[#F5F3EF]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : "md:pt-0 pt-14"}`}>
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside
@@ -534,36 +534,30 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* ─── Impersonation top bar — visible at all times during demo ─── */}
+      {/* ─── Impersonation floating pill — top-right corner ─── */}
       {impersonating && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white flex items-center justify-between px-4 py-2 shadow-md">
-          <div className="flex items-center gap-2 min-w-0">
-            <Eye size={15} className="shrink-0" />
-            <span className="text-xs font-semibold uppercase tracking-wide opacity-80 hidden sm:inline">
-              Visualizando:
-            </span>
-            <span className="font-bold text-sm truncate max-w-[160px] sm:max-w-xs">
-              {impersonating.companyName}
-            </span>
-            {user?.companyId && (
-              <a
-                href={`/menu/${user.companyId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Abrir cardápio"
-                className="hidden sm:flex items-center gap-1 text-xs opacity-80 hover:opacity-100 transition ml-1"
-              >
-                <ExternalLink size={12} />
-                Cardápio
-              </a>
-            )}
-          </div>
+        <div className="fixed top-3 right-3 z-[9999] flex items-center gap-2 bg-amber-500 text-white rounded-xl shadow-lg px-3 py-1.5 max-w-[calc(100vw-1.5rem)]">
+          <Eye size={13} className="shrink-0 opacity-80" />
+          <span className="font-semibold text-xs truncate max-w-[120px] sm:max-w-[200px]">
+            {impersonating.companyName}
+          </span>
+          {user?.companyId && (
+            <a
+              href={`/menu/${user.companyId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir cardápio"
+              className="hidden sm:flex items-center gap-0.5 text-xs opacity-70 hover:opacity-100 transition shrink-0"
+            >
+              <ExternalLink size={11} />
+            </a>
+          )}
           <button
             onClick={stopImpersonating}
-            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 transition px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shrink-0"
+            className="flex items-center gap-1 bg-white/20 hover:bg-white/35 transition px-2 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap shrink-0"
           >
-            <ArrowLeft size={13} />
-            Voltar ao Painel Master
+            <ArrowLeft size={11} />
+            <span className="hidden sm:inline">Sair</span>
           </button>
         </div>
       )}

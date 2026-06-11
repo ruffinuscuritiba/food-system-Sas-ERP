@@ -848,6 +848,56 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     }
   }
 
+  /**
+   * Detecta o ambiente da IA central a partir da empresa dona da conexão:
+   *   - platform@foodsaas.internal → R_FOOD_SAAS (vende o sistema)
+   *   - empresas demo               → LOJA_DEMO (demonstra + upsell)
+   *   - demais                      → CLIENTE_REAL (atende pedidos)
+   */
+  private detectAmbiente(
+    email: string | null | undefined,
+    companyId: string,
+  ): 'R_FOOD_SAAS' | 'LOJA_DEMO' | 'CLIENTE_REAL' {
+    const mail = (email ?? '').toLowerCase();
+    if (mail === 'platform@foodsaas.internal') return 'R_FOOD_SAAS';
+    if (
+      mail.includes('@foodsaas.demo') ||
+      mail.includes('demo-') ||
+      companyId.startsWith('demo-')
+    ) {
+      return 'LOJA_DEMO';
+    }
+    return 'CLIENTE_REAL';
+  }
+
+  /** Monta o {{DADOS_CONTEXTO}} injetado no prompt-mestre por ambiente. */
+  private buildAmbienteContext(
+    ambiente: string,
+    plan: string | null | undefined,
+    menuCtx: string,
+  ): string {
+    if (ambiente === 'R_FOOD_SAAS') {
+      return `PLATAFORMA R_FoodSaaS — ERP completo para restaurantes, pizzarias e delivery.
+
+MÓDULOS: PDV/Caixa, Cardápio Digital, Cozinha (KDS) em tempo real, Estoque com CMV, Financeiro/Fluxo de caixa, Relatórios/BI, Delivery com rastreamento e entregadores, Mesas, Fidelidade/Cupons, Pizza com bordas, e WhatsApp IA (atendimento automatizado que vende e tira pedidos sozinho).
+
+PLANOS:
+- BASIC: operação essencial (PDV, cardápio digital, pedidos, cozinha).
+- PRO: tudo do Basic + automações, estoque, financeiro, delivery, WhatsApp IA.
+- ENTERPRISE: tudo do Pro + IA avançada (áudio, marketing preditivo), BI completo, multi-loja.
+
+DIFERENCIAIS DE VENDA: automatiza o delivery, reduz erros de pedido, atende no WhatsApp 24/7 com IA, aumenta o ticket médio com sugestões, dá relatórios de ROI e facilita a gestão. Conduza para fechar um plano ou agendar uma demonstração.`;
+    }
+    if (ambiente === 'LOJA_DEMO') {
+      return `LOJA DE DEMONSTRAÇÃO — Plano atual em teste: ${plan ?? 'BASIC'}.
+O cliente está testando o sistema. Mostre o valor do recurso atual e instigue o upgrade (Basic→Pro→Enterprise) com foco em quanto isso traz de retorno financeiro.
+
+Cardápio de exemplo desta demo:
+${menuCtx || '(cardápio de exemplo indisponível)'}`;
+    }
+    return menuCtx;
+  }
+
   private async runAiResponse(
     connection: WaConnection,
     settings: WaSettings,
@@ -893,16 +943,25 @@ export class WhatsappAiService implements OnApplicationBootstrap {
 
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
-      select: { name: true },
+      select: { name: true, email: true, plan: true },
     });
     const companyName = company?.name ?? 'nossa loja';
 
-    const systemPrompt = this.promptService.buildSystemPrompt(
-      settings,
-      companyName,
-      menuCtx,
-      cartCtx,
-    );
+    // ── Detecção de ambiente (cérebro multi-modo) ───────────────────────────
+    const ambiente = this.detectAmbiente(company?.email, companyId);
+    const isSalesMode = ambiente !== 'CLIENTE_REAL';
+
+    const systemPrompt = isSalesMode
+      ? this.promptService.buildMasterPrompt(
+          ambiente,
+          this.buildAmbienteContext(ambiente, company?.plan, menuCtx),
+        )
+      : this.promptService.buildSystemPrompt(
+          settings,
+          companyName,
+          menuCtx,
+          cartCtx,
+        );
 
     const history = await this.prisma.whatsappMessage.findMany({
       where: { conversationId: conv.id },
@@ -1012,6 +1071,29 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         'Desculpe, não consegui processar sua mensagem agora. Pode tentar de novo em instantes? 🙏';
       await this.saveMessage(conv.id, companyId, 'ASSISTANT', emptyFallback);
       await this.dispatchMessage(connection, conv.customerPhone, emptyFallback);
+      return;
+    }
+
+    // ── Modo VENDAS (R_FOOD_SAAS / LOJA_DEMO): resposta em JSON estruturado ──
+    if (isSalesMode) {
+      const parsed = this.promptService.parseMasterResponse(rawResponse);
+      const reply =
+        parsed.reply ||
+        'Opa! Pode me contar um pouco mais sobre o que você procura? 😊';
+
+      if (parsed.transferHuman) {
+        await this.prisma.whatsappConversation
+          .update({
+            where: { id: conv.id },
+            data: { mode: 'HUMAN', status: 'TRANSFERRED' },
+          })
+          .catch(() => {});
+      }
+
+      await this.saveMessage(conv.id, companyId, 'ASSISTANT', reply);
+      const sDelay = settings.typingDelay ?? 0;
+      if (sDelay > 0) await new Promise((r) => setTimeout(r, sDelay));
+      await this.dispatchMessage(connection, conv.customerPhone, reply);
       return;
     }
 

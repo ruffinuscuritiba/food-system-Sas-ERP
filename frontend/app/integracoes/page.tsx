@@ -17,6 +17,7 @@ interface Config {
   provider: Provider;
   isActive: boolean;
   sandboxMode: boolean;
+  clientId?: string;
   merchantId?: string;
   updatedAt: string;
 }
@@ -70,6 +71,8 @@ export default function IntegracoesPage() {
 
   // Formulário de config
   const [selectedProvider, setSelectedProvider] = useState<Provider>("MOCK");
+  const [clientId,      setClientId]      = useState("");
+  const [clientSecret,  setClientSecret]  = useState("");
   const [merchantId,    setMerchantId]    = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [sandboxMode,   setSandboxMode]   = useState(true);
@@ -107,6 +110,8 @@ export default function IntegracoesPage() {
 
   function loadConfigForProvider(p: Provider) {
     const cfg = configs.find((c) => c.provider === p);
+    setClientId(cfg?.clientId ?? "");
+    setClientSecret(""); // secret nunca retorna do backend
     setMerchantId(cfg?.merchantId ?? "");
     setWebhookSecret("");
     setSandboxMode(cfg?.sandboxMode ?? true);
@@ -120,6 +125,8 @@ export default function IntegracoesPage() {
     try {
       await api.put("/integrations/config", {
         provider:       selectedProvider,
+        clientId:       clientId || undefined,
+        clientSecret:   clientSecret || undefined,
         merchantId:     merchantId || undefined,
         webhookSecret:  webhookSecret || undefined,
         sandboxMode,
@@ -155,9 +162,15 @@ export default function IntegracoesPage() {
     }
   }
 
-  const webhookBaseUrl =
-    (process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || "https://api.srv1747711.hstgr.cloud") +
-    "/api/integrations/webhook/";
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || "https://api.srv1747711.hstgr.cloud";
+  const webhookBaseUrl = `${apiBase}/api/integrations/webhook/`;
+
+  // Pega companyId real do JWT (localStorage)
+  const companyIdFromStorage =
+    typeof window !== "undefined"
+      ? (() => { try { return JSON.parse(localStorage.getItem("user") || "{}").companyId ?? ""; } catch { return ""; } })()
+      : "";
 
   return (
     <main className="min-h-screen bg-gray-50 p-6 lg:p-10">
@@ -247,19 +260,20 @@ export default function IntegracoesPage() {
                   {open && (
                     <div className="border-t border-gray-100 p-5 space-y-4">
 
-                      {/* Webhook URL (read-only) */}
+                      {/* Webhook URL (read-only, companyId real) */}
                       <div>
                         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                          URL do Webhook (configure no marketplace)
+                          URL do Webhook — configure no painel do marketplace
                         </label>
                         <div className="mt-1 flex items-center gap-2">
                           <code className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700 break-all">
-                            {webhookBaseUrl}<strong>[SEU_COMPANY_ID]</strong>/{p}
+                            {webhookBaseUrl}{companyIdFromStorage || <strong>[SEU_COMPANY_ID]</strong>}/{p}
                           </code>
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(`${webhookBaseUrl}SEU_COMPANY_ID/${p}`);
-                              toast.success("Copiado!");
+                              const url = `${webhookBaseUrl}${companyIdFromStorage || "SEU_COMPANY_ID"}/${p}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success("URL copiada!");
                             }}
                             className="shrink-0 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition"
                           >
@@ -268,10 +282,39 @@ export default function IntegracoesPage() {
                         </div>
                       </div>
 
+                      {/* Credenciais OAuth2 — iFood apenas */}
+                      {p === "IFOOD" && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Client ID <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              value={clientId}
+                              onChange={(e) => setClientId(e.target.value)}
+                              placeholder="UUID do painel iFood Partners"
+                              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Client Secret <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="password"
+                              value={clientSecret}
+                              onChange={(e) => setClientSecret(e.target.value)}
+                              placeholder="Deixe em branco para manter o atual"
+                              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {p !== "MOCK" && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Merchant ID / Client ID
+                            Merchant ID
                           </label>
                           <input
                             value={merchantId}

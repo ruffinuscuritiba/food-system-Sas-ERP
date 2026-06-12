@@ -25,19 +25,41 @@ export class IntegrationsService {
     companyId: string,
     dto: {
       provider: string;
+      clientId?: string;
+      clientSecret?: string;   // persiste em apiKeyEncrypted
       merchantId?: string;
       webhookSecret?: string;
       sandboxMode?: boolean;
       isActive?: boolean;
     },
   ) {
-    const provider = dto.provider as any;
-    const { provider: _p, ...rest } = dto;
-    return this.prisma.integrationConfig.upsert({
-      where: { companyId_provider: { companyId, provider } },
-      create: { companyId, provider, ...rest },
-      update: { provider, ...rest, updatedAt: new Date() },
+    const providerEnum = dto.provider as any;
+    const { provider: _p, clientSecret, ...rest } = dto;
+
+    const data: Record<string, any> = { ...rest };
+    if (clientSecret) data.apiKeyEncrypted = clientSecret;
+
+    const saved = await this.prisma.integrationConfig.upsert({
+      where: { companyId_provider: { companyId, provider: providerEnum } },
+      create: { companyId, provider: providerEnum, ...data },
+      update: { ...data, updatedAt: new Date() },
     });
+
+    // Para iFood com credenciais completas e isActive=true: obtém token imediatamente
+    if (
+      dto.provider === 'IFOOD' &&
+      dto.isActive &&
+      saved.clientId &&
+      saved.apiKeyEncrypted
+    ) {
+      try {
+        await this.getValidToken(saved);
+      } catch (e: any) {
+        this.logger.warn(`[Integrations] OAuth2 iFood na upsertConfig falhou: ${e?.message}`);
+      }
+    }
+
+    return saved;
   }
 
   async getConfig(companyId: string, provider?: string) {
@@ -222,12 +244,70 @@ export class IntegrationsService {
       body,
     );
 
-    // 5. Processa de forma assíncrona — ACK imediato
+    // 5. Dispara ACK para iFood imediatamente (< 10 s do PLACED)
+    if (providerName === 'IFOOD' && event.type === 'ORDER_CREATED') {
+      const ifoodProvider = provider as any;
+      if (typeof ifoodProvider.sendAck === 'function') {
+        this.getValidToken(config)
+          .then((token) => {
+            if (token) {
+              ifoodProvider
+                .sendAck(event.externalOrderId, token)
+                .catch((e: any) =>
+                  this.logger.warn(`[Integrations] iFood ACK falhou: ${e?.message}`),
+                );
+            }
+          })
+          .catch((e: any) =>
+            this.logger.warn(`[Integrations] getValidToken para ACK falhou: ${e?.message}`),
+          );
+      }
+    }
+
+    // 6. Processa de forma assíncrona (sem bloquear o ACK)
     setImmediate(() =>
       this.handleEvent(companyId, config.id, providerName, event),
     );
 
     return { received: true };
+  }
+
+  // ── Token OAuth2 iFood (cache DB + in-memory) ──────────────────────────────
+  private async getValidToken(config: {
+    id: string;
+    clientId?: string | null;
+    apiKeyEncrypted?: string | null;
+    accessToken?: string | null;
+    tokenExpiresAt?: Date | null;
+  }): Promise<string | null> {
+    if (!config.clientId || !config.apiKeyEncrypted) {
+      return config.accessToken ?? null;
+    }
+
+    // Token ainda válido (buffer de 60 s)
+    if (
+      config.accessToken &&
+      config.tokenExpiresAt &&
+      config.tokenExpiresAt.getTime() > Date.now() + 60_000
+    ) {
+      return config.accessToken;
+    }
+
+    // Refresh via IfoodProvider (in-memory cache + novo fetch)
+    const ifoodProvider = this.providerFactory.get('IFOOD') as any;
+    const token: string = await ifoodProvider.getAccessToken(
+      config.clientId,
+      config.apiKeyEncrypted,
+    );
+    const expiresAt = new Date(ifoodProvider.tokenExpiry as number);
+
+    // Persiste no DB para sobreviver a restarts
+    await this.prisma.integrationConfig.update({
+      where: { id: config.id },
+      data: { accessToken: token, tokenExpiresAt: expiresAt, updatedAt: new Date() },
+    });
+
+    return token;
   }
 
   // ── Simulação manual (PASSO 6 — Mock) ────────────────────────────────────

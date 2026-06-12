@@ -13,10 +13,33 @@ import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CompanyService } from './company.service';
+import { UpdateCompanySettingsDto } from './dto/update-settings.dto';
+import { CompanyId } from '@/common/decorators/company-id.decorator';
 
 @Controller('company')
 export class CompanyController {
   constructor(private service: CompanyService) {}
+
+  // ── Área de Configurações — rotas ANTES de ':id' para evitar match errado ──
+
+  /** GET /company/settings — retorna dados de configuração da empresa logada */
+  @Get('settings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  getSettings(@CompanyId() companyId: string) {
+    return this.service.getSettings(companyId);
+  }
+
+  /** PATCH /company/settings — salva dados de configuração (patch parcial) */
+  @Patch('settings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  updateSettings(
+    @CompanyId() companyId: string,
+    @Body() dto: UpdateCompanySettingsDto,
+  ) {
+    return this.service.updateSettings(companyId, dto);
+  }
 
   @Get()
   findAll() {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
 
@@ -40,6 +40,7 @@ import {
   History,
   Cable,
   Printer,
+  Settings,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -170,8 +171,8 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: "Marketplace",
     items: [
       { href: "/modulos",     label: "Módulos de Integração", icon: <Puzzle size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/integracoes", label: "Integrações",           icon: <Cable size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/impressoras", label: "Impressoras",           icon: <Printer size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/configuracoes?tab=integracoes", label: "Integrações",  icon: <Cable size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/configuracoes?tab=impressao",  label: "Impressoras",  icon: <Printer size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
     ],
   },
   {
@@ -179,9 +180,10 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     items: [
       { href: "/financeiro",         label: "Financeiro",           icon: <Landmark size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "financial" },
       { href: "/bi",                 label: "Relatórios / BI",      icon: <BarChart2 size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "bi" },
-      { href: "/theme",              label: "Tema / Visual",        icon: <Palette size={16} />,    roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/configuracoes?tab=aparencia", label: "Tema / Visual", icon: <Palette size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
       { href: "/tables/qrcode",      label: "QR Code Mesas",        icon: <QrCode size={16} />,     roles: ["SUPER_ADMIN","ADMIN"],           moduleSlug: "tables" },
       { href: "/historico-pedidos",  label: "Histórico de Pedidos", icon: <History size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/configuracoes",       label: "Configurações",        icon: <Settings size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
       { href: "/assinatura",         label: "Assinatura",           icon: <CreditCard size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
     ],
   },
@@ -213,7 +215,10 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ClientShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
+  // Reconstrói a URL atual para comparar com hrefs que incluem query string
+  const currentHref = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "");
   const isPublicPage = PUBLIC_ROUTES.some((r) => pathname?.startsWith(r));
 
   const { loadAuth, user } = useAuthStore();
@@ -461,7 +466,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                           href={item.href}
                           icon={item.icon}
                           label={item.label}
-                          active={pathname === item.href}
+                          active={currentHref === item.href}
                           activeColor={item.activeColor}
                           badge={badge as "active" | "homologation" | undefined}
                           onClick={() => setSidebarOpen(false)}
@@ -479,7 +484,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
                           href={item.href}
                           icon={item.icon}
                           label={item.label}
-                          active={pathname === item.href}
+                          active={currentHref === item.href}
                           badge={badge as "active" | "homologation" | undefined}
                           onClick={() => setSidebarOpen(false)}
                         />

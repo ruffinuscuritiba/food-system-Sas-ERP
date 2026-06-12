@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
 
 import {
@@ -213,7 +213,7 @@ const ROLE_LABELS: Record<string, string> = {
   DEMO:        "Demonstração",
 };
 
-export default function ClientShell({ children }: { children: React.ReactNode }) {
+function ClientShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -612,6 +612,14 @@ export default function ClientShell({ children }: { children: React.ReactNode })
         </div>
       )}
     </ThemeProvider>
+  );
+}
+
+export default function ClientShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background">{children}</div>}>
+      <ClientShellInner>{children}</ClientShellInner>
+    </Suspense>
   );
 }
 

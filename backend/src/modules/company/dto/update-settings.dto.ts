@@ -13,13 +13,13 @@ import { Type } from 'class-transformer';
 
 export class BusinessHoursDayDto {
   @IsString()
-  open: string; // "HH:MM"
+  open!: string; // "HH:MM"
 
   @IsString()
-  close: string; // "HH:MM"
+  close!: string; // "HH:MM"
 
   @IsBoolean()
-  isOpen: boolean;
+  isOpen!: boolean;
 }
 
 export class UpdateCompanySettingsDto {

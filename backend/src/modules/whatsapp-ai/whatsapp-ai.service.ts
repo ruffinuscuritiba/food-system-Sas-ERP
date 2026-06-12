@@ -75,7 +75,21 @@ async function sendCloudApi(
 
 // ─── Business hours check ────────────────────────────────────────────────────
 
-function isBusinessHours(settings: WaSettings): boolean {
+type CompanyBusinessHoursDay = { open: string; close: string; isOpen: boolean };
+
+/**
+ * Verifica se o momento atual está dentro do horário de funcionamento.
+ *
+ * Prioridade de fonte dos horários:
+ *   1. Company.businessHours (área de configurações centralizada)
+ *   2. WhatsappAiSettings.businessHoursStart/End/Days (legado — mantido como fallback)
+ *
+ * Suporte a turno overnight (ex: 18:00–02:00): detectado quando closeMin < openMin.
+ */
+function isBusinessHours(
+  settings: WaSettings,
+  companyHours?: Record<string, CompanyBusinessHoursDay> | null,
+): boolean {
   const now = new Date();
   const brFormatter = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Sao_Paulo',
@@ -87,35 +101,37 @@ function isBusinessHours(settings: WaSettings): boolean {
   const parts = brFormatter.formatToParts(now);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
 
-  const dayName = get('weekday');
   const DAY_MAP: Record<string, number> = {
-    dom: 0,
-    seg: 1,
-    ter: 2,
-    qua: 3,
-    qui: 4,
-    sex: 5,
-    sáb: 6,
-    sab: 6,
+    dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sáb: 6, sab: 6,
   };
+  const dayName = get('weekday');
   const day = DAY_MAP[dayName.toLowerCase()] ?? now.getDay();
-
-  const days = (settings.businessDays || '1,2,3,4,5,6').split(',').map(Number);
-  if (!days.includes(day)) return false;
 
   const brHour = parseInt(get('hour'), 10);
   const brMinute = parseInt(get('minute'), 10);
   const cur = brHour * 60 + brMinute;
 
-  const [sh, sm] = (settings.businessHoursStart || '08:00')
-    .split(':')
-    .map(Number);
-  const [eh, em] = (settings.businessHoursEnd || '22:00')
-    .split(':')
-    .map(Number);
+  // ── Fonte 1: Company.businessHours ──────────────────────────────────────
+  if (companyHours && typeof companyHours === 'object') {
+    const todayConfig = companyHours[String(day)];
+    if (!todayConfig) return false;
+    if (!todayConfig.isOpen) return false;
+    const [oh, om] = (todayConfig.open || '08:00').split(':').map(Number);
+    const [ch, cm] = (todayConfig.close || '22:00').split(':').map(Number);
+    const openMin = oh * 60 + om;
+    const closeMin = ch * 60 + cm;
+    if (closeMin < openMin) return cur >= openMin || cur <= closeMin;
+    return cur >= openMin && cur <= closeMin;
+  }
+
+  // ── Fonte 2: WhatsappAiSettings (fallback legado) ────────────────────────
+  const days = (settings.businessDays || '1,2,3,4,5,6').split(',').map(Number);
+  if (!days.includes(day)) return false;
+
+  const [sh, sm] = (settings.businessHoursStart || '08:00').split(':').map(Number);
+  const [eh, em] = (settings.businessHoursEnd || '22:00').split(':').map(Number);
   const startMin = sh * 60 + sm;
   const endMin = eh * 60 + em;
-  // Overnight range (ex: 18:00–02:00): end < start → OR condition
   if (endMin < startMin) return cur >= startMin || cur <= endMin;
   return cur >= startMin && cur <= endMin;
 }
@@ -800,9 +816,19 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       return;
     }
 
-    const _inBusinessHours = isBusinessHours(settings);
+    // Lê businessHours centralizado de Company (nova fonte) com fallback para settings (legado)
+    const companyRow = await this.prisma.company.findUnique({
+      where: { id: connection.companyId },
+      select: { businessHours: true },
+    });
+    const companyHours = companyRow?.businessHours as
+      | Record<string, CompanyBusinessHoursDay>
+      | null
+      | undefined;
+
+    const _inBusinessHours = isBusinessHours(settings, companyHours);
     log.warn(
-      `[DIAG][businessHours] conn=${connection.id} inHours=${_inBusinessHours} start=${settings?.businessHoursStart} end=${settings?.businessHoursEnd} days=${settings?.businessDays}`,
+      `[DIAG][businessHours] conn=${connection.id} inHours=${_inBusinessHours} source=${companyHours ? 'Company' : 'WhatsappAiSettings'} start=${settings?.businessHoursStart} end=${settings?.businessHoursEnd} days=${settings?.businessDays}`,
     );
     if (!_inBusinessHours) {
       const msg =

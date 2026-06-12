@@ -23,8 +23,15 @@ async function bootstrap() {
     }),
   );
 
-  // Aumentar limite para suportar imagens base64 no body JSON (logo, banner, etc.)
-  app.use(json({ limit: '10mb' }));
+  // rawBody necessário para validação HMAC de webhooks (iFood, etc.)
+  app.use(
+    json({
+      limit: '10mb',
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
   // Serve uploaded files (fallback when Cloudinary is not configured)

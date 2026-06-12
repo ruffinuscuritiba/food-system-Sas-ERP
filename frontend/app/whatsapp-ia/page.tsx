@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import {
   MessageSquare, Plus, Trash2, Settings2, BarChart2,
   Phone, Wifi, WifiOff, Bot, User, ChevronRight,
-  RefreshCw, Send, AlertCircle, CheckCircle2, Clock,
+  RefreshCw, Send, AlertCircle, CheckCircle2,
   Zap, Shield, ToggleLeft, ToggleRight, Copy, Eye, EyeOff, Pencil,
   MessageCircle, TrendingUp, Users, ShoppingBag, X,
 } from "lucide-react";
@@ -956,34 +956,20 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
             </div>
           </Card>
 
-          {/* Hours */}
-          <Card title="Horário de Atendimento" icon={<Clock size={16} />}>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Abre" value={settings.businessHoursStart} onChange={(v) => setSettings({ ...settings, businessHoursStart: v })} type="time" />
-              <Field label="Fecha" value={settings.businessHoursEnd}   onChange={(v) => setSettings({ ...settings, businessHoursEnd: v })} type="time" />
-            </div>
-            <div className="mt-3">
-              <label className="text-xs text-slate-400 font-semibold mb-2 block">Dias (0=Dom, 1=Seg … 6=Sáb)</label>
-              <div className="flex gap-2 flex-wrap">
-                {[["0","Dom"],["1","Seg"],["2","Ter"],["3","Qua"],["4","Qui"],["5","Sex"],["6","Sáb"]].map(([v, l]) => {
-                  const active = (settings.businessDays ?? "").split(",").includes(v);
-                  return (
-                    <button
-                      key={v}
-                      onClick={() => {
-                        const days = (settings.businessDays ?? "").split(",").filter(Boolean);
-                        const newDays = active ? days.filter((d) => d !== v) : [...days, v];
-                        setSettings({ ...settings, businessDays: newDays.sort().join(",") });
-                      }}
-                      className={`w-12 h-9 rounded-lg text-xs font-bold transition ${active ? "bg-green-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
-                    >
-                      {l}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </Card>
+          {/* Hours — removido daqui; fonte canônica é Company.businessHours */}
+          <div className="flex items-start gap-3 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm">
+            <span className="text-slate-400 mt-0.5 shrink-0">🕐</span>
+            <span className="text-slate-400 leading-relaxed">
+              Os horários de atendimento da IA são gerenciados em{" "}
+              <a
+                href="/configuracoes?tab=loja"
+                className="text-green-400 underline underline-offset-2 hover:text-green-300"
+              >
+                Configurações &rsaquo; Minha Loja
+              </a>
+              . Qualquer alteração lá reflete imediatamente no comportamento da Kely.
+            </span>
+          </div>
 
           {/* Delays */}
           <Card title="Humanização" icon={<Settings2 size={16} />}>

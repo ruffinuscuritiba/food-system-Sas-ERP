@@ -21,8 +21,12 @@ export class DeliveryConfigService {
         neighborhood: data.neighborhood ?? null,
         baseFee: data.baseFee ? Number(data.baseFee) : null,
         pricePerKm: data.pricePerKm ? Number(data.pricePerKm) : null,
-        clientFee: Number(data.clientFee),
-        driverShare: Number(data.driverShare),
+        clientFee: Number(data.clientFee ?? 0),
+        driverShare: Number(data.driverShare ?? 0),
+        radiusKm: data.radiusKm ? Number(data.radiusKm) : null,
+        lat: data.lat ? Number(data.lat) : null,
+        lng: data.lng ? Number(data.lng) : null,
+        color: data.color ?? '#f97316',
       },
     });
   }
@@ -38,20 +42,16 @@ export class DeliveryConfigService {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.type !== undefined && { type: data.type }),
-        ...(data.neighborhood !== undefined && {
-          neighborhood: data.neighborhood,
-        }),
+        ...(data.neighborhood !== undefined && { neighborhood: data.neighborhood }),
         ...(data.baseFee !== undefined && { baseFee: Number(data.baseFee) }),
-        ...(data.pricePerKm !== undefined && {
-          pricePerKm: Number(data.pricePerKm),
-        }),
-        ...(data.clientFee !== undefined && {
-          clientFee: Number(data.clientFee),
-        }),
-        ...(data.driverShare !== undefined && {
-          driverShare: Number(data.driverShare),
-        }),
+        ...(data.pricePerKm !== undefined && { pricePerKm: Number(data.pricePerKm) }),
+        ...(data.clientFee !== undefined && { clientFee: Number(data.clientFee) }),
+        ...(data.driverShare !== undefined && { driverShare: Number(data.driverShare) }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.radiusKm !== undefined && { radiusKm: data.radiusKm ? Number(data.radiusKm) : null }),
+        ...(data.lat !== undefined && { lat: data.lat ? Number(data.lat) : null }),
+        ...(data.lng !== undefined && { lng: data.lng ? Number(data.lng) : null }),
+        ...(data.color !== undefined && { color: data.color }),
       },
     });
   }

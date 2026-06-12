@@ -223,6 +223,49 @@ model Company {
   metaPixelId       String?   // F9: Meta Pixel ID
   googleAnalyticsId String?   // F10: GA4 Measurement ID
 
+  // ── Configurações centralizadas (Área de Configurações) ──────────────────
+  whatsapp     String?
+  cnpj         String?
+  razaoSocial  String?
+
+  // Endereço da loja
+  zipCode      String?
+  street       String?
+  streetNumber String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+
+  // Horários de funcionamento — JSON indexado por dia da semana (0=dom…6=sáb)
+  // Estrutura: { "0": { "open": "11:00", "close": "22:00", "isOpen": false }, … }
+  businessHours Json?
+
+  // ── Configurações globais de entrega ──────────────────────────────────────
+  // Método padrão: NEIGHBORHOOD | RADIUS | ROUTE
+  deliveryMethod       String  @default("NEIGHBORHOOD")
+  // Frete grátis quando pedido >= este valor (null = desativado)
+  freeDeliveryAbove    Decimal? @db.Decimal(10, 2)
+  // Entrega própria (entregadores da loja)
+  ownDelivery          Boolean @default(true)
+  // Raio máximo em km para entrega (null = sem limite)
+  maxDeliveryRadius    Int?
+  // Coordenadas da loja (usado para calcular raio e exibir no mapa)
+  storeLat             Float?
+  storeLng             Float?
+
+  // ── Formas de pagamento na entrega ────────────────────────────────────────
+  acceptCash           Boolean @default(true)
+  acceptCreditCard     Boolean @default(true)
+  acceptDebitCard      Boolean @default(true)
+  acceptMealVoucher    Boolean @default(false)
+  // JSON: [{id, name, isActive}]
+  customPaymentMethods Json?
+
+  // ── Configurações de impressão ────────────────────────────────────────────
+  // JSON: {useAssistant, autoPrint, autoAccept, showCNPJ, showCategory, showDescription, pizzaItemFormat, addonGrouping}
+  printingSettings     Json?
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -572,6 +615,7 @@ model DeliveryZone {
   companyId    String
   company      Company  @relation(fields: [companyId], references: [id])
   name         String
+  // NEIGHBORHOOD | RADIUS | ROUTE
   type         String   @default("NEIGHBORHOOD")
   neighborhood String?
   baseFee      Decimal? @db.Decimal(10, 2)
@@ -579,6 +623,12 @@ model DeliveryZone {
   clientFee    Decimal  @db.Decimal(10, 2)
   driverShare  Decimal  @db.Decimal(10, 2)
   isActive     Boolean  @default(true)
+  // Campos para tipo RADIUS — raio em km e centro do círculo
+  radiusKm     Decimal? @db.Decimal(5, 2)
+  lat          Float?
+  lng          Float?
+  // Cor visual no mapa (hex)
+  color        String   @default("#f97316")
   orders       Order[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1702,7 +1752,8 @@ model IntegrationConfig {
   provider        IntegrationProvider
   isActive        Boolean             @default(false)
   sandboxMode     Boolean             @default(true)
-  apiKeyEncrypted String?
+  clientId        String?
+  apiKeyEncrypted String?   // clientSecret do iFood (OAuth2)
   merchantId      String?
   webhookSecret   String?
   accessToken     String?

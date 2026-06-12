@@ -42,6 +42,8 @@ export class IntegrationsController {
     @Body()
     body: {
       provider: string;
+      clientId?: string;
+      clientSecret?: string;
       merchantId?: string;
       webhookSecret?: string;
       sandboxMode?: boolean;

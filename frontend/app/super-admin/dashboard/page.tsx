@@ -595,10 +595,10 @@ export default function SuperAdminDashboard() {
             <h3 className="text-base font-bold mb-6">Novo Restaurante</h3>
             <form onSubmit={createCompany} className="space-y-4">
               {[
-                { label: "Nome do restaurante *", key: "name", type: "text", placeholder: "Ex: Pizzaria Bella Napoli" },
-                { label: "Email do admin *", key: "email", type: "email", placeholder: "admin@restaurante.com" },
-                { label: "Senha inicial *", key: "adminPassword", type: "password", placeholder: "Mínimo 6 caracteres" },
-                { label: "Telefone", key: "phone", type: "text", placeholder: "(41) 99999-9999" },
+                { label: "Nome do restaurante *", key: "name", type: "text", placeholder: "Ex: Pizzaria Bella Napoli", autoComplete: "off" },
+                { label: "Email do admin *", key: "email", type: "email", placeholder: "admin@restaurante.com", autoComplete: "off" },
+                { label: "Senha inicial *", key: "adminPassword", type: "password", placeholder: "Mínimo 6 caracteres", autoComplete: "new-password" },
+                { label: "Telefone", key: "phone", type: "text", placeholder: "(41) 99999-9999", autoComplete: "off" },
               ].map((f) => (
                 <div key={f.key}>
                   <label className="block text-xs text-zinc-400 mb-1.5">{f.label}</label>
@@ -607,6 +607,7 @@ export default function SuperAdminDashboard() {
                     value={(form as any)[f.key]}
                     onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                     placeholder={f.placeholder}
+                    autoComplete={f.autoComplete}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition"
                   />
                 </div>

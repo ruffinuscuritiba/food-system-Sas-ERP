@@ -47,6 +47,42 @@ select.text-white {
   caret-color: #ffffff;
 }
 
+/* Fix autofill Chrome/Edge/Safari — universal
+ * O browser aplica fundo azul/branco via :-webkit-autofill ignorando background-color.
+ * Estratégia dupla:
+ *   1. transition 9999s → atrasa o background do autofill para "nunca" aparecer visualmente
+ *   2. box-shadow inset → sobrescreve a cor com a cor correta do tema
+ * zinc-800 = #27272a (inputs escuros)  |  #ffffff (inputs claros) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  transition: background-color 9999s ease-in-out 0s !important;
+}
+
+/* Inputs escuros (text-white) — garante fundo zinc-800 e texto branco */
+input.text-white:-webkit-autofill,
+input.text-white:-webkit-autofill:hover,
+input.text-white:-webkit-autofill:focus,
+input.text-white:-webkit-autofill:active,
+textarea.text-white:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #27272a inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff;
+}
+
+/* Inputs claros (padrão, ex: login, cardápio público) — fundo branco + texto escuro */
+input:not(.text-white):-webkit-autofill,
+input:not(.text-white):-webkit-autofill:hover,
+input:not(.text-white):-webkit-autofill:focus,
+textarea:not(.text-white):-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #111827;
+}
+
 /* Scrollbar invisível — mantém o scroll funcional sem mostrar a barra */
 .scrollbar-hide {
   -ms-overflow-style: none;

@@ -226,6 +226,17 @@ async function markJobFailed(jobId, reason) {
   });
 }
 
+// ── Heartbeat — reports agent is alive every 30s ──────────────────────────────
+
+async function sendHeartbeat() {
+  try {
+    await fetch(`${API_URL}/printers/agent/heartbeat`, {
+      method: "POST",
+      headers: HEADERS,
+    });
+  } catch { /* non-fatal */ }
+}
+
 // ── Poll loop ─────────────────────────────────────────────────────────────────
 
 async function poll() {
@@ -264,6 +275,9 @@ console.log(`  Polling a cada ${POLL_MS}ms`);
 if (USB_VENDOR_ID)  console.log(`  Modo: USB (${USB_VENDOR_ID.toString(16)}:${USB_PRODUCT_ID.toString(16)})`);
 else if (NETWORK_HOST) console.log(`  Modo: Network TCP (${NETWORK_HOST}:${NETWORK_PORT})`);
 else console.log(`  Modo: Debug (sem hardware — log no console)`);
+
+sendHeartbeat(); // heartbeat imediato ao iniciar
+setInterval(sendHeartbeat, 30_000);
 
 poll(); // primeira execução imediata
 setInterval(poll, POLL_MS);

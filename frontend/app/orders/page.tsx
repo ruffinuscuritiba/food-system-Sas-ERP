@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { type PrintableOrder } from "@/components/printing/printTicket";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
+import PrinterAgentBanner from "@/components/PrinterAgentBanner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -258,7 +259,10 @@ export default function OrdersPage() {
   const displayOrders = showHistory ? historyOrders : activeOrders;
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6 md:p-8">
+    <main className="min-h-screen bg-gray-50">
+      <PrinterAgentBanner />
+
+      <div className="p-6 md:p-8">
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
@@ -541,6 +545,7 @@ export default function OrdersPage() {
           onSaved={fetchOrders}
         />
       )}
+      </div>{/* /p-6 md:p-8 */}
     </main>
   );
 }

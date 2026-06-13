@@ -8,9 +8,27 @@ import { CreatePrinterDto } from './dto/create-printer.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { PrintJobStatus } from '@prisma/client';
 
+// In-memory store: companyId → last heartbeat timestamp (ms).
+// Resets on restart — intentional; agent must re-ping after deploy.
+const agentHeartbeats = new Map<string, number>();
+const AGENT_ONLINE_TTL_MS = 90_000; // 90s — agent pings every 30s
+
 @Injectable()
 export class PrintersService {
   constructor(private prisma: PrismaService) {}
+
+  // ── Agent heartbeat (no DB write, zero latency) ────────────────────────────
+
+  agentPing(companyId: string): { ok: boolean } {
+    agentHeartbeats.set(companyId, Date.now());
+    return { ok: true };
+  }
+
+  getAgentStatus(companyId: string): { online: boolean; lastSeen: string | null } {
+    const ts = agentHeartbeats.get(companyId) ?? null;
+    const online = ts !== null && Date.now() - ts < AGENT_ONLINE_TTL_MS;
+    return { online, lastSeen: ts ? new Date(ts).toISOString() : null };
+  }
 
   // ── Printers ───────────────────────────────────────────────────────────────
 

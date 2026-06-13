@@ -60,6 +60,7 @@ const PUBLIC_ROUTES = [
   "/super-admin",
   "/demo",
   "/ia-demo",
+  "/tracking",
 ];
 
 type NavItem = {
@@ -338,13 +339,21 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   const isPdv = pathname === "/pdv";
   const isDriverPage = pathname?.startsWith("/driver");
+  const isGarcomPage = pathname?.startsWith("/garcom");
 
-  // Redirect DELIVERY role away from admin shell into the driver PWA
+  // Redirect DELIVERY role → driver PWA
   useEffect(() => {
     if (user?.role === "DELIVERY" && !isDriverPage) {
       router.replace("/driver");
     }
   }, [user?.role, isDriverPage, router]);
+
+  // Redirect WAITER role → garçom PWA
+  useEffect(() => {
+    if (user?.role === "WAITER" && !isGarcomPage) {
+      router.replace("/garcom");
+    }
+  }, [user?.role, isGarcomPage, router]);
 
   if (isPublicPage) {
     // Páginas públicas (login, cardápio digital, etc.) — ThemeProvider sem companyId
@@ -359,6 +368,16 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   // Driver PWA — auth required but no admin sidebar; driver layout owns its own shell
   if (isDriverPage) {
+    return (
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        {children}
+      </ThemeProvider>
+    );
+  }
+
+  // Garçom PWA — auth required but no admin sidebar
+  if (isGarcomPage) {
     return (
       <ThemeProvider>
         <Toaster position="top-right" />

@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   '/super-admin',
   '/demo',
   '/ia-demo',
+  '/tracking',
 ]
 
 export function middleware(request: NextRequest) {

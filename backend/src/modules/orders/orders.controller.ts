@@ -157,6 +157,13 @@ export class OrdersController {
     return this.service.dashboard(companyId);
   }
 
+  // Public tracking endpoint — no auth required
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('public/track/:orderId')
+  trackOrder(@Param('orderId') orderId: string) {
+    return this.service.publicTrack(orderId);
+  }
+
   // Public endpoint — no auth required (customer ordering from menu)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('public')

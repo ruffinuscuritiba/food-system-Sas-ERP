@@ -20,6 +20,10 @@ function TabLoader() {
   );
 }
 
+const PedidosTab = dynamic(() => import("@/components/settings/PedidosTab"), {
+  ssr: false,
+  loading: TabLoader,
+});
 const EntregaTab = dynamic(() => import("@/components/settings/EntregaTab"), {
   ssr: false,
   loading: TabLoader,
@@ -685,6 +689,8 @@ function ConfiguracoesInner() {
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === "loja" ? (
             <LojaTab />
+          ) : activeTab === "pedidos" ? (
+            <PedidosTab />
           ) : activeTab === "entrega" ? (
             <EntregaTab />
           ) : activeTab === "pagamento" ? (

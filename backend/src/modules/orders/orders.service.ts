@@ -728,6 +728,42 @@ export class OrdersService {
     return updatedOrder;
   }
 
+  async publicTrack(orderId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        total: true,
+        deliveryFee: true,
+        orderType: true,
+        createdAt: true,
+        confirmedAt: true,
+        preparingAt: true,
+        readyAt: true,
+        outForDeliveryAt: true,
+        deliveredAt: true,
+        cancelledAt: true,
+        items: {
+          select: { productName: true, quantity: true, unitPrice: true },
+        },
+        driver: {
+          select: {
+            user: { select: { name: true } },
+            currentLat: true,
+            currentLng: true,
+          },
+        },
+        company: { select: { name: true } },
+      },
+    });
+
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+
+    return order;
+  }
+
   async dashboard(companyId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

@@ -24,6 +24,18 @@ import { PrintJobStatus } from '@prisma/client';
 export class PrintersController {
   constructor(private service: PrintersService) {}
 
+  // ── Agent heartbeat — must come BEFORE /:id routes ────────────────────────
+
+  @Post('agent/heartbeat')
+  agentPing(@Request() req: any) {
+    return this.service.agentPing(req.user.companyId);
+  }
+
+  @Get('agent/status')
+  agentStatus(@Request() req: any) {
+    return this.service.getAgentStatus(req.user.companyId);
+  }
+
   // ── Printers ───────────────────────────────────────────────────────────────
 
   @Get()

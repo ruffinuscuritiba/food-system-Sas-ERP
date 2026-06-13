@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { LogIn, MoreVertical, ShieldOff, Shield, Wrench, Copy, Archive, RotateCcw, Trash2, Plus, Zap } from "lucide-react"
+import { LogIn, MoreVertical, ShieldOff, Shield, Wrench, Copy, Archive, RotateCcw, Trash2, Plus, Zap, Printer } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
 
@@ -453,6 +453,18 @@ export default function SuperAdminDashboard() {
                                 >
                                   <Copy className="w-3.5 h-3.5" />
                                   Clonar Cardápio
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const url = `${window.location.origin}/configuracoes?tab=impressao-local`;
+                                    navigator.clipboard.writeText(url);
+                                    alert(`Link copiado!\n\n${url}\n\nEnvie para o cliente pelo WhatsApp para instalar o Agente de Impressão.`);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition text-sky-400"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  Copiar Link Agente
                                 </button>
                                 <div className="border-t border-zinc-800 my-1" />
                                 <button

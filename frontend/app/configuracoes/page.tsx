@@ -57,6 +57,10 @@ const PlanoTab = dynamic(() => import("@/components/settings/PlanoTab"), {
   ssr: false,
   loading: TabLoader,
 });
+const ImpressaoLocalTab = dynamic(() => import("@/components/settings/ImpressaoLocalTab"), {
+  ssr: false,
+  loading: TabLoader,
+});
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -67,7 +71,8 @@ const TABS = [
   { id: "pagamento",   label: "Pagamento",        icon: CreditCard,     group: "Operação" },
   { id: "entrega",     label: "Entrega",          icon: Bike,           group: "Operação" },
   { id: "pizza",       label: "Pizza & Cardápio", icon: Pizza,          group: "Operação" },
-  { id: "impressao",   label: "Impressão",        icon: Printer,        group: "Tecnologia" },
+  { id: "impressao",        label: "Impressão",        icon: Printer,        group: "Tecnologia" },
+  { id: "impressao-local",  label: "Impressão Local",  icon: Printer,        group: "Tecnologia" },
   { id: "whatsapp",    label: "WhatsApp IA",      icon: MessageCircle,  group: "Tecnologia" },
   { id: "integracoes", label: "Integrações",      icon: Cable,          group: "Tecnologia" },
   { id: "equipe",      label: "Equipe",           icon: Users,          group: "Gestão" },
@@ -597,7 +602,8 @@ function getTabDescription(tab: TabId): string {
     pagamento:   "Formas de pagamento aceitas, gateways online e troco",
     entrega:     "Zonas de entrega, taxas e configurações de raio",
     pizza:       "Tamanhos, bordas, complementos e regras do cardápio",
-    impressao:   "Impressoras cadastradas, setores e fila de impressão",
+    impressao:          "Impressoras cadastradas, setores e fila de impressão",
+    "impressao-local":  "Agente de impressão local, download e token de ativação",
     whatsapp:    "Atendente virtual, conexões e comportamento da IA",
     integracoes: "iFood, Rappi, gateways de pagamento e apps externos",
     equipe:      "Usuários, funções e permissões de acesso",
@@ -700,6 +706,8 @@ function ConfiguracoesInner() {
                 <ImpressorasHardwareTab />
               </div>
             </div>
+          ) : activeTab === "impressao-local" ? (
+            <ImpressaoLocalTab />
           ) : activeTab === "integracoes" ? (
             <IntegracoesTab />
           ) : activeTab === "equipe" ? (

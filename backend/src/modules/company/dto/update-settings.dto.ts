@@ -115,6 +115,29 @@ export class UpdateCompanySettingsDto {
   @IsOptional()
   storeLng?: number | null;
 
+  // ── Configurações de pedidos ──────────────────────────────────────────────
+  @IsBoolean()
+  @IsOptional()
+  acceptDelivery?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  acceptPickup?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  acceptDineIn?: boolean;
+
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  estimatedPrepTime?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  minimumOrderAmount?: number | null;
+
   // ── Formas de pagamento na entrega ──────────────────────────────────────
   @IsBoolean()
   @IsOptional()

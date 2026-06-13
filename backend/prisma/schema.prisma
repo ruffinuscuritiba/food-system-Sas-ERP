@@ -254,6 +254,13 @@ model Company {
   storeLat             Float?
   storeLng             Float?
 
+  // ── Configurações de pedidos ──────────────────────────────────────────────
+  acceptDelivery       Boolean @default(true)
+  acceptPickup         Boolean @default(true)
+  acceptDineIn         Boolean @default(true)
+  estimatedPrepTime    Int     @default(30)   // minutos
+  minimumOrderAmount   Decimal? @db.Decimal(10, 2)
+
   // ── Formas de pagamento na entrega ────────────────────────────────────────
   acceptCash           Boolean @default(true)
   acceptCreditCard     Boolean @default(true)

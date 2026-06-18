@@ -570,21 +570,34 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       {/* ─── DEMO read-only banner ─────────────────────────────────── */}
       {isDemoUser && (
         <div
-          className="fixed top-0 left-0 right-0 z-[9999] bg-violet-600 text-white shadow-md overflow-hidden"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+          className="fixed top-0 left-0 right-0 z-[9999] overflow-hidden shadow-md"
+          style={{
+            background: "linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #6d28d9 100%)",
+            paddingTop: "env(safe-area-inset-top, 0px)",
+          }}
         >
-          <div className="flex items-center justify-center gap-1.5 px-3 py-1.5">
-            <Sparkles size={12} className="shrink-0" />
-            {/* mobile ≤ 639px: texto compacto com ellipsis */}
-            <span className="text-xs font-bold truncate max-w-[calc(100vw-4rem)] sm:hidden">
-              Demo {planLabel} · Somente leitura
-            </span>
-            {/* desktop ≥ 640px: texto completo */}
-            <span className="text-xs font-bold hidden sm:inline whitespace-nowrap">
-              Conta de Demonstração — somente leitura. Alterações não são salvas.
-            </span>
-            <span className="mx-2 opacity-40 hidden sm:inline">|</span>
-            <span className="text-xs opacity-80 capitalize hidden sm:inline">{planLabel}</span>
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+            {/* left: status */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Sparkles size={12} className="shrink-0 text-violet-200" />
+              <span className="text-xs font-bold text-white truncate max-w-[calc(100vw-12rem)] sm:max-w-none">
+                <span className="sm:hidden">Demo {planLabel} · Leitura</span>
+                <span className="hidden sm:inline">
+                  Você está no modo de demonstração {planLabel} — alterações não são salvas
+                </span>
+              </span>
+            </div>
+            {/* right: CTA */}
+            <a
+              href="https://wa.me/5541988005870?text=Ol%C3%A1!%20Quero%20ativar%20o%20sistema%20real%20do%20FoodSaaS%20ERP."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-white text-violet-700 px-2.5 py-0.5 text-[11px] font-black hover:bg-violet-50 transition whitespace-nowrap shadow-sm"
+            >
+              <span className="hidden sm:inline">Ativar sistema real</span>
+              <span className="sm:hidden">Ativar</span>
+              <ChevronRight size={10} />
+            </a>
           </div>
         </div>
       )}

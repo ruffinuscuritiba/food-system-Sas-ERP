@@ -32,4 +32,26 @@ export class AuthController {
   login(@Body() dto: LoginDto) {
     return this.service.login(dto);
   }
+
+  /** Gating endpoint for demo access: saves lead + sends admin email + returns demo JWT. */
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('demo-access')
+  demoAccess(
+    @Body()
+    body: {
+      name: string;
+      email: string;
+      whatsapp: string;
+      restaurantName: string;
+      plan: 'basic' | 'pro' | 'enterprise';
+    },
+  ) {
+    return this.service.demoAccess({
+      name:           String(body.name || '').slice(0, 100),
+      email:          String(body.email || '').slice(0, 100),
+      whatsapp:       String(body.whatsapp || '').slice(0, 30),
+      restaurantName: String(body.restaurantName || '').slice(0, 100),
+      plan:           body.plan,
+    });
+  }
 }

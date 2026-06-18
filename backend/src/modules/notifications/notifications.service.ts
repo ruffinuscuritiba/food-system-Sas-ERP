@@ -7,7 +7,8 @@ export type NotificationType =
   | 'ORDER_STATUS'
   | 'SUBSCRIPTION_EXPIRING'
   | 'SUBSCRIPTION_BLOCKED'
-  | 'PAYMENT_CONFIRMED';
+  | 'PAYMENT_CONFIRMED'
+  | 'DEMO_LEAD';
 
 export interface NotificationPayload {
   to: string;
@@ -81,6 +82,8 @@ export class NotificationsService {
         return '🔒 Acesso suspenso — regularize seu pagamento';
       case 'PAYMENT_CONFIRMED':
         return '✅ Pagamento confirmado!';
+      case 'DEMO_LEAD':
+        return `🔥 Novo lead quente na demo — ${data?.restaurantName || data?.name || 'Visitante'}`;
       default:
         return 'Notificação FoodSaaS';
     }
@@ -132,6 +135,20 @@ export class NotificationsService {
         return base(`
           <h2>Pagamento confirmado!</h2>
           <p>Seu plano <strong>${data?.plan || ''}</strong> está ativo até <strong>${data?.dueDate || ''}</strong>.</p>
+        `);
+      case 'DEMO_LEAD':
+        return base(`
+          <h2 style="color:#f97316;">🔥 Novo lead quente na demo!</h2>
+          <p>Um interessado acabou de entrar na demonstração <strong>${data?.plan || ''}</strong>.</p>
+          <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+            <tr><td style="padding:8px 0;color:#94a3b8;width:140px;">Nome</td><td style="padding:8px 0;font-weight:700;">${data?.name || '—'}</td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">Restaurante</td><td style="padding:8px 0;font-weight:700;">${data?.restaurantName || '—'}</td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">E-mail</td><td style="padding:8px 0;"><a href="mailto:${data?.email}" style="color:#f97316;">${data?.email || '—'}</a></td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">WhatsApp</td><td style="padding:8px 0;"><a href="https://wa.me/${(data?.whatsapp || '').replace(/\D/g,'')}" style="color:#25D366;">${data?.whatsapp || '—'}</a></td></tr>
+          </table>
+          <p style="margin-top:20px;background:#1e293b;border-left:3px solid #f97316;padding:12px 16px;border-radius:4px;font-size:13px;">
+            Entre em contato agora — este lead está quente e testando o sistema no momento!
+          </p>
         `);
       default:
         return base(`<p>${data?.message || 'Notificação do sistema.'}</p>`);

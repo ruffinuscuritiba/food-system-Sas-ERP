@@ -15,6 +15,12 @@ import {
   Smartphone,
   Bot,
   TrendingUp,
+  X,
+  User,
+  Mail,
+  Phone,
+  Store,
+  ArrowRight,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
@@ -70,19 +76,192 @@ function planKey(plan: string): PlanKey {
   return plan.toLowerCase() as PlanKey;
 }
 
+// ─── Lead Capture Modal ───────────────────────────────────────────────────────
+interface LeadForm {
+  name: string;
+  email: string;
+  whatsapp: string;
+  restaurantName: string;
+}
+
+interface LeadCaptureModalProps {
+  demo: DemoAccount;
+  onClose: () => void;
+  onConfirm: (form: LeadForm) => Promise<void>;
+  loading: boolean;
+}
+
+function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModalProps) {
+  const [form, setForm] = useState<LeadForm>({ name: "", email: "", whatsapp: "", restaurantName: "" });
+  const color = demo.primaryColor;
+
+  function formatPhone(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+
+  function handleWhatsapp(v: string) {
+    setForm((f) => ({ ...f, whatsapp: formatPhone(v) }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { toast.error("Informe seu nome."); return; }
+    if (!form.email.trim() || !form.email.includes("@")) { toast.error("Informe um e-mail válido."); return; }
+    if (!form.restaurantName.trim()) { toast.error("Informe o nome do restaurante."); return; }
+    await onConfirm(form);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={onClose}>
+      {/* backdrop */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+      <div
+        className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#0d1117] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* top glow */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-25"
+          style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}88, transparent 70%)` }}
+          aria-hidden
+        />
+
+        {/* header */}
+        <div className="relative flex items-center justify-between px-7 pt-7 pb-0">
+          <div>
+            <span
+              className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest mb-3"
+              style={{ color, backgroundColor: `${color}22`, border: `1px solid ${color}44` }}
+            >
+              Demo {demo.plan}
+            </span>
+            <h2 className="text-xl font-black text-white leading-tight">
+              Acesso à demonstração
+            </h2>
+            <p className="mt-1 text-sm text-white/50">
+              Preencha seus dados e explore o sistema completo — sem custo.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20 hover:text-white transition"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* form */}
+        <form onSubmit={handleSubmit} className="relative px-7 py-6 space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1.5">Seu nome *</label>
+            <div className="relative">
+              <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="João Silva"
+                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 transition"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* E-mail */}
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1.5">E-mail *</label>
+            <div className="relative">
+              <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="joao@meurestaurante.com.br"
+                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 transition"
+              />
+            </div>
+          </div>
+
+          {/* WhatsApp */}
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1.5">
+              WhatsApp <span className="text-white/30">(opcional)</span>
+            </label>
+            <div className="relative">
+              <Phone size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                type="tel"
+                value={form.whatsapp}
+                onChange={(e) => handleWhatsapp(e.target.value)}
+                placeholder="(11) 99999-9999"
+                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 transition"
+              />
+            </div>
+          </div>
+
+          {/* Restaurant name */}
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1.5">Nome do restaurante *</label>
+            <div className="relative">
+              <Store size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                type="text"
+                value={form.restaurantName}
+                onChange={(e) => setForm((f) => ({ ...f, restaurantName: e.target.value }))}
+                placeholder="Pizzaria Bella Napoli"
+                className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/25 transition"
+              />
+            </div>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: color,
+              boxShadow: `0 8px 24px -8px ${color}cc, inset 0 1px 0 rgba(255,255,255,0.15)`,
+            }}
+          >
+            {loading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Entrando…</>
+            ) : (
+              <>Entrar na demonstração <ArrowRight className="h-4 w-4" /></>
+            )}
+          </button>
+
+          <p className="text-center text-[11px] text-white/25 pt-1">
+            Sem cartão de crédito. Acesso imediato. Dados protegidos.
+          </p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DemoPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
   const [entering, setEntering] = useState<string | null>(null);
+  const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
 
-  async function enterDemo(demo: DemoAccount) {
+  async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
     setEntering(demo.id);
     try {
-      const { data } = await api.post("auth/login", {
-        email: demo.email,
-        password: demo.password,
+      const { data } = await api.post("auth/demo-access", {
+        name:           form.name,
+        email:          form.email,
+        whatsapp:       form.whatsapp,
+        restaurantName: form.restaurantName,
+        plan:           demo.plan.toLowerCase() as "basic" | "pro" | "enterprise",
       });
       const { accessToken, user } = data;
       if (!accessToken) { toast.error("Demonstração indisponível."); return; }
@@ -90,7 +269,8 @@ export default function DemoPage() {
       document.cookie = `token=${accessToken}; path=/`;
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(user));
-      toast.success(`Abrindo demo ${demo.plan}…`);
+      setModalDemo(null);
+      toast.success(`Bem-vindo à demo ${demo.plan}!`);
       router.push("/pdv");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Não foi possível abrir esta demonstração.");
@@ -105,6 +285,15 @@ export default function DemoPage() {
 
   return (
     <div className="min-h-screen bg-[#07090f] text-white selection:bg-orange-500/30">
+      {/* Lead capture modal */}
+      {modalDemo && (
+        <LeadCaptureModal
+          demo={modalDemo}
+          loading={entering === modalDemo.id}
+          onClose={() => { if (!entering) setModalDemo(null); }}
+          onConfirm={(form) => enterDemoWithLead(modalDemo, form)}
+        />
+      )}
       {/* ── ambient glows ── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
         <div className="absolute -top-60 left-1/3 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-orange-500/8 blur-[180px]" />
@@ -222,7 +411,7 @@ export default function DemoPage() {
                 screenshot={DEMO_SCREENSHOTS[planKey(demo.plan)]}
                 loading={entering === demo.id}
                 disabled={entering !== null && entering !== demo.id}
-                onSelect={() => enterDemo(demo)}
+                onSelect={() => setModalDemo(demo)}
               />
             ))}
           </div>

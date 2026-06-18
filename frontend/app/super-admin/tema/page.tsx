@@ -1,496 +1,761 @@
 "use client";
 import { useState, useEffect } from "react";
-import {
-  ChevronLeft, Check, RotateCcw, Save, Monitor, Smartphone, Layers,
-} from "lucide-react";
+import { ChevronLeft, Check, Save, RotateCcw } from "lucide-react";
 import Link from "next/link";
 
-// ── Color palette rows ────────────────────────────────────────────────────────
-const PALETTE_ROWS: string[][] = [
-  ["#0d1117","#161b22","#1e293b","#0f172a","#111827","#1f2937"],
-  ["#064e3b","#065f46","#047857","#059669","#10b981","#34d399"],
-  ["#14b8a6","#0d9488","#0e7490","#0369a1","#1d4ed8","#3730a3"],
-  ["#7c3aed","#6d28d9","#9333ea","#a21caf","#be185d","#e11d48"],
-  ["#991b1b","#b91c1c","#c2410c","#ea580c","#f97316","#fb923c"],
-  ["#92400e","#b45309","#d97706","#ca8a04","#65a30d","#16a34a"],
-  ["#f8fafc","#e2e8f0","#cbd5e1","#94a3b8","#64748b","#475569"],
-  ["#fef3c7","#fde68a","#fcd34d","#fbbf24","#f59e0b","#d97706"],
-];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
-interface ThemeColors {
-  pageBg: string;
-  navBg: string;
-  navText: string;
-  navActive: string;
-  headerBg: string;
-  headerText: string;
-  cardBg: string;
-  cardBorder: string;
-  btnBg: string;
-  btnText: string;
-  textPrimary: string;
-  textSecondary: string;
-  inputBg: string;
-  footerBg: string;
-  footerText: string;
-  accent: string;
-}
+type ThemeKey =
+  | "pageBg"
+  | "pageBgImage"   // URL string — empty = no image
+  | "pageBgOverlay" // rgba overlay on image, e.g. "rgba(0,0,0,0.5)"
+  | "headerBg" | "headerText"
+  | "navBg"    | "navText"    | "navActive"
+  | "cardBg"   | "cardBorder"
+  | "btnBg"    | "btnText"
+  | "textPrimary" | "textSecondary"
+  | "inputBg"
+  | "footerBg" | "footerText"
+  | "accent";
 
-const DEFAULT_THEME: ThemeColors = {
-  pageBg: "#1a1a2e",
-  navBg: "#0f172a",
-  navText: "#94a3b8",
-  navActive: "#14b8a6",
-  headerBg: "#0f172a",
-  headerText: "#f8fafc",
-  cardBg: "#1e293b",
-  cardBorder: "#334155",
-  btnBg: "#14b8a6",
-  btnText: "#ffffff",
-  textPrimary: "#f1f5f9",
-  textSecondary: "#94a3b8",
-  inputBg: "#0f172a",
-  footerBg: "#0f172a",
-  footerText: "#64748b",
-  accent: "#14b8a6",
+type ElemId =
+  | "fundo" | "tipografia" | "paleta" | "botoes"
+  | "formularios" | "cartoes" | "cabecalho" | "rodape" | "navegacao";
+
+type Theme = Record<ThemeKey, string>;
+
+// ─── Defaults ─────────────────────────────────────────────────────────────────
+
+const DEFAULT: Theme = {
+  pageBg:        "#111827",
+  pageBgImage:   "",
+  pageBgOverlay: "rgba(0,0,0,0.5)",
+  headerBg:      "#0f172a", headerText:    "#f1f5f9",
+  navBg:         "#0f172a", navText:       "#94a3b8", navActive: "#059669",
+  cardBg:        "#1f2937", cardBorder:    "#374151",
+  btnBg:         "#059669", btnText:       "#ffffff",
+  textPrimary:   "#f1f5f9", textSecondary: "#9ca3af",
+  inputBg:       "#111827",
+  footerBg:      "#0f172a", footerText:    "#6b7280",
+  accent:        "#059669",
 };
 
-// ── Elements ──────────────────────────────────────────────────────────────────
-type ElemId = "pageBg"|"header"|"nav"|"cards"|"buttons"|"typography"|"input"|"footer"|"accent";
-
-interface Sub { key: keyof ThemeColors; label: string }
-interface ThemeElement { id: ElemId; label: string; icon: string; sub: Sub[] }
-
-const ELEMENTS: ThemeElement[] = [
-  { id:"pageBg",     label:"Fundo",        icon:"🖼️", sub:[{key:"pageBg",    label:"Cor do Fundo"}] },
-  { id:"header",     label:"Cabeçalho",    icon:"▬",  sub:[{key:"headerBg",  label:"Fundo"},{key:"headerText",label:"Texto"}] },
-  { id:"nav",        label:"Navegação",    icon:"☰",  sub:[{key:"navBg",     label:"Fundo"},{key:"navText",label:"Texto"},{key:"navActive",label:"Ativo"}] },
-  { id:"cards",      label:"Cartões",      icon:"🃏", sub:[{key:"cardBg",    label:"Fundo"},{key:"cardBorder",label:"Borda"}] },
-  { id:"buttons",    label:"Botões",       icon:"◼",  sub:[{key:"btnBg",     label:"Cor do Botão"},{key:"btnText",label:"Texto"}] },
-  { id:"typography", label:"Tipografia",   icon:"Aa", sub:[{key:"textPrimary",label:"Texto Principal"},{key:"textSecondary",label:"Secundário"}] },
-  { id:"input",      label:"Formulários",  icon:"⌨️", sub:[{key:"inputBg",   label:"Fundo dos Campos"}] },
-  { id:"footer",     label:"Rodapé",       icon:"—",  sub:[{key:"footerBg",  label:"Fundo"},{key:"footerText",label:"Texto"}] },
-  { id:"accent",     label:"Paleta Global",icon:"🎨", sub:[{key:"accent",    label:"Cor de Destaque"}] },
+// Preset background images
+const BG_PRESETS = [
+  { label:"Madeira escura",  url:"https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=400&fit=crop&q=70" },
+  { label:"Concreto",        url:"https://images.unsplash.com/photo-1604147706283-d7119b5b822c?w=800&h=400&fit=crop&q=70" },
+  { label:"Granito preto",   url:"https://images.unsplash.com/photo-1620021999568-74fe47e2b1bf?w=800&h=400&fit=crop&q=70" },
+  { label:"Restaurante",     url:"https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=400&fit=crop&q=70" },
+  { label:"Tijolos",         url:"https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=800&h=400&fit=crop&q=70" },
+  { label:"Mesa hambúrguer", url:"https://images.unsplash.com/photo-1550547660-d9450f859349?w=800&h=400&fit=crop&q=70" },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Color palette grid ───────────────────────────────────────────────────────
+
+const PALETTE: string[][] = [
+  ["#0d1117","#1e293b","#1f2937","#111827","#0f172a","#27272a"],
+  ["#065f46","#059669","#10b981","#34d399","#14b8a6","#0d9488"],
+  ["#1d4ed8","#3730a3","#7c3aed","#6d28d9","#9333ea","#a21caf"],
+  ["#991b1b","#dc2626","#ea580c","#f97316","#fb923c","#d97706"],
+  ["#be185d","#e11d48","#f43f5e","#fb7185","#f59e0b","#ca8a04"],
+  ["#f8fafc","#e2e8f0","#cbd5e1","#94a3b8","#64748b","#475569"],
+  ["#16a34a","#15803d","#0891b2","#2563eb","#4f46e5","#8b5cf6"],
+  ["#84cc16","#22c55e","#06b6d4","#3b82f6","#60a5fa","#c084fc"],
+];
+
+// ─── Elements ─────────────────────────────────────────────────────────────────
+
+const ELEMENTS: {
+  id: ElemId; label: string; icon: string;
+  keys: { k: ThemeKey; l: string }[];
+}[] = [
+  { id:"fundo",       label:"Fundo",         icon:"🖼️", keys:[{k:"pageBg",      l:"Cor do Fundo"},{k:"pageBgImage",l:"Imagem de Fundo"}] },
+  { id:"tipografia",  label:"Tipografia",    icon:"Aa", keys:[{k:"textPrimary", l:"Principal"},{k:"textSecondary",l:"Secundário"}] },
+  { id:"paleta",      label:"Paleta Global", icon:"🎨", keys:[{k:"accent",      l:"Destaque"},{k:"navActive",l:"Ativo"}] },
+  { id:"botoes",      label:"Botões",        icon:"◼",  keys:[{k:"btnBg",       l:"Cor do Botão"},{k:"btnText",l:"Texto"}] },
+  { id:"formularios", label:"Formulários",   icon:"⌨️", keys:[{k:"inputBg",    l:"Fundo do Campo"}] },
+  { id:"cartoes",     label:"Cartões",       icon:"🃏", keys:[{k:"cardBg",      l:"Fundo"},{k:"cardBorder",l:"Borda"}] },
+  { id:"cabecalho",   label:"Cabeçalho",     icon:"▬",  keys:[{k:"headerBg",   l:"Fundo"},{k:"headerText",l:"Texto"}] },
+  { id:"rodape",      label:"Rodapé",        icon:"—",  keys:[{k:"footerBg",   l:"Fundo"},{k:"footerText",l:"Texto"}] },
+  { id:"navegacao",   label:"Navegação",     icon:"☰",  keys:[{k:"navBg",      l:"Fundo"},{k:"navText",l:"Texto"}] },
+];
+
+// Which PDV zones each element controls (for highlight/dim logic)
+const TARGETS: Record<ElemId, string[]> = {
+  fundo:       ["bg"],
+  tipografia:  ["text"],
+  paleta:      ["accent","btn","nav-active"],
+  botoes:      ["btn"],
+  formularios: ["input"],
+  cartoes:     ["card"],
+  cabecalho:   ["header"],
+  rodape:      ["footer"],
+  navegacao:   ["nav"],
+};
+
+// ─── PDV mock data ────────────────────────────────────────────────────────────
+
+const PRODUCTS = [
+  { id:1, name:"Classic Smash Burger",  desc:"Blend 180g, queijo americano, alface", price:34.9, img:"https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=260&fit=crop&q=80" },
+  { id:2, name:"BBQ Bacon Double",      desc:"Duplo blend, bacon, molho BBQ defumado", price:44.9, img:"https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=400&h=260&fit=crop&q=80" },
+  { id:3, name:"Crispy Chicken",        desc:"Frango crocante, coleslaw, picles", price:36.9, img:"https://images.unsplash.com/photo-1513185158878-8d8c2a2a3da3?w=400&h=260&fit=crop&q=80" },
+  { id:4, name:"Truffle Gourmet",       desc:"Blend premium, molho trufado, emmental", price:52.9, img:"https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=400&h=260&fit=crop&q=80" },
+];
+const CATS = ["🍔 Hambúrgueres","🥤 Bebidas","🍟 Porções","🍰 Sobremesas"];
+
+// ─── Helper: is hex color light? ─────────────────────────────────────────────
+
 function isLight(hex: string) {
   const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
-  return (r*299+g*587+b*114)/1000>128;
-}
-function glowStyle(color: string, active: boolean): React.CSSProperties {
-  if (!active) return {};
-  return { boxShadow:`0 0 0 2.5px ${color}, 0 0 22px ${color}99`, borderRadius:8, zIndex:10, position:"relative" };
+  return (r*299+g*587+b*114)/1000 > 128;
 }
 
-// ── Products mock ─────────────────────────────────────────────────────────────
-const PRODUCTS = [
-  { id:1, name:"Classic Smash Burger",  desc:"Blend 180g, queijo americano, alface",     price:32.9, img:"https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=200&fit=crop&q=80" },
-  { id:2, name:"BBQ Bacon Double",      desc:"Duplo blend, bacon, molho BBQ defumado",    price:44.9, img:"https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=300&h=200&fit=crop&q=80" },
-  { id:3, name:"Crispy Chicken",        desc:"Frango crocante, coleslaw, picles",         price:36.9, img:"https://images.unsplash.com/photo-1513185158878-8d8c2a2a3da3?w=300&h=200&fit=crop&q=80" },
-  { id:4, name:"Veggie Mushroom",       desc:"Blend vegetal, cogumelo grelhado, rúcula",  price:38.9, img:"https://images.unsplash.com/photo-1550317138-10000687a72b?w=300&h=200&fit=crop&q=80" },
-  { id:5, name:"Truffle Gourmet",       desc:"Blend premium, molho trufado, emmental",    price:52.9, img:"https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=300&h=200&fit=crop&q=80" },
-  { id:6, name:"Hot Jalapeño",          desc:"Blend picante, jalapeño, cream cheese",     price:39.9, img:"https://images.unsplash.com/photo-1561050488-b2a8cc2b1bae?w=300&h=200&fit=crop&q=80" },
-];
-const CATS = ["🍔 Hambúrgueres","🥤 Bebidas","🍟 Porções","🍰 Sobremesas","🍕 Entradas"];
+// Is a PDV zone targeted by the active element?
+function isTargeted(zones: string[], activeEl: ElemId|null) {
+  if (!activeEl) return false;
+  return zones.some(z => TARGETS[activeEl].includes(z));
+}
 
-// ── PDV Preview ───────────────────────────────────────────────────────────────
-function PdvPreview({ theme, activeEl }: { theme: ThemeColors; activeEl: ElemId|null }) {
-  const [activeCat, setActiveCat] = useState(0);
-  const is = (el: ElemId) => activeEl === el;
-  const hasOverlay = activeEl !== null;
-  const glow = (el: ElemId) => glowStyle(theme.accent, is(el));
+// ─── Color Picker Panel ───────────────────────────────────────────────────────
+
+function ColorPanel({
+  element, theme, onPick,
+}: {
+  element: (typeof ELEMENTS)[number];
+  theme: Theme;
+  onPick: (key: ThemeKey, color: string) => void;
+}) {
+  const [subKey, setSubKey] = useState<ThemeKey>(element.keys[0].k);
+  const [urlInput, setUrlInput] = useState(theme.pageBgImage || "");
+
+  useEffect(() => setSubKey(element.keys[0].k), [element.id]);
+  useEffect(() => setUrlInput(theme.pageBgImage || ""), [theme.pageBgImage]);
+
+  const isImageTab = subKey === "pageBgImage";
+  const current = theme[subKey] ?? "";
+
+  // Parse overlay opacity from rgba string for the slider
+  const overlayOpacity = (() => {
+    const m = theme.pageBgOverlay?.match(/rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*([\d.]+)\s*\)/);
+    return m ? parseFloat(m[1]) : 0.5;
+  })();
 
   return (
-    <div style={{ background:theme.pageBg, borderRadius:12, overflow:"hidden", height:"100%",
-      display:"flex", flexDirection:"column", position:"relative", minHeight:540,
-      border:`1px solid ${theme.cardBorder}`, ...glow("pageBg") }}>
-
-      {/* dim overlay */}
-      {hasOverlay && (
-        <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.58)",
-          zIndex:5, pointerEvents:"none", borderRadius:12 }} />
-      )}
-
-      {/* Header */}
-      <div style={{ background:theme.headerBg, padding:"0 16px", height:52,
-        display:"flex", alignItems:"center", gap:12,
-        borderBottom:`1px solid ${theme.cardBorder}`, flexShrink:0,
-        ...(is("header") ? { zIndex:10, position:"relative",
-          boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-        <div style={{ flex:1, background:theme.inputBg, border:`1px solid ${theme.cardBorder}`,
-          borderRadius:8, height:34, display:"flex", alignItems:"center", paddingLeft:12, gap:8,
-          ...(is("input") ? { zIndex:10, position:"relative",
-            boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-          <span style={{ color:theme.textSecondary, fontSize:12 }}>🔍</span>
-          <span style={{ color:theme.textSecondary, fontSize:11 }}>Buscar produto ou bipar código...</span>
+    <div className="overflow-hidden">
+      <div
+        className="border-t border-slate-700/60 bg-slate-950/80"
+        style={{ animation: "slideDown 0.18s ease" }}
+      >
+        {/* element label */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/20 border-b border-slate-700/40">
+          <span className="text-base">{element.icon}</span>
+          <span className="text-xs font-bold text-emerald-400">{element.label}</span>
         </div>
-        <span style={{ color:theme.headerText, fontSize:12, fontWeight:600,
-          ...(is("typography") ? { textShadow:`0 0 10px ${theme.accent}` } : {}) }}>
-          Caixa #1
-        </span>
-        <div style={{ width:30, height:30, borderRadius:6, background:theme.btnBg,
-          display:"flex", alignItems:"center", justifyContent:"center", fontSize:14,
-          ...(is("buttons") ? { zIndex:10, position:"relative",
-            boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-          👤
-        </div>
-      </div>
 
-      {/* Body */}
-      <div style={{ display:"flex", flex:1, overflow:"hidden" }}>
-        {/* Nav */}
-        <div style={{ width:130, background:theme.navBg, borderRight:`1px solid ${theme.cardBorder}`,
-          flexShrink:0, display:"flex", flexDirection:"column", padding:"8px 0",
-          ...(is("nav") ? { zIndex:10, position:"relative",
-            boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-          {CATS.map((cat,i) => (
-            <button key={cat} onClick={() => setActiveCat(i)} style={{
-              display:"flex", alignItems:"center", gap:8, padding:"9px 12px",
-              border:"none", background: i===activeCat ? `${theme.navActive}22` : "transparent",
-              borderLeft: i===activeCat ? `3px solid ${theme.navActive}` : "3px solid transparent",
-              color: i===activeCat ? theme.navActive : theme.navText,
-              fontSize:11, cursor:"pointer", textAlign:"left",
-              fontWeight: i===activeCat ? 600 : 400 }}>
-              {cat}
-            </button>
-          ))}
-          <div style={{ flex:1 }} />
-          <div style={{ padding:"8px 10px", borderTop:`1px solid ${theme.cardBorder}` }}>
-            <div style={{ background:theme.btnBg, borderRadius:8, padding:"7px 8px", textAlign:"center",
-              ...(is("buttons") ? { zIndex:10, position:"relative",
-                boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-              <div style={{ color:theme.btnText, fontSize:9, fontWeight:700 }}>🛒 CARRINHO</div>
-              <div style={{ color:theme.btnText, fontSize:13, fontWeight:800, marginTop:2 }}>R$ 76,80</div>
-            </div>
+        {/* sub-key tabs */}
+        {element.keys.length > 1 && (
+          <div className="flex gap-2 px-3 pt-2">
+            {element.keys.map(sk => {
+              const isImg = sk.k === "pageBgImage";
+              const hasImg = isImg && !!theme.pageBgImage;
+              return (
+                <button
+                  key={sk.k}
+                  onClick={() => setSubKey(sk.k)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] border transition-all ${
+                    subKey === sk.k
+                      ? "border-orange-500 bg-orange-900/30 text-orange-300 font-bold"
+                      : "border-slate-700 bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {isImg ? (
+                    <span className="text-xs">{hasImg ? "🖼️" : "📁"}</span>
+                  ) : (
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                      style={{ background: theme[sk.k] }}
+                    />
+                  )}
+                  {sk.l}
+                  {hasImg && <span className="ml-0.5 text-emerald-400 font-bold">✓</span>}
+                </button>
+              );
+            })}
           </div>
-        </div>
+        )}
 
-        {/* Grid */}
-        <div style={{ flex:1, overflowY:"auto", padding:10 }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            {PRODUCTS.map(prod => (
-              <div key={prod.id} style={{ background:theme.cardBg, border:`1px solid ${theme.cardBorder}`,
-                borderRadius:10, overflow:"hidden",
-                ...(is("cards") ? { zIndex:10, position:"relative",
-                  boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-                <div style={{ height:80, overflow:"hidden" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={prod.img} alt={prod.name}
-                    style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                </div>
-                <div style={{ padding:"7px 8px" }}>
-                  <div style={{ color:theme.textPrimary, fontSize:10, fontWeight:700, marginBottom:1,
-                    ...(is("typography") ? { textShadow:`0 0 8px ${theme.accent}` } : {}) }}>
-                    {prod.name}
-                  </div>
-                  <div style={{ color:theme.textSecondary, fontSize:9, marginBottom:6, lineHeight:1.3,
-                    ...(is("typography") ? { textShadow:`0 0 8px ${theme.accent}` } : {}) }}>
-                    {prod.desc}
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <span style={{ color:theme.navActive, fontSize:12, fontWeight:800 }}>
-                      R$ {prod.price.toFixed(2).replace(".",",")}
-                    </span>
-                    <button style={{ background:theme.btnBg, color:theme.btnText, border:"none",
-                      borderRadius:6, padding:"4px 8px", fontSize:10, fontWeight:700, cursor:"pointer",
-                      ...(is("buttons") ? { zIndex:10, position:"relative",
-                        boxShadow:`0 0 0 2px ${theme.accent}, 0 0 14px ${theme.accent}99` } : {}) }}>
-                      + Adicionar
+        {/* ── IMAGE TAB ── */}
+        {isImageTab ? (
+          <div className="px-3 py-2 space-y-3">
+            {/* URL input */}
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1 block font-medium">URL da imagem</label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={e => setUrlInput(e.target.value)}
+                  onBlur={() => onPick("pageBgImage", urlInput.trim())}
+                  onKeyDown={e => { if (e.key==="Enter") onPick("pageBgImage", urlInput.trim()); }}
+                  placeholder="https://... ou deixe vazio para sem imagem"
+                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-orange-500"
+                />
+                {urlInput && (
+                  <button
+                    onClick={() => { setUrlInput(""); onPick("pageBgImage", ""); }}
+                    className="px-2 py-1 rounded-lg bg-red-900/40 border border-red-800 text-red-400 text-[10px] hover:bg-red-900/70 transition"
+                    title="Remover imagem"
+                  >✕</button>
+                )}
+              </div>
+            </div>
+
+            {/* Preset gallery */}
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1.5 block font-medium">Ou escolha um fundo pronto:</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {BG_PRESETS.map(preset => {
+                  const active = theme.pageBgImage === preset.url;
+                  return (
+                    <button
+                      key={preset.url}
+                      onClick={() => { onPick("pageBgImage", preset.url); setUrlInput(preset.url); }}
+                      title={preset.label}
+                      className={`relative h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                        active ? "border-orange-400 scale-[1.04]" : "border-slate-700 hover:border-slate-500"
+                      }`}
+                      style={{
+                        backgroundImage: `url(${preset.url})`,
+                        backgroundSize: "cover", backgroundPosition: "center",
+                      }}
+                    >
+                      {active && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Check size={16} color="#fff" strokeWidth={3} />
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] text-slate-300 text-center py-0.5">
+                        {preset.label}
+                      </div>
                     </button>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Overlay opacity slider (only when image is set) */}
+            {theme.pageBgImage && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] text-slate-400 font-medium">Escurecimento da imagem</label>
+                  <span className="text-[10px] text-orange-400 font-mono">
+                    {Math.round(overlayOpacity * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range" min={0} max={0.95} step={0.05}
+                  value={overlayOpacity}
+                  onChange={e => onPick("pageBgOverlay", `rgba(0,0,0,${e.target.value})`)}
+                  className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #374151 0%, #000 ${overlayOpacity * 100}%, #374151 ${overlayOpacity * 100}%)`,
+                  }}
+                />
+                <div className="flex justify-between text-[9px] text-slate-600 mt-0.5">
+                  <span>Sem escurecimento</span>
+                  <span>Muito escuro</span>
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      </div>
+        ) : (
+          <>
+            {/* current color row */}
+            <div className="flex items-center gap-3 px-3 py-2">
+              <span
+                className="w-8 h-8 rounded-lg border-2 border-white/10 shrink-0"
+                style={{ background: current }}
+              />
+              <div>
+                <div className="text-xs font-semibold text-slate-200">
+                  {element.keys.find(sk => sk.k === subKey)?.l ?? "Cor"}
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">{current.toUpperCase()}</div>
+              </div>
+              <input
+                type="color"
+                value={current.startsWith("#") ? current : "#111827"}
+                onChange={e => onPick(subKey, e.target.value)}
+                className="ml-auto w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                title="Cor personalizada"
+              />
+            </div>
 
-      {/* Footer */}
-      <div style={{ background:theme.footerBg, borderTop:`1px solid ${theme.cardBorder}`,
-        padding:"7px 16px", display:"flex", alignItems:"center", justifyContent:"space-between",
-        flexShrink:0,
-        ...(is("footer") ? { zIndex:10, position:"relative",
-          boxShadow:`0 0 0 2.5px ${theme.accent}, 0 0 22px ${theme.accent}99` } : {}) }}>
-        <span style={{ color:theme.footerText, fontSize:10 }}>
-          🕐 {new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-        </span>
-        <span style={{ color:theme.footerText, fontSize:10 }}>PDV v2.1</span>
-        <span style={{ color:theme.footerText, fontSize:10 }}>✅ Online</span>
+            {/* Color grid */}
+            <div className="px-2.5 pb-3">
+              {PALETTE.map((row, ri) => (
+                <div key={ri} className="flex gap-1 mb-1">
+                  {row.map(color => {
+                    const sel = current.toLowerCase() === color.toLowerCase();
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => onPick(subKey, color)}
+                        title={color}
+                        className={`w-7 h-7 rounded-md flex items-center justify-center transition-transform ${
+                          sel ? "scale-125 ring-2 ring-orange-400" : "hover:scale-110"
+                        }`}
+                        style={{ background: color, border: "1.5px solid rgba(255,255,255,0.08)" }}
+                      >
+                        {sel && <Check size={11} color={isLight(color)?"#000":"#fff"} strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Color Swatch ──────────────────────────────────────────────────────────────
-function Swatch({ color, selected, onClick }: { color:string; selected:boolean; onClick:()=>void }) {
+// ─── Left Sidebar ─────────────────────────────────────────────────────────────
+
+function Sidebar({
+  theme, activeEl, onSelect, onPick, onReset, onSave, saved,
+}: {
+  theme: Theme;
+  activeEl: ElemId | null;
+  onSelect: (id: ElemId | null) => void;
+  onPick: (key: ThemeKey, color: string) => void;
+  onReset: () => void;
+  onSave: () => void;
+  saved: boolean;
+}) {
   return (
-    <button onClick={onClick} title={color} style={{
-      width:28, height:28, borderRadius:6, background:color,
-      border: selected ? "2.5px solid #f97316" : "1.5px solid rgba(255,255,255,0.08)",
-      cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-      flexShrink:0, transform: selected ? "scale(1.2)" : "scale(1)",
-      transition:"transform 0.1s",
-    }}>
-      {selected && <Check size={12} color={isLight(color)?"#000":"#fff"} />}
-    </button>
+    <div className="w-[290px] shrink-0 bg-[#0e0e10] border-r border-slate-800 flex flex-col h-full">
+
+      {/* Top bar */}
+      <div className="flex items-center gap-2 px-3 py-3 border-b border-slate-800 shrink-0">
+        <Link href="/super-admin/dashboard"
+          className="text-slate-500 hover:text-slate-300 transition">
+          <ChevronLeft size={16} />
+        </Link>
+        <div>
+          <div className="text-xs font-bold text-slate-100">Editor de Tema PDV</div>
+          <div className="text-[10px] text-slate-500">Clique num bloco → escolha a cor</div>
+        </div>
+      </div>
+
+      {/* Fake tabs */}
+      <div className="flex border-b border-slate-800 shrink-0">
+        {["Adicionar","Conteúdo","Tema"].map((t,i) => (
+          <button key={t} className={`flex-1 py-2 text-[11px] font-medium transition border-b-2 ${
+            i===2 ? "text-orange-400 border-orange-500" : "text-slate-500 border-transparent"
+          }`}>{t}</button>
+        ))}
+      </div>
+
+      {/* Section header */}
+      <div className="flex items-center justify-between px-3 py-2 shrink-0">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+          Atributos de Tema
+        </span>
+        <button onClick={onReset}
+          className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition">
+          <RotateCcw size={10} /> Resetar
+        </button>
+      </div>
+
+      {/* Element grid + picker — scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+        <div className="grid grid-cols-2 gap-2 px-2.5 py-2">
+          {ELEMENTS.map(el => {
+            const sel = activeEl === el.id;
+            return (
+              <button
+                key={el.id}
+                onClick={() => onSelect(sel ? null : el.id)}
+                className={`w-full rounded-xl border p-2.5 transition-all duration-150 flex flex-col items-start gap-1.5 ${
+                  sel
+                    ? "border-orange-500 bg-orange-950/40"
+                    : "border-slate-700/60 bg-slate-900/60 hover:border-slate-600"
+                }`}
+              >
+                <div className="flex items-center w-full">
+                  <span className="text-[15px]">{el.icon}</span>
+                  <div className="ml-auto flex gap-1">
+                    {el.keys.map(sk => (
+                      <span key={sk.k}
+                        className="w-3 h-3 rounded-full border border-white/15"
+                        style={{ background: theme[sk.k] }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <span className={`text-[11px] font-medium ${sel ? "text-orange-300" : "text-slate-300"}`}>
+                  {el.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Color picker — full-width, below the grid, when element is selected */}
+        {activeEl && (() => {
+          const el = ELEMENTS.find(e => e.id === activeEl);
+          return el ? <ColorPanel element={el} theme={theme} onPick={onPick} /> : null;
+        })()}
+      </div>
+
+      {/* Save / Reset */}
+      <div className="flex gap-2 p-2.5 border-t border-slate-800 shrink-0">
+        <button
+          onClick={onReset}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 transition"
+        >
+          <RotateCcw size={12} /> Resetar
+        </button>
+        <button
+          onClick={onSave}
+          className={`flex-[2] flex items-center justify-center gap-1.5 py-2 rounded-xl text-white text-xs font-bold transition-all ${
+            saved ? "bg-green-600" : "bg-orange-500 hover:bg-orange-400"
+          }`}
+        >
+          {saved ? <><Check size={12} /> Salvo!</> : <><Save size={12} /> Salvar Tema</>}
+        </button>
+      </div>
+    </div>
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-export default function ThemeEditorPage() {
-  const [theme, setTheme] = useState<ThemeColors>(() => {
-    if (typeof window==="undefined") return DEFAULT_THEME;
-    try { const s=localStorage.getItem("sa_pdv_theme"); if(s) return {...DEFAULT_THEME,...JSON.parse(s)}; } catch{/**/}
-    return DEFAULT_THEME;
-  });
-  const [activeEl, setActiveEl] = useState<ElemId|null>(null);
-  const [activeSubKey, setActiveSubKey] = useState<keyof ThemeColors|null>(null);
-  const [saved, setSaved] = useState(false);
+// ─── PDV Preview ──────────────────────────────────────────────────────────────
 
-  const activeElement = ELEMENTS.find(e => e.id === activeEl);
-  const currentColor = activeSubKey ? theme[activeSubKey] : "#14b8a6";
+function PdvPreview({ theme, activeEl }: { theme: Theme; activeEl: ElemId | null }) {
+  const [activeCat, setActiveCat] = useState(0);
+  const hasOverlay = activeEl !== null;
 
-  function clickEl(el: ThemeElement) {
-    if (activeEl===el.id) { setActiveEl(null); setActiveSubKey(null); }
-    else { setActiveEl(el.id); setActiveSubKey(el.sub[0].key); }
+  // Returns extra classes+styles for a zone
+  function zoneProps(zones: string[]) {
+    if (!hasOverlay) return { className: "", style: {} };
+    if (isTargeted(zones, activeEl)) {
+      return {
+        className: "relative z-[10] transition-all duration-200",
+        style: {
+          boxShadow: `0 0 0 2px ${theme.accent}, 0 0 20px ${theme.accent}88`,
+          borderRadius: 8,
+        } as React.CSSProperties,
+      };
+    }
+    return { className: "", style: {} };
   }
-  function pickColor(color: string) {
-    if (!activeSubKey) return;
-    setTheme(prev => ({...prev, [activeSubKey]: color}));
-  }
-  function reset() { setTheme(DEFAULT_THEME); setActiveEl(null); setActiveSubKey(null); }
-  function save() {
-    localStorage.setItem("sa_pdv_theme", JSON.stringify(theme));
-    setSaved(true); setTimeout(()=>setSaved(false),2000);
-  }
+
+  const hasBgImage = !!theme.pageBgImage;
 
   return (
-    <div style={{ display:"flex", height:"100vh", background:"#0a0a0b",
-      color:"#f1f5f9", fontFamily:"'Inter',system-ui,sans-serif" }}>
+    <div
+      className="rounded-xl overflow-hidden flex flex-col h-full relative"
+      style={{
+        background: hasBgImage
+          ? `url(${theme.pageBgImage}) center/cover no-repeat`
+          : theme.pageBg,
+        border: `1px solid ${theme.cardBorder}`,
+        minHeight: 500,
+      }}
+    >
+      {/* Background image overlay (darkening layer) */}
+      {hasBgImage && (
+        <div
+          className="absolute inset-0 pointer-events-none z-[1]"
+          style={{ background: theme.pageBgOverlay ?? "rgba(0,0,0,0.5)" }}
+        />
+      )}
 
-      {/* ── Sidebar ── */}
-      <div style={{ width:300, background:"#111113", borderRight:"1px solid #1e293b",
-        display:"flex", flexDirection:"column", flexShrink:0 }}>
+      {/* Editor focus overlay */}
+      {hasOverlay && (
+        <div className="absolute inset-0 bg-black/55 z-[5] pointer-events-none rounded-xl transition-all duration-300" />
+      )}
 
-        {/* Header */}
-        <div style={{ padding:"12px 14px", borderBottom:"1px solid #1e293b",
-          display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <Link href="/super-admin/dashboard"
-            style={{ color:"#64748b", display:"flex", alignItems:"center", textDecoration:"none" }}>
-            <ChevronLeft size={16} />
-          </Link>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#f8fafc" }}>Editor de Tema PDV</div>
-            <div style={{ fontSize:10, color:"#64748b" }}>Clique num elemento, escolha a cor</div>
-          </div>
-          <Layers size={14} style={{ color:"#475569" }} />
-        </div>
+      {/* All content sits above the image overlay (z-2) */}
+      <div className="relative z-[2] flex flex-col flex-1 min-h-0">
 
-        {/* Tabs */}
-        <div style={{ display:"flex", borderBottom:"1px solid #1e293b", flexShrink:0 }}>
-          {["Adicionar","Conteúdo","Tema"].map((t,i) => (
-            <button key={t} style={{ flex:1, padding:"9px 0", background:"transparent", border:"none",
-              color: i===2?"#f97316":"#64748b", fontSize:11, fontWeight:i===2?700:400, cursor:"pointer",
-              borderBottom: i===2?"2px solid #f97316":"2px solid transparent" }}>{t}</button>
-          ))}
-        </div>
-
-        {/* Section title */}
-        <div style={{ padding:"10px 14px 6px", display:"flex", alignItems:"center",
-          justifyContent:"space-between", flexShrink:0 }}>
-          <span style={{ fontSize:10, fontWeight:700, color:"#64748b",
-            textTransform:"uppercase", letterSpacing:1 }}>Atributos de Tema</span>
-          <button onClick={reset} style={{ background:"none", border:"none",
-            color:"#475569", cursor:"pointer", fontSize:10,
-            display:"flex", alignItems:"center", gap:4 }}>
-            <RotateCcw size={10} /> Resetar
-          </button>
-        </div>
-
-        {/* Element grid — scrollable middle section */}
-        <div style={{ flex:1, overflowY:"auto", padding:"0 10px 8px" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
-            {ELEMENTS.map(el => {
-              const sel = activeEl===el.id;
+      {/* Header */}
+      {(() => {
+        const { className, style } = zoneProps(["header"]);
+        return (
+          <div
+            className={`flex items-center gap-3 px-4 h-12 shrink-0 ${className}`}
+            style={{ background: theme.headerBg, borderBottom: `1px solid ${theme.cardBorder}`, ...style }}
+          >
+            {/* Search */}
+            {(() => {
+              const inp = zoneProps(["input"]);
               return (
-                <button key={el.id} onClick={() => clickEl(el)} style={{
-                  background: sel ? "rgba(249,115,22,0.12)" : "#1a1a2e",
-                  border: sel ? "1.5px solid #f97316" : "1.5px solid #1e293b",
-                  borderRadius:9, padding:"9px 9px", cursor:"pointer",
-                  display:"flex", flexDirection:"column", alignItems:"flex-start",
-                  gap:5, transition:"all 0.12s",
-                }}>
-                  <div style={{ display:"flex", alignItems:"center", width:"100%" }}>
-                    <span style={{ fontSize:14 }}>{el.icon}</span>
-                    <div style={{ marginLeft:"auto", display:"flex", gap:3 }}>
-                      {el.sub.map(s => (
-                        <div key={s.key} style={{ width:10, height:10, borderRadius:"50%",
-                          background:theme[s.key], border:"1px solid rgba(255,255,255,0.15)" }} />
-                      ))}
+                <div
+                  className={`flex-1 h-8 rounded-lg flex items-center gap-2 px-3 ${inp.className}`}
+                  style={{ background: theme.inputBg, border: `1px solid ${theme.cardBorder}`, ...inp.style }}
+                >
+                  <span style={{ color: theme.textSecondary, fontSize: 11 }}>🔍</span>
+                  <span className="text-[11px]" style={{ color: theme.textSecondary }}>
+                    Buscar produto...
+                  </span>
+                </div>
+              );
+            })()}
+            <span className="text-xs font-semibold" style={{ color: theme.headerText }}>
+              Caixa #1
+            </span>
+            {/* Mini btn */}
+            {(() => {
+              const btn = zoneProps(["btn"]);
+              return (
+                <div
+                  className={`w-7 h-7 rounded-md flex items-center justify-center text-sm ${btn.className}`}
+                  style={{ background: theme.btnBg, ...btn.style }}
+                >
+                  👤
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Nav sidebar */}
+        {(() => {
+          const { className, style } = zoneProps(["nav"]);
+          return (
+            <div
+              className={`w-32 shrink-0 flex flex-col py-2 ${className}`}
+              style={{ background: theme.navBg, borderRight: `1px solid ${theme.cardBorder}`, ...style }}
+            >
+              {CATS.map((cat, i) => {
+                const navActive = zoneProps(["nav-active","btn"]);
+                const isAct = i === activeCat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCat(i)}
+                    className={`text-left text-[10px] px-3 py-2 border-l-[3px] transition-colors ${
+                      isAct ? `${navActive.className}` : ""
+                    }`}
+                    style={{
+                      background: isAct ? `${theme.navActive}22` : "transparent",
+                      borderLeftColor: isAct ? theme.navActive : "transparent",
+                      color: isAct ? theme.navActive : theme.navText,
+                      fontWeight: isAct ? 700 : 400,
+                      ...(isAct ? navActive.style : {}),
+                    }}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+
+              {/* Cart */}
+              {(() => {
+                const btn = zoneProps(["btn"]);
+                return (
+                  <div className="mt-auto mx-2 mb-2">
+                    <div
+                      className={`rounded-lg p-2 text-center ${btn.className}`}
+                      style={{ background: theme.btnBg, ...btn.style }}
+                    >
+                      <div className="text-[9px] font-bold" style={{ color: theme.btnText }}>🛒 CARRINHO</div>
+                      <div className="text-xs font-black" style={{ color: theme.btnText }}>R$ 76,80</div>
                     </div>
                   </div>
-                  <span style={{ fontSize:11, fontWeight:sel?700:500,
-                    color:sel?"#fb923c":"#cbd5e1" }}>{el.label}</span>
-                </button>
+                );
+              })()}
+            </div>
+          );
+        })()}
+
+        {/* Product grid */}
+        <div className="flex-1 overflow-y-auto p-2.5">
+          {/* Backdrop background zone */}
+          {activeEl === "fundo" && (
+            <div
+              className="absolute inset-0 z-[10] rounded-xl pointer-events-none"
+              style={{
+                boxShadow: `inset 0 0 0 3px ${theme.accent}, inset 0 0 30px ${theme.accent}44`,
+                borderRadius: 12,
+              }}
+            />
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {PRODUCTS.map(prod => {
+              const card = zoneProps(["card"]);
+              return (
+                <div
+                  key={prod.id}
+                  className={`rounded-xl overflow-hidden transition-all duration-200 ${card.className}`}
+                  style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}`, ...card.style }}
+                >
+                  <div className="h-[80px] overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={prod.img} alt={prod.name}
+                      className="w-full h-full object-cover" />
+                  </div>
+                  <div className="p-2">
+                    {(() => {
+                      const txt = zoneProps(["text"]);
+                      return (
+                        <>
+                          <div
+                            className={`text-[10px] font-bold mb-0.5 ${txt.className}`}
+                            style={{ color: theme.textPrimary, ...txt.style }}
+                          >
+                            {prod.name}
+                          </div>
+                          <div
+                            className={`text-[9px] mb-1.5 leading-tight ${txt.className}`}
+                            style={{ color: theme.textSecondary, ...txt.style }}
+                          >
+                            {prod.desc}
+                          </div>
+                        </>
+                      );
+                    })()}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black" style={{ color: theme.navActive }}>
+                        R$ {prod.price.toFixed(2).replace(".",",")}
+                      </span>
+                      {(() => {
+                        const btn = zoneProps(["btn"]);
+                        return (
+                          <button
+                            className={`text-[10px] font-bold px-2 py-1 rounded-md transition-all duration-200 ${btn.className}`}
+                            style={{ background: theme.btnBg, color: theme.btnText, ...btn.style }}
+                          >
+                            + Adicionar
+                          </button>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
         </div>
-
-        {/* ── Color picker — fixed at bottom ── */}
-        <div style={{ flexShrink:0, borderTop:"1px solid #1e293b",
-          background:"#0d0d0f", padding: activeElement ? "0" : "0" }}>
-
-          {activeElement ? (
-            <div>
-              {/* Element name */}
-              <div style={{ padding:"8px 14px 6px",
-                background:"rgba(249,115,22,0.07)", borderBottom:"1px solid #1e293b",
-                display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:14 }}>{activeElement.icon}</span>
-                <span style={{ fontSize:12, fontWeight:700, color:"#fb923c" }}>{activeElement.label}</span>
-                <button onClick={()=>{setActiveEl(null);setActiveSubKey(null);}}
-                  style={{ marginLeft:"auto", background:"none", border:"none",
-                    color:"#475569", cursor:"pointer", fontSize:18, lineHeight:1 }}>×</button>
-              </div>
-
-              {/* Sub-color tabs */}
-              {activeElement.sub.length > 1 && (
-                <div style={{ display:"flex", gap:5, padding:"7px 10px",
-                  borderBottom:"1px solid #1e293b", flexWrap:"wrap" }}>
-                  {activeElement.sub.map(s => {
-                    const isSub = activeSubKey===s.key;
-                    return (
-                      <button key={s.key} onClick={()=>setActiveSubKey(s.key)} style={{
-                        display:"flex", alignItems:"center", gap:5, padding:"4px 8px",
-                        borderRadius:6, border: isSub?"1px solid #f97316":"1px solid #334155",
-                        background: isSub?"rgba(249,115,22,0.15)":"#1e293b",
-                        color: isSub?"#fb923c":"#94a3b8", fontSize:10, cursor:"pointer" }}>
-                        <div style={{ width:9, height:9, borderRadius:"50%",
-                          background:theme[s.key], border:"1px solid rgba(255,255,255,0.2)" }} />
-                        {s.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Current color row */}
-              <div style={{ display:"flex", alignItems:"center", gap:10,
-                padding:"7px 12px", borderBottom:"1px solid #1e293b" }}>
-                <div style={{ width:32, height:32, borderRadius:7, background:currentColor,
-                  border:"2px solid rgba(255,255,255,0.1)", flexShrink:0 }} />
-                <div>
-                  <div style={{ color:"#f1f5f9", fontSize:11, fontWeight:700 }}>
-                    {activeElement.sub.find(s=>s.key===activeSubKey)?.label ?? "Cor"}
-                  </div>
-                  <div style={{ color:"#64748b", fontSize:10 }}>{currentColor.toUpperCase()}</div>
-                </div>
-                <input type="color" value={currentColor}
-                  onChange={e=>pickColor(e.target.value)}
-                  style={{ marginLeft:"auto", width:32, height:32, border:"none",
-                    borderRadius:6, cursor:"pointer", background:"transparent" }}
-                  title="Cor personalizada" />
-              </div>
-
-              {/* Color grid */}
-              <div style={{ padding:"8px 10px 6px" }}>
-                {PALETTE_ROWS.map((row,ri) => (
-                  <div key={ri} style={{ display:"flex", gap:4, marginBottom:4 }}>
-                    {row.map(color => (
-                      <Swatch key={color} color={color}
-                        selected={currentColor.toLowerCase()===color.toLowerCase()}
-                        onClick={()=>pickColor(color)} />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding:"16px 14px", textAlign:"center" }}>
-              <div style={{ fontSize:24, marginBottom:6 }}>👆</div>
-              <div style={{ color:"#475569", fontSize:11 }}>
-                Clique num elemento acima<br/>para ver as opções de cor
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Save / Reset buttons */}
-        <div style={{ padding:"10px 10px", display:"flex", gap:7,
-          borderTop:"1px solid #1e293b", flexShrink:0 }}>
-          <button onClick={reset} style={{ flex:1, display:"flex", alignItems:"center",
-            justifyContent:"center", gap:5, padding:"9px 0",
-            background:"#1e293b", border:"1px solid #334155",
-            borderRadius:9, color:"#94a3b8", fontSize:11, cursor:"pointer" }}>
-            <RotateCcw size={12} /> Resetar
-          </button>
-          <button onClick={save} style={{ flex:2, display:"flex", alignItems:"center",
-            justifyContent:"center", gap:5, padding:"9px 0",
-            background: saved?"#16a34a":"#f97316", border:"none",
-            borderRadius:9, color:"#fff", fontSize:11, fontWeight:700,
-            cursor:"pointer", transition:"background 0.2s" }}>
-            {saved ? <><Check size={12}/>Salvo!</> : <><Save size={12}/>Salvar Tema</>}
-          </button>
-        </div>
       </div>
 
-      {/* ── Preview ── */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        {/* Top bar */}
-        <div style={{ height:48, background:"#111113", borderBottom:"1px solid #1e293b",
-          display:"flex", alignItems:"center", padding:"0 18px", gap:14, flexShrink:0 }}>
-          <span style={{ fontSize:13, fontWeight:700, color:"#f8fafc" }}>Visualização ao Vivo</span>
+      {/* Footer */}
+      {(() => {
+        const { className, style } = zoneProps(["footer"]);
+        return (
+          <div
+            className={`flex items-center justify-between px-4 py-2 shrink-0 ${className}`}
+            style={{ background: theme.footerBg, borderTop: `1px solid ${theme.cardBorder}`, ...style }}
+          >
+            <span className="text-[10px]" style={{ color: theme.footerText }}>
+              🕐 {new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+            </span>
+            <span className="text-[10px]" style={{ color: theme.footerText }}>PDV v2</span>
+            <span className="text-[10px]" style={{ color: theme.footerText }}>✅ Online</span>
+          </div>
+        );
+      })()}
+
+      </div>{/* end z-[2] content wrapper */}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function ThemeEditorPage() {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return DEFAULT;
+    try {
+      const s = localStorage.getItem("sa_pdv_theme");
+      return s ? { ...DEFAULT, ...JSON.parse(s) } : DEFAULT;
+    } catch { return DEFAULT; }
+  });
+
+  const [activeEl, setActiveEl] = useState<ElemId | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  function pickColor(key: ThemeKey, color: string) {
+    setTheme(prev => ({ ...prev, [key]: color }));
+  }
+
+  function reset() {
+    setTheme(DEFAULT);
+    setActiveEl(null);
+  }
+
+  function save() {
+    localStorage.setItem("sa_pdv_theme", JSON.stringify(theme));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="flex h-screen bg-[#0a0a0b] text-slate-100 font-sans overflow-hidden">
+      <Sidebar
+        theme={theme}
+        activeEl={activeEl}
+        onSelect={setActiveEl}
+        onPick={pickColor}
+        onReset={reset}
+        onSave={save}
+        saved={saved}
+      />
+
+      {/* Right preview area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Preview topbar */}
+        <div className="h-11 flex items-center gap-3 px-5 bg-[#111113] border-b border-slate-800 shrink-0">
+          <span className="text-sm font-bold text-slate-100">Visualização ao Vivo</span>
           {activeEl && (
-            <div style={{ display:"flex", alignItems:"center", gap:6,
-              background:"rgba(249,115,22,0.15)", border:"1px solid rgba(249,115,22,0.4)",
-              borderRadius:20, padding:"3px 10px", fontSize:11, color:"#fb923c" }}>
-              <span style={{ width:6, height:6, borderRadius:"50%", background:"#f97316",
-                display:"inline-block" }} />
-              Editando: {ELEMENTS.find(e=>e.id===activeEl)?.label}
+            <div className="flex items-center gap-2 bg-orange-900/30 border border-orange-700/50 rounded-full px-3 py-1 text-[11px] text-orange-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+              Editando: {ELEMENTS.find(e => e.id === activeEl)?.label}
             </div>
           )}
-          <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
-            <button style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:7,
-              padding:"4px 10px", color:"#94a3b8", fontSize:11, cursor:"pointer",
-              display:"flex", alignItems:"center", gap:5 }}>
-              <Monitor size={12} /> Desktop
-            </button>
-            <button style={{ background:"#1e293b", border:"1px solid #334155", borderRadius:7,
-              padding:"4px 8px", color:"#64748b", fontSize:11, cursor:"pointer",
-              display:"flex", alignItems:"center" }}>
-              <Smartphone size={12} />
-            </button>
-          </div>
+          {activeEl && (
+            <div className="ml-auto flex items-center gap-4 text-[10px] text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-black/55 border border-slate-600" />
+                Não selecionado (ofuscado)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="w-3 h-3 rounded border-2"
+                  style={{ borderColor: theme.accent, boxShadow: `0 0 6px ${theme.accent}` }}
+                />
+                {ELEMENTS.find(e => e.id === activeEl)?.label} — em destaque
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Legend bar */}
-        {activeEl && (
-          <div style={{ background:"#0f172a", borderBottom:"1px solid #1e293b",
-            padding:"6px 18px", display:"flex", alignItems:"center", gap:18, flexShrink:0 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:"#64748b" }}>
-              <div style={{ width:10, height:10, borderRadius:2, background:"rgba(0,0,0,0.55)" }} />
-              Elementos não selecionados (ofuscados)
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:10, color:"#fb923c" }}>
-              <div style={{ width:10, height:10, borderRadius:2,
-                border:`2px solid ${theme.accent}`,
-                boxShadow:`0 0 8px ${theme.accent}` }} />
-              {ELEMENTS.find(e=>e.id===activeEl)?.label} — em destaque
-            </div>
-          </div>
-        )}
-
-        {/* PDV */}
-        <div style={{ flex:1, padding:20, overflow:"auto",
-          background:"repeating-linear-gradient(45deg,#0d0d0d 0,#0d0d0d 10px,#0a0a0b 10px,#0a0a0b 20px)" }}>
-          <div style={{ maxWidth:860, margin:"0 auto", height:"100%", minHeight:500 }}>
+        {/* PDV canvas */}
+        <div
+          className="flex-1 overflow-auto p-5"
+          style={{
+            background: "repeating-linear-gradient(45deg,#0d0d0d 0,#0d0d0d 10px,#0a0a0b 10px,#0a0a0b 20px)",
+          }}
+        >
+          <div className="max-w-[860px] mx-auto" style={{ minHeight: 520, height: "100%" }}>
             <PdvPreview theme={theme} activeEl={activeEl} />
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }

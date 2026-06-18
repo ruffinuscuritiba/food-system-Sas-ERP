@@ -355,6 +355,41 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
   }>({ open: false, connectionId: "", qrCode: null, state: "connecting" });
   const qrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Estado de conexão em tempo real ──────────────────────────────────────────
+  const [connStates, setConnStates] = useState<Record<string, string>>({});
+  const [disconnectAlert, setDisconnectAlert] = useState<string | null>(null); // nome da conexão desconectada
+  const prevStatesRef = useRef<Record<string, string>>({});
+  const monitorRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const checkStates = useCallback(async (conns: Connection[]) => {
+    const evolved = conns.filter(c => c.provider !== "META" && c.isActive && c.instanceName);
+    const next: Record<string, string> = {};
+    for (const conn of evolved) {
+      try {
+        const r = await api.get(`/whatsapp-ai/connections/${conn.id}/qr`);
+        next[conn.id] = (r.data as { state: string }).state ?? "unknown";
+      } catch { next[conn.id] = "unknown"; }
+    }
+    setConnStates(next);
+    // detectar desconexão: estava "open", agora não está
+    for (const conn of evolved) {
+      const prev = prevStatesRef.current[conn.id];
+      const cur  = next[conn.id];
+      if (prev === "open" && cur !== "open") {
+        setDisconnectAlert(conn.name);
+      }
+    }
+    prevStatesRef.current = next;
+  }, []);
+
+  useEffect(() => {
+    if (connections.length === 0) return;
+    checkStates(connections);
+    monitorRef.current = setInterval(() => checkStates(connections), 60_000);
+    return () => { if (monitorRef.current) clearInterval(monitorRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connections.map(c => c.id).join(",")]);
+
   const stopQrPoll = () => {
     if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
   };
@@ -475,6 +510,28 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
 
   return (
     <div className="max-w-3xl space-y-4">
+
+      {/* ── Banner de desconexão ── */}
+      {disconnectAlert && (
+        <div className="flex items-center gap-3 bg-red-950 border border-red-700 rounded-xl px-4 py-3 text-sm">
+          <span className="text-2xl">⚠️</span>
+          <div className="flex-1">
+            <div className="font-bold text-red-300">WhatsApp desconectado</div>
+            <div className="text-red-400 text-xs mt-0.5">
+              A conexão <strong>"{disconnectAlert}"</strong> caiu. Clique no botão{" "}
+              <span className="inline-flex items-center gap-1 bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded text-xs font-bold">
+                <QrCode size={10} /> QR
+              </span>{" "}
+              para escanear e reconectar.
+            </div>
+          </div>
+          <button
+            onClick={() => setDisconnectAlert(null)}
+            className="text-red-600 hover:text-red-400 transition text-lg leading-none"
+          >×</button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold text-white">Conexões WhatsApp</h2>
         <button
@@ -666,7 +723,7 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                 <span className="text-xs text-slate-500 bg-slate-800 px-2.5 py-1 rounded-lg">
                   {conn._count?.conversations ?? 0} conversas
                 </span>
-                {/* QR Code — só aparece para conexões Evolution com instanceName */}
+                {/* QR Code — Evolution / Baileys */}
                 {conn.provider !== "META" && (
                   <button
                     onClick={() => {
@@ -677,8 +734,12 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                           if (state !== "open") startQrPoll(conn.id);
                         }).catch(() => toast.error("Erro ao obter QR Code"));
                     }}
-                    title="Escanear QR Code / Reconectar"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center transition bg-amber-900/40 hover:bg-amber-800/60 text-amber-400 hover:text-amber-300"
+                    title={connStates[conn.id] === "open" ? "Conectado — clique para ver status" : "Escanear QR Code / Reconectar"}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
+                      connStates[conn.id] === "open"
+                        ? "bg-green-900/40 hover:bg-green-800/60 text-green-400 hover:text-green-300"
+                        : "bg-amber-900/40 hover:bg-amber-800/60 text-amber-400 hover:text-amber-300"
+                    }`}
                   >
                     <QrCode size={15} />
                   </button>

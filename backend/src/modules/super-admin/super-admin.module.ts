@@ -34,5 +34,6 @@ import { LeadsModule } from '../leads/leads.module';
     DemoVitrineService,
     DemoBootstrapService,
   ],
+  exports: [SuperAdminService],
 })
 export class SuperAdminModule {}

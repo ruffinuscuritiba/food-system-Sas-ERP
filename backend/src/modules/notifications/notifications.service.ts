@@ -7,6 +7,7 @@ export type NotificationType =
   | 'ORDER_STATUS'
   | 'SUBSCRIPTION_EXPIRING'
   | 'SUBSCRIPTION_BLOCKED'
+  | 'SUBSCRIPTION_REMINDER'
   | 'PAYMENT_CONFIRMED'
   | 'DEMO_LEAD';
 
@@ -82,6 +83,8 @@ export class NotificationsService {
         return '🔒 Acesso suspenso — regularize seu pagamento';
       case 'PAYMENT_CONFIRMED':
         return '✅ Pagamento confirmado!';
+      case 'SUBSCRIPTION_REMINDER':
+        return `💛 Sentimos sua falta, ${data?.companyName || 'restaurante'} — renove sua assinatura`;
       case 'DEMO_LEAD':
         return `🔥 Novo lead quente na demo — ${data?.restaurantName || data?.name || 'Visitante'}`;
       default:
@@ -135,6 +138,22 @@ export class NotificationsService {
         return base(`
           <h2>Pagamento confirmado!</h2>
           <p>Seu plano <strong>${data?.plan || ''}</strong> está ativo até <strong>${data?.dueDate || ''}</strong>.</p>
+        `);
+      case 'SUBSCRIPTION_REMINDER':
+        return base(`
+          <h2 style="color:#f59e0b;">💛 Olá! Sentimos sua falta no ${data?.companyName || 'seu restaurante'}.</h2>
+          <p>O seu painel do FoodSaaS continua ativo com todos os seus produtos e relatórios salvos com segurança.</p>
+          <p style="margin-top:16px;">Deseja reativar sua assinatura hoje e voltar a gerenciar suas vendas?</p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${data?.renewUrl || '#'}"
+               style="background:#f97316;color:#fff;padding:14px 32px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none;display:inline-block;">
+              Reativar Assinatura Agora →
+            </a>
+          </div>
+          <p style="color:#64748b;font-size:13px;text-align:center;">
+            ${data?.daysPastDue ? `Sua assinatura expirou há ${data.daysPastDue} dias.` : ''}
+            Seus dados estão seguros e esperando por você.
+          </p>
         `);
       case 'DEMO_LEAD':
         return base(`

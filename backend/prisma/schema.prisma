@@ -150,6 +150,8 @@ model Company {
 
   isBlocked Boolean @default(false)
 
+  wasEverActive Boolean @default(false)
+
   users User[]
 
   modules CompanyModule[]

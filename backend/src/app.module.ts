@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { PrismaModule } from './database/prisma.module';
 
@@ -42,6 +43,7 @@ import { PrintersModule } from './modules/printers/printers.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DemoGuard } from './common/guards/demo.guard';
+import { RetentionModule } from './modules/retention/retention.module';
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch:
 // - ChatModule, AlertsModule
@@ -50,6 +52,7 @@ import { DemoGuard } from './common/guards/demo.guard';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ScheduleModule.forRoot(),
 
     PrismaModule,
     AuditModule,
@@ -86,6 +89,7 @@ import { DemoGuard } from './common/guards/demo.guard';
     PaymentsModule,
     IntegrationsModule,
     PrintersModule,
+    RetentionModule,
   ],
   controllers: [AppController],
   providers: [

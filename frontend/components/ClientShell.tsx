@@ -355,6 +355,23 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [user?.role, isGarcomPage, router]);
 
+  // Redirect PENDING_PAYMENT companies to the subscription checkout wall
+  const isAssinaturaPage = pathname?.startsWith("/assinatura");
+  const isPagamentoPage  = pathname?.startsWith("/pagamento");
+  useEffect(() => {
+    if (!user?.companyId || isDemoUser) return;
+    // Only gate non-demo users; read sub status from the API response stored in companyPlan state
+    // We need subscriptionStatus — fetch it lazily only once
+    api.get(`/company/${user.companyId}/subscription`)
+      .then((r) => {
+        if (r.data?.subscriptionStatus === "PENDING_PAYMENT" && !isAssinaturaPage && !isPagamentoPage) {
+          router.replace("/assinatura");
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.companyId]);
+
   if (isPublicPage) {
     // Páginas públicas (login, cardápio digital, etc.) — ThemeProvider sem companyId
     // (cardápio digital tem próprio fetch de tema via param da URL)
@@ -589,9 +606,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
             </div>
             {/* right: CTA */}
             <a
-              href="https://wa.me/5541988005870?text=Ol%C3%A1!%20Quero%20ativar%20o%20sistema%20real%20do%20FoodSaaS%20ERP."
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/signup"
               className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-white text-violet-700 px-2.5 py-0.5 text-[11px] font-black hover:bg-violet-50 transition whitespace-nowrap shadow-sm"
             >
               <span className="hidden sm:inline">Ativar sistema real</span>

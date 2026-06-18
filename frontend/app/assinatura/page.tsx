@@ -9,8 +9,9 @@ import {
   Check, Zap, Crown, Star, Lock, Unlock, Loader2,
   Package, DollarSign, FlaskConical, BookOpen, Bike,
   BarChart2, Brain, Gift, CreditCard, Shield, X,
-  Info, ChevronRight, MessageCircle,
+  Info, ChevronRight, MessageCircle, ArrowRight, UtensilsCrossed, ShieldCheck, LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,10 +106,28 @@ const PLAN_INCLUDES: Record<Plan, string[]> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// ─── Checkout gate plan cards (used when PENDING_PAYMENT) ─────────────────────
+const CHECKOUT_PLANS = [
+  {
+    plan: "BASIC", label: "Básico", price: 97, color: "#16a34a", popular: false,
+    features: ["PDV completo", "Pedidos e cozinha", "Mesas e comanda", "Cardápio digital", "Estoque básico"],
+  },
+  {
+    plan: "DELIVERY", label: "Profissional", price: 197, color: "#2563eb", popular: true,
+    features: ["Tudo do Básico", "Delivery com entregadores", "WhatsApp IA 24h", "Cupons e fidelidade", "Relatórios avançados"],
+  },
+  {
+    plan: "ENTERPRISE", label: "Enterprise", price: 397, color: "#7c3aed", popular: false,
+    features: ["Tudo do Profissional", "Múltiplas unidades", "White label", "BI avançado", "Suporte prioritário"],
+  },
+];
+
 export default function AssinaturaPage() {
-  const { user } = useAuthStore();
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
   const companyId  = user?.companyId ?? "";
   const canEdit    = user?.role === "SUPER_ADMIN";
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   const [sub,             setSub]             = useState<Subscription | null>(null);
   const [catalog,         setCatalog]         = useState<CatalogModule[]>([]);
@@ -207,6 +226,27 @@ export default function AssinaturaPage() {
     return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(msg)}`;
   }
 
+  async function handleCheckout(plan: string) {
+    if (!companyId) { toast.error("Sessão expirada — faça login novamente."); return; }
+    setCheckoutLoading(plan);
+    try {
+      const { data } = await api.post("/payments/checkout", {
+        companyId,
+        plan,
+        provider: "MERCADO_PAGO",
+      });
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast.error("Não foi possível gerar o link de pagamento.");
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Erro ao criar checkout.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -216,6 +256,123 @@ export default function AssinaturaPage() {
   }
 
   if (!sub) return null;
+
+  // ── Checkout gate — shown for new companies that haven't paid yet ──────────
+  if (sub.subscriptionStatus === "PENDING_PAYMENT") {
+    const supportUrl = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent("Olá! Acabei de criar minha conta no FoodSaaS ERP e gostaria de ajuda para escolher o plano certo.")}`;
+    return (
+      <div className="min-h-screen bg-[#07090f] text-white">
+        {/* glows */}
+        <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+          <div className="absolute -top-60 left-1/3 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-blue-600/8 blur-[180px]" />
+          <div className="absolute top-1/2 -right-40 h-[400px] w-[600px] rounded-full bg-violet-600/8 blur-[160px]" />
+        </div>
+
+        <div className="relative z-10">
+          {/* header */}
+          <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07090f]/80 backdrop-blur-xl">
+            <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-orange-500/15 p-2 ring-1 ring-orange-500/30">
+                  <UtensilsCrossed className="h-4 w-4 text-orange-400" />
+                </div>
+                <span className="text-base font-black tracking-tight">FoodSaaS ERP</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={supportUrl} target="_blank" rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10">
+                  <MessageCircle className="h-3.5 w-3.5" />Falar com consultor
+                </a>
+                <button onClick={() => logout()}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 transition hover:text-white/90">
+                  <LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline">Sair</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* hero */}
+          <section className="mx-auto max-w-5xl px-5 pb-10 pt-16 text-center sm:px-8 sm:pt-20">
+            <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
+              <Zap className="h-3 w-3" /> Conta criada com sucesso!
+            </span>
+            <h1 className="mx-auto mt-6 max-w-2xl text-4xl font-black leading-[1.1] tracking-tight sm:text-5xl">
+              Escolha o plano{" "}
+              <span className="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">perfeito</span>{" "}
+              para o seu negócio
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/50">
+              Pagamento seguro pelo Mercado Pago. Cancele quando quiser.
+            </p>
+          </section>
+
+          {/* plan cards */}
+          <section className="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
+            <div className="grid gap-6 md:grid-cols-3">
+              {CHECKOUT_PLANS.map((p) => (
+                <article
+                  key={p.plan}
+                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0b0e18] transition-all duration-300 hover:-translate-y-1"
+                  style={{ boxShadow: `0 0 0 1px rgba(255,255,255,0.04), 0 24px 60px -20px ${p.color}33` }}
+                >
+                  {p.popular && (
+                    <div className="absolute top-0 inset-x-0 py-1.5 text-center text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: p.color }}>
+                      Mais popular
+                    </div>
+                  )}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-32 opacity-20" style={{ background: `radial-gradient(ellipse at 50% 0%, ${p.color}88, transparent 70%)` }} aria-hidden />
+                  <div className={`relative flex flex-1 flex-col p-7 ${p.popular ? "pt-10" : ""}`}>
+                    <span className="inline-block self-start rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest mb-4" style={{ color: p.color, backgroundColor: `${p.color}22`, border: `1px solid ${p.color}44` }}>
+                      {p.label}
+                    </span>
+                    <div className="flex items-end gap-1 mb-6">
+                      <span className="text-4xl font-black">R$ {p.price}</span>
+                      <span className="text-white/35 text-sm pb-1">/mês</span>
+                    </div>
+                    <ul className="space-y-2.5 flex-1 mb-7">
+                      {p.features.map((feat) => (
+                        <li key={feat} className="flex items-start gap-2.5 text-sm text-white/70">
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${p.color}22` }}>
+                            <Check className="h-3 w-3" style={{ color: p.color }} strokeWidth={3} />
+                          </span>
+                          {feat}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => handleCheckout(p.plan)}
+                      disabled={checkoutLoading !== null}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: p.color, boxShadow: `0 8px 24px -8px ${p.color}bb, inset 0 1px 0 rgba(255,255,255,0.15)` }}
+                    >
+                      {checkoutLoading === p.plan ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Abrindo pagamento…</>
+                      ) : (
+                        <>Contratar {p.label} <ArrowRight className="h-4 w-4" /></>
+                      )}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* trust + consultant */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-white/35">
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Pagamento seguro</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Cancele quando quiser</span>
+            </div>
+            <div className="mt-8 text-center">
+              <p className="text-sm text-white/35 mb-3">Dúvidas sobre qual plano escolher?</p>
+              <a href={supportUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/75 transition hover:bg-white/10">
+                <MessageCircle className="h-4 w-4" />Falar com um consultor pelo WhatsApp
+              </a>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   const currentIdx = PLAN_ORDER.indexOf(sub.plan);
 

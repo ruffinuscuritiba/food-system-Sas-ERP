@@ -46,12 +46,17 @@ export class AuthService {
   }) {
     await this.assertEmailUnique(dto.email);
 
+    // New companies start as PENDING_PAYMENT — 3-day free trial, no card required.
+    const trialEnds = new Date();
+    trialEnds.setDate(trialEnds.getDate() + 3);
+
     const company = await this.prisma.company.create({
       data: {
         name: dto.companyName,
         email: dto.email,
         plan: 'BASIC',
-        subscriptionStatus: 'ACTIVE',
+        subscriptionStatus: 'PENDING_PAYMENT',
+        dueDate: trialEnds,
         isBlocked: false,
       },
     });

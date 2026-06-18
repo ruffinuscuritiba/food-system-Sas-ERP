@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { AiTrialLock } from "@/components/AiTrialLock";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
@@ -75,6 +77,7 @@ const BACKENDURL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.srv1747711.hs
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function WhatsappIaPage() {
+  const { isAiLocked, isExpired, loading: subLoading } = useSubscription();
   const [tab, setTab] = useState<"connections" | "config" | "conversations" | "stats">("connections");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -173,6 +176,14 @@ export default function WhatsappIaPage() {
     { id: "conversations", label: "Conversas",     icon: <MessageCircle size={15} /> },
     { id: "stats",         label: "Estatísticas",  icon: <BarChart2 size={15} /> },
   ];
+
+  if (!subLoading && isAiLocked) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <AiTrialLock variant={isExpired ? "expired" : "trial"} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">

@@ -12,6 +12,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { IaService, DemoMessage, LeadInfo } from './ia.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { SubscriptionActiveGuard } from '@/common/guards/subscription-active.guard';
 
 @Controller('ia')
 export class IaController {
@@ -57,8 +58,8 @@ export class IaController {
     res.end();
   }
 
-  // ─── Authenticated endpoints ─────────────────────────────────────────────
-  @UseGuards(JwtAuthGuard)
+  // ─── Authenticated endpoints (require ACTIVE subscription for AI cost control) ─
+  @UseGuards(JwtAuthGuard, SubscriptionActiveGuard)
   @Post('ask')
   ask(
     @Req() req: any,
@@ -72,13 +73,13 @@ export class IaController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SubscriptionActiveGuard)
   @Get('conversations')
   listConversations(@Req() req: any) {
     return this.ia.listConversations(req.user.companyId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SubscriptionActiveGuard)
   @Get('conversations/:id')
   getConversation(@Req() req: any, @Param('id') id: string) {
     return this.ia.getConversation(req.user.companyId, id);

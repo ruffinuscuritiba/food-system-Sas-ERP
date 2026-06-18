@@ -236,6 +236,7 @@ export default function PDVPage() {
   const [companyId, setCompanyId]               = useState<string>("");
   const [companyName, setCompanyName]           = useState<string>("Restaurante");
   const [authToken, setAuthToken]               = useState<string>("");
+  const [layoutType, setLayoutType]             = useState<"LIST" | "GRID">("LIST");
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
@@ -289,11 +290,16 @@ export default function PDVPage() {
       setPizzaCategories(pizzaCatIds);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
     }).catch(() => {}).finally(() => setLoading(false));
-    // Fetch company name for receipts (fire-and-forget)
+    // Fetch company info + layout settings (fire-and-forget)
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (user?.companyId) {
       api.get(`/company/${user.companyId}`)
         .then(r => { if (r.data?.name) setCompanyName(r.data.name); })
+        .catch(() => {});
+      api.get(`/company/settings`)
+        .then(r => {
+          if (r.data?.layoutType) setLayoutType(r.data.layoutType as "LIST" | "GRID");
+        })
         .catch(() => {});
     }
   }, []);
@@ -822,16 +828,16 @@ export default function PDVPage() {
                 <span className="text-5xl mb-4">🍽️</span>
                 <p className="font-semibold text-lg">Nenhum produto nesta categoria</p>
               </div>
-            ) : activeIsBeverage ? (
-              <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
+            ) : activeIsBeverage || layoutType === "GRID" ? (
+              <div className={`grid gap-4 ${activeIsBeverage ? "grid-cols-3 xl:grid-cols-5" : "grid-cols-2 xl:grid-cols-4"}`}>
                 {filteredProducts.map((product) => (
                   <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-[var(--color-primary,#2563eb)] transition group"
                     onClick={() => openProductAdd(product)}>
                     {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
-                      : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl">🥤</div>}
+                      : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>}
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
-                      <p className="text-blue-400 font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
+                      <p className="text-[var(--color-primary,#2563eb)] font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
                       <button onClick={(e) => { e.stopPropagation(); openProductAdd(product); }} disabled={complementLoading}
                         className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary,#2563eb)] group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50">
                         + Adicionar
@@ -897,18 +903,18 @@ export default function PDVPage() {
               <span className="text-4xl mb-3">🍽️</span>
               <p className="text-sm font-semibold">Nenhum produto nesta categoria</p>
             </div>
-          ) : activeIsBeverage ? (
-            /* Grade 2-col para bebidas */
+          ) : activeIsBeverage || layoutType === "GRID" ? (
+            /* Grade 2-col para bebidas e modo GRID */
             <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
               {filteredProducts.map(product => (
                 <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[var(--pdv-card,#161b2d)] p-2" />
-                    : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-3xl">🥤</div>}
+                    : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-3xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>}
                   <div className="p-2.5 flex flex-col flex-1 min-w-0">
                     <p className="font-bold text-xs leading-tight line-clamp-2 min-w-0 mb-1.5">{product.name}</p>
-                    <p className="text-blue-400 font-black text-xs leading-tight mt-auto mb-2">{productPriceLabel(product)}</p>
+                    <p className="font-black text-xs leading-tight mt-auto mb-2" style={{ color: "var(--color-primary,#2563eb)" }}>{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
                       style={{ backgroundColor: "var(--color-primary,#2563eb)" }}

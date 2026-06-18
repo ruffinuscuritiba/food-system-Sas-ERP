@@ -175,6 +175,9 @@ export class CompanyService {
         acceptMealVoucher: true,
         customPaymentMethods: true,
         printingSettings: true,
+        businessSegment: true,
+        layoutType: true,
+        buttonRadius: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');
@@ -236,6 +239,9 @@ export class CompanyService {
         ...(dto.printingSettings !== undefined && {
           printingSettings: JSON.parse(JSON.stringify(dto.printingSettings)),
         }),
+        ...(dto.businessSegment !== undefined && { businessSegment: dto.businessSegment }),
+        ...(dto.layoutType !== undefined && { layoutType: dto.layoutType }),
+        ...(dto.buttonRadius !== undefined && { buttonRadius: dto.buttonRadius }),
       },
       select: {
         id: true,
@@ -271,6 +277,9 @@ export class CompanyService {
         acceptMealVoucher: true,
         customPaymentMethods: true,
         printingSettings: true,
+        businessSegment: true,
+        layoutType: true,
+        buttonRadius: true,
       },
     });
   }

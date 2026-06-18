@@ -44,6 +44,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DemoGuard } from './common/guards/demo.guard';
 import { RetentionModule } from './modules/retention/retention.module';
+import { SegmentSeedModule } from './modules/segment-seed/segment-seed.module';
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch:
 // - ChatModule, AlertsModule
@@ -90,6 +91,7 @@ import { RetentionModule } from './modules/retention/retention.module';
     IntegrationsModule,
     PrintersModule,
     RetentionModule,
+    SegmentSeedModule,
   ],
   controllers: [AppController],
   providers: [

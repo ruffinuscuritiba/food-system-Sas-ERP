@@ -132,6 +132,8 @@ export default function SuperAdminDashboard() {
   const [cloning, setCloning] = useState(false)
   const [cloneResult, setCloneResult] = useState<{ categories: number; products: number } | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Company | null>(null)
+  const [confirmText, setConfirmText] = useState("")
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -191,11 +193,13 @@ export default function SuperAdminDashboard() {
     }
   }
 
-  async function deleteCompany(id: string, name: string) {
-    if (!window.confirm(`Excluir "${name}" permanentemente? Esta ação não pode ser desfeita.`)) return
-    setDeleting(id)
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(deleteTarget.id)
     try {
-      await saApi.delete(`/super-admin/companies/${id}`)
+      await saApi.delete(`/super-admin/companies/${deleteTarget.id}`)
+      setDeleteTarget(null)
+      setConfirmText("")
       await load()
     } finally {
       setDeleting(null)
@@ -645,7 +649,7 @@ export default function SuperAdminDashboard() {
                                           {archiving === c.id ? "Arquivando..." : "Arquivar empresa"}
                                         </button>
                                         <button
-                                          onClick={() => { setOpenMenuId(null); deleteCompany(c.id, c.name) }}
+                                          onClick={() => { setOpenMenuId(null); setConfirmText(""); setDeleteTarget(c) }}
                                           disabled={deleting === c.id}
                                           className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-red-950/60 transition disabled:opacity-50 text-red-400"
                                         >
@@ -671,7 +675,7 @@ export default function SuperAdminDashboard() {
                                 <RotateCcw className="w-3 h-3" />Restaurar
                               </button>
                               <button
-                                onClick={() => deleteCompany(c.id, c.name)}
+                                onClick={() => { setConfirmText(""); setDeleteTarget(c) }}
                                 disabled={deleting === c.id}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-950 hover:bg-red-900 text-red-400 ring-1 ring-red-900 transition disabled:opacity-50"
                               >
@@ -700,6 +704,60 @@ export default function SuperAdminDashboard() {
           </div>
         </main>
       </div>
+
+      {/* ── MODAL — Confirmar Exclusão ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-red-900/50 rounded-2xl p-7 w-full max-w-md shadow-2xl shadow-black/60">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-950 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Excluir empresa</h3>
+                <p className="text-xs text-zinc-500">Esta ação é permanente e irreversível</p>
+              </div>
+            </div>
+
+            <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4 mb-5 text-sm text-red-300 space-y-1">
+              <p className="font-semibold">{deleteTarget.name}</p>
+              <p className="text-red-400/70 text-xs">{deleteTarget.email}</p>
+              <p className="text-xs text-red-400/60 mt-2">
+                Todos os dados serão apagados: usuários, pedidos, produtos, financeiro e histórico.
+              </p>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs text-zinc-400 mb-1.5">
+                Digite <span className="text-white font-bold">EXCLUIR</span> para confirmar
+              </label>
+              <input
+                value={confirmText}
+                onChange={e => setConfirmText(e.target.value)}
+                placeholder="EXCLUIR"
+                autoFocus
+                className="w-full bg-zinc-800 border border-zinc-700 focus:border-red-600 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-600 outline-none transition"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setDeleteTarget(null); setConfirmText("") }}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={confirmText !== "EXCLUIR" || deleting === deleteTarget.id}
+                className="flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition rounded-xl py-3 text-sm font-bold text-white"
+              >
+                {deleting === deleteTarget.id ? "Excluindo..." : "Excluir definitivamente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL — Clonar Cardápio ── */}
       {showCloneModal && cloneTarget && (

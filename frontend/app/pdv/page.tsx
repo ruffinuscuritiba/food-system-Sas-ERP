@@ -32,6 +32,9 @@ interface Product {
   sizes?: ProductSize[];
   orderProductId?: string;
   notes?: string;
+  barCode?: string | null;
+  sku?: string | null;
+  eanCode?: string | null;
 }
 
 interface SelectedComplement {
@@ -241,6 +244,8 @@ export default function PDVPage() {
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
 
+  const searchRef = useRef<HTMLInputElement>(null);
+
   const [showTrocarMesa, setShowTrocarMesa]     = useState(false);
   const [tables, setTables]                     = useState<any[]>([]);
   const [loadingTables, setLoadingTables]       = useState(false);
@@ -317,6 +322,8 @@ export default function PDVPage() {
     });
     toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
     setShowCart(true);
+    // Devolve foco ao campo de busca para o próximo bip do leitor
+    requestAnimationFrame(() => searchRef.current?.focus());
   }, []);
 
   const openProductAdd = useCallback(async (product: Product) => {
@@ -398,9 +405,38 @@ export default function PDVPage() {
   const filteredProducts = products.filter(p => {
     if (!p.isActive) return false;
     const matchCat = selectedCategory === "all" || p.categoryId === selectedCategory;
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
+    if (!search) return matchCat;
+    const q = search.toLowerCase();
+    const matchSearch =
+      p.name.toLowerCase().includes(q) ||
+      (p.barCode  && p.barCode.toLowerCase().includes(q)) ||
+      (p.eanCode  && p.eanCode.toLowerCase().includes(q)) ||
+      (p.sku      && p.sku.toLowerCase().includes(q));
     return matchCat && matchSearch;
   });
+
+  // Chamado pelo leitor de código de barras ao pressionar Enter após bipagem
+  const handleBarcodeSubmit = useCallback((code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    const exact = products.find(p =>
+      p.isActive && (
+        (p.barCode  && p.barCode  === trimmed) ||
+        (p.eanCode  && p.eanCode  === trimmed) ||
+        (p.sku      && p.sku      === trimmed)
+      )
+    );
+    if (exact) {
+      openProductAdd(exact);
+      setSearch("");
+      setSelectedCategory("all");
+    } else {
+      // Nenhum código exato — mantém busca textual para o operador escolher manualmente
+      toast("Código não encontrado — exibindo resultados parciais", { icon: "🔍", duration: 2000 });
+    }
+    // Devolve foco ao input para o próximo bip
+    requestAnimationFrame(() => searchRef.current?.focus());
+  }, [products, openProductAdd]);
 
   const activeCategory = selectedCategory === "all"
     ? null
@@ -724,8 +760,20 @@ export default function PDVPage() {
           {/* Search */}
           <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
             <Search size={15} className="text-zinc-200 shrink-0" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
-              className="bg-transparent outline-none w-full text-sm text-white placeholder-zinc-400 min-w-0" />
+            <input
+              ref={searchRef}
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleBarcodeSubmit(search);
+                }
+              }}
+              placeholder="Buscar ou bipar código..."
+              className="bg-transparent outline-none w-full text-sm text-white placeholder-zinc-400 min-w-0"
+            />
           </div>
           {/* Buttons */}
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">

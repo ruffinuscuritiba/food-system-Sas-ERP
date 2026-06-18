@@ -6,6 +6,7 @@ import { PrismaModule } from '@/database/prisma.module';
 import { AuditModule } from '@/modules/audit/audit.module';
 import { LeadsModule } from '@/modules/leads/leads.module';
 import { NotificationsModule } from '@/modules/notifications/notifications.module';
+import { SegmentSeedModule } from '@/modules/segment-seed/segment-seed.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -17,6 +18,7 @@ import { JwtStrategy } from './jwt.strategy';
     AuditModule,
     LeadsModule,
     NotificationsModule,
+    SegmentSeedModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

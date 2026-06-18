@@ -163,4 +163,17 @@ export class UpdateCompanySettingsDto {
   @IsObject()
   @IsOptional()
   printingSettings?: object;
+
+  // ── Segmento e layout dinâmico ──────────────────────────────────────────
+  @IsString()
+  @IsOptional()
+  businessSegment?: string; // RESTAURANTE | CONVENIENCIA | LANCHONETE | etc.
+
+  @IsString()
+  @IsOptional()
+  layoutType?: string; // LIST | GRID
+
+  @IsString()
+  @IsOptional()
+  buttonRadius?: string; // SM | MD | LG | FULL
 }

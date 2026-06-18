@@ -275,6 +275,14 @@ model Company {
   // JSON: {useAssistant, autoPrint, autoAccept, showCNPJ, showCategory, showDescription, pizzaItemFormat, addonGrouping}
   printingSettings     Json?
 
+  // ── Segmento e layout ─────────────────────────────────────────────────────
+  // Nicho do negócio — usado para seed automático na criação da conta
+  businessSegment  String @default("RESTAURANTE")
+  // Layout de produtos no PDV/Cardápio: LIST | GRID
+  layoutType       String @default("LIST")
+  // Raio dos botões: SM | MD | LG | FULL
+  buttonRadius     String @default("MD")
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())

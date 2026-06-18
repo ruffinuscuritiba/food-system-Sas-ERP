@@ -13,6 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { AuditService } from '@/modules/audit/audit.service';
 import { LeadsService } from '@/modules/leads/leads.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { SegmentSeedService } from '@/modules/segment-seed/segment-seed.service';
 
 const DEMO_PLAN_EMAIL: Record<string, string> = {
   basic:      'demo-basic@foodsaas.demo',
@@ -31,6 +32,7 @@ export class AuthService {
     private readonly leadsService: LeadsService,
     private readonly notifications: NotificationsService,
     private readonly config: ConfigService,
+    private readonly segmentSeed: SegmentSeedService,
   ) {}
 
   private async assertEmailUnique(email: string): Promise<void> {
@@ -43,6 +45,7 @@ export class AuthService {
     name: string;
     email: string;
     password: string;
+    businessSegment?: string;
   }) {
     await this.assertEmailUnique(dto.email);
 
@@ -50,6 +53,7 @@ export class AuthService {
     const trialEnds = new Date();
     trialEnds.setDate(trialEnds.getDate() + 3);
 
+    const segment = dto.businessSegment ?? 'RESTAURANTE';
     const company = await this.prisma.company.create({
       data: {
         name: dto.companyName,
@@ -58,6 +62,7 @@ export class AuthService {
         subscriptionStatus: 'PENDING_PAYMENT',
         dueDate: trialEnds,
         isBlocked: false,
+        businessSegment: segment,
       },
     });
 
@@ -84,6 +89,13 @@ export class AuthService {
         data: { module: mod, active: true, companyId: company.id },
       });
     }
+
+    // Seed automático por segmento — fire-and-forget, não bloqueia o cadastro
+    setImmediate(() => {
+      this.segmentSeed.seedForCompany(company.id, segment).catch((err) =>
+        this.logger.error(`[Signup] SegmentSeed failed for ${company.id}: ${err?.message}`),
+      );
+    });
 
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,

@@ -13,8 +13,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { SmartImportService } from './smart-import.service';
 import { JwtAuthGuard } from 'src/modules/auth/jwt-auth.guard';
+import { SubscriptionActiveGuard } from '@/common/guards/subscription-active.guard';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, SubscriptionActiveGuard)
 @Controller('smart-import')
 export class SmartImportController {
   constructor(private service: SmartImportService) {}

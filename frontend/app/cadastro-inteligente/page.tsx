@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
+import { useSubscription } from "@/hooks/useSubscription";
+import { AiTrialLock } from "@/components/AiTrialLock";
 import {
   Sparkles, Upload, FileText, Image as ImageIcon, Loader2,
   CheckCircle2, XCircle, Trash2, ChevronDown, RefreshCw, Zap,
@@ -186,6 +188,8 @@ function ProgressBar({ logs }: { logs: SessionLog[] }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CadastroInteligentePage() {
+  const { isAiLocked, isExpired, loading: subLoading } = useSubscription();
+
   const [tab, setTab]                       = useState<TabType>("menu");
   const [phase, setPhase]                   = useState<Phase>("idle");
   const [sessionId, setSessionId]           = useState<string | null>(null);
@@ -385,6 +389,14 @@ export default function CadastroInteligentePage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  if (!subLoading && isAiLocked) {
+    return (
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+        <AiTrialLock variant={isExpired ? "expired" : "trial"} />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">

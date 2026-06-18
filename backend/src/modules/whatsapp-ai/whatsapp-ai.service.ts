@@ -745,6 +745,18 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     name: string,
     text: string,
   ) {
+    // Block AI processing for companies in trial (PENDING_PAYMENT) — cost control.
+    const company = await this.prisma.company.findUnique({
+      where: { id: connection.companyId },
+      select: { subscriptionStatus: true },
+    });
+    if (company && company.subscriptionStatus !== 'ACTIVE') {
+      log.warn(
+        `[AI] company=${connection.companyId} subscriptionStatus=${company.subscriptionStatus} — IA bloqueada durante trial`,
+      );
+      return;
+    }
+
     const settings = connection.settings as WaSettings | null | undefined;
 
     log.warn(

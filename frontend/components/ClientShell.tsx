@@ -355,16 +355,22 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [user?.role, isGarcomPage, router]);
 
-  // Redirect PENDING_PAYMENT companies to the subscription checkout wall
+  // Block expired trials — redirect to checkout wall only when dueDate is past
   const isAssinaturaPage = pathname?.startsWith("/assinatura");
   const isPagamentoPage  = pathname?.startsWith("/pagamento");
   useEffect(() => {
     if (!user?.companyId || isDemoUser) return;
-    // Only gate non-demo users; read sub status from the API response stored in companyPlan state
-    // We need subscriptionStatus — fetch it lazily only once
     api.get(`/company/${user.companyId}/subscription`)
       .then((r) => {
-        if (r.data?.subscriptionStatus === "PENDING_PAYMENT" && !isAssinaturaPage && !isPagamentoPage) {
+        const status  = r.data?.subscriptionStatus as string | undefined;
+        const dueDate = r.data?.dueDate as string | null | undefined;
+        if (
+          status === "PENDING_PAYMENT" &&
+          dueDate &&
+          new Date() >= new Date(dueDate) &&
+          !isAssinaturaPage &&
+          !isPagamentoPage
+        ) {
           router.replace("/assinatura");
         }
       })

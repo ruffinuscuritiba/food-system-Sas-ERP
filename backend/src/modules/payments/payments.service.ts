@@ -10,6 +10,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 import { OnlineOrdersService } from '@/modules/online-orders/online-orders.service';
+import { WalletService } from '@/modules/wallet/wallet.service';
 
 export type PaymentProvider = 'MERCADO_PAGO' | 'STRIPE';
 
@@ -39,6 +40,7 @@ export class PaymentsService {
     private readonly notifications: NotificationsService,
     private readonly socket: SocketGateway,
     private readonly onlineOrders: OnlineOrdersService,
+    private readonly walletService: WalletService,
   ) {}
 
   // ─── Subscription checkout ─────────────────────────────────────────────────
@@ -393,6 +395,20 @@ export class PaymentsService {
 
     if (paymentStatus === 'APPROVED') {
       await this.onlineOrders.updateOrderStatus(onlineOrderId, 'CONFIRMED');
+
+      // ── Creditar valor líquido na carteira da loja (fire-and-forget) ──────
+      setImmediate(() => {
+        this.onlineOrders.findOne(onlineOrderId, companyId)
+          .then((o) => {
+            const gross = parseFloat(Number(o.total ?? 0).toFixed(2));
+            const pm = (o as any).paymentMethod ?? 'PIX';
+            if (gross > 0) {
+              return this.walletService.creditFromOrder(companyId, onlineOrderId, gross, pm);
+            }
+          })
+          .catch((e) => this.logger.warn(`[WALLET] creditFromOrder falhou: ${e?.message}`));
+      });
+
       // → Kitchen / dashboard (company room)
       this.socket.emitOnlineOrderPaid(companyId, {
         onlineOrderId,

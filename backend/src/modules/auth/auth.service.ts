@@ -2,20 +2,35 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '@/database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuditService } from '@/modules/audit/audit.service';
+import { LeadsService } from '@/modules/leads/leads.service';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
+
+const DEMO_PLAN_EMAIL: Record<string, string> = {
+  basic:      'demo-basic@foodsaas.demo',
+  pro:        'demo-pro@foodsaas.demo',
+  enterprise: 'demo-enterprise@foodsaas.demo',
+};
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly auditService: AuditService,
+    private readonly leadsService: LeadsService,
+    private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
 
   private async assertEmailUnique(email: string): Promise<void> {
@@ -140,5 +155,77 @@ export class AuthService {
       accessToken,
       user: { ...userWithoutPassword, company: user.company },
     };
+  }
+
+  async demoAccess(dto: {
+    name: string;
+    email: string;
+    whatsapp: string;
+    restaurantName: string;
+    plan: 'basic' | 'pro' | 'enterprise';
+  }) {
+    const demoEmail = DEMO_PLAN_EMAIL[dto.plan];
+    if (!demoEmail) throw new BadRequestException('Plano de demonstração inválido');
+
+    const sessionToken = `demo-gate-${dto.email}-${Date.now()}`;
+
+    // 1. Save lead (fire-and-forget — never blocks demo access)
+    setImmediate(async () => {
+      try {
+        await this.leadsService.upsert({
+          sessionToken,
+          name: dto.name,
+          company: dto.restaurantName,
+          whatsapp: dto.whatsapp,
+          recommendedPlan: dto.plan.toUpperCase(),
+        });
+      } catch (err) {
+        this.logger.warn(`Lead save failed: ${(err as Error)?.message}`);
+      }
+    });
+
+    // 2. Notify admin (fire-and-forget)
+    const adminEmail = this.config.get<string>('ADMIN_NOTIFY_EMAIL');
+    if (adminEmail) {
+      setImmediate(async () => {
+        try {
+          await this.notifications.send({
+            to: adminEmail,
+            type: 'DEMO_LEAD',
+            data: {
+              name:           dto.name,
+              email:          dto.email,
+              whatsapp:       dto.whatsapp,
+              restaurantName: dto.restaurantName,
+              plan:           dto.plan.toUpperCase(),
+            },
+          });
+        } catch (err) {
+          this.logger.warn(`Demo lead email failed: ${(err as Error)?.message}`);
+        }
+      });
+    } else {
+      this.logger.warn(
+        `[DEMO LEAD] ADMIN_NOTIFY_EMAIL not set — lead data: ${JSON.stringify({ name: dto.name, restaurantName: dto.restaurantName, whatsapp: dto.whatsapp, plan: dto.plan })}`,
+      );
+    }
+
+    // 3. Find demo user and return token
+    const user = await this.prisma.user.findUnique({
+      where: { email: demoEmail },
+      include: { company: true },
+    });
+
+    if (!user) throw new BadRequestException('Conta de demonstração não disponível. Tente novamente em instantes.');
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+      companyId: user.companyId,
+      role: user.role,
+    });
+
+    const { password: _, ...userWithoutPassword } = user;
+    return { accessToken, user: { ...userWithoutPassword, company: user.company } };
   }
 }

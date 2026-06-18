@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { saApi } from "@/services/superAdminApi";
 import {
   Users, Download, Search, RefreshCw, ChevronLeft, ChevronRight,
   Phone, Mail, Store, TrendingUp, UserCheck, Clock, Ghost,
-  UserMinus, Filter, FileText,
+  UserMinus, Filter, FileText, ArrowLeft,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -68,6 +69,7 @@ const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ClientesPage() {
+  const router = useRouter();
   const [rows,       setRows]       = useState<CustomerRow[]>([]);
   const [summary,    setSummary]    = useState<Summary | null>(null);
   const [loading,    setLoading]    = useState(true);
@@ -130,7 +132,15 @@ export default function ClientesPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* ── Header ── */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6">
+        <button
+          onClick={() => router.push("/super-admin/dashboard")}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar ao Painel
+        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
             <Users className="h-6 w-6 text-indigo-600" />
@@ -161,6 +171,7 @@ export default function ClientesPage() {
             <Download className="h-3.5 w-3.5" />
             Exportar CSV (Excel)
           </button>
+        </div>
         </div>
       </div>
 

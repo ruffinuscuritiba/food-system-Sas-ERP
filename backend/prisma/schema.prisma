@@ -283,6 +283,23 @@ model Company {
   // Raio dos botões: SM | MD | LG | FULL
   buttonRadius     String @default("MD")
 
+  // ── Configurações financeiras / Split de Pagamentos ─────────────────────
+  // Frequência do repasse automático: DAILY | WEEKLY
+  repasseFrequency    String  @default("DAILY")
+  // Horário do repasse (HH:MM, ex: "03:00")
+  repasseTime         String  @default("03:00")
+  // Dia da semana para repasse semanal (0=dom … 6=sáb)
+  repasseWeekday      Int     @default(1)
+  // Plano de liberação de vendas no crédito online: D0 | D30
+  creditReleasePlan   String  @default("D30")
+  // Dados da conta bancária ou chave PIX para recebimento
+  // JSON: { type: "pix"|"bank", pixKey?: string, pixKeyType?: string,
+  //         bank?: string, agency?: string, account?: string,
+  //         accountType?: string, holderName?: string, document?: string }
+  bankAccountData     Json?
+  // Saldo em carteira (usado para abater mensalidade antes do repasse)
+  walletBalance       Decimal @default(0) @db.Decimal(10, 2)
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())

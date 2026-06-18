@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   Store, Palette, ClipboardList, CreditCard, Bike, Pizza,
   Printer, MessageCircle, Cable, Users, Star, Settings,
-  Save, Loader2, CheckCircle2, AlertCircle,
+  Save, Loader2, CheckCircle2, AlertCircle, DollarSign,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
@@ -61,6 +61,10 @@ const PlanoTab = dynamic(() => import("@/components/settings/PlanoTab"), {
   ssr: false,
   loading: TabLoader,
 });
+const FinanceiroTab = dynamic(() => import("@/components/settings/FinanceiroTab"), {
+  ssr: false,
+  loading: TabLoader,
+});
 const ImpressaoLocalTab = dynamic(() => import("@/components/settings/ImpressaoLocalTab"), {
   ssr: false,
   loading: TabLoader,
@@ -79,6 +83,7 @@ const TABS = [
   { id: "impressao-local",  label: "Impressão Local",  icon: Printer,        group: "Tecnologia" },
   { id: "whatsapp",    label: "WhatsApp IA",      icon: MessageCircle,  group: "Tecnologia" },
   { id: "integracoes", label: "Integrações",      icon: Cable,          group: "Tecnologia" },
+  { id: "financeiro",  label: "Financeiro",       icon: DollarSign,     group: "Gestão" },
   { id: "equipe",      label: "Equipe",           icon: Users,          group: "Gestão" },
   { id: "plano",       label: "Plano & Módulos",  icon: Star,           group: "Gestão" },
 ] as const;
@@ -610,6 +615,7 @@ function getTabDescription(tab: TabId): string {
     "impressao-local":  "Agente de impressão local, download e token de ativação",
     whatsapp:    "Atendente virtual, conexões e comportamento da IA",
     integracoes: "iFood, Rappi, gateways de pagamento e apps externos",
+    financeiro:  "Split de pagamentos, conta de repasse e frequência de transferência",
     equipe:      "Usuários, funções e permissões de acesso",
     plano:       "Assinatura atual, módulos ativos e limites do plano",
   };
@@ -716,6 +722,8 @@ function ConfiguracoesInner() {
             <ImpressaoLocalTab />
           ) : activeTab === "integracoes" ? (
             <IntegracoesTab />
+          ) : activeTab === "financeiro" ? (
+            <FinanceiroTab />
           ) : activeTab === "equipe" ? (
             <UsuariosTab />
           ) : activeTab === "plano" ? (

@@ -178,6 +178,12 @@ export class CompanyService {
         businessSegment: true,
         layoutType: true,
         buttonRadius: true,
+        repasseFrequency: true,
+        repasseTime: true,
+        repasseWeekday: true,
+        creditReleasePlan: true,
+        bankAccountData: true,
+        walletBalance: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');
@@ -242,6 +248,13 @@ export class CompanyService {
         ...(dto.businessSegment !== undefined && { businessSegment: dto.businessSegment }),
         ...(dto.layoutType !== undefined && { layoutType: dto.layoutType }),
         ...(dto.buttonRadius !== undefined && { buttonRadius: dto.buttonRadius }),
+        ...(dto.repasseFrequency !== undefined && { repasseFrequency: dto.repasseFrequency }),
+        ...(dto.repasseTime !== undefined && { repasseTime: dto.repasseTime }),
+        ...(dto.repasseWeekday !== undefined && { repasseWeekday: dto.repasseWeekday }),
+        ...(dto.creditReleasePlan !== undefined && { creditReleasePlan: dto.creditReleasePlan }),
+        ...(dto.bankAccountData !== undefined && {
+          bankAccountData: dto.bankAccountData === null ? null : JSON.parse(JSON.stringify(dto.bankAccountData)),
+        }),
       },
       select: {
         id: true,
@@ -280,8 +293,44 @@ export class CompanyService {
         businessSegment: true,
         layoutType: true,
         buttonRadius: true,
+        repasseFrequency: true,
+        repasseTime: true,
+        repasseWeekday: true,
+        creditReleasePlan: true,
+        bankAccountData: true,
+        walletBalance: true,
       },
     });
+  }
+
+  /** Abate mensalidade pendente do walletBalance antes do repasse PIX. */
+  async deductPendingSubscription(companyId: string): Promise<{
+    deducted: number;
+    walletBalance: number;
+  }> {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { subscriptionStatus: true, walletBalance: true, plan: true },
+    });
+    if (!company) return { deducted: 0, walletBalance: 0 };
+
+    const PLAN_PRICES: Record<string, number> = { BASIC: 97, PRO: 197, DELIVERY: 197, ENTERPRISE: 397 };
+    const isOverdue =
+      company.subscriptionStatus !== 'ACTIVE' && Number(company.walletBalance) > 0;
+
+    if (!isOverdue) return { deducted: 0, walletBalance: Number(company.walletBalance) };
+
+    const fee = PLAN_PRICES[company.plan] ?? 97;
+    const wallet = Number(company.walletBalance);
+    const deducted = Math.min(fee, wallet);
+    const newBalance = wallet - deducted;
+
+    await this.prisma.company.update({
+      where: { id: companyId },
+      data: { walletBalance: newBalance },
+    });
+
+    return { deducted, walletBalance: newBalance };
   }
 
   /** Atualiza apenas o plano. Nenhum dado de módulo é removido. */

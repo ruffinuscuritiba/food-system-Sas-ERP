@@ -603,7 +603,7 @@ export class PaymentsService {
 
     await this.prisma.company.update({
       where: { id: companyId },
-      data: { plan, subscriptionStatus: 'ACTIVE', dueDate, isBlocked: false },
+      data: { plan, subscriptionStatus: 'ACTIVE', dueDate, isBlocked: false, wasEverActive: true },
     });
 
     const company = await this.prisma.company.findUnique({

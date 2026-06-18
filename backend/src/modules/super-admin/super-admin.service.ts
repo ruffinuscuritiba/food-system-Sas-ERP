@@ -1212,4 +1212,179 @@ export class SuperAdminService {
       demos: results,
     };
   }
+
+  // ── Customers Report ─────────────────────────────────────────────────────────
+
+  private classifyCompany(company: {
+    id: string;
+    email?: string | null;
+    subscriptionStatus: string;
+    wasEverActive: boolean;
+    dueDate?: Date | null;
+  }): { type: string; status: string } {
+    const isDemo =
+      company.email?.endsWith('@foodsaas.demo') || company.id.startsWith('demo-');
+
+    if (isDemo) return { type: 'DEMO', status: 'Demonstração' };
+
+    if (company.subscriptionStatus === 'ACTIVE') {
+      return { type: 'ACTIVE', status: 'Ativo' };
+    }
+
+    if (company.wasEverActive) {
+      const days = company.dueDate
+        ? Math.ceil((Date.now() - company.dueDate.getTime()) / 86_400_000)
+        : null;
+      return {
+        type: 'EX_CLIENT',
+        status: `Vencido há ${days ?? '?'} dias`,
+      };
+    }
+
+    // Never paid
+    const inWindow =
+      company.dueDate && new Date() < new Date(company.dueDate);
+    return {
+      type: 'TRIAL',
+      status: inWindow ? 'Em trial' : 'Trial expirado',
+    };
+  }
+
+  async getCustomersReport(opts: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    search?: string;
+  }) {
+    const page  = Math.max(1, opts.page  ?? 1);
+    const limit = Math.min(100, opts.limit ?? 50);
+
+    // 1. Fetch all companies (with admin user for contact info)
+    const companies = await this.prisma.company.findMany({
+      select: {
+        id: true, name: true, email: true,
+        subscriptionStatus: true, wasEverActive: true, dueDate: true,
+        plan: true, createdAt: true, archivedAt: true,
+        users: { where: { role: 'ADMIN' }, take: 1, select: { name: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // 2. Fetch all leads
+    const leads = await this.prisma.lead.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, name: true, company: true, whatsapp: true,
+        recommendedPlan: true, status: true, createdAt: true, waClickedAt: true,
+        // sessionToken is internal-only
+      },
+    } as any);
+
+    // Build email set from companies to deduplicate leads
+    const companyEmails = new Set(companies.map((c) => c.email?.toLowerCase()));
+
+    // 3. Map companies → unified records
+    const companyRows: any[] = companies.map((c) => {
+      const { type, status } = this.classifyCompany(c);
+      const admin = c.users[0];
+      return {
+        id:             c.id,
+        contactName:    admin?.name ?? c.name,
+        restaurantName: c.name,
+        email:          admin?.email ?? c.email ?? '',
+        whatsapp:       (admin as any)?.phone ?? '',
+        type,
+        status,
+        plan:           c.plan ?? '',
+        createdAt:      c.createdAt,
+        dueDate:        c.dueDate,
+        isArchived:     !!c.archivedAt,
+      };
+    });
+
+    // 4. Map leads → unified records (skip if email matches a company)
+    const leadRows: any[] = (leads as any[])
+      .filter((l: any) => !companyEmails.has((l.email ?? '').toLowerCase()))
+      .map((l: any) => ({
+        id:             `lead-${l.id}`,
+        contactName:    l.name ?? '',
+        restaurantName: l.company ?? '',
+        email:          '',
+        whatsapp:       l.whatsapp ?? '',
+        type:           'LEAD',
+        status:         `Lead (${l.status ?? 'NOVO'})`,
+        plan:           l.recommendedPlan ?? '',
+        createdAt:      l.createdAt,
+        dueDate:        null,
+        isArchived:     false,
+      }));
+
+    let all = [...companyRows, ...leadRows];
+
+    // 5. Filter
+    if (opts.type && opts.type !== 'ALL') {
+      all = all.filter((r) => r.type === opts.type);
+    }
+    if (opts.search) {
+      const q = opts.search.toLowerCase();
+      all = all.filter(
+        (r) =>
+          r.contactName.toLowerCase().includes(q) ||
+          r.restaurantName.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          r.whatsapp.includes(q),
+      );
+    }
+
+    const total = all.length;
+    const items = all.slice((page - 1) * limit, page * limit);
+
+    // 6. KPI summary
+    const summary = {
+      total:     all.length,
+      active:    all.filter((r) => r.type === 'ACTIVE').length,
+      trial:     all.filter((r) => r.type === 'TRIAL').length,
+      demo:      all.filter((r) => r.type === 'DEMO').length,
+      exClient:  all.filter((r) => r.type === 'EX_CLIENT').length,
+      leads:     all.filter((r) => r.type === 'LEAD').length,
+    };
+
+    return { items, total, page, limit, summary };
+  }
+
+  async getCustomersReportCsv(): Promise<string> {
+    const { items } = await this.getCustomersReport({ limit: 10000 });
+
+    const header = [
+      'Nome do Contato', 'Nome do Restaurante', 'E-mail', 'WhatsApp',
+      'Tipo', 'Status', 'Plano', 'Cadastro',
+    ].join(',');
+
+    const rows = items.map((r: any) => [
+      this.csvCell(r.contactName),
+      this.csvCell(r.restaurantName),
+      this.csvCell(r.email),
+      this.csvCell(r.whatsapp),
+      this.csvCell(r.type),
+      this.csvCell(r.status),
+      this.csvCell(r.plan),
+      this.csvCell(r.createdAt ? new Date(r.createdAt).toLocaleDateString('pt-BR') : ''),
+    ].join(','));
+
+    return [header, ...rows].join('\n');
+  }
+
+  async getCustomersReportTxt(): Promise<string> {
+    const { items } = await this.getCustomersReport({ limit: 10000 });
+    const phones = items
+      .map((r: any) => (r.whatsapp ?? '').replace(/\D/g, ''))
+      .filter(Boolean);
+    // Deduplicate
+    return [...new Set(phones)].join('\n');
+  }
+
+  private csvCell(value: any): string {
+    const str = String(value ?? '').replace(/"/g, '""');
+    return `"${str}"`;
+  }
 }

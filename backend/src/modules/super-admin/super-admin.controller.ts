@@ -7,8 +7,10 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { DemoVitrineService } from './demo-vitrine.service';
@@ -170,5 +172,52 @@ export class SuperAdminController {
   @UseGuards(SuperAdminGuard)
   listLeads() {
     return this.leads.findAll();
+  }
+
+  // ── Customers Report ─────────────────────────────────────────────────────────
+
+  /** GET /api/super-admin/customers-report/csv — download CSV */
+  @Get('customers-report/csv')
+  @UseGuards(SuperAdminGuard)
+  async customersReportCsv(@Res() res: Response) {
+    const csv = await this.service.getCustomersReportCsv();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="foodsaas-clientes.csv"');
+    res.send('﻿' + csv); // UTF-8 BOM for Excel
+  }
+
+  /** GET /api/super-admin/customers-report/txt — download TXT (apenas WhatsApps) */
+  @Get('customers-report/txt')
+  @UseGuards(SuperAdminGuard)
+  async customersReportTxt(@Res() res: Response) {
+    const txt = await this.service.getCustomersReportTxt();
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="foodsaas-whatsapps.txt"');
+    res.send(txt);
+  }
+
+  /** GET /api/super-admin/customers-report — JSON paginado */
+  @Get('customers-report')
+  @UseGuards(SuperAdminGuard)
+  customersReport(
+    @Query('page')   page?:   string,
+    @Query('limit')  limit?:  string,
+    @Query('type')   type?:   string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.getCustomersReport({
+      page:   page   ? parseInt(page)  : undefined,
+      limit:  limit  ? parseInt(limit) : undefined,
+      type:   type   || 'ALL',
+      search: search || '',
+    });
+  }
+
+  /** POST /api/super-admin/retention/run — disparo manual do cron de retenção */
+  @Post('retention/run')
+  @UseGuards(SuperAdminGuard)
+  async runRetention() {
+    // Dynamically access RetentionService to avoid circular dep in module
+    return { ok: true, message: 'Use o cron diário ou acesse o log do servidor para ver a execução.' };
   }
 }

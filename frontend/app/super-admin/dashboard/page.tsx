@@ -44,6 +44,17 @@ const PLAN_BADGE: Record<string, string> = {
   DELIVERY:     "bg-emerald-950 text-emerald-300 ring-1 ring-emerald-800",
 }
 
+const PROTECTED_EMAILS = new Set([
+  "platform@foodsaas.internal",
+  "demo-basic@foodsaas.demo",
+  "demo-pro@foodsaas.demo",
+  "demo-enterprise@foodsaas.demo",
+])
+
+function isProtected(c: Company) {
+  return PROTECTED_EMAILS.has(c.email?.toLowerCase())
+}
+
 const NAV_ITEMS = [
   { label: "Dashboard",    href: "/super-admin/dashboard", icon: LayoutDashboard },
   { label: "Clientes",     href: "/super-admin/clientes",  icon: UserCheck },
@@ -622,15 +633,27 @@ export default function SuperAdminDashboard() {
                                       <Printer className="w-3.5 h-3.5" />
                                       Link agente impressão
                                     </button>
-                                    <div className="border-t border-zinc-800 my-1" />
-                                    <button
-                                      onClick={() => archiveCompany(c.id, c.name)}
-                                      disabled={archiving === c.id}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50 text-zinc-500"
-                                    >
-                                      <Archive className="w-3.5 h-3.5" />
-                                      {archiving === c.id ? "Arquivando..." : "Arquivar empresa"}
-                                    </button>
+                                    {!isProtected(c) && (
+                                      <>
+                                        <div className="border-t border-zinc-800 my-1" />
+                                        <button
+                                          onClick={() => archiveCompany(c.id, c.name)}
+                                          disabled={archiving === c.id}
+                                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50 text-zinc-500"
+                                        >
+                                          <Archive className="w-3.5 h-3.5" />
+                                          {archiving === c.id ? "Arquivando..." : "Arquivar empresa"}
+                                        </button>
+                                        <button
+                                          onClick={() => { setOpenMenuId(null); deleteCompany(c.id, c.name) }}
+                                          disabled={deleting === c.id}
+                                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-red-950/60 transition disabled:opacity-50 text-red-400"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          {deleting === c.id ? "Excluindo..." : "Excluir empresa"}
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
                                 )}
                               </div>

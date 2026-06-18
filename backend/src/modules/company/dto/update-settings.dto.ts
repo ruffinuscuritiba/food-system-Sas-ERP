@@ -198,4 +198,13 @@ export class UpdateCompanySettingsDto {
   @IsObject()
   @IsOptional()
   bankAccountData?: object | null;
+
+  // ── Construtor de Layout ─────────────────────────────────────────────────
+  @IsObject()
+  @IsOptional()
+  layoutConfig?: object | null;
+
+  @IsString()
+  @IsOptional()
+  googleReviewUrl?: string;
 }

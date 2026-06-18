@@ -725,6 +725,29 @@ export class OrdersService {
       });
     }
 
+    // ── Google Review link após entrega ──────────────────────────────────────
+    if (status === 'DELIVERED' && customerPhone) {
+      setImmediate(async () => {
+        try {
+          const company = await (this.prisma as any).company.findUnique({
+            where: { id: order.companyId },
+            select: { googleReviewUrl: true },
+          }) as { googleReviewUrl?: string | null } | null;
+          if (!company?.googleReviewUrl) return;
+
+          const firstName = customerName ? customerName.split(' ')[0] : 'você';
+          const msg =
+            `Olá${firstName !== 'você' ? ` ${firstName}` : ''}! 🙏 Seu pedido foi entregue com sucesso!\n\n` +
+            `Ficamos muito felizes em atender você. Que tal deixar uma avaliação rápida? Sua opinião nos ajuda muito! ⭐\n\n` +
+            `👉 ${company.googleReviewUrl}`;
+
+          await this.whatsappAiService?.sendTextMessage(order.companyId, customerPhone, msg);
+        } catch {
+          /* silent — não bloqueia fluxo */
+        }
+      });
+    }
+
     return updatedOrder;
   }
 
@@ -989,6 +1012,31 @@ export class OrdersService {
         });
       } catch {
         /* socket failure must not block */
+      }
+
+      // Google Review para pedidos online DELIVERED
+      if (status === 'DELIVERED') {
+        setImmediate(async () => {
+          try {
+            const fullOrder = await this.prisma.onlineOrder.findUnique({
+              where: { id },
+              select: { customerPhone: true, customerName: true, companyId: true },
+            });
+            const phone = fullOrder?.customerPhone;
+            if (!phone) return;
+            const company = await (this.prisma as any).company.findUnique({
+              where: { id: companyId },
+              select: { googleReviewUrl: true },
+            }) as { googleReviewUrl?: string | null } | null;
+            if (!company?.googleReviewUrl) return;
+            const firstName = fullOrder?.customerName ? fullOrder.customerName.split(' ')[0] : 'você';
+            const msg =
+              `Olá${firstName !== 'você' ? ` ${firstName}` : ''}! 🙏 Seu pedido foi entregue!\n\n` +
+              `Ficamos felizes em atender você. Que tal uma avaliação rápida? ⭐\n\n` +
+              `👉 ${company.googleReviewUrl}`;
+            await this.whatsappAiService?.sendTextMessage(companyId, phone, msg);
+          } catch { /* silent */ }
+        });
       }
 
       return { id: updated.id, source: 'ONLINE', status };

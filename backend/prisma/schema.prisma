@@ -300,6 +300,12 @@ model Company {
   // Saldo em carteira (usado para abater mensalidade antes do repasse)
   walletBalance       Decimal @default(0) @db.Decimal(10, 2)
 
+  // ── Construtor de Layout ────────────────────────────────────────────────────
+  // JSON com configuração visual: { layoutType, buttonRadius, blocks[], ... }
+  layoutConfig        Json?
+  // Link de avaliação do Google (enviado ao cliente após entrega)
+  googleReviewUrl     String?
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -1875,4 +1881,18 @@ model ProductCatalogMap {
   @@unique([companyId, provider, externalProductId])
   @@index([companyId])
   @@index([internalProductId])
+}
+
+// ── Layout Template ──────────────────────────────────────────────────────────
+// Templates de layout que o Super Admin cria para aplicar às lojas.
+// Defaults são hardcoded no frontend; este model armazena templates customizados.
+model LayoutTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  segment   String   @default("CUSTOM")
+  // JSON: { layoutType, buttonRadius, blocks: [{ id, label, visible, order }] }
+  config    Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

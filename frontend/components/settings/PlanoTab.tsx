@@ -30,6 +30,88 @@ interface BackendMod {
 
 interface Feature { icon: React.ReactNode; title: string; desc: string; }
 
+// ─────────────────────────────────────────────
+// Ícones de marca (SVG inline)
+// ─────────────────────────────────────────────
+
+const GtmIcon = () => (
+  <svg viewBox="0 0 64 64" width="26" height="26" fill="none">
+    <path d="M32 4L4 32l28 28 28-28L32 4z" fill="#4285F4"/>
+    <path d="M32 12L14 30l8 8 10-10 10 10 8-8L32 12z" fill="#80B3F5"/>
+    <path d="M22 32l10 10 10-10-10-10-10 10z" fill="white"/>
+    <rect x="29" y="20" width="6" height="14" rx="1" fill="white"/>
+  </svg>
+);
+
+const Ga4Icon = () => (
+  <svg viewBox="0 0 64 64" width="26" height="26" fill="none">
+    <rect x="6"  y="34" width="12" height="22" rx="3" fill="#F9AB00"/>
+    <rect x="22" y="20" width="12" height="36" rx="3" fill="#F9AB00"/>
+    <rect x="38" y="28" width="12" height="28" rx="3" fill="#E37400"/>
+    <circle cx="56" cy="54" r="5" fill="#E37400"/>
+  </svg>
+);
+
+const PixelIcon = () => (
+  <svg viewBox="0 0 64 64" width="26" height="26" fill="none">
+    <rect width="64" height="64" rx="10" fill="#1C2B4B"/>
+    <path d="M14 22l-8 10 8 10M50 22l8 10-8 10" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M38 16L26 48" stroke="#1877F2" strokeWidth="4" strokeLinecap="round"/>
+  </svg>
+);
+
+// ─────────────────────────────────────────────
+// Ferramentas de Analytics (integração gratuita)
+// ─────────────────────────────────────────────
+
+interface AnalyticsTool {
+  slug:        string;
+  name:        string;
+  subtitle:    string;
+  icon:        React.ReactNode;
+  iconBg:      string;
+  configPath:  string;   // onde o usuário configura
+  fieldKey:    string;   // campo da company que indica se está ativo
+  description: string;
+  howToGet:    string;   // onde obter o ID/código
+}
+
+const ANALYTICS_TOOLS: AnalyticsTool[] = [
+  {
+    slug:       "gtm",
+    name:       "Google Tag Manager",
+    subtitle:   "Ferramenta de rastreamento de eventos",
+    icon:       <GtmIcon />,
+    iconBg:     "bg-blue-50",
+    configPath: "/configuracoes?tab=aparencia",
+    fieldKey:   "googleTagManagerId",
+    description: "Gerencie todos os seus scripts de rastreamento (GA4, Pixel, etc.) em um único lugar, sem precisar editar código.",
+    howToGet:   "Acesse tagmanager.google.com → crie uma conta → copie o ID do contêiner (ex: GTM-XXXXXXX).",
+  },
+  {
+    slug:       "ga4",
+    name:       "Google Analytics 4",
+    subtitle:   "Ferramenta de análise de dados",
+    icon:       <Ga4Icon />,
+    iconBg:     "bg-amber-50",
+    configPath: "/configuracoes?tab=aparencia",
+    fieldKey:   "googleAnalyticsId",
+    description: "Acompanhe visitantes, conversões e comportamento de usuários no seu cardápio digital e site.",
+    howToGet:   "Acesse analytics.google.com → crie uma propriedade GA4 → copie o ID de medição (ex: G-XXXXXXXXXX).",
+  },
+  {
+    slug:       "facebook-pixel",
+    name:       "Facebook Pixel",
+    subtitle:   "Ferramenta de rastreamento de eventos",
+    icon:       <PixelIcon />,
+    iconBg:     "bg-blue-50",
+    configPath: "/configuracoes?tab=aparencia",
+    fieldKey:   "metaPixelId",
+    description: "Rastreie conversões do cardápio digital, otimize anúncios no Facebook e Instagram e crie públicos personalizados.",
+    howToGet:   "Acesse business.facebook.com → Gerenciador de Eventos → crie um Pixel → copie o ID numérico.",
+  },
+];
+
 interface ModuleDef {
   slug: string;
   name: string;
@@ -663,6 +745,125 @@ function ModuleCard({
 }
 
 // ─────────────────────────────────────────────
+// Card de Analytics (design da screenshot)
+// ─────────────────────────────────────────────
+
+function AnalyticsCard({
+  tool,
+  isActive,
+}: {
+  tool: AnalyticsTool;
+  isActive: boolean;
+}) {
+  const [showDetail, setShowDetail] = useState(false);
+
+  return (
+    <>
+      <div
+        className={`rounded-xl border bg-white transition-all cursor-pointer group hover:shadow-md ${
+          isActive ? "border-blue-200 shadow-sm" : "border-gray-200 hover:border-blue-200"
+        }`}
+        role="button"
+        tabIndex={0}
+        onClick={() => setShowDetail(true)}
+        onKeyDown={(e) => e.key === "Enter" && setShowDetail(true)}
+      >
+        <div className="p-4">
+          <div className="flex items-start gap-3 mb-3">
+            {/* Ícone de marca */}
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${tool.iconBg}`}>
+              {tool.icon}
+            </div>
+            {/* Link externo no canto */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900 leading-tight">{tool.name}</p>
+              <p className="text-[11px] text-blue-600 font-medium mt-0.5">{tool.subtitle}</p>
+            </div>
+            <div className="text-gray-300 group-hover:text-gray-400 transition-colors">
+              <ChevronRight size={16} />
+            </div>
+          </div>
+
+          {/* Botão + status — igual à screenshot */}
+          <div className="flex items-center justify-between mt-1">
+            <a
+              href={tool.configPath}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 transition-colors"
+            >
+              <Settings size={12} />Configurar
+            </a>
+            {isActive ? (
+              <span className="text-xs font-semibold text-emerald-600">Ativa</span>
+            ) : (
+              <span className="text-xs text-gray-400">Não configurado</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de detalhes simples */}
+      {showDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDetail(false); }}
+        >
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="relative bg-gradient-to-br from-gray-900 to-gray-800 p-6 text-white">
+              <button
+                onClick={() => setShowDetail(false)}
+                className="absolute right-4 top-4 text-white/60 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${tool.iconBg}`}>
+                  {tool.icon}
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 font-semibold uppercase tracking-wide mb-0.5">Analytics e Marketing</p>
+                  <h2 className="text-xl font-black">{tool.name}</h2>
+                  <p className="text-sm text-white/60 mt-0.5">{tool.subtitle}</p>
+                </div>
+              </div>
+              <div className="mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30">
+                <span className="text-[10px] font-bold text-emerald-300">✓ Integração gratuita — inclusa em todos os planos</span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">O que faz</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{tool.description}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">Como obter o ID</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{tool.howToGet}</p>
+              </div>
+              <div className={`flex items-center gap-2 p-3 rounded-xl ${isActive ? "bg-emerald-50 border border-emerald-200" : "bg-amber-50 border border-amber-200"}`}>
+                {isActive
+                  ? <><CheckCircle2 size={15} className="text-emerald-600 shrink-0"/><p className="text-xs text-emerald-700 font-semibold">Integração configurada e ativa</p></>
+                  : <><AlertTriangle size={15} className="text-amber-500 shrink-0"/><p className="text-xs text-amber-700">Cole o ID em <strong>Aparência → Analytics</strong> para ativar.</p></>
+                }
+              </div>
+            </div>
+
+            <div className="px-6 pb-6">
+              <a
+                href={tool.configPath}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
+              >
+                <Settings size={15} />Abrir Configurações
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Card de plano atual
 // ─────────────────────────────────────────────
 
@@ -787,13 +988,14 @@ export default function PlanoTab() {
   const { user } = useAuthStore();
   const companyId = (user as any)?.companyId ?? "";
 
-  const [plan,        setPlan]        = useState("BASIC");
-  const [subStatus,   setSubStatus]   = useState("ACTIVE");
-  const [dueDate,     setDueDate]     = useState<string | null>(null);
-  const [modStatuses, setModStatuses] = useState<Record<string, { status: ModStatus; trialEndsAt?: string | null }>>({});
-  const [loading,     setLoading]     = useState(true);
-  const [category,    setCategory]    = useState<typeof CATEGORIES[number]>("Todos");
-  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [plan,          setPlan]          = useState("BASIC");
+  const [subStatus,     setSubStatus]     = useState("ACTIVE");
+  const [dueDate,       setDueDate]       = useState<string | null>(null);
+  const [modStatuses,   setModStatuses]   = useState<Record<string, { status: ModStatus; trialEndsAt?: string | null }>>({});
+  const [companyFields, setCompanyFields] = useState<Record<string, string | null>>({});
+  const [loading,       setLoading]       = useState(true);
+  const [category,      setCategory]      = useState<typeof CATEGORIES[number]>("Todos");
+  const [showUpgrade,   setShowUpgrade]   = useState(false);
 
   const load = useCallback(async () => {
     if (!companyId) return;
@@ -820,6 +1022,14 @@ export default function PlanoTab() {
         };
       }
       setModStatuses(statusMap);
+
+      // Campos de analytics da empresa (metaPixelId, googleAnalyticsId, etc.)
+      const cd = compRes.data ?? {};
+      setCompanyFields({
+        metaPixelId:        cd.metaPixelId        ?? null,
+        googleAnalyticsId:  cd.googleAnalyticsId  ?? null,
+        googleTagManagerId: cd.googleTagManagerId  ?? null,
+      });
     } catch {
       toast.error("Erro ao carregar dados do plano");
     } finally {
@@ -886,6 +1096,25 @@ export default function PlanoTab() {
               />
             );
           })}
+        </div>
+      </section>
+
+      {/* Seção Analytics e Marketing */}
+      <section>
+        <div className="mb-4">
+          <h2 className="text-sm font-bold text-gray-900">Analytics e Marketing</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Integrações gratuitas — incluso em todos os planos. Cole seu ID em Aparência para ativar.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {ANALYTICS_TOOLS.map((tool) => (
+            <AnalyticsCard
+              key={tool.slug}
+              tool={tool}
+              isActive={!!companyFields[tool.fieldKey]}
+            />
+          ))}
         </div>
       </section>
 

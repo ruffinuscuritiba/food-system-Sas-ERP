@@ -9,7 +9,7 @@ import {
   Phone, Wifi, WifiOff, Bot, User, ChevronRight,
   RefreshCw, Send, AlertCircle, CheckCircle2,
   Zap, Shield, ToggleLeft, ToggleRight, Copy, Eye, EyeOff, Pencil,
-  MessageCircle, TrendingUp, Users, ShoppingBag, X,
+  MessageCircle, TrendingUp, Users, ShoppingBag, X, QrCode,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -667,7 +667,7 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                   {conn._count?.conversations ?? 0} conversas
                 </span>
                 {/* QR Code — só aparece para conexões Evolution com instanceName */}
-                {conn.instanceName && (
+                {conn.provider !== "META" && (
                   <button
                     onClick={() => {
                       api.get(`/whatsapp-ai/connections/${conn.id}/qr`)
@@ -677,10 +677,10 @@ function ConnectionsTab({ connections, onRefresh, onSelect, copyWebhook }: {
                           if (state !== "open") startQrPoll(conn.id);
                         }).catch(() => toast.error("Erro ao obter QR Code"));
                     }}
-                    title="QR Code / Reconectar"
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${conn.isActive ? "bg-green-900/40 text-green-400" : "bg-slate-800 hover:bg-green-900/40 text-slate-400 hover:text-green-400"}`}
+                    title="Escanear QR Code / Reconectar"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition bg-amber-900/40 hover:bg-amber-800/60 text-amber-400 hover:text-amber-300"
                   >
-                    <Wifi size={15} />
+                    <QrCode size={15} />
                   </button>
                 )}
                 <button onClick={() => toggle(conn)} title="Ativar/Desativar" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition text-slate-400">

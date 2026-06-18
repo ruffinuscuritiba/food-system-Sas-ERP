@@ -178,12 +178,29 @@ export class CompanyService {
         businessSegment: true,
         layoutType: true,
         buttonRadius: true,
+        layoutConfig: true,
+        googleReviewUrl: true,
         repasseFrequency: true,
         repasseTime: true,
         repasseWeekday: true,
         creditReleasePlan: true,
         bankAccountData: true,
         walletBalance: true,
+      },
+    });
+    if (!company) throw new NotFoundException('Empresa não encontrada');
+    return company;
+  }
+
+  /** Retorna layoutConfig público (sem auth) para PDV e cardápio digital. */
+  async getPublicLayout(companyId: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        layoutConfig: true,
+        layoutType: true,
+        buttonRadius: true,
+        googleReviewUrl: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');
@@ -248,6 +265,10 @@ export class CompanyService {
         ...(dto.businessSegment !== undefined && { businessSegment: dto.businessSegment }),
         ...(dto.layoutType !== undefined && { layoutType: dto.layoutType }),
         ...(dto.buttonRadius !== undefined && { buttonRadius: dto.buttonRadius }),
+        ...(dto.layoutConfig !== undefined && {
+          layoutConfig: dto.layoutConfig === null ? null : JSON.parse(JSON.stringify(dto.layoutConfig)),
+        }),
+        ...(dto.googleReviewUrl !== undefined && { googleReviewUrl: dto.googleReviewUrl }),
         ...(dto.repasseFrequency !== undefined && { repasseFrequency: dto.repasseFrequency }),
         ...(dto.repasseTime !== undefined && { repasseTime: dto.repasseTime }),
         ...(dto.repasseWeekday !== undefined && { repasseWeekday: dto.repasseWeekday }),
@@ -293,6 +314,8 @@ export class CompanyService {
         businessSegment: true,
         layoutType: true,
         buttonRadius: true,
+        layoutConfig: true,
+        googleReviewUrl: true,
         repasseFrequency: true,
         repasseTime: true,
         repasseWeekday: true,

@@ -6,7 +6,7 @@ import {
   LogIn, MoreVertical, ShieldOff, Shield, Wrench, Copy, Archive,
   RotateCcw, Trash2, Plus, Zap, Users, Building2,
   BarChart3, Ban, Search, ChevronRight, LayoutDashboard,
-  UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw, ExternalLink,
+  UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw, ExternalLink, Layout,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
@@ -56,10 +56,11 @@ function isProtected(c: Company) {
 }
 
 const NAV_ITEMS = [
-  { label: "Dashboard",    href: "/super-admin/dashboard", icon: LayoutDashboard },
-  { label: "Clientes",     href: "/super-admin/clientes",  icon: UserCheck },
-  { label: "Leads",        href: "/super-admin/leads",     icon: TrendingUp },
-  { label: "Preços",       href: "/super-admin/pricing",   icon: DollarSign },
+  { label: "Dashboard",    href: "/super-admin/dashboard",  icon: LayoutDashboard },
+  { label: "Clientes",     href: "/super-admin/clientes",   icon: UserCheck },
+  { label: "Leads",        href: "/super-admin/leads",      icon: TrendingUp },
+  { label: "Construtor",   href: "/super-admin/construtor", icon: Layout },
+  { label: "Preços",       href: "/super-admin/pricing",    icon: DollarSign },
 ]
 
 function NavLink({ item, active }: { item: typeof NAV_ITEMS[0]; active: boolean }) {

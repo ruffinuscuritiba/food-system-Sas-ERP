@@ -1700,6 +1700,21 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     await this.dispatchMessage(connection, phone, text);
   }
 
+  /** Envia mensagem de texto avulsa pelo primeiro WhatsApp ativo da empresa. */
+  async sendTextMessage(companyId: string, phone: string, text: string) {
+    const raw = phone.replace(/\D/g, '');
+    if (!raw || raw.length < 8) return;
+    let connection: WaConnection | null = null;
+    try {
+      connection = (await this.prisma.whatsappConnection.findFirst({
+        where: { companyId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      })) as WaConnection | null;
+    } catch { return; }
+    if (!connection) return;
+    await this.dispatchMessage(connection, raw, text).catch(() => { /* silent */ });
+  }
+
   private async dispatchMessage(
     connection: WaConnection,
     phone: string,

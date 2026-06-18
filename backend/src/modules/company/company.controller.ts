@@ -5,9 +5,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -21,6 +23,13 @@ export class CompanyController {
   constructor(private service: CompanyService) {}
 
   // ── Área de Configurações — rotas ANTES de ':id' para evitar match errado ──
+
+  /** GET /company/layout/public?companyId=X — layout sem auth para PDV e cardápio */
+  @Get('layout/public')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  getPublicLayout(@Query('companyId') companyId: string) {
+    return this.service.getPublicLayout(companyId);
+  }
 
   /** GET /company/settings — retorna dados de configuração da empresa logada */
   @Get('settings')

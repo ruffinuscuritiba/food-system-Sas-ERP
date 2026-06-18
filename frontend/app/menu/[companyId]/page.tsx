@@ -131,6 +131,11 @@ export default function MenuPage() {
 
   const [search, setSearch] = useState("");
   const [videoProduct, setVideoProduct] = useState<Product | null>(null);
+  const [menuLayoutConfig, setMenuLayoutConfig] = useState<{
+    layoutType?: string;
+    buttonRadius?: string;
+    blocks?: { id: string; visible: boolean; order: number }[];
+  } | null>(null);
 
   // Delivery zone state — populated after loadMenu; matched per neighborhood change
   const [deliveryZones, setDeliveryZones] = useState<{ id: string; name: string; neighborhood: string | null; clientFee: number }[]>([]);
@@ -155,12 +160,13 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/pizza-size-configs/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/delivery-config/public?companyId=${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/company/layout/public?companyId=${companyId}`).catch(() => null),
       ]);
 
       if (!menuRes.ok) {
@@ -226,6 +232,12 @@ export default function MenuPage() {
           });
           document.documentElement.style.setProperty("--color-primary", primary);
         }
+      }
+
+      // Layout config (block ordering, buttonRadius, layoutType)
+      if (layoutRes?.ok) {
+        const ld = await layoutRes.json().catch(() => null);
+        if (ld) setMenuLayoutConfig(ld.layoutConfig ?? null);
       }
 
       setLoading(false);
@@ -816,6 +828,21 @@ export default function MenuPage() {
     );
   }
 
+  // ── Layout config helpers ────────────────────────────────────────────────────
+  const lcBlocks = menuLayoutConfig?.blocks ?? [];
+  const blockVisible = (id: string) => {
+    if (!lcBlocks.length) return true;
+    const b = lcBlocks.find(b => b.id === id);
+    return b ? b.visible : true;
+  };
+  const blockOrder = (id: string) => {
+    const b = lcBlocks.find(b => b.id === id);
+    return b?.order ?? 99;
+  };
+  const featuredProducts = products.filter(p => (p as any).isFeatured === true).slice(0, 6);
+  const showFeatured = blockVisible("featured") && featuredProducts.length > 0;
+  const featuredBeforeCategories = blockOrder("featured") < blockOrder("categories");
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: "12px", fontWeight: 600 } }} />
@@ -825,6 +852,7 @@ export default function MenuPage() {
       <ChatWidget companyId={companyId} companyName={companyName} />
 
       {/* ─── Header ────────────────────────────────────────────────────────────── */}
+      {blockVisible("banner") && (
       <header className="relative text-white pb-24 sm:pb-16 overflow-hidden" style={{ minHeight: 180 }}>
         {/* Banner image or solid color */}
         {theme.bannerUrl ? (
@@ -866,6 +894,31 @@ export default function MenuPage() {
           </div>
         </div>
       </header>
+      )} {/* end blockVisible("banner") */}
+
+      {/* ─── Destaques (featured block — before categories) ─────────────────────── */}
+      {showFeatured && featuredBeforeCategories && (
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">⭐ Destaques</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth">
+            {featuredProducts.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => addToCart(p)}
+                className="flex-shrink-0 w-32 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left"
+              >
+                {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover" />}
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-gray-800 line-clamp-2">{p.name}</p>
+                  <p className="text-xs font-bold mt-0.5" style={{ color: theme.primaryColor }}>
+                    R$ {(Number(p.salePrice) || 0).toFixed(2).replace(".", ",")}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── Painel flutuante sobre o header ───────────────────────────────────── */}
       <div className="max-w-2xl mx-auto px-4 -mt-16 sm:-mt-10 relative z-20">
@@ -920,6 +973,30 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
+
+      {/* ─── Destaques (featured block — after categories) ──────────────────────── */}
+      {showFeatured && !featuredBeforeCategories && (
+        <div className="max-w-2xl mx-auto px-4 pt-2">
+          <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">⭐ Destaques</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth">
+            {featuredProducts.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => addToCart(p)}
+                className="flex-shrink-0 w-32 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left"
+              >
+                {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover" />}
+                <div className="p-2">
+                  <p className="text-xs font-semibold text-gray-800 line-clamp-2">{p.name}</p>
+                  <p className="text-xs font-bold mt-0.5" style={{ color: theme.primaryColor }}>
+                    R$ {(Number(p.salePrice) || 0).toFixed(2).replace(".", ",")}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── Produtos ───────────────────────────────────────────────────────────── */}
       {/* pb-44 (176px) cobre CTA flutuante (~80px) + safe-area iOS + margem confortável */}

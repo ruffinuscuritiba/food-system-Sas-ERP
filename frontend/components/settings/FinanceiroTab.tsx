@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import {
   Building2, Key, Clock, CreditCard, CheckCircle2,
   AlertTriangle, Loader2, ChevronDown, Wallet,
-  CalendarClock, Zap,
+  CalendarClock, Zap, ArrowDownRight, ArrowUpRight,
+  RefreshCw, TrendingUp,
 } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -30,12 +31,23 @@ interface BankAccountData {
 }
 
 interface FinancialSettings {
-  repasseFrequency: RepasseFreq;
-  repasseTime:      string;
-  repasseWeekday:   number;
+  repasseFrequency:  RepasseFreq;
+  repasseTime:       string;
+  repasseWeekday:    number;
   creditReleasePlan: CreditPlan;
-  bankAccountData:  BankAccountData | null;
-  walletBalance:    number;
+  bankAccountData:   BankAccountData | null;
+  walletBalance:     number;
+}
+
+interface WalletTx {
+  id:          string;
+  type:        string;
+  amount:      number;
+  balanceBefore: number;
+  balanceAfter:  number;
+  description: string;
+  referenceType?: string;
+  createdAt:   string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -68,8 +80,23 @@ const BANKS = [
   "Santander", "BTG Pactual", "Inter", "C6 Bank", "Sicoob", "Outro",
 ];
 
+const TX_LABELS: Record<string, { label: string; color: string }> = {
+  ORDER_CREDIT:       { label: "Venda recebida",      color: "text-green-600" },
+  SUBSCRIPTION_DEBIT: { label: "Mensalidade debitada", color: "text-red-600" },
+  REPASSE:            { label: "Repasse enviado",       color: "text-blue-600" },
+  TRANSFER_FEE:       { label: "Taxa de transferência", color: "text-orange-600" },
+  MANUAL_CREDIT:      { label: "Crédito manual",        color: "text-green-600" },
+  MANUAL_DEBIT:       { label: "Débito manual",         color: "text-red-600" },
+};
+
 function fmt(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function fmtDate(s: string) {
+  return new Date(s).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
 }
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
@@ -138,15 +165,15 @@ function SelectField({
 }
 
 function InputField({
-  label, value, onChange, placeholder, type = "text",
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  label, value, onChange, placeholder,
+}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div>
       <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">
         {label}
       </label>
       <input
-        type={type}
+        type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
@@ -165,17 +192,19 @@ export default function FinanceiroTab() {
   const [saving, setSaving]   = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [freq,     setFreq]     = useState<RepasseFreq>("DAILY");
-  const [time,     setTime]     = useState("03:00");
-  const [weekday,  setWeekday]  = useState(1);
-  const [plan,     setPlan]     = useState<CreditPlan>("D30");
-  const [wallet,   setWallet]   = useState(0);
-  const [account,  setAccount]  = useState<BankAccountData>({ type: "pix", pixKeyType: "CPF" });
+  const [freq,    setFreq]    = useState<RepasseFreq>("DAILY");
+  const [time,    setTime]    = useState("03:00");
+  const [weekday, setWeekday] = useState(1);
+  const [plan,    setPlan]    = useState<CreditPlan>("D30");
+  const [wallet,  setWallet]  = useState(0);
+  const [account, setAccount] = useState<BankAccountData>({ type: "pix", pixKeyType: "CPF" });
   const [showAccountForm, setShowAccountForm] = useState(false);
+  const [txs,     setTxs]     = useState<WalletTx[]>([]);
+  const [loadingTxs, setLoadingTxs] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
-    api.get(`/company/settings`)
+    api.get("/company/settings")
       .then(r => {
         const d = r.data;
         setFreq(d.repasseFrequency ?? "DAILY");
@@ -187,6 +216,13 @@ export default function FinanceiroTab() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Buscar extrato da carteira
+    setLoadingTxs(true);
+    api.get("/wallet/transactions")
+      .then(r => setTxs(r.data ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingTxs(false));
   }, [companyId]);
 
   async function save() {
@@ -224,24 +260,33 @@ export default function FinanceiroTab() {
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-8">
 
-      {/* ── Saldo em carteira ─────────────────────────────────────── */}
-      {wallet > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-5 py-4 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center">
-            <Wallet size={18} />
+      {/* ── KPI: Saldo em carteira ────────────────────────────────── */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/40 text-green-600 flex items-center justify-center">
+              <Wallet size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Saldo em Carteira</p>
+              <p className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-tight">{fmt(wallet)}</p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Saldo em Carteira</p>
-            <p className="text-2xl font-black text-amber-800 dark:text-amber-300 leading-tight">{fmt(wallet)}</p>
-            <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
+          <div className="text-right">
+            <p className="text-xs text-gray-400">Próximo repasse</p>
+            <p className="text-xs font-semibold text-orange-600">{nextRepasseLabel}</p>
+          </div>
+        </div>
+
+        {wallet > 0 && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+            <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-400">
               Mensalidades em atraso serão abatidas automaticamente antes do próximo repasse.
             </p>
           </div>
-          {wallet > 0 && (
-            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0" />
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Bloco 1: Conta de Repasse ─────────────────────────────── */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
@@ -262,7 +307,7 @@ export default function FinanceiroTab() {
                   <>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Chave PIX</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{account.pixKey}</p>
-                    <p className="text-xs text-gray-400">{PIX_KEY_TYPES.find(k => k.value === account.pixKeyType)?.label}</p>
+                    <p className="text-xs text-gray-400">{PIX_KEY_TYPES.find(k => k.value === account.pixKeyType)?.label} · {account.holderName}</p>
                   </>
                 ) : (
                   <>
@@ -287,7 +332,6 @@ export default function FinanceiroTab() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Tipo de conta */}
             <div className="flex gap-3">
               <RadioCard selected={account.type === "pix"} onClick={() => setAccount(a => ({ ...a, type: "pix" }))}>
                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Chave PIX</p>
@@ -307,6 +351,9 @@ export default function FinanceiroTab() {
                 <InputField label="Chave PIX" value={account.pixKey ?? ""} onChange={v => setAccount(a => ({ ...a, pixKey: v }))} placeholder="Ex: 123.456.789-00" />
                 <div className="col-span-2">
                   <InputField label="Nome do Titular" value={account.holderName ?? ""} onChange={v => setAccount(a => ({ ...a, holderName: v }))} placeholder="Nome completo ou razão social" />
+                </div>
+                <div className="col-span-2">
+                  <InputField label="CPF / CNPJ do Titular" value={account.document ?? ""} onChange={v => setAccount(a => ({ ...a, document: v }))} placeholder="000.000.000-00" />
                 </div>
               </div>
             ) : (
@@ -334,7 +381,7 @@ export default function FinanceiroTab() {
           </div>
         )}
 
-        {!hasAccount && (
+        {!hasAccount && !showAccountForm && (
           <button
             onClick={() => setShowAccountForm(true)}
             className="mt-3 flex items-center gap-2 text-sm font-semibold text-orange-600 hover:text-orange-700"
@@ -395,10 +442,10 @@ export default function FinanceiroTab() {
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Liberação no mesmo dia (D+0)</p>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Receba no mesmo dia da venda, mesmo para crédito.
+              Taxa: 3,99% + 1,7% de taxa de adiantamento. Recebimento no mesmo dia da venda.
             </p>
             <div className="mt-2 inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
-              Taxa: 3,99% + adiantamento
+              3,99% + 1,70%
             </div>
           </RadioCard>
 
@@ -408,20 +455,20 @@ export default function FinanceiroTab() {
               <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Liberação em 30 dias (D+30)</p>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Receba 30 dias após a venda — menor taxa.
+              Taxa: 3,99% por transação. Recebimento 30 dias após a venda.
             </p>
             <div className="mt-2 inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 rounded-full px-2.5 py-0.5 text-[11px] font-bold">
-              Taxa: 3,99% por transação
+              3,99% por transação
             </div>
           </RadioCard>
         </div>
 
-        {plan === "D0" && (
-          <p className="mt-3 text-[11px] text-gray-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-            ⚡ O D+0 garante liquidez imediata mas incorre em taxa de adiantamento cobrada pela operadora de cartão.
-            Para alto volume de vendas, o D+30 é mais vantajoso financeiramente.
-          </p>
-        )}
+        {/* Nota de rodapé obrigatória */}
+        <div className="mt-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 px-4 py-3 text-xs text-gray-500 leading-relaxed">
+          <TrendingUp size={12} className="inline mr-1 text-orange-400" />
+          <strong>Taxa para PIX Online: 1,99%</strong> com liberação imediata (D+0).
+          {" "}Cada repasse automatizado de saldo possui uma <strong>taxa fixa de transferência de R$ 1,90</strong> para cobertura de custos operacionais.
+        </div>
       </div>
 
       {/* ── Botão Salvar ─────────────────────────────────────────── */}
@@ -433,6 +480,57 @@ export default function FinanceiroTab() {
         {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
         {saving ? "Salvando..." : "Salvar Configurações Financeiras"}
       </button>
+
+      {/* ── Extrato da Carteira ───────────────────────────────────── */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+        <SectionTitle
+          icon={RefreshCw}
+          title="Extrato da Carteira"
+          subtitle="Histórico de créditos, débitos e repasses automáticos"
+        />
+
+        {loadingTxs ? (
+          <div className="flex items-center justify-center h-24">
+            <Loader2 size={20} className="animate-spin text-orange-400" />
+          </div>
+        ) : txs.length === 0 ? (
+          <p className="text-center text-sm text-gray-400 py-8">
+            Nenhuma transação ainda. As vendas online pagas via PIX ou Cartão aparecerão aqui.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {txs.map(tx => {
+              const meta = TX_LABELS[tx.type] ?? { label: tx.type, color: "text-gray-600" };
+              const isCredit = Number(tx.amount) > 0;
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center gap-3 rounded-xl border border-gray-100 dark:border-gray-800 px-4 py-3"
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    isCredit ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"
+                  }`}>
+                    {isCredit
+                      ? <ArrowDownRight size={15} className="text-green-600" />
+                      : <ArrowUpRight size={15} className="text-red-600" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold ${meta.color}`}>{meta.label}</p>
+                    <p className="text-xs text-gray-400 truncate">{tx.description}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`text-sm font-bold ${isCredit ? "text-green-600" : "text-red-600"}`}>
+                      {isCredit ? "+" : ""}{fmt(Number(tx.amount))}
+                    </p>
+                    <p className="text-[10px] text-gray-400">{fmtDate(tx.createdAt)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

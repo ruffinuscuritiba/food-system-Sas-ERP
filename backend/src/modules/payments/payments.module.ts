@@ -5,6 +5,7 @@ import { NotificationsModule } from '@/modules/notifications/notifications.modul
 import { PrismaModule } from '@/database/prisma.module';
 import { SocketModule } from '@/socket/socket.module';
 import { OnlineOrdersModule } from '@/modules/online-orders/online-orders.module';
+import { WalletModule } from '@/modules/wallet/wallet.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { OnlineOrdersModule } from '@/modules/online-orders/online-orders.module
     NotificationsModule,
     SocketModule,
     OnlineOrdersModule,
+    WalletModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],

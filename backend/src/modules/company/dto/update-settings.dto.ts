@@ -176,4 +176,26 @@ export class UpdateCompanySettingsDto {
   @IsString()
   @IsOptional()
   buttonRadius?: string; // SM | MD | LG | FULL
+
+  // ── Configurações financeiras / Split de Pagamentos ──────────────────────
+  @IsString()
+  @IsOptional()
+  repasseFrequency?: string; // DAILY | WEEKLY
+
+  @IsString()
+  @IsOptional()
+  repasseTime?: string; // HH:MM ex: "03:00"
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  repasseWeekday?: number; // 0=dom … 6=sáb
+
+  @IsString()
+  @IsOptional()
+  creditReleasePlan?: string; // D0 | D30
+
+  @IsObject()
+  @IsOptional()
+  bankAccountData?: object | null;
 }

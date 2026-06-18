@@ -1,5 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
+import axios, { AxiosError } from 'axios';
 import { PrismaService } from 'src/database/prisma.service';
+
+// ─── Mapeamento de tipo de chave PIX para o padrão MP ────────────────────────
+// MP aceita: CPF | CNPJ | email | phone | random_key
+const MP_PIX_KEY_TYPE: Record<string, string> = {
+  CPF:    'CPF',
+  CNPJ:   'CNPJ',
+  EMAIL:  'email',
+  PHONE:  'phone',
+  RANDOM: 'random_key',
+};
 
 // ─── Taxas da plataforma ──────────────────────────────────────────────────────
 
@@ -154,9 +165,12 @@ export class WalletService {
   // ── Repasse automático ──────────────────────────────────────────────────────
 
   /**
-   * Processa o repasse do saldo disponível para a conta cadastrada da loja.
-   * Desconta a taxa de transferência de R$1,90.
-   * TODO: chamar API real do gateway (Asaas ou MP Payouts) para disparar o PIX.
+   * Processa o repasse do saldo disponível via Mercado Pago Payouts (PIX).
+   * Fluxo:
+   *  1. Cria WalletRepasse com status PROCESSING (idempotência local)
+   *  2. Chama POST /v1/payouts com X-Idempotency-Key = "repasse-{repasseId}"
+   *  3a. Sucesso → COMPLETED, salva gatewayId, zera walletBalance em transação atômica
+   *  3b. Erro → FAILED, salva motivo detalhado, DEVOLVE o saldo para a carteira
    */
   async processRepasseForCompany(companyId: string): Promise<void> {
     const company = await (this.prisma as any).company.findUnique({
@@ -167,54 +181,96 @@ export class WalletService {
 
     const balance = parseFloat(Number(company.walletBalance).toFixed(2));
     if (balance <= TRANSFER_FEE) {
-      this.logger.warn(`[WALLET] ${company.name} — saldo R$${balance} insuficiente para repasse (mín R$${TRANSFER_FEE})`);
+      this.logger.warn(
+        `[WALLET] ${company.name} — saldo R$${balance} insuficiente para repasse (mín R$${TRANSFER_FEE + 0.01})`,
+      );
       return;
     }
 
     const netAmount = parseFloat((balance - TRANSFER_FEE).toFixed(2));
     const bankData = (company.bankAccountData ?? {}) as Record<string, string>;
 
-    // Criar registro de repasse (PROCESSING)
+    // Validar que há chave PIX cadastrada antes de criar o registro
+    if (!bankData.pixKey) {
+      this.logger.warn(`[WALLET] ${company.name} — sem chave PIX cadastrada, repasse ignorado`);
+      return;
+    }
+
+    // ── 1. Criar registro PROCESSING (garante idempotência local) ──────────────
     const repasse = await (this.prisma as any).walletRepasse.create({
       data: {
         companyId,
-        amount: balance,
+        amount:      balance,
         transferFee: TRANSFER_FEE,
         netAmount,
-        status: 'PROCESSING',
-        pixKey: bankData.pixKey ?? null,
-        bank: bankData.bank ?? null,
+        status:      'PROCESSING',
+        pixKey:      bankData.pixKey,
+        bank:        bankData.bank ?? null,
         scheduledFor: new Date(),
       },
     });
 
+    const idempotencyKey = `repasse-${repasse.id}`;
+    const mpToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+    if (!mpToken) {
+      // Sem token configurado — marcar como FAILED e alertar
+      await (this.prisma as any).walletRepasse.update({
+        where: { id: repasse.id },
+        data: {
+          status:     'FAILED',
+          failReason: 'MERCADO_PAGO_ACCESS_TOKEN não configurado no ambiente',
+        },
+      });
+      this.logger.error(`[WALLET] MERCADO_PAGO_ACCESS_TOKEN ausente — repasse ${repasse.id} cancelado`);
+      return;
+    }
+
+    // ── 2. Montar payload MP Payouts ───────────────────────────────────────────
+    const pixKeyType = MP_PIX_KEY_TYPE[bankData.pixKeyType ?? 'CPF'] ?? 'CPF';
+
+    const payload = {
+      amount: netAmount,
+      payment_method_id: 'pix',
+      payout_destination: {
+        type:     'bank_account',
+        pix_data: {
+          key_type:  pixKeyType,
+          key_value: bankData.pixKey,
+          holder_name: bankData.holderName ?? company.name,
+        },
+      },
+      metadata: {
+        company_id: companyId,
+        repasse_id: repasse.id,
+        platform:   'FoodSaaS',
+      },
+    };
+
     try {
-      // ── TODO: chamada real ao gateway de pagamentos ──────────────────────────
-      // Asaas:  POST https://api.asaas.com/v3/transfers
-      // MP:     POST https://api.mercadopago.com/v1/account/bank_transfers
-      //
-      // Exemplo Asaas (PIX):
-      // const asaasRes = await fetch('https://api.asaas.com/v3/transfers', {
-      //   method: 'POST',
-      //   headers: { 'access_token': process.env.ASAAS_API_KEY!, 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     value: netAmount,
-      //     pixAddressKey: bankData.pixKey,
-      //     pixAddressKeyType: bankData.pixKeyType,
-      //     description: `Repasse automático FoodSaaS — ${company.name}`,
-      //   }),
-      // });
-      // const gatewayData = await asaasRes.json();
-      // ────────────────────────────────────────────────────────────────────────
+      // ── 3a. Chamada MP Payouts ─────────────────────────────────────────────
+      const response = await axios.post<{ id: string; status: string }>(
+        'https://api.mercadopago.com/v1/payouts',
+        payload,
+        {
+          headers: {
+            Authorization:      `Bearer ${mpToken}`,
+            'X-Idempotency-Key': idempotencyKey,
+            'Content-Type':      'application/json',
+          },
+          timeout: 30_000,
+        },
+      );
 
-      const gatewayResponse = {
-        status: 'SIMULATED',
-        message: 'Integrar com Asaas (POST /v3/transfers) ou MP Payouts',
-        amount: netAmount,
-        destination: bankData.pixKey ?? bankData.account ?? 'N/A',
-        scheduledAt: new Date().toISOString(),
-      };
+      const gatewayId       = String(response.data.id);
+      const gatewayResponse = response.data;
 
+      this.logger.log(
+        `[WALLET] MP Payout aceito — id:${gatewayId} status:${gatewayResponse.status} ` +
+        `R$${netAmount} para ${bankData.pixKey} (${company.name})`,
+      );
+
+      // Persistir sucesso e zerar carteira em transação atômica
       await this.prisma.$transaction(async (tx) => {
         await tx.company.update({
           where: { id: companyId },
@@ -224,35 +280,70 @@ export class WalletService {
         await (tx as any).walletRepasse.update({
           where: { id: repasse.id },
           data: {
-            status: 'COMPLETED',
-            gatewayId: repasse.id,
+            status:          'COMPLETED',
+            gatewayId,
             gatewayResponse,
-            processedAt: new Date(),
+            processedAt:     new Date(),
           },
         });
 
         await (tx as any).walletTransaction.create({
           data: {
             companyId,
-            type: 'REPASSE',
-            amount: -balance,
+            type:          'REPASSE',
+            amount:        -balance,
             balanceBefore: balance,
-            balanceAfter: 0,
-            description: `Repasse automático — R$${netAmount} enviados (taxa R$${TRANSFER_FEE})`,
-            referenceId: repasse.id,
+            balanceAfter:  0,
+            description:   `Repasse via PIX — R$${netAmount} (taxa R$${TRANSFER_FEE}) · MP id:${gatewayId}`,
+            referenceId:   repasse.id,
             referenceType: 'REPASSE',
-            repasseId: repasse.id,
+            repasseId:     repasse.id,
           },
         });
       });
 
-      this.logger.log(`[WALLET] Repasse R$${netAmount} processado para ${company.name} (${companyId})`);
     } catch (err) {
-      await (this.prisma as any).walletRepasse.update({
-        where: { id: repasse.id },
-        data: { status: 'FAILED', failReason: String(err) },
+      // ── 3b. Tratamento de erro — devolve saldo e persiste motivo ───────────
+      const axiosErr = err as AxiosError<{ message?: string; error?: string; cause?: string }>;
+      const httpStatus   = axiosErr.response?.status ?? 0;
+      const mpMessage    = axiosErr.response?.data?.message
+        ?? axiosErr.response?.data?.error
+        ?? axiosErr.message
+        ?? String(err);
+      const failReason   = `HTTP ${httpStatus}: ${mpMessage}`;
+
+      this.logger.error(`[WALLET] MP Payout FALHOU para ${company.name} (${companyId}) — ${failReason}`);
+
+      // Reverter walletBalance (devolver saldo à loja)
+      await this.prisma.$transaction(async (tx) => {
+        await tx.company.update({
+          where: { id: companyId },
+          data: { walletBalance: balance },
+        });
+
+        await (tx as any).walletRepasse.update({
+          where: { id: repasse.id },
+          data: {
+            status:          'FAILED',
+            failReason,
+            gatewayResponse: axiosErr.response?.data ?? null,
+          },
+        });
+
+        await (tx as any).walletTransaction.create({
+          data: {
+            companyId,
+            type:          'MANUAL_CREDIT',
+            amount:        balance,
+            balanceBefore: 0,
+            balanceAfter:  balance,
+            description:   `Estorno automático — falha no repasse MP: ${mpMessage}`,
+            referenceId:   repasse.id,
+            referenceType: 'REPASSE',
+            repasseId:     repasse.id,
+          },
+        });
       });
-      this.logger.error(`[WALLET] Repasse falhou para ${companyId}: ${err}`);
     }
   }
 

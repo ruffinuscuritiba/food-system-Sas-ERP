@@ -1664,6 +1664,23 @@ model WhatsappAiSettings {
   businessHoursEnd   String @default("22:00")
   businessDays     String   @default("1,2,3,4,5,6") // 0=dom..6=sab
   isActive         Boolean  @default(true)
+
+  // ── Personalidade avançada (ref. concorrente) ─────────────────────────────
+  responseStyle       String  @default("DIRECT")      // DIRECT | CONVERSATIONAL
+  personalityType     String  @default("FRIENDLY")    // FRIENDLY | PLAYFUL | FORMAL
+  emojiUsage          String  @default("MODERATE")    // NONE | MODERATE | ALWAYS
+  advancedPersonality Boolean @default(false)
+  speechHabits        String? @db.Text                // vícios de linguagem
+  characteristics     String? @db.Text                // características
+  principles          String? @db.Text                // princípios
+  humor               String? @db.Text                // humor / tom
+
+  // ── Comportamento de pedidos ──────────────────────────────────────────────
+  menuLinkStyle          String  @default("BUTTON")    // BUTTON | TEXT
+  conversationalOrdering Boolean @default(false)       // anotar pedido na conversa
+  // LINK_ONLY | LINK_THEN_HUMAN_3 | LINK_THEN_HUMAN_2 | ALWAYS_HUMAN
+  orderHandlingMode      String  @default("LINK_ONLY")
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

@@ -31,6 +31,19 @@ type AiSettings = {
   useEmojis: boolean; businessHoursStart: string;
   businessHoursEnd: string; businessDays: string;
   isActive: boolean;
+  // Personalidade avançada
+  responseStyle: string;
+  personalityType: string;
+  emojiUsage: string;
+  advancedPersonality: boolean;
+  speechHabits: string;
+  characteristics: string;
+  principles: string;
+  humor: string;
+  // Comportamento de pedidos
+  menuLinkStyle: string;
+  conversationalOrdering: boolean;
+  orderHandlingMode: string;
 };
 
 type Conversation = {
@@ -812,6 +825,14 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
     mode: "AUTO", typingDelay: 1500, messageDelay: 800,
     useEmojis: true, businessHoursStart: "08:00", businessHoursEnd: "22:00",
     businessDays: "1,2,3,4,5,6", isActive: true,
+    responseStyle: "DIRECT",
+    personalityType: "FRIENDLY",
+    emojiUsage: "MODERATE",
+    advancedPersonality: false,
+    speechHabits: "", characteristics: "", principles: "", humor: "",
+    menuLinkStyle: "BUTTON",
+    conversationalOrdering: false,
+    orderHandlingMode: "LINK_ONLY",
   };
 
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
@@ -916,22 +937,137 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
           </Card>
 
           {/* Personality */}
-          <Card title="Personalidade" icon={<User size={16} />}>
-            <div className="space-y-3">
-              <Field label="Nome do Atendente" value={settings.attendantName} onChange={(v) => setSettings({ ...settings, attendantName: v })} placeholder="Ex: Júlia" />
-              <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
-                <div>
-                  <p className="text-sm font-semibold text-white">Usar emojis</p>
-                  <p className="text-xs text-slate-400">IA usa emojis moderadamente nas respostas</p>
-                </div>
-                <button onClick={() => setSettings({ ...settings, useEmojis: !settings.useEmojis })}>
-                  {settings.useEmojis
-                    ? <ToggleRight size={28} className="text-green-400" />
-                    : <ToggleLeft size={28} className="text-slate-500" />}
-                </button>
-              </div>
+          <Card title="Seu Atendente" icon={<User size={16} />}>
+            <div className="space-y-4">
+              {/* Name */}
               <div>
-                <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Prompt de Sistema (opcional)</label>
+                <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Nome do Atendente</label>
+                <input
+                  value={settings.attendantName}
+                  onChange={(e) => setSettings({ ...settings, attendantName: e.target.value })}
+                  placeholder="Ex: Júlia, Kely, Ana..."
+                  className="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">Este nome será usado pela IA ao se apresentar para os clientes</p>
+              </div>
+
+              {/* Response Style */}
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-2 block">Estilo de resposta</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "DIRECT", label: "Direto ao ponto", desc: "Respostas curtas e objetivas" },
+                    { value: "CONVERSATIONAL", label: "Conversacional", desc: "Mais natural e elaborado" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSettings({ ...settings, responseStyle: opt.value })}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        settings.responseStyle === opt.value
+                          ? "border-green-500 bg-green-900/20 text-white"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-xs opacity-70 mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Personality Type */}
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-2 block">Personalidade principal</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "FRIENDLY", label: "😊 Amigável", desc: "Calorosa e acolhedora" },
+                    { value: "PLAYFUL", label: "😄 Descontraída", desc: "Leve e bem-humorada" },
+                    { value: "FORMAL", label: "🎩 Formal", desc: "Profissional e séria" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSettings({ ...settings, personalityType: opt.value })}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        settings.personalityType === opt.value
+                          ? "border-green-500 bg-green-900/20 text-white"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-xs opacity-70 mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Emoji Usage */}
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-2 block">Uso de emojis</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "NONE", label: "Nenhum", desc: "Sem emojis" },
+                    { value: "MODERATE", label: "Moderado", desc: "Alguns emojis" },
+                    { value: "ALWAYS", label: "Frequente", desc: "Muitos emojis 🎉" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSettings({ ...settings, emojiUsage: opt.value, useEmojis: opt.value !== "NONE" })}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        settings.emojiUsage === opt.value
+                          ? "border-green-500 bg-green-900/20 text-white"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-xs opacity-70 mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Advanced Personality Toggle */}
+              <div className="border border-slate-700 rounded-xl overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-3 bg-slate-800/50 cursor-pointer"
+                  onClick={() => setSettings({ ...settings, advancedPersonality: !settings.advancedPersonality })}
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">Personalidade avançada</p>
+                    <p className="text-xs text-slate-400">Defina vícios de linguagem, características e humor único</p>
+                  </div>
+                  {settings.advancedPersonality
+                    ? <ToggleRight size={28} className="text-green-400 shrink-0" />
+                    : <ToggleLeft size={28} className="text-slate-500 shrink-0" />}
+                </div>
+                {settings.advancedPersonality && (
+                  <div className="p-3 space-y-3 bg-slate-900/50 border-t border-slate-700">
+                    {[
+                      { key: "speechHabits" as const, label: "Vícios de linguagem", placeholder: "Ex: Usa 'com certeza!', 'Boa escolha!'..." },
+                      { key: "characteristics" as const, label: "Características", placeholder: "Ex: Sempre pergunta o nome do cliente no 1º contato..." },
+                      { key: "principles" as const, label: "Princípios", placeholder: "Ex: Nunca menciona concorrentes. Sempre oferece alternativa..." },
+                      { key: "humor" as const, label: "Humor / Tom", placeholder: "Ex: Levemente bem-humorada, usa trocadilhos com comida..." },
+                    ].map(({ key, label, placeholder }) => (
+                      <div key={key}>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-slate-400 font-semibold">{label}</label>
+                          <span className="text-xs text-slate-500">{(settings[key] ?? "").length}/150</span>
+                        </div>
+                        <textarea
+                          value={settings[key] ?? ""}
+                          onChange={(e) => setSettings({ ...settings, [key]: e.target.value.slice(0, 150) })}
+                          rows={2}
+                          placeholder={placeholder}
+                          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500 resize-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* System Prompt */}
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Prompt de Sistema (opcional — avançado)</label>
                 <textarea
                   value={settings.systemPrompt ?? ""}
                   onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
@@ -939,6 +1075,82 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
                   placeholder="Você é {attendantName}, atendente virtual de {empresa}. Seja amigável e objetivo..."
                   className="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500 resize-none"
                 />
+              </div>
+            </div>
+          </Card>
+
+          {/* Orders & Menu */}
+          <Card title="Pedidos e Cardápio" icon={<ShoppingBag size={16} />}>
+            <div className="space-y-4">
+              {/* Menu Link Style */}
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-2 block">Envio do cardápio</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "BUTTON", label: "🔘 Botão", desc: "Link como botão clicável" },
+                    { value: "TEXT", label: "📝 Texto", desc: "Link embutido no texto" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSettings({ ...settings, menuLinkStyle: opt.value })}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        settings.menuLinkStyle === opt.value
+                          ? "border-green-500 bg-green-900/20 text-white"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{opt.label}</p>
+                      <p className="text-xs opacity-70 mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conversational Ordering */}
+              <div
+                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl cursor-pointer"
+                onClick={() => setSettings({ ...settings, conversationalOrdering: !settings.conversationalOrdering })}
+              >
+                <div>
+                  <p className="text-sm font-semibold text-white">Pedido conversacional</p>
+                  <p className="text-xs text-slate-400">IA coleta os itens do pedido pela conversa, sem redirecionar ao cardápio</p>
+                </div>
+                {settings.conversationalOrdering
+                  ? <ToggleRight size={28} className="text-green-400 shrink-0" />
+                  : <ToggleLeft size={28} className="text-slate-500 shrink-0" />}
+              </div>
+
+              {/* Order Handling Mode */}
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-2 block">Retirada de pedidos</label>
+                <div className="space-y-2">
+                  {[
+                    { value: "LINK_ONLY", label: "Apenas link do cardápio", desc: "Envia o link e encerra o atendimento" },
+                    { value: "LINK_THEN_HUMAN_3", label: "Link + humano após 3 min", desc: "Aguarda 3 min e transfere se sem resposta" },
+                    { value: "LINK_THEN_HUMAN_2", label: "Link + humano após 2 min", desc: "Aguarda 2 min e transfere se sem resposta" },
+                    { value: "ALWAYS_HUMAN", label: "Sempre transferir para humano", desc: "Coleta dados e encaminha imediatamente" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSettings({ ...settings, orderHandlingMode: opt.value })}
+                      className={`w-full p-3 rounded-xl border text-left transition flex items-start gap-3 ${
+                        settings.orderHandlingMode === opt.value
+                          ? "border-green-500 bg-green-900/20 text-white"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      <span className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                        settings.orderHandlingMode === opt.value ? "border-green-400" : "border-slate-500"
+                      }`}>
+                        {settings.orderHandlingMode === opt.value && <span className="w-1.5 h-1.5 rounded-full bg-green-400 block" />}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold">{opt.label}</p>
+                        <p className="text-xs opacity-70">{opt.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </Card>

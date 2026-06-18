@@ -392,8 +392,11 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-function formatCurrency(v: number): string {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function formatCurrency(v: number | string | null | undefined): string {
+  if (v == null) return "—";
+  const n = typeof v === "string" ? parseFloat(v) : Number(v);
+  if (isNaN(n)) return "—";
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 // ── Modal de Contrato ─────────────────────────────────────────────────────────
@@ -414,7 +417,7 @@ function ContractModal({
   const [accepted, setAccepted] = useState(false);
   const entry = getCatalogEntry(mod.slug);
   const isTrial = action === "trial";
-  const price = entry.price ?? mod.price;
+  const price: number | null = entry.price != null ? entry.price : (mod.price != null ? Number(mod.price) : null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -524,7 +527,7 @@ function ModuleCard({
   const cat   = CATEGORY_CONFIG[entry.category] ?? CATEGORY_CONFIG.OPERACAO;
   const sc    = STATUS_CONFIG[mod.status];
   const isOn  = mod.status === "ACTIVE" || mod.status === "TRIAL";
-  const price = entry.price ?? mod.price;
+  const price: number | null = entry.price != null ? entry.price : (mod.price != null ? Number(mod.price) : null);
 
   async function execAction(action: "trial" | "activate" | "deactivate") {
     setActionLoading(true);
@@ -598,7 +601,7 @@ function ModuleCard({
           {/* Preço */}
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
-              {entry.isFree || price === null
+              {entry.isFree || price == null
                 ? <span className="text-emerald-600 dark:text-emerald-400">Incluso no plano</span>
                 : <>{formatCurrency(price)}<span className="font-normal text-gray-400">/mês</span></>
               }

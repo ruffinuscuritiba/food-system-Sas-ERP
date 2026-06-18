@@ -1265,7 +1265,7 @@ export class SuperAdminService {
         id: true, name: true, email: true,
         subscriptionStatus: true, wasEverActive: true, dueDate: true,
         plan: true, createdAt: true, archivedAt: true,
-        users: { where: { role: 'ADMIN' }, take: 1, select: { name: true, email: true, phone: true } },
+        users: { where: { role: 'ADMIN' }, take: 1, select: { name: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1292,7 +1292,7 @@ export class SuperAdminService {
         contactName:    admin?.name ?? c.name,
         restaurantName: c.name,
         email:          admin?.email ?? c.email ?? '',
-        whatsapp:       (admin as any)?.phone ?? '',
+        whatsapp:       '',
         type,
         status,
         plan:           c.plan ?? '',

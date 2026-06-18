@@ -186,6 +186,8 @@ export default function ConstrutorPage() {
   const [loading, setLoading] = useState(false);
   const [customTemplateName, setCustomTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState<string>("");
+  const [previewKey, setPreviewKey] = useState(0);
 
   const saToken = getSaToken();
   const apiBase = getApiBase();
@@ -227,6 +229,7 @@ export default function ConstrutorPage() {
           // No config yet — use segment template or default
           const seg = companies.find(c => c.id === selectedId)?.businessSegment ?? "RESTAURANTE";
           const tpl = SEGMENT_TEMPLATES[seg] ?? SEGMENT_TEMPLATES["RESTAURANTE"];
+          setActiveTemplate(seg);
           setConfig({
             layoutType: layout?.layoutType ?? tpl.layoutType,
             buttonRadius: layout?.buttonRadius ?? tpl.buttonRadius,
@@ -259,7 +262,10 @@ export default function ConstrutorPage() {
 
   const applyTemplate = (seg: string) => {
     const tpl = SEGMENT_TEMPLATES[seg];
-    if (tpl) setConfig({ ...tpl });
+    if (tpl) {
+      setConfig({ ...tpl });
+      setActiveTemplate(seg);
+    }
     toast.success(`Template "${seg}" aplicado`);
   };
 
@@ -288,6 +294,7 @@ export default function ConstrutorPage() {
         });
       }
       setSaved(true);
+      setPreviewKey(k => k + 1);
       setTimeout(() => setSaved(false), 2000);
       toast.success("Layout salvo com sucesso!");
     } catch {
@@ -385,7 +392,7 @@ export default function ConstrutorPage() {
                       key={seg}
                       onClick={() => applyTemplate(seg)}
                       className={`px-3 py-2 rounded-xl border text-sm font-medium transition ${
-                        selectedCompany?.businessSegment === seg
+                        activeTemplate === seg
                           ? "border-orange-500 bg-orange-900/20 text-orange-300"
                           : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"
                       }`}
@@ -571,45 +578,69 @@ export default function ConstrutorPage() {
             {/* Right — Preview */}
             <div className="space-y-4">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 sticky top-6">
-                <h2 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
                   <Eye size={14} className="text-orange-400" />
                   Preview do Cardápio
                 </h2>
-                <div className="flex justify-center">
-                  <LayoutPreview config={config} />
-                </div>
-                <div className="mt-4 space-y-2 text-xs text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Exibição:</span>
-                    <span className="text-white font-medium">
-                      {config.layoutType === "GRID" ? "Grade" : "Lista"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Botões:</span>
-                    <span className="text-white font-medium">
-                      {RADIUS_OPTIONS.find(r => r.value === config.buttonRadius)?.label ?? config.buttonRadius}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Blocos visíveis:</span>
-                    <span className="text-white font-medium">
-                      {config.blocks.filter(b => b.visible).length}/{config.blocks.length}
-                    </span>
-                  </div>
+
+                {/* Info badges */}
+                <div className="flex gap-2 mb-4 flex-wrap">
+                  <span className="text-xs bg-slate-800 border border-slate-700 rounded-full px-2.5 py-0.5 text-slate-300">
+                    {config.layoutType === "GRID" ? "🔲 Grade" : "📋 Lista"}
+                  </span>
+                  <span className="text-xs bg-slate-800 border border-slate-700 rounded-full px-2.5 py-0.5 text-slate-300">
+                    {RADIUS_OPTIONS.find(r => r.value === config.buttonRadius)?.label ?? config.buttonRadius}
+                  </span>
+                  <span className="text-xs bg-slate-800 border border-slate-700 rounded-full px-2.5 py-0.5 text-slate-300">
+                    {config.blocks.filter(b => b.visible).length}/{config.blocks.length} blocos
+                  </span>
                 </div>
 
-                {selectedCompany && (
-                  <div className="mt-4 pt-4 border-t border-slate-700">
-                    <p className="text-xs text-slate-500 mb-2">Testar cardápio:</p>
-                    <a
-                      href={`/menu/${selectedCompany.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block text-center text-xs text-orange-400 hover:text-orange-300 underline underline-offset-2"
-                    >
-                      Abrir cardápio da loja ↗
-                    </a>
+                {/* Phone mockup with iframe */}
+                {selectedCompany ? (
+                  <div className="flex flex-col items-center gap-3">
+                    {/* Phone frame */}
+                    <div className="relative" style={{ width: 240 }}>
+                      {/* notch */}
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-900 rounded-full z-10" />
+                      {/* phone border */}
+                      <div className="rounded-[2rem] border-4 border-slate-600 bg-slate-900 overflow-hidden shadow-2xl"
+                           style={{ height: 480 }}>
+                        <iframe
+                          key={`${selectedId}-${previewKey}`}
+                          src={`/menu/${selectedCompany.id}`}
+                          className="w-full h-full border-0 bg-white"
+                          style={{ transform: "scale(0.75)", transformOrigin: "top left", width: "133%", height: "133%" }}
+                          title="Preview cardápio"
+                        />
+                      </div>
+                      {/* home bar */}
+                      <div className="mt-2 mx-auto w-16 h-1 bg-slate-600 rounded-full" />
+                    </div>
+
+                    {/* CTA buttons */}
+                    <div className="w-full space-y-2 pt-2 border-t border-slate-700">
+                      <a
+                        href={`/menu/${selectedCompany.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-xl transition"
+                      >
+                        <Store size={14} />
+                        Ver cardápio ao vivo ↗
+                      </a>
+                      <button
+                        onClick={() => setPreviewKey(k => k + 1)}
+                        className="flex items-center justify-center gap-2 w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition"
+                      >
+                        <RefreshCw size={12} />
+                        Atualizar preview
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-center py-8">
+                    <LayoutPreview config={config} />
                   </div>
                 )}
               </div>

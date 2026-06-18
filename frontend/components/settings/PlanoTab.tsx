@@ -60,15 +60,6 @@ const PixelIcon = () => (
   </svg>
 );
 
-const BrendiIcon = () => (
-  <svg viewBox="0 0 64 64" width="26" height="26" fill="none">
-    <rect width="64" height="64" rx="12" fill="#E8192C"/>
-    <circle cx="32" cy="26" r="10" fill="white"/>
-    <circle cx="32" cy="26" r="6" fill="#E8192C"/>
-    <path d="M20 42 Q32 36 44 42" stroke="white" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
-    <path d="M16 50 Q32 44 48 50" stroke="white" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.6"/>
-  </svg>
-);
 
 // ─────────────────────────────────────────────
 // Ferramentas de Analytics (integração gratuita)
@@ -148,7 +139,15 @@ const MODULES: ModuleDef[] = [
     category: "Operação",
     price: 49.90,
     highlighted: true,
-    icon: <ShoppingBag size={20} />,
+    icon: (
+      <img
+        src="https://logo.clearbit.com/ifood.com.br"
+        width="28" height="28"
+        className="rounded-lg object-contain"
+        alt="iFood"
+        onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { textContent: '🛵', style: 'font-size:20px' })); }}
+      />
+    ),
     description: "Sincronize seu cardápio, receba e gerencie pedidos do iFood direto no nosso PDV.",
     longDescription:
       "Pare de alternar entre aplicativos. Com o módulo iFood Integrado, todos os pedidos recebidos pelo iFood aparecem automaticamente no seu painel FoodSaaS em tempo real — prontos para serem aceitos, preparados e entregues sem que o operador precise digitar nada manualmente. O cardápio é sincronizado bidiretivamente: alterações feitas no FoodSaaS refletem no iFood em minutos.",
@@ -175,7 +174,15 @@ const MODULES: ModuleDef[] = [
     name: "99 Food",
     category: "Operação",
     price: 39.90,
-    icon: <Wifi size={20} />,
+    icon: (
+      <img
+        src="https://logo.clearbit.com/99app.com"
+        width="28" height="28"
+        className="rounded-lg object-contain"
+        alt="99Food"
+        onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { textContent: '🛵', style: 'font-size:20px' })); }}
+      />
+    ),
     description: "Integração direta com a plataforma 99 Food para recebimento automático de pedidos.",
     longDescription:
       "Expanda seus canais de venda sem aumentar a equipe. Com a integração 99 Food, pedidos feitos pelos clientes na plataforma chegam direto no FoodSaaS — sem intermediários humanos. Seu cardápio, preços e horário de funcionamento são gerenciados de um único lugar.",
@@ -193,34 +200,6 @@ const MODULES: ModuleDef[] = [
     ],
     terms:
       `Ao ativar o módulo "99 Food", o contratante concorda com a cobrança adicional recorrente de R$ 39,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• A integração requer credenciais de API ativas na plataforma 99 Food.\n• Taxas e comissões da 99 Food são cobradas diretamente pelo marketplace.\n• O cancelamento do módulo encerra a sincronização no próximo ciclo.`,
-  },
-
-  // ── Brendi ────────────────────────────────────────────────────────────────
-  {
-    slug: "brendi",
-    name: "Brendi",
-    category: "Operação",
-    price: 39.90,
-    icon: <BrendiIcon />,
-    description: "Receba pedidos do marketplace Brendi direto no PDV, sem digitação manual.",
-    longDescription:
-      "A Brendi é um marketplace de alimentação com foco em estabelecimentos locais. Com a integração FoodSaaS + Brendi, todos os pedidos recebidos no aplicativo chegam automaticamente ao seu painel — sem intermediários, sem dupla digitação. Seu cardápio é sincronizado e qualquer alteração de preço ou disponibilidade reflete na plataforma Brendi em minutos.",
-    howToUse: [
-      "Cadastre sua integração no portal Brendi em integrations.brendi.com.br.",
-      "Preencha os dados da sua empresa (nome, CNPJ, contato do desenvolvedor).",
-      "Receba suas credenciais de API por e-mail após a homologação.",
-      "Acesse 'Configurações → Integrações' no FoodSaaS e selecione 'Brendi'.",
-      "Insira o token de API recebido e aguarde a sincronização do cardápio.",
-      "Novos pedidos Brendi aparecem automaticamente na fila de Pedidos.",
-    ],
-    features: [
-      { icon: <Zap size={16} />,       title: "Pedidos automáticos",     desc: "Novos pedidos chegam sem nenhuma ação do operador." },
-      { icon: <RefreshCw size={16} />, title: "Cardápio sincronizado",    desc: "Alterações refletem na Brendi em poucos minutos." },
-      { icon: <Settings size={16} />,  title: "Gestão centralizada",     desc: "Um único painel para todos os seus marketplaces." },
-      { icon: <BarChart3 size={16} />, title: "Faturamento consolidado", desc: "Receitas da Brendi consolidadas no relatório financeiro." },
-    ],
-    terms:
-      `Ao ativar o módulo "Brendi", o contratante concorda com a cobrança adicional recorrente de R$ 39,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• A integração requer credenciais de API liberadas pela Brendi — cadastre-se em integrations.brendi.com.br.\n• Comissões e taxas da Brendi são cobradas diretamente pelo marketplace.\n• A FoodSaaS não se responsabiliza por pedidos cancelados ou disputas decorrentes de políticas da Brendi.\n• O cancelamento do módulo encerra a sincronização no próximo ciclo — sem reembolso proporcional do período em curso.`,
   },
 
   // ── Rastreamento ──────────────────────────────────────────────────────────

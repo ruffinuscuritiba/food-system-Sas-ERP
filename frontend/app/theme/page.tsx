@@ -16,6 +16,7 @@ export default function ThemePage() {
   const [theme, setTheme] = useState<any>(null);
   const [pdvTheme, setPdvTheme] = useState<PdvThemeConfig>(PDV_THEME_DEFAULT);
   const [saving, setSaving] = useState(false);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (companyId) loadTheme();
@@ -331,11 +332,16 @@ export default function ThemePage() {
                   { label: "Header",     key: "headerBg"     },
                   { label: "Cards",      key: "cardBg"       },
                 ] as { label: string; key: keyof PdvThemeConfig }[]).map(({ label, key }) => (
-                  <div key={key}>
+                  <div key={key}
+                    className={`rounded-xl p-2 -m-2 transition-all ${activeKey === key ? "ring-2 ring-blue-400 bg-blue-50" : ""}`}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
                     <div className="flex items-center gap-2">
                       <input type="color" value={pdvTheme[key] as string}
                         onChange={(e) => updatePdvTheme({ [key]: e.target.value })}
+                        onFocus={() => setActiveKey(key)}
+                        onBlur={() => setActiveKey(null)}
+                        onMouseEnter={() => setActiveKey(key)}
+                        onMouseLeave={() => setActiveKey(null)}
                         className="h-9 w-14 rounded-lg cursor-pointer border border-gray-200" />
                       <span className="font-mono text-xs text-gray-400 truncate">{pdvTheme[key] as string}</span>
                     </div>
@@ -352,11 +358,16 @@ export default function ThemePage() {
                   { label: "Cor Principal", key: "primary" },
                   { label: "Destaque / Accent", key: "accent" },
                 ] as { label: string; key: keyof PdvThemeConfig }[]).map(({ label, key }) => (
-                  <div key={key}>
+                  <div key={key}
+                    className={`rounded-xl p-2 -m-2 transition-all ${activeKey === key ? "ring-2 ring-blue-400 bg-blue-50" : ""}`}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
                     <div className="flex items-center gap-2">
                       <input type="color" value={pdvTheme[key] as string}
                         onChange={(e) => updatePdvTheme({ [key]: e.target.value })}
+                        onFocus={() => setActiveKey(key)}
+                        onBlur={() => setActiveKey(null)}
+                        onMouseEnter={() => setActiveKey(key)}
+                        onMouseLeave={() => setActiveKey(null)}
                         className="h-10 w-16 rounded-xl cursor-pointer border border-gray-200" />
                       <span className="font-mono text-sm text-gray-500">{pdvTheme[key] as string}</span>
                     </div>
@@ -447,10 +458,20 @@ export default function ThemePage() {
 
           {/* ── Right: mini preview ── */}
           <div className="sticky top-8 self-start">
+            {activeKey && (
+              <div className="mb-2 text-center text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded-xl py-1.5 px-3 animate-pulse">
+                ✦ Editando: {{
+                  sidebarBg: "Sidebar", categoriesBg: "Categorias", productsBg: "Produtos",
+                  cartBg: "Carrinho", headerBg: "Header", cardBg: "Cards",
+                  primary: "Cor Principal", accent: "Destaque / Accent",
+                }[activeKey] ?? activeKey}
+              </div>
+            )}
             <div className="rounded-3xl overflow-hidden border border-gray-200 shadow-xl"
               style={{ background: pdvTheme.productsBg, fontFamily: `'${pdvTheme.font}', sans-serif` }}>
               {/* Mini header */}
-              <div className="h-10 flex items-center px-3 gap-2" style={{ background: pdvTheme.headerBg }}>
+              <div className="h-10 flex items-center px-3 gap-2 transition-all"
+                style={{ background: pdvTheme.headerBg, boxShadow: activeKey === "headerBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black text-white"
                   style={{ background: pdvTheme.primary }}>PDV</div>
                 <div className="flex-1 h-5 rounded-lg" style={{ background: pdvTheme.cardBg }} />
@@ -460,21 +481,27 @@ export default function ThemePage() {
                   style={{ background: pdvTheme.accent }}>Carrinho</div>
               </div>
               {/* Mini body */}
-              <div className="flex h-56">
+              <div className="flex h-56" style={{ boxShadow: activeKey === "productsBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
                 {/* sidebar */}
-                <div className="w-8 flex flex-col items-center py-2 gap-1.5" style={{ background: pdvTheme.sidebarBg }}>
+                <div className="w-8 flex flex-col items-center py-2 gap-1.5 transition-all"
+                  style={{ background: pdvTheme.sidebarBg, boxShadow: activeKey === "sidebarBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
                   {[1,2,3,4,5].map((i) => (
-                    <div key={i} className="w-5 h-5 rounded-md" style={{ background: i === 3 ? pdvTheme.primary : "rgba(255,255,255,0.1)" }} />
+                    <div key={i} className="w-5 h-5 rounded-md transition-all" style={{
+                      background: i === 3 ? pdvTheme.primary : "rgba(255,255,255,0.1)",
+                      boxShadow: activeKey === "primary" && i === 3 ? "0 0 0 2px #60a5fa" : "none",
+                    }} />
                   ))}
                 </div>
                 {/* categories */}
-                <div className="w-16 border-r flex flex-col" style={{ background: pdvTheme.categoriesBg, borderColor: pdvTheme.border }}>
+                <div className="w-16 border-r flex flex-col transition-all"
+                  style={{ background: pdvTheme.categoriesBg, borderColor: pdvTheme.border, boxShadow: activeKey === "categoriesBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
                   {["Todos","Pizza","Bebidas","Outros","Sobrem"].map((c, i) => (
-                    <div key={c} className="flex-1 flex items-center justify-center text-[7px] font-bold border-b"
+                    <div key={c} className="flex-1 flex items-center justify-center text-[7px] font-bold border-b transition-all"
                       style={{
                         background: i === 0 ? pdvTheme.primary : "transparent",
                         color: i === 0 ? "#fff" : "rgba(255,255,255,0.45)",
                         borderColor: pdvTheme.border,
+                        boxShadow: activeKey === "primary" && i === 0 ? "inset 0 0 0 2px #fff" : "none",
                       }}>
                       {c}
                     </div>
@@ -483,22 +510,35 @@ export default function ThemePage() {
                 {/* products */}
                 <div className="flex-1 p-2 space-y-1.5 overflow-hidden" style={{ background: pdvTheme.productsBg }}>
                   {[1,2,3].map((i) => (
-                    <div key={i} className="flex overflow-hidden"
-                      style={{ background: pdvTheme.cardBg, borderRadius: `${pdvTheme.radius / 2}px`, height: 48, border: `1px solid ${pdvTheme.border}`, boxShadow: pdvTheme.shadows ? "0 1px 6px rgba(0,0,0,0.3)" : "none" }}>
+                    <div key={i} className="flex overflow-hidden transition-all"
+                      style={{
+                        background: pdvTheme.cardBg,
+                        borderRadius: `${pdvTheme.radius / 2}px`,
+                        height: 48,
+                        border: `1px solid ${pdvTheme.border}`,
+                        boxShadow: activeKey === "cardBg"
+                          ? "inset 0 0 0 2px #60a5fa"
+                          : pdvTheme.shadows ? "0 1px 6px rgba(0,0,0,0.3)" : "none",
+                      }}>
                       <div className="w-12 h-full" style={{ background: "rgba(255,255,255,0.05)" }} />
                       <div className="flex-1 px-2 flex flex-col justify-center gap-1">
                         <div className="h-2 rounded-full w-3/4" style={{ background: "rgba(255,255,255,0.2)" }} />
                         <div className="h-1.5 rounded-full w-1/2" style={{ background: "rgba(255,255,255,0.08)" }} />
                       </div>
                       <div className="pr-2 flex items-center">
-                        <div className="px-2 py-0.5 rounded text-[7px] font-black text-white"
-                          style={{ background: pdvTheme.primary, borderRadius: `${pdvTheme.radius / 3}px` }}>+</div>
+                        <div className="px-2 py-0.5 rounded text-[7px] font-black text-white transition-all"
+                          style={{
+                            background: pdvTheme.primary,
+                            borderRadius: `${pdvTheme.radius / 3}px`,
+                            boxShadow: activeKey === "primary" ? "0 0 0 2px #60a5fa" : "none",
+                          }}>+</div>
                       </div>
                     </div>
                   ))}
                 </div>
                 {/* cart */}
-                <div className="w-20 border-l flex flex-col" style={{ background: pdvTheme.cartBg, borderColor: pdvTheme.border }}>
+                <div className="w-20 border-l flex flex-col transition-all"
+                  style={{ background: pdvTheme.cartBg, borderColor: pdvTheme.border, boxShadow: activeKey === "cartBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
                   <div className="p-1.5 border-b text-[7px] font-black text-white" style={{ borderColor: pdvTheme.border }}>Pedido</div>
                   <div className="flex-1 p-1.5 space-y-1">
                     {[1,2].map((i) => (
@@ -509,8 +549,12 @@ export default function ThemePage() {
                     ))}
                   </div>
                   <div className="p-1.5">
-                    <div className="w-full py-1.5 rounded text-[7px] font-black text-white text-center"
-                      style={{ background: pdvTheme.primary, borderRadius: `${pdvTheme.radius / 3}px` }}>
+                    <div className="w-full py-1.5 rounded text-[7px] font-black text-white text-center transition-all"
+                      style={{
+                        background: pdvTheme.primary,
+                        borderRadius: `${pdvTheme.radius / 3}px`,
+                        boxShadow: activeKey === "primary" || activeKey === "accent" ? "0 0 0 2px #60a5fa" : "none",
+                      }}>
                       Finalizar
                     </div>
                   </div>

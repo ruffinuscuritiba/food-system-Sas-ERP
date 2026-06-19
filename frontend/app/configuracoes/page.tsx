@@ -5,12 +5,13 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   Store, Palette, ClipboardList, CreditCard, Bike, Pizza,
   Printer, MessageCircle, Cable, Users, Star, Settings,
-  Save, Loader2, CheckCircle2, AlertCircle, DollarSign,
+  Save, Loader2, CheckCircle2, AlertCircle, DollarSign, QrCode,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import dynamic from "next/dynamic";
+import { QrLinksModal } from "@/components/shared/QrLinksModal";
 
 function TabLoader() {
   return (
@@ -627,7 +628,9 @@ function getTabDescription(tab: TabId): string {
 function ConfiguracoesInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuthStore();
   const activeTab = (searchParams.get("tab") as TabId) ?? "loja";
+  const [qrOpen, setQrOpen] = useState(false);
 
   function setTab(id: TabId) {
     router.push(`/configuracoes?tab=${id}`, { scroll: false });
@@ -681,15 +684,36 @@ function ConfiguracoesInner() {
       {/* ── Conteúdo ──────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3.5 flex items-center">
-          <ActiveIcon size={17} className="text-orange-500 mr-2.5 flex-shrink-0" />
-          <div>
-            <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
-              {activeTabDef.label}
-            </h1>
-            <p className="text-[11px] text-gray-400">{getTabDescription(activeTab)}</p>
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-3.5 flex items-center justify-between">
+          <div className="flex items-center">
+            <ActiveIcon size={17} className="text-orange-500 mr-2.5 flex-shrink-0" />
+            <div>
+              <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                {activeTabDef.label}
+              </h1>
+              <p className="text-[11px] text-gray-400">{getTabDescription(activeTab)}</p>
+            </div>
           </div>
+          {/* QR Code e Links — atalho global */}
+          <button
+            onClick={() => setQrOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 transition"
+            title="QR Code e Links do cardápio"
+          >
+            <QrCode size={14} />
+            <span className="hidden sm:inline">QR Code e Links</span>
+          </button>
         </div>
+
+        {/* Modal QR Code e Links */}
+        {user?.companyId && (
+          <QrLinksModal
+            companyId={user.companyId}
+            companyName={user.name}
+            isOpen={qrOpen}
+            onClose={() => setQrOpen(false)}
+          />
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">

@@ -48,6 +48,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { buildSupportUrl } from "@/config/support";
+import { QrLinksModal } from "@/components/shared/QrLinksModal";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -228,6 +229,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
+  const [qrLinksOpen, setQrLinksOpen] = useState(false);
 
   const isDemoUser = user?.role === "DEMO";
   const planLabel = isDemoUser
@@ -551,6 +553,26 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
                 Ver Cardápio Online
                 <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
               </a>
+            </div>
+          )}
+
+          {/* QR Code e Links do Cardápio */}
+          {user?.companyId && (
+            <div className="px-3 pb-2">
+              <button
+                onClick={() => setQrLinksOpen(true)}
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-orange-400 hover:bg-orange-900/20 hover:text-orange-300 transition font-semibold text-[12px] border border-orange-900/30 group"
+              >
+                <QrCode size={13} />
+                QR Code e Links
+                <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
+              </button>
+              <QrLinksModal
+                companyId={user.companyId}
+                companyName={companyName}
+                isOpen={qrLinksOpen}
+                onClose={() => setQrLinksOpen(false)}
+              />
             </div>
           )}
 

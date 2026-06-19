@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon, GripVertical } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon, GripVertical, Video } from "lucide-react";
 
 // @hello-pangea/dnd — incompatível com SSR
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -250,6 +250,7 @@ const emptyForm = () => ({
   categoryId: "", unit: "", weight: "",
   costPrice: 0, profitMargin: 0, salePrice: 0,
   imageUrl: null as string | null,
+  videoUrl: "" as string,
 });
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -397,6 +398,8 @@ export default function ProductsPage() {
 
       // Image: send as imageUrl (base64) — not as file attachment
       if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
+      if (form.videoUrl.trim()) fd.append("videoUrl", form.videoUrl.trim());
+      else fd.append("videoUrl", "");
 
       await api.post("/products", fd);
       toast.success("Produto criado!");
@@ -425,6 +428,7 @@ export default function ProductsPage() {
       profitMargin: 0,
       salePrice:   Number(product.salePrice)   || 0,
       imageUrl:    product.imageUrl    || null,
+      videoUrl:    product.videoUrl    || "",
     });
     setEditSizes(
       hasSizes
@@ -469,6 +473,8 @@ export default function ProductsPage() {
       }
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
+      if (editForm.videoUrl?.trim()) fd.append("videoUrl", editForm.videoUrl.trim());
+      else fd.append("videoUrl", "");
 
       await api.patch(`/products/${editProduct.id}`, fd);
       toast.success("Produto atualizado!");
@@ -635,6 +641,38 @@ export default function ProductsPage() {
                     onChange={(url) => setForm({ ...form, imageUrl: url })}
                   />
                 </div>
+              </div>
+
+              {/* Vídeo promocional */}
+              <div className="mb-6">
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                  <Video size={13} className="text-gray-400" />
+                  Vídeo Promocional
+                  <span className="normal-case font-normal text-gray-400">(opcional)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="Cole o link do vídeo (YouTube, Vimeo, MP4…)"
+                    value={form.videoUrl}
+                    onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
+                    className={inp + " pr-10"}
+                  />
+                  {form.videoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, videoUrl: "" })}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {form.videoUrl && (
+                  <p className="mt-1.5 text-[11px] text-emerald-600 flex items-center gap-1">
+                    <Video size={11} /> Vídeo configurado — ícone de olho ficará ativo no PDV e cardápio.
+                  </p>
+                )}
               </div>
 
               <button
@@ -828,6 +866,38 @@ export default function ProductsPage() {
                   onChange={(url) => setEditForm({ ...editForm, imageUrl: url })}
                 />
               </div>
+            </div>
+
+            {/* Vídeo no edit */}
+            <div className="mt-5">
+              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                <Video size={13} className="text-gray-400" />
+                Vídeo Promocional
+                <span className="normal-case font-normal text-gray-400">(opcional)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="url"
+                  placeholder="Cole o link do vídeo (YouTube, Vimeo, MP4…)"
+                  value={editForm.videoUrl || ""}
+                  onChange={(e) => setEditForm({ ...editForm, videoUrl: e.target.value })}
+                  className={inp + " pr-10"}
+                />
+                {editForm.videoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, videoUrl: "" })}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {editForm.videoUrl && (
+                <p className="mt-1.5 text-[11px] text-emerald-600 flex items-center gap-1">
+                  <Video size={11} /> Vídeo configurado — ícone de olho ficará ativo no PDV e cardápio.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6">

@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { ChevronLeft, Check, Save, RotateCcw } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ChevronLeft, Check, Save, RotateCcw, Upload, X } from "lucide-react";
 import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -127,9 +127,34 @@ function ColorPanel({
 }) {
   const [subKey, setSubKey] = useState<ThemeKey>(element.keys[0].k);
   const [urlInput, setUrlInput] = useState(theme.pageBgImage || "");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // track blob URLs so we can revoke them when replaced
+  const blobUrlRef = useRef<string>("");
 
   useEffect(() => setSubKey(element.keys[0].k), [element.id]);
   useEffect(() => setUrlInput(theme.pageBgImage || ""), [theme.pageBgImage]);
+
+  // Cleanup blob on unmount
+  useEffect(() => () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current); }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // revoke previous blob
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+    const blobUrl = URL.createObjectURL(file);
+    blobUrlRef.current = blobUrl;
+    setUrlInput(blobUrl);
+    onPick("pageBgImage", blobUrl);
+    // reset so same file can be picked again
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [onPick]);
+
+  const removeImage = useCallback(() => {
+    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = ""; }
+    setUrlInput("");
+    onPick("pageBgImage", "");
+  }, [onPick]);
 
   const isImageTab = subKey === "pageBgImage";
   const current = theme[subKey] ?? "";
@@ -187,26 +212,60 @@ function ColorPanel({
         {/* ── IMAGE TAB ── */}
         {isImageTab ? (
           <div className="px-3 py-2 space-y-3">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Upload from computer button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-slate-600 bg-slate-800/60 text-slate-300 text-xs font-semibold hover:border-orange-500 hover:text-orange-300 hover:bg-orange-950/20 transition-all"
+            >
+              <Upload size={14} />
+              Fazer upload do computador
+            </button>
+
+            {/* Current image preview + remove */}
+            {theme.pageBgImage && (
+              <div className="relative rounded-xl overflow-hidden h-20 border border-slate-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={theme.pageBgImage}
+                  alt="fundo"
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).style.display="none"; }}
+                />
+                <button
+                  onClick={removeImage}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 border border-slate-600 flex items-center justify-center text-red-400 hover:bg-red-900/60 transition"
+                  title="Remover imagem"
+                >
+                  <X size={10} />
+                </button>
+                <div className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] text-slate-300 px-2 py-0.5 truncate">
+                  {theme.pageBgImage.startsWith("blob:") ? "Imagem do computador" : theme.pageBgImage}
+                </div>
+              </div>
+            )}
+
             {/* URL input */}
             <div>
-              <label className="text-[10px] text-slate-400 mb-1 block font-medium">URL da imagem</label>
+              <label className="text-[10px] text-slate-400 mb-1 block font-medium">Ou cole uma URL:</label>
               <div className="flex gap-1.5">
                 <input
                   type="text"
                   value={urlInput}
                   onChange={e => setUrlInput(e.target.value)}
-                  onBlur={() => onPick("pageBgImage", urlInput.trim())}
+                  onBlur={() => { const v = urlInput.trim(); if (v !== theme.pageBgImage) onPick("pageBgImage", v); }}
                   onKeyDown={e => { if (e.key==="Enter") onPick("pageBgImage", urlInput.trim()); }}
-                  placeholder="https://... ou deixe vazio para sem imagem"
+                  placeholder="https://exemplo.com/imagem.jpg"
                   className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-orange-500"
                 />
-                {urlInput && (
-                  <button
-                    onClick={() => { setUrlInput(""); onPick("pageBgImage", ""); }}
-                    className="px-2 py-1 rounded-lg bg-red-900/40 border border-red-800 text-red-400 text-[10px] hover:bg-red-900/70 transition"
-                    title="Remover imagem"
-                  >✕</button>
-                )}
               </div>
             </div>
 
@@ -387,12 +446,18 @@ function Sidebar({
                 <div className="flex items-center w-full">
                   <span className="text-[15px]">{el.icon}</span>
                   <div className="ml-auto flex gap-1">
-                    {el.keys.map(sk => (
-                      <span key={sk.k}
-                        className="w-3 h-3 rounded-full border border-white/15"
-                        style={{ background: theme[sk.k] }}
-                      />
-                    ))}
+                    {el.keys.map(sk => {
+                      const isImgKey = sk.k === "pageBgImage";
+                      const hasImg = isImgKey && !!theme[sk.k];
+                      return isImgKey ? (
+                        <span key={sk.k} className="text-[10px]">{hasImg ? "🖼️" : "📁"}</span>
+                      ) : (
+                        <span key={sk.k}
+                          className="w-3 h-3 rounded-full border border-white/15"
+                          style={{ background: theme[sk.k] }}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
                 <span className={`text-[11px] font-medium ${sel ? "text-orange-300" : "text-slate-300"}`}>

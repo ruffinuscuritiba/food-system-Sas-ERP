@@ -15,6 +15,25 @@ import { LeadsService } from '@/modules/leads/leads.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { SegmentSeedService } from '@/modules/segment-seed/segment-seed.service';
 
+/** Gera sidebarConfig inicial baseado no segmento de negócio.
+ *  Itens com false ficam ocultos por padrão (usuário pode ligar depois). */
+function buildDefaultSidebarConfig(segment: string): Record<string, boolean> {
+  const noPizza = { 'pizza-borders': false };
+  const configs: Record<string, Record<string, boolean>> = {
+    PIZZARIA:     {},
+    RESTAURANTE:  { ...noPizza },
+    LANCHONETE:   { ...noPizza },
+    CHURRASCARIA: { ...noPizza },
+    MARMITARIA:   { ...noPizza },
+    HOT_DOG:      { ...noPizza },
+    PASTELARIA:   { ...noPizza },
+    PADARIA:      { ...noPizza },
+    DOCERIA:      { ...noPizza },
+    CONVENIENCIA: { ...noPizza, kitchen: false, tables: false },
+  };
+  return configs[segment] ?? { ...noPizza };
+}
+
 const DEMO_PLAN_EMAIL: Record<string, string> = {
   basic:      'demo-basic@foodsaas.demo',
   pro:        'demo-pro@foodsaas.demo',
@@ -54,6 +73,7 @@ export class AuthService {
     trialEnds.setDate(trialEnds.getDate() + 3);
 
     const segment = dto.businessSegment ?? 'RESTAURANTE';
+    const sidebarConfig = buildDefaultSidebarConfig(segment);
     const company = await this.prisma.company.create({
       data: {
         name: dto.companyName,
@@ -63,6 +83,7 @@ export class AuthService {
         dueDate: trialEnds,
         isBlocked: false,
         businessSegment: segment,
+        sidebarConfig,
       },
     });
 

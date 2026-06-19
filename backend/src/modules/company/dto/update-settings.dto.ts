@@ -207,4 +207,9 @@ export class UpdateCompanySettingsDto {
   @IsString()
   @IsOptional()
   googleReviewUrl?: string;
+
+  // ── Personalização do Menu Lateral ──────────────────────────────────────
+  @IsObject()
+  @IsOptional()
+  sidebarConfig?: Record<string, boolean> | null;
 }

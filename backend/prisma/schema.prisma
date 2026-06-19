@@ -304,6 +304,9 @@ model Company {
   layoutConfig        Json?
   googleReviewUrl     String?
 
+  // ── Personalização do Menu Lateral ─────────────────────────────────────────
+  sidebarConfig       Json?   // Record<navKey, boolean> — false = oculto
+
   // ── Relações do motor financeiro ────────────────────────────────────────────
   walletTransactions  WalletTransaction[]
   walletRepasses      WalletRepasse[]

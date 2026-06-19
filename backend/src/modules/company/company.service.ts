@@ -186,6 +186,7 @@ export class CompanyService {
         creditReleasePlan: true,
         bankAccountData: true,
         walletBalance: true,
+        sidebarConfig: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');
@@ -276,6 +277,9 @@ export class CompanyService {
         ...(dto.bankAccountData !== undefined && {
           bankAccountData: dto.bankAccountData === null ? null : JSON.parse(JSON.stringify(dto.bankAccountData)),
         }),
+        ...(dto.sidebarConfig !== undefined && {
+          sidebarConfig: dto.sidebarConfig === null ? null : JSON.parse(JSON.stringify(dto.sidebarConfig)),
+        }),
       },
       select: {
         id: true,
@@ -322,6 +326,7 @@ export class CompanyService {
         creditReleasePlan: true,
         bankAccountData: true,
         walletBalance: true,
+        sidebarConfig: true,
       },
     });
   }

@@ -71,6 +71,7 @@ type NavItem = {
   roles: string[];
   moduleSlug?: string;
   activeColor?: "green" | "blue"; // força cor do item ativo independente de --color-primary
+  navKey?: string; // chave para personalização da sidebar (sidebarConfig)
 };
 
 // Module slug → nav item(s) shown below Módulos de Integração when active
@@ -127,66 +128,61 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "Operação",
     items: [
-      { href: "/pdv",     label: "PDV / Caixa", icon: <DollarSign size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue" },
-      { href: "/orders",             label: "Pedidos",       icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"] },
-      { href: "/kitchen",            label: "Cozinha",       icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"] },
-      { href: "/delivery-tracking",  label: "Rastreamento",  icon: <MapPinned size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "delivery" },
-      { href: "/tables",  label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables" },
+      { href: "/pdv",            label: "PDV / Caixa", icon: <DollarSign size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue", navKey: "pdv" },
+      { href: "/orders",         label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"], navKey: "orders" },
+      { href: "/kitchen",        label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"], navKey: "kitchen" },
+      { href: "/delivery-tracking", label: "Rastreamento", icon: <MapPinned size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "delivery", navKey: "delivery-tracking" },
+      { href: "/tables",         label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables", navKey: "tables" },
     ],
   },
   {
     title: "Cardápio",
     items: [
-      { href: "/products",      label: "Produtos",         icon: <Package size={16} />,         roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/categories",    label: "Categorias",       icon: <FolderKanban size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/complements",   label: "Complementos",     icon: <Layers size={16} />,          roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/pizza-borders", label: "Pizza / Bordas",   icon: <UtensilsCrossed size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/products",      label: "Produtos",       icon: <Package size={16} />,         roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "products" },
+      { href: "/categories",    label: "Categorias",     icon: <FolderKanban size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "categories" },
+      { href: "/complements",   label: "Complementos",   icon: <Layers size={16} />,          roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "complements" },
+      { href: "/pizza-borders", label: "Pizza / Bordas", icon: <UtensilsCrossed size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "pizza-borders" },
     ],
   },
   {
     title: "Estoque",
     items: [
-      { href: "/stock",       label: "Movimentações", icon: <Layers size={16} />,       roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "stock" },
-      { href: "/ingredients", label: "Ingredientes",  icon: <FlaskConical size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "stock" },
-      { href: "/recipes",     label: "Receitas",      icon: <BookOpen size={16} />,     roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "recipes" },
+      { href: "/stock",       label: "Movimentações", icon: <Layers size={16} />,       roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "stock",    navKey: "stock" },
+      { href: "/ingredients", label: "Ingredientes",  icon: <FlaskConical size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "stock",    navKey: "ingredients" },
+      { href: "/recipes",     label: "Receitas",      icon: <BookOpen size={16} />,     roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "recipes",  navKey: "recipes" },
     ],
   },
   {
     title: "IA",
     items: [
-      { href: "/cadastro-inteligente", label: "Cadastro por Imagem",  icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "smart_import" },
-      { href: "/marketing",            label: "Marketing Digital",    icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing" },
+      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "smart_import", navKey: "smart-import" },
+      { href: "/marketing",            label: "Marketing Digital",   icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing",    navKey: "marketing" },
     ],
   },
   {
     title: "Atendimento",
     items: [
-      {
-        href:  "/whatsapp-ia",
-        label: "Configurar IA",
-        icon:  <WaIcon3D />,
-        roles: ["SUPER_ADMIN","ADMIN","MANAGER"],
-      },
+      { href: "/whatsapp-ia", label: "Configurar IA", icon: <WaIcon3D />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "whatsapp-ia" },
     ],
   },
   {
     title: "Marketplace",
     items: [
-      { href: "/modulos",     label: "Módulos de Integração", icon: <Puzzle size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/configuracoes?tab=integracoes", label: "Integrações",  icon: <Cable size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/configuracoes?tab=impressao",  label: "Impressoras",  icon: <Printer size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
+      { href: "/modulos",                      label: "Módulos de Integração", icon: <Puzzle size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "modulos" },
+      { href: "/configuracoes?tab=integracoes", label: "Integrações",          icon: <Cable size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "integracoes" },
+      { href: "/configuracoes?tab=impressao",   label: "Impressoras",          icon: <Printer size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "impressao" },
     ],
   },
   {
     title: "Configurações",
     items: [
-      { href: "/financeiro",         label: "Financeiro",           icon: <Landmark size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "financial" },
-      { href: "/bi",                 label: "Relatórios / BI",      icon: <BarChart2 size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "bi" },
-      { href: "/configuracoes?tab=aparencia", label: "Tema / Visual", icon: <Palette size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
-      { href: "/tables/qrcode",      label: "QR Code Mesas",        icon: <QrCode size={16} />,     roles: ["SUPER_ADMIN","ADMIN"],           moduleSlug: "tables" },
-      { href: "/historico-pedidos",  label: "Histórico de Pedidos", icon: <History size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"] },
-      { href: "/configuracoes",       label: "Configurações",        icon: <Settings size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
-      { href: "/assinatura",         label: "Assinatura",           icon: <CreditCard size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/financeiro",                    label: "Financeiro",           icon: <Landmark size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "financial", navKey: "financeiro" },
+      { href: "/bi",                            label: "Relatórios / BI",      icon: <BarChart2 size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "bi",        navKey: "bi" },
+      { href: "/configuracoes?tab=aparencia",   label: "Tema / Visual",        icon: <Palette size={16} />,   roles: ["SUPER_ADMIN","ADMIN"],                                   navKey: "tema" },
+      { href: "/tables/qrcode",                 label: "QR Code Mesas",        icon: <QrCode size={16} />,    roles: ["SUPER_ADMIN","ADMIN"], moduleSlug: "tables",             navKey: "qrcode-mesas" },
+      { href: "/historico-pedidos",             label: "Histórico de Pedidos", icon: <History size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"],                          navKey: "historico" },
+      { href: "/configuracoes",                 label: "Configurações",        icon: <Settings size={16} />,  roles: ["SUPER_ADMIN","ADMIN"] },
+      { href: "/assinatura",                    label: "Assinatura",           icon: <CreditCard size={16} />, roles: ["SUPER_ADMIN","ADMIN"] },
     ],
   },
 ];
@@ -229,6 +225,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
+  const [sidebarConfig, setSidebarConfig] = useState<Record<string, boolean>>({});
   const [qrLinksOpen, setQrLinksOpen] = useState(false);
 
   const isDemoUser = user?.role === "DEMO";
@@ -279,6 +276,14 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           .map((m: any) => ((m.moduleSlug || m.slug || m.module) as string).toLowerCase())
           .filter(Boolean);
         setActiveSlugs(slugs);
+      })
+      .catch(() => {});
+
+    api.get("/company/settings")
+      .then((r) => {
+        if (r.data?.sidebarConfig && typeof r.data.sidebarConfig === "object") {
+          setSidebarConfig(r.data.sidebarConfig as Record<string, boolean>);
+        }
       })
       .catch(() => {});
 
@@ -483,7 +488,12 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
             style={{ scrollbarWidth: "none" }}
           >
             {NAV_SECTIONS.map((section, si) => {
-              const visible = section.items.filter((item) => canSee(item.roles) && canAccessModule(item.moduleSlug));
+              const visible = section.items.filter((item) =>
+                canSee(item.roles) &&
+                canAccessModule(item.moduleSlug) &&
+                // sidebarConfig: false = hidden; undefined/true = show. Matriz nunca oculta.
+                (isMatrix || !item.navKey || sidebarConfig[item.navKey] !== false)
+              );
               if (visible.length === 0) return null;
               const isMarketplace = section.title === "Marketplace";
               // Module-based items unlocked by contracted modules

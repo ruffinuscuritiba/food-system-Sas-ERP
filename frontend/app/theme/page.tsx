@@ -8,6 +8,41 @@ import {
   type PdvThemeConfig, PDV_THEME_DEFAULT, PDV_THEME_PRESETS,
   loadPdvTheme, savePdvTheme, broadcastPdvTheme,
 } from "@/lib/pdv-theme";
+import { api } from "@/services/api";
+
+// Itens da sidebar que podem ser ligados/desligados
+const SIDEBAR_ITEMS: { navKey: string; label: string; emoji: string; section: string; alwaysOn?: boolean }[] = [
+  // Operação
+  { navKey: "pdv",               label: "PDV / Caixa",        emoji: "💰", section: "Operação" },
+  { navKey: "orders",            label: "Pedidos",             emoji: "🛒", section: "Operação" },
+  { navKey: "kitchen",           label: "Cozinha",             emoji: "🍳", section: "Operação" },
+  { navKey: "delivery-tracking", label: "Rastreamento",        emoji: "📍", section: "Operação" },
+  { navKey: "tables",            label: "Mesas",               emoji: "🪑", section: "Operação" },
+  // Cardápio
+  { navKey: "products",          label: "Produtos",            emoji: "📦", section: "Cardápio" },
+  { navKey: "categories",        label: "Categorias",          emoji: "🗂️", section: "Cardápio" },
+  { navKey: "complements",       label: "Complementos",        emoji: "➕", section: "Cardápio" },
+  { navKey: "pizza-borders",     label: "Pizza / Bordas",      emoji: "🍕", section: "Cardápio" },
+  // Estoque
+  { navKey: "stock",             label: "Movimentações",       emoji: "📊", section: "Estoque" },
+  { navKey: "ingredients",       label: "Ingredientes",        emoji: "🧪", section: "Estoque" },
+  { navKey: "recipes",           label: "Receitas",            emoji: "📖", section: "Estoque" },
+  // IA
+  { navKey: "smart-import",      label: "Cadastro por Imagem", emoji: "✨", section: "IA" },
+  { navKey: "marketing",         label: "Marketing Digital",   emoji: "📢", section: "IA" },
+  // Atendimento
+  { navKey: "whatsapp-ia",       label: "Configurar IA",       emoji: "🤖", section: "Atendimento" },
+  // Financeiro
+  { navKey: "financeiro",        label: "Financeiro",          emoji: "🏦", section: "Relatórios" },
+  { navKey: "bi",                label: "Relatórios / BI",     emoji: "📈", section: "Relatórios" },
+  { navKey: "historico",         label: "Histórico de Pedidos",emoji: "📜", section: "Relatórios" },
+  { navKey: "qrcode-mesas",      label: "QR Code Mesas",       emoji: "🔲", section: "Relatórios" },
+  // Marketplace
+  { navKey: "modulos",           label: "Módulos",             emoji: "🧩", section: "Marketplace" },
+  { navKey: "integracoes",       label: "Integrações",         emoji: "🔌", section: "Marketplace" },
+  { navKey: "impressao",         label: "Impressoras",         emoji: "🖨️", section: "Marketplace" },
+  { navKey: "tema",              label: "Tema / Visual",       emoji: "🎨", section: "Marketplace" },
+];
 
 export default function ThemePage() {
   const { user } = useAuthStore();
@@ -17,11 +52,37 @@ export default function ThemePage() {
   const [pdvTheme, setPdvTheme] = useState<PdvThemeConfig>(PDV_THEME_DEFAULT);
   const [saving, setSaving] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [sidebarConfig, setSidebarConfig] = useState<Record<string, boolean>>({});
+  const [savingSidebar, setSavingSidebar] = useState(false);
 
   useEffect(() => {
     if (companyId) loadTheme();
     setPdvTheme(loadPdvTheme());
+    // Carrega config atual da sidebar
+    api.get("/company/settings")
+      .then((r) => { if (r.data?.sidebarConfig) setSidebarConfig(r.data.sidebarConfig); })
+      .catch(() => {});
   }, [companyId]);
+
+  function isSidebarItemOn(navKey: string) {
+    return sidebarConfig[navKey] !== false; // default é true
+  }
+
+  function toggleSidebarItem(navKey: string) {
+    setSidebarConfig((prev) => ({ ...prev, [navKey]: !isSidebarItemOn(navKey) }));
+  }
+
+  async function saveSidebarConfig() {
+    setSavingSidebar(true);
+    try {
+      await api.patch("/company/settings", { sidebarConfig });
+      toast.success("Menu da loja atualizado!");
+    } catch {
+      toast.error("Erro ao salvar configuração do menu.");
+    } finally {
+      setSavingSidebar(false);
+    }
+  }
 
   function updatePdvTheme(patch: Partial<PdvThemeConfig>) {
     const updated = { ...pdvTheme, ...patch };
@@ -564,6 +625,58 @@ export default function ThemePage() {
             <p className="text-center text-xs text-gray-400 mt-3">Preview em tempo real · Salvo automaticamente</p>
           </div>
         </div>
+      </div>
+
+      {/* ─── Menu da Loja ──────────────────────────────────────────────────── */}
+      <div className="mt-8 border-t border-gray-200 pt-6">
+        <div className="mb-5">
+          <h2 className="text-xl font-bold text-gray-900">Menu da Loja</h2>
+          <p className="mt-0.5 text-sm text-gray-500">
+            Escolha quais botões aparecem no menu lateral. Itens desativados ficam invisíveis para todos os usuários da loja.
+          </p>
+        </div>
+
+        {/* Grupos por seção */}
+        {(["Operação","Cardápio","Estoque","IA","Atendimento","Relatórios","Marketplace"] as const).map((section) => {
+          const items = SIDEBAR_ITEMS.filter((i) => i.section === section);
+          return (
+            <div key={section} className="mb-6">
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">{section}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-3">
+                {items.map((item) => {
+                  const on = isSidebarItemOn(item.navKey);
+                  return (
+                    <button
+                      key={item.navKey}
+                      onClick={() => toggleSidebarItem(item.navKey)}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all text-center ${
+                        on
+                          ? "border-green-400 bg-green-50 shadow-sm"
+                          : "border-gray-200 bg-gray-50 opacity-50"
+                      }`}
+                    >
+                      <span className="text-2xl">{item.emoji}</span>
+                      <span className={`text-xs font-bold leading-tight ${on ? "text-gray-800" : "text-gray-400"}`}>
+                        {item.label}
+                      </span>
+                      <div className={`w-8 h-4 rounded-full flex items-center transition-all ${on ? "bg-green-500 justify-end" : "bg-gray-300 justify-start"}`}>
+                        <div className="w-3 h-3 rounded-full bg-white mx-0.5 shadow-sm" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        <button
+          onClick={saveSidebarConfig}
+          disabled={savingSidebar}
+          className="w-full md:w-1/2 py-3 rounded-xl font-bold text-base text-white bg-gray-900 hover:bg-gray-700 transition disabled:opacity-60"
+        >
+          {savingSidebar ? "Salvando..." : "💾 Salvar Menu da Loja"}
+        </button>
       </div>
     </main>
   );

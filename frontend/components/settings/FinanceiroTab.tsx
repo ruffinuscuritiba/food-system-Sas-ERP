@@ -227,18 +227,44 @@ export default function FinanceiroTab() {
 
   async function save() {
     setSaving(true);
+
+    // Só inclui bankAccountData se o usuário preencheu ao menos uma chave real
+    const hasRealAccount = Boolean(account.pixKey || account.account);
+
+    const payload: Record<string, unknown> = {
+      repasseFrequency:  freq,
+      repasseTime:       time,
+      repasseWeekday:    weekday,
+      creditReleasePlan: plan,
+      ...(hasRealAccount ? { bankAccountData: account } : {}),
+    };
+
     try {
-      await api.patch("/company/settings", {
-        repasseFrequency:  freq,
-        repasseTime:       time,
-        repasseWeekday:    weekday,
-        creditReleasePlan: plan,
-        bankAccountData:   account,
-      });
+      await api.patch("/company/settings", payload);
       toast.success("Configurações financeiras salvas!");
       setShowAccountForm(false);
-    } catch {
-      toast.error("Erro ao salvar configurações.");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string | string[] } } };
+      const msgs = apiErr?.response?.data?.message;
+      const msgArr = Array.isArray(msgs) ? msgs : msgs ? [String(msgs)] : [];
+
+      // Retry removendo campos rejeitados pelo VPS (código desatualizado)
+      const badFields = msgArr
+        .filter((m) => m.includes("should not exist") || m.includes("must be an object") || m.includes("must be an array"))
+        .map((m) => m.split(" ")[1]);
+
+      if (badFields.length > 0) {
+        const retryPayload = { ...payload };
+        badFields.forEach((f) => delete retryPayload[f]);
+        try {
+          await api.patch("/company/settings", retryPayload);
+          toast.success("Configurações salvas! (atualize o servidor para persistir todos os campos)");
+          setShowAccountForm(false);
+          return;
+        } catch { /* exibe erro abaixo */ }
+      }
+
+      toast.error(msgArr.join(", ") || "Erro ao salvar configurações. Verifique os campos.");
     } finally {
       setSaving(false);
     }

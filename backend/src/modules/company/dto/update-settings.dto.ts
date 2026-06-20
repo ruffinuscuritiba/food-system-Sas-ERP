@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsObject,
+  IsArray,
   ValidateNested,
   IsBoolean,
   IsNumber,
@@ -163,9 +164,9 @@ export class UpdateCompanySettingsDto {
   @IsOptional()
   acceptMealVoucher?: boolean;
 
-  @IsObject()
+  @IsArray()
   @IsOptional()
-  customPaymentMethods?: object;
+  customPaymentMethods?: object[];
 
   // ── Configurações de impressão ──────────────────────────────────────────
   @IsObject()

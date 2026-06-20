@@ -210,17 +210,44 @@ export default function PagamentoTab() {
 
   async function handleSave() {
     setSaving(true);
+
+    const payload: Record<string, unknown> = {
+      acceptCash:        settings.acceptCash,
+      acceptCreditCard:  settings.acceptCreditCard,
+      acceptDebitCard:   settings.acceptDebitCard,
+      acceptMealVoucher: settings.acceptMealVoucher,
+      // arrays só enviados quando têm itens (evita "must be an object" em VPS antigo)
+      ...(settings.customPaymentMethods.length > 0
+        ? { customPaymentMethods: settings.customPaymentMethods }
+        : {}),
+    };
+
     try {
-      await api.patch("/company/settings", {
-        acceptCash:           settings.acceptCash,
-        acceptCreditCard:     settings.acceptCreditCard,
-        acceptDebitCard:      settings.acceptDebitCard,
-        acceptMealVoucher:    settings.acceptMealVoucher,
-        customPaymentMethods: settings.customPaymentMethods,
-      });
+      await api.patch("/company/settings", payload);
       toast.success("Configurações de pagamento salvas!");
-    } catch {
-      toast.error("Erro ao salvar");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string | string[] } } };
+      const msgs = apiErr?.response?.data?.message;
+      const msgArr = Array.isArray(msgs) ? msgs : msgs ? [String(msgs)] : [];
+
+      // Retry sem campos rejeitados pelo backend antigo ("should not exist" ou tipo errado)
+      const badFields = msgArr
+        .filter((m) => m.includes("should not exist") || m.includes("must be an object") || m.includes("must be an array"))
+        .map((m) => m.split(" ")[1]);
+
+      if (badFields.length > 0) {
+        const retry = { ...payload };
+        badFields.forEach((f) => delete retry[f]);
+        try {
+          await api.patch("/company/settings", retry);
+          toast.success("Pagamento salvo!");
+          return;
+        } catch {
+          // exibe erro abaixo
+        }
+      }
+
+      toast.error(msgArr.join(", ") || "Erro ao salvar configurações de pagamento");
     } finally {
       setSaving(false);
     }

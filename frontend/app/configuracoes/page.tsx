@@ -280,38 +280,57 @@ function LojaTab() {
     if (!data) return;
     setSaving(true);
 
-    // null e string vazia viram undefined → removidos do JSON e ignorados pelo @IsOptional()
-    // Evita que "" quebre @Length(2,2) no state e @Matches no zipCode
+    // null/"" → undefined para não quebrar @Length(2,2) e @Matches no backend
     const sv = (v: string | null | undefined): string | undefined =>
       v === null || v === undefined || v.trim() === "" ? undefined : v;
 
+    const payload: Record<string, unknown> = {
+      name:              sv(data.name),
+      description:       sv(data.description),
+      phone:             sv(data.phone),
+      whatsapp:          sv(data.whatsapp),
+      email:             sv(data.email),
+      cnpj:              sv(data.cnpj),
+      razaoSocial:       sv(data.razaoSocial),
+      inscricaoEstadual: sv(data.inscricaoEstadual),
+      nomeFantasia:      sv(data.nomeFantasia),
+      zipCode:           sv(data.zipCode),
+      street:            sv(data.street),
+      streetNumber:      sv(data.streetNumber),
+      complement:        sv(data.complement),
+      neighborhood:      sv(data.neighborhood),
+      city:              sv(data.city),
+      state:             sv(data.state),
+      businessHours:     hours,
+    };
+
     try {
-      await api.patch("/company/settings", {
-        name:              sv(data.name),
-        description:       sv(data.description),
-        phone:             sv(data.phone),
-        whatsapp:          sv(data.whatsapp),
-        email:             sv(data.email),
-        cnpj:              sv(data.cnpj),
-        razaoSocial:       sv(data.razaoSocial),
-        inscricaoEstadual: sv(data.inscricaoEstadual),
-        nomeFantasia:      sv(data.nomeFantasia),
-        zipCode:           sv(data.zipCode),
-        street:            sv(data.street),
-        streetNumber:      sv(data.streetNumber),
-        complement:        sv(data.complement),
-        neighborhood:      sv(data.neighborhood),
-        city:              sv(data.city),
-        state:             sv(data.state),
-        businessHours:     hours,
-      });
+      await api.patch("/company/settings", payload);
       toast.success("Configurações salvas com sucesso!");
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string | string[] } } };
-      const msg = apiErr?.response?.data?.message;
-      const detail = Array.isArray(msg)
-        ? msg.join(", ")
-        : (msg ?? "Verifique os campos e tente novamente.");
+      const msgs = apiErr?.response?.data?.message;
+      const msgArr = Array.isArray(msgs) ? msgs : msgs ? [String(msgs)] : [];
+
+      // Backend antigo (VPS sem redeploy) rejeita campos novos com "property X should not exist".
+      // Retry automático removendo esses campos para não bloquear o usuário.
+      const unknownFields = msgArr
+        .filter((m) => m.includes("should not exist"))
+        .map((m) => m.split(" ")[1]);
+
+      if (unknownFields.length > 0) {
+        const retryPayload = { ...payload };
+        unknownFields.forEach((f) => delete retryPayload[f]);
+        try {
+          await api.patch("/company/settings", retryPayload);
+          toast.success("Configurações salvas! (atualize o servidor para salvar todos os campos)");
+          return;
+        } catch {
+          // exibe erro abaixo
+        }
+      }
+
+      const detail = msgArr.join(", ") || "Verifique os campos e tente novamente.";
       toast.error(`Erro ao salvar: ${detail}`);
     } finally {
       setSaving(false);

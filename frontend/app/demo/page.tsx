@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -28,6 +28,7 @@ import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 import { SUPPORT_WHATSAPP } from "@/config/support";
+import { NICHE_DATA, resolveNiche } from "@/lib/nicheData";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
   "Olá! Gostaria de falar com um especialista da Ruffinu's FoodSaaS ERP.",
@@ -50,11 +51,7 @@ const COMPARISON: Feature[] = [
   { label: "White Label",      basic: false, pro: false, enterprise: true  },
 ];
 
-const DEMO_SCREENSHOTS: Record<PlanKey, string> = {
-  basic:      "/demo-assets/banners/pizzas-salgadas.jpg",
-  pro:        "/demo-assets/banners/combos.jpg",
-  enterprise: "/demo-assets/banners/pizzas-doces.jpg",
-};
+// Screenshots agora vêm de NICHE_DATA, dinâmicos por ?niche=
 
 function planKey(plan: string): PlanKey { return plan.toLowerCase() as PlanKey; }
 
@@ -573,8 +570,11 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-export default function DemoPage() {
+function DemoContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const niche = resolveNiche(searchParams.get("niche"));
+  const nicheContent = NICHE_DATA[niche];
   const { setAuth } = useAuthStore();
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
@@ -654,9 +654,16 @@ export default function DemoPage() {
 
         {/* ── HERO ── */}
         <section className="mx-auto max-w-6xl px-5 pb-16 pt-20 text-center sm:px-8 sm:pb-24 sm:pt-28">
-          <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
-            Demonstrações ao vivo
-          </span>
+          <div className="inline-flex flex-col items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
+              Demonstrações ao vivo
+            </span>
+            {niche !== "restaurante" && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold text-white/55">
+                {nicheContent.badge}
+              </span>
+            )}
+          </div>
 
           <h1 className="mx-auto mt-7 max-w-4xl text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
             FoodSaaS{" "}
@@ -667,10 +674,16 @@ export default function DemoPage() {
 
           <p className="mx-auto mt-6 max-w-3xl text-base leading-relaxed text-white/50 sm:text-lg">
             Sistema completo para{" "}
-            <span className="text-white/80 font-semibold">pizzarias, restaurantes, hamburguerias</span>,{" "}
-            <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
-            <span className="text-white/80 font-semibold">conveniências, pastelarias</span>{" "}
-            e <span className="text-white/80 font-semibold">marmitarias</span>.
+            <span className="text-white/80 font-semibold">{nicheContent.heroHighlight}</span>
+            {niche === "restaurante" && (
+              <>
+                ,{" "}
+                <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
+                <span className="text-white/80 font-semibold">conveniências, pastelarias</span>{" "}
+                e <span className="text-white/80 font-semibold">marmitarias</span>
+              </>
+            )}
+            .
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -697,16 +710,24 @@ export default function DemoPage() {
             <p className="mt-3 text-sm text-white/50">Acesso imediato — sem cadastro, sem cartão.</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
-            {DEMO_ACCOUNTS.map((demo) => (
-              <DemoCard
-                key={demo.id}
-                demo={demo}
-                screenshot={DEMO_SCREENSHOTS[planKey(demo.plan)]}
-                loading={entering === demo.id}
-                disabled={entering !== null && entering !== demo.id}
-                onSelect={() => setModalDemo(demo)}
-              />
-            ))}
+            {DEMO_ACCOUNTS.map((demo) => {
+              const pk = planKey(demo.plan);
+              const enriched: DemoAccount = {
+                ...demo,
+                tagline:  nicheContent.plans[pk].tagline,
+                features: nicheContent.plans[pk].features,
+              };
+              return (
+                <DemoCard
+                  key={demo.id}
+                  demo={enriched}
+                  screenshot={nicheContent.screenshots[pk]}
+                  loading={entering === demo.id}
+                  disabled={entering !== null && entering !== demo.id}
+                  onSelect={() => setModalDemo(enriched)}
+                />
+              );
+            })}
           </div>
         </section>
 
@@ -784,6 +805,14 @@ export default function DemoPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function DemoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#07090f]" />}>
+      <DemoContent />
+    </Suspense>
   );
 }
 

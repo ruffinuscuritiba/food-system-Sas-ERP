@@ -86,43 +86,39 @@ export const NICHE_DATA: Record<NicheKey, NicheData> = {
 
   // ─── Marmitaria & Dark Kitchen ───────────────────────────────────────────────
   marmitaria: {
-    badge:         "🍱 Marmitarias & Dark Kitchens",
-    heroHighlight: "marmitarias, dark kitchens e delivery corporativo",
+    badge:         "🍱 Marmitarias, Marmitex & Dark Kitchens",
+    heroHighlight: "Mais marmitas entregues. Zero confusão no WhatsApp do almoço.",
     screenshots: {
-      // meal-prep containers, logistics, commercial kitchen
-      basic:      us("1546554137-ef5b733b594c"),
-      pro:        us("1578662996442-48f60103fc96"),
-      enterprise: us("1565299624133-2e0bf6249c6f"),
+      basic:      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop&q=80",
+      pro:        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&auto=format&fit=crop&q=80",
+      enterprise: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80",
     },
     plans: {
       basic: {
-        tagline: "Comece a receber pedidos de marmita de forma automática, organize as rotas de entrega e elimine as planilhas.",
+        tagline: "Ideal para organizar as vendas do almoço e eliminar o papel de vez.",
         features: [
-          "Cardápio de marmitas com opções de dieta",
-          "PDV para balcão, delivery e encomendas",
-          "Etiquetas de identificação por pedido",
-          "Gestão de sabores, tamanhos e restrições",
-          "Controle financeiro diário simplificado",
+          "PDV de Montagem Rápida (Tamanho e Misturas)",
+          "Impressão Automática na Cozinha",
+          "Link de Pedidos Web",
+          "Aviso de recebimento de Pix",
         ],
       },
       pro: {
-        tagline: "Gerencie dezenas de entregas diárias, controle entregadores e fidelize clientes com assinatura semanal ou mensal.",
+        tagline: "Para marmitarias que querem dominar a região e fidelizar clientes.",
         features: [
-          "Tudo do Basic, mais:",
-          "Painel de logística e mapa de entregadores",
-          "Programa de fidelidade para assinantes recorrentes",
-          "Ficha técnica e custo real por marmita",
-          "Relatórios de entregas, horários e rotas",
+          "Agrupamento de Motoboys por Bairros",
+          "Assinatura Mensal/Semanal de Marmitas",
+          "Programa de Fidelidade Integrado",
+          "Ficha Técnica (Controle do KG do Arroz/Proteína)",
         ],
       },
       enterprise: {
-        tagline: "Para operações corporativas e dark kitchens com múltiplas cozinhas, contratos empresariais e relatórios consolidados.",
+        tagline: "A força operacional que sua Dark Kitchen ou franquia de marmitas precisa.",
         features: [
-          "Tudo do Pro, mais:",
-          "Gestão de contratos e clientes corporativos",
-          "Múltiplas cozinhas com KPIs consolidados",
-          "Controle de produção por turno e CMV real",
-          "Suporte VIP com SLA e gerente de conta",
+          "Múltiplas Cozinhas / Terminais de Produção",
+          "Dashboards Consolidados em Tempo Real",
+          "API para Integrações de Logística",
+          "Suporte VIP 24/7",
         ],
       },
     },
@@ -131,42 +127,38 @@ export const NICHE_DATA: Record<NicheKey, NicheData> = {
   // ─── Pastelaria & Food Truck ─────────────────────────────────────────────────
   pastelaria: {
     badge:         "🥟 Pastelarias & Food Trucks",
-    heroHighlight: "pastelarias, food trucks e lanchonetes de rua",
+    heroHighlight: "Pastéis recheados e sequinhos. Atendimento ágil sem errar comandas.",
     screenshots: {
-      // golden fried pastry, bakery counter, food production
-      basic:      us("1603894584373-5ac82b2ae398"),
-      pro:        us("1556910585-f339b8d26d70"),
-      enterprise: us("1571091718767-18b5b1457add"),
+      basic:      "https://images.unsplash.com/photo-1626132647523-66f5bf380027?w=800&auto=format&fit=crop&q=80",
+      pro:        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop&q=80",
+      enterprise: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80",
     },
     plans: {
       basic: {
-        tagline: "Cadastre recheios e tamanhos, monte combos e receba pedidos no balcão e no delivery sem pagar comissão para ninguém.",
+        tagline: "Perfeito para agilizar o balcão e os adicionais complexos de cada pastel.",
         features: [
-          "Cardápio de pastéis com recheios e adicionais",
-          "PDV rápido otimizado para atendimento no balcão",
-          "Gestão de combos, meio-a-meio e promoções",
-          "Impressão automática de comanda na cozinha",
-          "Controle de caixa e sangria diária",
+          "Frente de Caixa Tátil e Veloz",
+          "Grade de Adicionais Avançada (Sem erros)",
+          "Impressão Setorizada (Fritadeira)",
+          "Painel de Senhas Básico",
         ],
       },
       pro: {
-        tagline: "Controle o custo de cada pastel pela ficha técnica, fidelize clientes frequentes e venda mais nos horários de pico.",
+        tagline: "Controle total dos recheios nobres e fila automatizada no WhatsApp.",
         features: [
-          "Tudo do Basic, mais:",
-          "Ficha técnica por sabor e tipo de pastel",
-          "Programa de fidelidade e cartão de pontos",
-          "Relatórios dos produtos e adicionais mais vendidos",
-          "Cupons para horários de baixo movimento",
+          "Cardápio Digital com Upsell de Bebidas",
+          "Controle Estrito de Insumos (Gramatura)",
+          "Impressão Automática de Cupons para Fritura",
+          "Motor de Cupons para Sexta e Sábado",
         ],
       },
       enterprise: {
-        tagline: "Para redes de pastelaria com múltiplos pontos, controle de produção centralizado, turnos e gestão de franquias.",
+        tagline: "Gestão inteligente para redes de pastelarias com alto volume de vendas.",
         features: [
-          "Tudo do Pro, mais:",
-          "Múltiplos pontos de venda integrados em tempo real",
-          "Controle de produção por turno e fritadeira",
-          "Gestão e performance de franquias",
-          "Dashboards consolidados e relatórios de rede",
+          "Gestão de Franquias e Estoque Central",
+          "BI e Relatórios Avançados de Margem de Lucro",
+          "Múltiplos Caixas Simultâneos",
+          "Gerente de Conta Dedicado",
         ],
       },
     },
@@ -174,43 +166,39 @@ export const NICHE_DATA: Record<NicheKey, NicheData> = {
 
   // ─── Hot-Dog & Snack Bar ──────────────────────────────────────────────────────
   hotdog: {
-    badge:         "🌭 Hot-Dogs & Lanchonetes",
-    heroHighlight: "hot-dogs, lanchonetes e snack bars",
+    badge:         "🌭 Hot-Dogs, Hamburguerias & Lanchonetes",
+    heroHighlight: "Lanches montados na velocidade da luz. Clientes avisados sozinhos.",
     screenshots: {
-      // gourmet hot dog, kitchen prep, franchise fast food
-      basic:      us("1546793665-c74683f339c1"),
-      pro:        us("1555939594-58d7cb561498"),
-      enterprise: us("1568901346375-23c9450c58cd"),
+      basic:      "https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=800&auto=format&fit=crop&q=80",
+      pro:        "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&auto=format&fit=crop&q=80",
+      enterprise: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&auto=format&fit=crop&q=80",
     },
     plans: {
       basic: {
-        tagline: "Receba pedidos pelo cardápio digital, gerencie ingredientes da chapa e imprima comanda automaticamente — tudo em segundos.",
+        tagline: "Ideal para chapas e lanchonetes agilizarem a entrada do lanche na cozinha.",
         features: [
-          "Cardápio de lanches com molhos e adicionais",
-          "PDV ágil para balcão e delivery",
-          "Gestão de ingredientes e montagem na chapa",
-          "Impressão de comanda automática na cozinha",
-          "Controle financeiro de caixa por turno",
+          "KDS na Chapa (Sem papelzinho sumindo)",
+          "Modificadores de Ingredientes (-Milho, +Cheddar)",
+          "Histórico de Pedidos Simplificado",
+          "Impressão de Linha de Produção",
         ],
       },
       pro: {
-        tagline: "Controle o custo real de cada lanche, fidelize clientes com pontos e venda mais no happy hour e nos fins de semana.",
+        tagline: "Para marcas em crescimento explodirem o faturamento com combos inteligentes.",
         features: [
-          "Tudo do Basic, mais:",
-          "Ficha técnica e custo por lanche (CMV real)",
-          "Programa de fidelidade com pontos e cashback",
-          "Cupons de desconto, combos e promoções ativas",
-          "Relatórios de horários e produtos mais vendidos",
+          "Sugestão Automática de Combos no Checkout",
+          "Status Automático de Envio no WhatsApp",
+          "Controle de Estoque de Pães e Carnes",
+          "Gestão de Rotas de Entrega Local",
         ],
       },
       enterprise: {
-        tagline: "Para redes de lanches e franquias com múltiplos terminais, controle centralizado de insumos e dashboards de performance.",
+        tagline: "Performance extrema para marcas líderes de Delivery e Redes de Lanches.",
         features: [
-          "Tudo do Pro, mais:",
-          "Gestão de multi-unidades em tempo real",
-          "Controle centralizado de insumos e estoque",
-          "Dashboards de performance por unidade",
-          "Suporte VIP para redes e franqueados",
+          "Infraestrutura de Servidor Dedicada",
+          "Integração Completa de APIs Logísticas",
+          "Controle de Perdas de Insumos da Chapa",
+          "Suporte Prioritário nos Horários de Pico",
         ],
       },
     },

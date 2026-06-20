@@ -52,6 +52,14 @@ export class UpdateCompanySettingsDto {
   @IsOptional()
   razaoSocial?: string;
 
+  @IsString()
+  @IsOptional()
+  inscricaoEstadual?: string;
+
+  @IsString()
+  @IsOptional()
+  nomeFantasia?: string;
+
   // ── Endereço ───────────────────────────────────────────────────────────────
   @IsString()
   @IsOptional()

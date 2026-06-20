@@ -227,8 +227,10 @@ model Company {
 
   // ── Configurações centralizadas (Área de Configurações) ──────────────────
   whatsapp     String?
-  cnpj         String?
-  razaoSocial  String?
+  cnpj              String?
+  razaoSocial       String?
+  inscricaoEstadual String?
+  nomeFantasia      String?
 
   // Endereço da loja
   zipCode      String?

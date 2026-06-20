@@ -123,6 +123,8 @@ interface CompanySettings {
   email: string | null;
   cnpj: string | null;
   razaoSocial: string | null;
+  inscricaoEstadual: string | null;
+  nomeFantasia: string | null;
   zipCode: string | null;
   street: string | null;
   streetNumber: string | null;
@@ -166,7 +168,9 @@ function LojaTab() {
   const [hours, setHours] = useState<BusinessHours>(DEFAULT_HOURS);
   const [saving, setSaving] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [loadingCnpj, setLoadingCnpj] = useState(false);
   const cepTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cnpjTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user?.companyId) return;
@@ -214,6 +218,50 @@ function LojaTab() {
     cepTimer.current = setTimeout(() => lookupCep(masked), 600);
   }
 
+  async function lookupCnpj(raw: string) {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length !== 14) return;
+    setLoadingCnpj(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!res.ok) {
+        toast.error("CNPJ não encontrado na Receita Federal");
+        return;
+      }
+      const json = await res.json();
+      const ie = (json.inscricoes_estaduais as { inscricao_estadual?: string }[] | undefined)?.[0]?.inscricao_estadual;
+      setData((prev) => prev ? {
+        ...prev,
+        razaoSocial:       json.razao_social   || prev.razaoSocial,
+        nomeFantasia:      json.nome_fantasia   || prev.nomeFantasia,
+        inscricaoEstadual: ie                  || prev.inscricaoEstadual,
+        street:            json.logradouro      || prev.street,
+        streetNumber:      json.numero          || prev.streetNumber,
+        complement:        json.complemento     || prev.complement,
+        neighborhood:      json.bairro          || prev.neighborhood,
+        city:              json.municipio       || prev.city,
+        state:             json.uf              || prev.state,
+        zipCode:           json.cep ? maskZip(json.cep.toString()) : prev.zipCode,
+        phone:             (!prev.phone && json.telefone) ? maskPhone(json.telefone.replace(/\D/g, "")) : prev.phone,
+        email:             (!prev.email && json.email) ? json.email : prev.email,
+      } : prev);
+      toast.success("Dados preenchidos automaticamente pela Receita Federal!");
+    } catch {
+      toast.error("Erro ao consultar CNPJ. Verifique sua conexão.");
+    } finally {
+      setLoadingCnpj(false);
+    }
+  }
+
+  function handleCnpjChange(v: string) {
+    const masked = maskCnpj(v);
+    patch("cnpj", masked);
+    if (cnpjTimer.current) clearTimeout(cnpjTimer.current);
+    if (masked.replace(/\D/g, "").length === 14) {
+      cnpjTimer.current = setTimeout(() => lookupCnpj(masked), 800);
+    }
+  }
+
   function toggleDay(key: string) {
     setHours((prev) => ({
       ...prev,
@@ -238,9 +286,11 @@ function LojaTab() {
         phone:        data.phone,
         whatsapp:     data.whatsapp,
         email:        data.email,
-        cnpj:         data.cnpj,
-        razaoSocial:  data.razaoSocial,
-        zipCode:      data.zipCode,
+        cnpj:              data.cnpj,
+        razaoSocial:       data.razaoSocial,
+        inscricaoEstadual: data.inscricaoEstadual,
+        nomeFantasia:      data.nomeFantasia,
+        zipCode:           data.zipCode,
         street:       data.street,
         streetNumber: data.streetNumber,
         complement:   data.complement,
@@ -287,12 +337,29 @@ function LojaTab() {
           </Field>
 
           <Field label="CNPJ">
-            <Input
-              value={str(data.cnpj)}
-              onChange={(v) => patch("cnpj", maskCnpj(v))}
-              placeholder="00.000.000/0001-00"
-              maxLength={18}
-            />
+            <div className="relative">
+              <Input
+                value={str(data.cnpj)}
+                onChange={handleCnpjChange}
+                placeholder="00.000.000/0001-00"
+                maxLength={18}
+              />
+              {loadingCnpj && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                  <Loader2 size={14} className="animate-spin text-orange-500" />
+                </div>
+              )}
+              {!loadingCnpj && data.cnpj?.replace(/\D/g, "").length === 14 && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                  <CheckCircle2 size={14} className="text-green-500" />
+                </div>
+              )}
+            </div>
+            {data.cnpj?.replace(/\D/g, "").length === 14 && !loadingCnpj && (
+              <p className="text-[10px] text-gray-400 mt-1">
+                Dados preenchidos automaticamente via Receita Federal
+              </p>
+            )}
           </Field>
 
           <Field label="Razão Social" colSpan>
@@ -300,6 +367,22 @@ function LojaTab() {
               value={str(data.razaoSocial)}
               onChange={(v) => patch("razaoSocial", v)}
               placeholder="Ex: Bella Napoli Ltda."
+            />
+          </Field>
+
+          <Field label="Nome Fantasia">
+            <Input
+              value={str(data.nomeFantasia)}
+              onChange={(v) => patch("nomeFantasia", v)}
+              placeholder="Ex: Bella Napoli"
+            />
+          </Field>
+
+          <Field label="Inscrição Estadual">
+            <Input
+              value={str(data.inscricaoEstadual)}
+              onChange={(v) => patch("inscricaoEstadual", v)}
+              placeholder="Preenchido automaticamente ou manual"
             />
           </Field>
 

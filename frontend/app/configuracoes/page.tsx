@@ -279,29 +279,40 @@ function LojaTab() {
   async function handleSave() {
     if (!data) return;
     setSaving(true);
+
+    // null e string vazia viram undefined → removidos do JSON e ignorados pelo @IsOptional()
+    // Evita que "" quebre @Length(2,2) no state e @Matches no zipCode
+    const sv = (v: string | null | undefined): string | undefined =>
+      v === null || v === undefined || v.trim() === "" ? undefined : v;
+
     try {
       await api.patch("/company/settings", {
-        name:         data.name,
-        description:  data.description,
-        phone:        data.phone,
-        whatsapp:     data.whatsapp,
-        email:        data.email,
-        cnpj:              data.cnpj,
-        razaoSocial:       data.razaoSocial,
-        inscricaoEstadual: data.inscricaoEstadual,
-        nomeFantasia:      data.nomeFantasia,
-        zipCode:           data.zipCode,
-        street:       data.street,
-        streetNumber: data.streetNumber,
-        complement:   data.complement,
-        neighborhood: data.neighborhood,
-        city:         data.city,
-        state:        data.state,
-        businessHours: hours,
+        name:              sv(data.name),
+        description:       sv(data.description),
+        phone:             sv(data.phone),
+        whatsapp:          sv(data.whatsapp),
+        email:             sv(data.email),
+        cnpj:              sv(data.cnpj),
+        razaoSocial:       sv(data.razaoSocial),
+        inscricaoEstadual: sv(data.inscricaoEstadual),
+        nomeFantasia:      sv(data.nomeFantasia),
+        zipCode:           sv(data.zipCode),
+        street:            sv(data.street),
+        streetNumber:      sv(data.streetNumber),
+        complement:        sv(data.complement),
+        neighborhood:      sv(data.neighborhood),
+        city:              sv(data.city),
+        state:             sv(data.state),
+        businessHours:     hours,
       });
       toast.success("Configurações salvas com sucesso!");
-    } catch {
-      toast.error("Erro ao salvar configurações");
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string | string[] } } };
+      const msg = apiErr?.response?.data?.message;
+      const detail = Array.isArray(msg)
+        ? msg.join(", ")
+        : (msg ?? "Verifique os campos e tente novamente.");
+      toast.error(`Erro ao salvar: ${detail}`);
     } finally {
       setSaving(false);
     }

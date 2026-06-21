@@ -8,12 +8,16 @@ import {
   BarChart3,
   Check,
   ChevronDown,
+  ChevronUp,
   Cpu,
+  LayoutGrid,
+  List,
   Loader2,
   Mail,
   MessageCircle,
   Minus,
   Phone,
+  RotateCcw,
   Smartphone,
   Star,
   Store,
@@ -28,7 +32,7 @@ import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 import { SUPPORT_WHATSAPP } from "@/config/support";
-import { NICHE_DATA, resolveNiche } from "@/lib/nicheData";
+import { NICHE_DATA, resolveNiche, type NicheKey } from "@/lib/nicheData";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
   "Olá! Gostaria de falar com um especialista da Ruffinu's FoodSaaS ERP.",
@@ -51,9 +55,55 @@ const COMPARISON: Feature[] = [
   { label: "White Label",      basic: false, pro: false, enterprise: true  },
 ];
 
-// Screenshots agora vêm de NICHE_DATA, dinâmicos por ?niche=
+// Screenshots agora vêm de NICHE_DATA, dinâmicos por nicho selecionado
 
 function planKey(plan: string): PlanKey { return plan.toLowerCase() as PlanKey; }
+
+// ─── Niche selector list ──────────────────────────────────────────────────────
+const NICHES_LIST: { key: NicheKey; emoji: string; label: string }[] = [
+  { key: "restaurante", emoji: "🍕", label: "Restaurantes & Pizzarias"    },
+  { key: "marmitaria",  emoji: "🍱", label: "Marmitarias & Dark Kitchens" },
+  { key: "pastelaria",  emoji: "🥟", label: "Pastelarias & Food Trucks"   },
+  { key: "hotdog",      emoji: "🌭", label: "Hot-Dogs & Lanchonetes"      },
+];
+
+// ─── Portfolio simulator data ─────────────────────────────────────────────────
+interface MenuItem { id: string; name: string; emoji: string; count: number; }
+
+const NICHE_MENU_ITEMS: Record<NicheKey, MenuItem[]> = {
+  restaurante: [
+    { id: "r1", name: "Pizzas",           emoji: "🍕", count: 12 },
+    { id: "r2", name: "Bebidas",          emoji: "🥤", count: 8  },
+    { id: "r3", name: "Bordas Especiais", emoji: "🧀", count: 5  },
+    { id: "r4", name: "Sobremesas",       emoji: "🍰", count: 4  },
+    { id: "r5", name: "Entradas",         emoji: "🥗", count: 6  },
+    { id: "r6", name: "Combos",           emoji: "📦", count: 3  },
+  ],
+  marmitaria: [
+    { id: "m1", name: "Proteínas",        emoji: "🥩", count: 8  },
+    { id: "m2", name: "Acompanhamentos",  emoji: "🍚", count: 10 },
+    { id: "m3", name: "Diet / Fit",       emoji: "🥦", count: 5  },
+    { id: "m4", name: "Bebidas",          emoji: "🥤", count: 4  },
+    { id: "m5", name: "Encomendas",       emoji: "📦", count: 3  },
+    { id: "m6", name: "Sobremesas",       emoji: "🍮", count: 3  },
+  ],
+  pastelaria: [
+    { id: "p1", name: "Pastéis Salgados", emoji: "🥟", count: 15 },
+    { id: "p2", name: "Pastéis Doces",    emoji: "🍬", count: 8  },
+    { id: "p3", name: "Caldos",           emoji: "🍜", count: 4  },
+    { id: "p4", name: "Bebidas Geladas",  emoji: "🧃", count: 6  },
+    { id: "p5", name: "Combos",           emoji: "📦", count: 3  },
+    { id: "p6", name: "Adicionais",       emoji: "✨", count: 5  },
+  ],
+  hotdog: [
+    { id: "h1", name: "Hot-Dogs",         emoji: "🌭", count: 10 },
+    { id: "h2", name: "Hambúrgueres",     emoji: "🍔", count: 8  },
+    { id: "h3", name: "Batatas Fritas",   emoji: "🍟", count: 4  },
+    { id: "h4", name: "Bebidas",          emoji: "🥤", count: 6  },
+    { id: "h5", name: "Porções",          emoji: "🍗", count: 4  },
+    { id: "h6", name: "Sobremesas",       emoji: "🍦", count: 3  },
+  ],
+};
 
 // ─── Pillars data ─────────────────────────────────────────────────────────────
 const PILLARS_DATA = [
@@ -490,6 +540,189 @@ function PillarsSection() {
   );
 }
 
+// ─── Portfolio Simulator ──────────────────────────────────────────────────────
+interface PortfolioSimulatorProps { niche: NicheKey; }
+
+function PortfolioSimulator({ niche }: PortfolioSimulatorProps) {
+  const [items, setItems] = useState<MenuItem[]>(() => [...NICHE_MENU_ITEMS[niche]]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const nicheEmoji = NICHE_DATA[niche].badge.split(" ")[0];
+
+  function startEdit(item: MenuItem) { setEditingId(item.id); setEditValue(item.name); }
+  function commitEdit(id: string) {
+    if (editValue.trim()) setItems((p) => p.map((i) => i.id === id ? { ...i, name: editValue.trim() } : i));
+    setEditingId(null);
+  }
+  function deleteItem(id: string) { setItems((p) => p.filter((i) => i.id !== id)); }
+  function moveItem(index: number, dir: -1 | 1) {
+    const nx = index + dir;
+    if (nx < 0 || nx >= items.length) return;
+    const next = [...items];
+    [next[index], next[nx]] = [next[nx], next[index]];
+    setItems(next);
+  }
+
+  return (
+    <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-3">
+            Simulador Interativo
+          </span>
+          <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+            Simule o cardápio do seu negócio
+          </h2>
+          <p className="mt-1.5 text-sm text-white/45 max-w-lg">
+            Edite nomes, reordene categorias e exclua o que não quiser — veja em tempo real como ficaria seu cardápio digital.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+            {(["grid", "list"] as const).map((mode) => (
+              <button key={mode} onClick={() => setViewMode(mode)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${viewMode === mode ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white/70"}`}>
+                {mode === "grid" ? <><LayoutGrid className="h-3.5 w-3.5" /> Grade</> : <><List className="h-3.5 w-3.5" /> Lista</>}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => { setItems([...NICHE_MENU_ITEMS[niche]]); setEditingId(null); }}
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/55 transition hover:bg-white/10 hover:text-white">
+            <RotateCcw className="h-3 w-3" /> Resetar
+          </button>
+        </div>
+      </div>
+
+      {/* Mock browser frame */}
+      <div className="rounded-3xl border border-white/[0.08] bg-[#0b0e18] overflow-hidden shadow-2xl">
+        {/* Browser bar */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+          <div className="flex gap-1.5">
+            {["bg-red-500/50", "bg-yellow-500/50", "bg-green-500/50"].map((c, i) => (
+              <div key={i} className={`w-2.5 h-2.5 rounded-full ${c}`} />
+            ))}
+          </div>
+          <div className="flex-1 mx-3 rounded-lg bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-white/25 font-mono">
+            cardapio.foodsaas.app/minha-loja
+          </div>
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-400/20 border border-green-400/30">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+          </span>
+        </div>
+
+        {/* Menu header */}
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-xl">
+              {nicheEmoji}
+            </div>
+            <div>
+              <p className="text-sm font-black text-white leading-tight">Minha Loja</p>
+              <p className="text-[10px] text-green-400">● Aberto · Pedidos online ativos</p>
+            </div>
+          </div>
+          <span className="text-[10px] text-white/30 border border-white/[0.08] rounded-full px-2.5 py-1">
+            {items.length} categoria{items.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Empty state */}
+        {items.length === 0 && (
+          <div className="py-16 text-center">
+            <p className="text-4xl mb-3">📭</p>
+            <p className="text-sm font-semibold text-white/50">Sem categorias</p>
+            <p className="text-xs text-white/30 mt-1">Clique em &quot;Resetar&quot; para restaurar</p>
+          </div>
+        )}
+
+        {/* Grid view */}
+        {items.length > 0 && viewMode === "grid" && (
+          <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {items.map((item, index) => (
+              <div key={item.id} className="group relative rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-all hover:border-orange-500/20 hover:bg-white/[0.05]">
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <button onClick={() => moveItem(index, -1)} disabled={index === 0}
+                    className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
+                    <ChevronUp className="h-2.5 w-2.5 text-white" />
+                  </button>
+                  <button onClick={() => moveItem(index, 1)} disabled={index === items.length - 1}
+                    className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
+                    <ChevronDown className="h-2.5 w-2.5 text-white" />
+                  </button>
+                  <button onClick={() => deleteItem(item.id)}
+                    className="w-5 h-5 rounded-md bg-red-500/15 hover:bg-red-500/35 flex items-center justify-center transition">
+                    <X className="h-2.5 w-2.5 text-red-400" />
+                  </button>
+                </div>
+                <div className="text-3xl mb-3 leading-none">{item.emoji}</div>
+                {editingId === item.id ? (
+                  <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => commitEdit(item.id)}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item.id); if (e.key === "Escape") setEditingId(null); }}
+                    className="w-full bg-white/10 border border-orange-500/60 rounded-lg px-2 py-1 text-xs font-bold text-white focus:outline-none focus:border-orange-500" />
+                ) : (
+                  <p onClick={() => startEdit(item)} title="Clique para editar"
+                    className="text-xs font-bold text-white/85 cursor-text hover:text-orange-400 transition-colors leading-snug">
+                    {item.name}
+                  </p>
+                )}
+                <p className="text-[10px] text-white/30 mt-1">{item.count} itens</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* List view */}
+        {items.length > 0 && viewMode === "list" && (
+          <div className="divide-y divide-white/[0.04]">
+            {items.map((item, index) => (
+              <div key={item.id} className="group flex items-center gap-4 px-5 py-3 transition hover:bg-white/[0.02]">
+                <span className="text-2xl flex-shrink-0 w-8 text-center">{item.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  {editingId === item.id ? (
+                    <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={() => commitEdit(item.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item.id); if (e.key === "Escape") setEditingId(null); }}
+                      className="w-full max-w-[220px] bg-white/10 border border-orange-500/60 rounded-lg px-2 py-0.5 text-sm font-bold text-white focus:outline-none" />
+                  ) : (
+                    <p onClick={() => startEdit(item)} title="Clique para editar"
+                      className="text-sm font-bold text-white/85 cursor-text hover:text-orange-400 transition-colors truncate">
+                      {item.name}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-white/30">{item.count} itens</p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <button onClick={() => moveItem(index, -1)} disabled={index === 0}
+                    className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
+                    <ChevronUp className="h-3.5 w-3.5 text-white" />
+                  </button>
+                  <button onClick={() => moveItem(index, 1)} disabled={index === items.length - 1}
+                    className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
+                    <ChevronDown className="h-3.5 w-3.5 text-white" />
+                  </button>
+                  <button onClick={() => deleteItem(item.id)}
+                    className="w-7 h-7 rounded-lg bg-red-500/15 hover:bg-red-500/35 flex items-center justify-center transition">
+                    <X className="h-3.5 w-3.5 text-red-400" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Hint footer */}
+        <div className="px-5 py-3 border-t border-white/[0.05] bg-white/[0.01]">
+          <p className="text-[10px] text-white/20">
+            💡 Passe o mouse sobre uma categoria para editar, reordenar ou excluir
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Lead Capture Modal ───────────────────────────────────────────────────────
 interface LeadForm { name: string; email: string; whatsapp: string; restaurantName: string; }
 interface LeadCaptureModalProps { demo: DemoAccount; onClose: () => void; onConfirm: (form: LeadForm) => Promise<void>; loading: boolean; }
@@ -573,8 +806,10 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
 function DemoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const niche = resolveNiche(searchParams.get("niche"));
-  const nicheContent = NICHE_DATA[niche];
+  const [selectedNiche, setSelectedNiche] = useState<NicheKey>(() =>
+    resolveNiche(searchParams.get("niche"))
+  );
+  const nicheContent = NICHE_DATA[selectedNiche];
   const { setAuth } = useAuthStore();
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
@@ -658,7 +893,7 @@ function DemoContent() {
             <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
               Demonstrações ao vivo
             </span>
-            {niche !== "restaurante" && (
+            {selectedNiche !== "restaurante" && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold text-white/55">
                 {nicheContent.badge}
               </span>
@@ -675,7 +910,7 @@ function DemoContent() {
           <p className="mx-auto mt-6 max-w-3xl text-base leading-relaxed text-white/50 sm:text-lg">
             Sistema completo para{" "}
             <span className="text-white/80 font-semibold">{nicheContent.heroHighlight}</span>
-            {niche === "restaurante" && (
+            {selectedNiche === "restaurante" && (
               <>
                 ,{" "}
                 <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
@@ -703,12 +938,32 @@ function DemoContent() {
         {/* ── PILLARS (interactive tabs) ── */}
         <PillarsSection />
 
-        {/* ── DEMO CARDS ── */}
-        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Escolha uma demonstração</h2>
-            <p className="mt-3 text-sm text-white/50">Acesso imediato — sem cadastro, sem cartão.</p>
+        {/* ── NICHE SELECTOR + PLAN CARDS ── */}
+        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Para qual segmento você quer ver a demo?</h2>
+            <p className="mt-3 text-sm text-white/50">Clique no seu tipo de negócio — os planos se adaptam na hora.</p>
           </div>
+
+          {/* Niche pills */}
+          <div className="flex flex-wrap justify-center gap-3 mb-10">
+            {NICHES_LIST.map((n) => {
+              const isActive = selectedNiche === n.key;
+              return (
+                <button key={n.key} onClick={() => setSelectedNiche(n.key)}
+                  className={`flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold transition-all duration-200 ${
+                    isActive
+                      ? "border-orange-500/50 bg-orange-500/15 text-white shadow-[0_0_24px_-4px_rgba(249,115,22,0.4)]"
+                      : "border-white/[0.07] bg-white/[0.025] text-white/55 hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-white/85"
+                  }`}>
+                  <span className="text-base">{n.emoji}</span>
+                  <span>{n.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Plan cards — dynamic */}
           <div className="grid gap-6 md:grid-cols-3">
             {DEMO_ACCOUNTS.map((demo) => {
               const pk = planKey(demo.plan);
@@ -730,6 +985,9 @@ function DemoContent() {
             })}
           </div>
         </section>
+
+        {/* ── PORTFOLIO SIMULATOR ── */}
+        <PortfolioSimulator key={selectedNiche} niche={selectedNiche} />
 
         {/* ── COMPARISON TABLE ── */}
         <section className="mx-auto max-w-4xl px-5 pb-28 sm:px-8">

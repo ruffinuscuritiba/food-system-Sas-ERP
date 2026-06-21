@@ -22,6 +22,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -183,7 +184,10 @@ const PILLARS_DATA = [
   },
 ];
 
-// ─── Mockup: PDV ─────────────────────────────────────────────────────────────
+// ─── Hero Device Mockup (iMac monitor) ──────────────────────────────────────
+// (defined below, referenced here to avoid forward-reference issues)
+
+// ─── Mockup: PDV (unused — kept for reference) ────────────────────────────────
 function PdvMockup() {
   const products = [
     { name: "Pizza Margherita", price: "R$ 52", c: "bg-orange-500/20" },
@@ -485,7 +489,6 @@ function HeroDeviceMockup() {
 function PillarsSection() {
   const [active, setActive] = useState(0);
   const pillar = PILLARS_DATA[active];
-  const ActiveMockup = MOCKUP_COMPONENTS[active];
 
   return (
     <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
@@ -541,10 +544,10 @@ function PillarsSection() {
             </ul>
           </div>
 
-          {/* Right: mockup */}
-          <div className="p-8 sm:p-10 lg:p-12 flex items-center justify-center bg-white/[0.01] border-t border-white/[0.06] lg:border-t-0 lg:border-l lg:border-white/[0.06]">
-            <div className="w-full max-w-sm">
-              <ActiveMockup />
+          {/* Right: iMac device mockup */}
+          <div className="p-6 sm:p-8 lg:p-10 flex items-center justify-center bg-white/[0.01] border-t border-white/[0.06] lg:border-t-0 lg:border-l lg:border-white/[0.06]">
+            <div className="w-full max-w-md">
+              <HeroDeviceMockup />
             </div>
           </div>
         </div>
@@ -739,8 +742,8 @@ function DemoContent() {
               </h1>
 
               <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto lg:mx-0">
-                Sistema completo para{" "}
-                <span className="text-white/80 font-semibold">pizzarias, restaurantes</span>,{" "}
+                Sistema completo e inteligente para{" "}
+                <span className="text-white/80 font-semibold">pizzarias, restaurantes, hamburguerias</span>,{" "}
                 <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
                 <span className="text-white/80 font-semibold">conveniências, marmitarias</span>{" "}
                 e muito mais.
@@ -760,7 +763,7 @@ function DemoContent() {
               </div>
             </div>
 
-            {/* Right column — iMac mockup (hidden on mobile, visible lg+) */}
+            {/* Right column — iMac mockup */}
             <div className="hidden lg:block w-full max-w-[520px] flex-shrink-0">
               <HeroDeviceMockup />
             </div>

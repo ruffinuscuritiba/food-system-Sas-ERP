@@ -125,6 +125,7 @@ interface ModuleDef {
   terms: string;
   icon: React.ReactNode;
   highlighted?: boolean;
+  isFree?: boolean;
 }
 
 // ─────────────────────────────────────────────
@@ -132,109 +133,69 @@ interface ModuleDef {
 // ─────────────────────────────────────────────
 
 const MODULES: ModuleDef[] = [
-  // ── iFood ────────────────────────────────────────────────────────────────
+
+  // ══════════════════════════════════════════════
+  // OPERAÇÃO
+  // ══════════════════════════════════════════════
+
+  // ── PDV & Caixa (gratuito) ────────────────────
   {
-    slug: "ifood",
-    name: "iFood Integrado",
+    slug: "pdv",
+    name: "PDV & Caixa",
     category: "Operação",
-    price: 49.90,
-    highlighted: true,
-    icon: (
-      <img
-        src="https://logo.clearbit.com/ifood.com.br"
-        width="28" height="28"
-        className="rounded-lg object-contain"
-        alt="iFood"
-        onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { textContent: '🛵', style: 'font-size:20px' })); }}
-      />
-    ),
-    description: "Sincronize seu cardápio, receba e gerencie pedidos do iFood direto no nosso PDV.",
+    price: 0,
+    isFree: true,
+    icon: <ShoppingBag size={20} />,
+    description: "Frente de caixa completa: lançamento de pedidos, cartão, PIX e fechamento de caixa inclusos no plano.",
     longDescription:
-      "Pare de alternar entre aplicativos. Com o módulo iFood Integrado, todos os pedidos recebidos pelo iFood aparecem automaticamente no seu painel FoodSaaS em tempo real — prontos para serem aceitos, preparados e entregues sem que o operador precise digitar nada manualmente. O cardápio é sincronizado bidiretivamente: alterações feitas no FoodSaaS refletem no iFood em minutos.",
+      "O PDV FoodSaaS é o coração do sistema. Lance pedidos em segundos, controle o caixa diário, registre entradas e saídas e encerre o caixa com um clique. Incluso em todos os planos sem custo adicional.",
     howToUse: [
-      "Acesse 'Configurações → Integrações' e clique em 'Conectar iFood'.",
-      "Insira suas credenciais de parceiro iFood (Client ID e Client Secret).",
-      "Aguarde a sincronização inicial do cardápio (até 5 minutos).",
-      "A partir de agora, novos pedidos iFood aparecem automaticamente na tela de Pedidos.",
-      "Confirme, prepare e atualize o status — o cliente recebe notificações em tempo real.",
+      "Acesse 'PDV' no menu lateral.",
+      "Selecione produtos por categoria ou busque pelo nome.",
+      "Adicione ao carrinho, escolha a forma de pagamento e confirme.",
+      "O pedido vai automaticamente para a cozinha (se KDS ativo).",
+      "Feche o caixa ao fim do dia em 'Financeiro → Caixa'.",
     ],
     features: [
-      { icon: <Zap size={16} />,      title: "Pedidos em tempo real",       desc: "Novos pedidos chegam instantaneamente na cozinha." },
-      { icon: <RefreshCw size={16} />, title: "Cardápio sincronizado",        desc: "Preços e disponibilidade atualizados automaticamente." },
-      { icon: <BarChart3 size={16} />, title: "Relatórios unificados",        desc: "Faturamento iFood consolidado no BI do FoodSaaS." },
-      { icon: <Shield size={16} />,    title: "Sem dupla digitação",          desc: "Elimine erros causados por pedidos digitados manualmente." },
+      { icon: <Zap size={16} />,       title: "Lançamento rápido",    desc: "Adicione produtos ao carrinho em 2 cliques." },
+      { icon: <Shield size={16} />,    title: "Múltiplas formas",      desc: "PIX, cartão crédito/débito, dinheiro e voucher." },
+      { icon: <BarChart3 size={16} />, title: "Fechamento de caixa",   desc: "Relatório automático de entradas e saídas." },
+      { icon: <CheckCircle2 size={16} />, title: "Gratuito",           desc: "Incluso em todos os planos sem custo extra." },
     ],
-    terms:
-      `Ao ativar o módulo "iFood Integrado", o contratante concorda com a cobrança adicional recorrente de R$ 49,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• A integração requer credenciais de API liberadas pelo iFood para parceiros técnicos.\n• Comissões e taxas do iFood são cobradas diretamente pelo marketplace.\n• Alterações urgentes de cardápio devem ser feitas também no app iFood.\n• O cancelamento do módulo encerra a sincronização no próximo ciclo — sem reembolso proporcional do período em curso.`,
+    terms: `O módulo PDV & Caixa está incluso em todos os planos FoodSaaS sem custo adicional. Não há cobrança extra para ativação ou uso.`,
   },
 
-  // ── 99 Food ───────────────────────────────────────────────────────────────
+  // ── Gestão de Entregas ────────────────────────
   {
-    slug: "99food",
-    name: "99 Food",
+    slug: "delivery",
+    name: "Gestão de Entregas",
     category: "Operação",
-    price: 39.90,
-    icon: (
-      <img
-        src="https://logo.clearbit.com/99app.com"
-        width="28" height="28"
-        className="rounded-lg object-contain"
-        alt="99Food"
-        onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { textContent: '🛵', style: 'font-size:20px' })); }}
-      />
-    ),
-    description: "Integração direta com a plataforma 99 Food para recebimento automático de pedidos.",
-    longDescription:
-      "Expanda seus canais de venda sem aumentar a equipe. Com a integração 99 Food, pedidos feitos pelos clientes na plataforma chegam direto no FoodSaaS — sem intermediários humanos. Seu cardápio, preços e horário de funcionamento são gerenciados de um único lugar.",
-    howToUse: [
-      "Acesse 'Configurações → Integrações' e selecione '99 Food'.",
-      "Insira o token de API fornecido pela 99 Food no seu painel de parceiro.",
-      "Confirme a sincronização do cardápio.",
-      "Pedidos recebidos aparecem automaticamente na fila de Pedidos.",
-    ],
-    features: [
-      { icon: <Zap size={16} />,       title: "Integração automática",   desc: "Pedidos chegam sem nenhuma ação do operador." },
-      { icon: <Settings size={16} />,  title: "Gestão centralizada",     desc: "Um único painel para todos os seus marketplaces." },
-      { icon: <Shield size={16} />,    title: "Zero retrabalho",         desc: "Elimine anotações em papel e digitação manual." },
-      { icon: <BarChart3 size={16} />, title: "Faturamento consolidado", desc: "Receitas da 99 Food no relatório financeiro unificado." },
-    ],
-    terms:
-      `Ao ativar o módulo "99 Food", o contratante concorda com a cobrança adicional recorrente de R$ 39,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• A integração requer credenciais de API ativas na plataforma 99 Food.\n• Taxas e comissões da 99 Food são cobradas diretamente pelo marketplace.\n• O cancelamento do módulo encerra a sincronização no próximo ciclo.`,
-  },
-
-  // ── Rastreamento ──────────────────────────────────────────────────────────
-  {
-    slug: "tracking",
-    name: "Rastreamento de Entregadores",
-    category: "Operação",
-    price: 29.90,
+    price: 48,
     icon: <Map size={20} />,
-    description: "Acompanhe seus motoboys em tempo real no mapa e envie atualizações automáticas de rota para o cliente.",
+    description: "Zonas de entrega por bairro, taxa automática por localização e painel de despacho de motoboys.",
     longDescription:
-      "Dê transparência total para o processo de entrega. O entregador usa o app PWA FoodSaaS no celular — sem precisar instalar nada. Sua posição GPS é transmitida ao painel administrativo em tempo real. O cliente recebe um link de rastreamento e acompanha a entrega no mapa, sem precisar ligar para o estabelecimento.",
+      "Configure zonas de entrega com taxa por bairro ou raio, defina taxa mínima e valor de frete grátis. O sistema calcula e aplica a taxa automaticamente ao pedido. Painel de despacho mostra pedidos prontos aguardando motoboy.",
     howToUse: [
-      "Cadastre o entregador em 'Entregadores' e informe o celular dele.",
-      "O entregador acessa /driver no navegador do celular (PWA, sem instalação).",
-      "Ao aceitar um pedido, o GPS é ativado automaticamente.",
-      "No painel 'Rastreamento', você vê todos os entregadores em rota no mapa.",
-      "O cliente recebe link público de rastreamento via WhatsApp.",
+      "Acesse 'Configurações → Entrega' e clique em 'Nova zona'.",
+      "Defina o bairro (ou raio em km) e a taxa de entrega.",
+      "O sistema aplicará a taxa automaticamente nos pedidos do cardápio digital.",
+      "No painel 'Entregadores', despache pedidos prontos para o motoboy.",
     ],
     features: [
-      { icon: <Map size={16} />,         title: "Mapa ao vivo",              desc: "Posição GPS atualizada a cada 5 segundos no painel." },
-      { icon: <Headphones size={16} />,  title: "Link para o cliente",       desc: "Página pública de rastreamento sem precisar de app." },
-      { icon: <Play size={16} />,        title: "PWA sem instalação",        desc: "Entregador acessa pelo navegador do celular." },
-      { icon: <BarChart3 size={16} />,   title: "Painel de entregas",        desc: "Histórico de rotas e tempo médio por entregador." },
+      { icon: <Map size={16} />,        title: "Zonas por bairro",     desc: "Taxa diferenciada por bairro ou raio em km." },
+      { icon: <Zap size={16} />,        title: "Taxa automática",       desc: "Aplicada sem o operador precisar digitar." },
+      { icon: <Shield size={16} />,     title: "Frete grátis",         desc: "Configure valor mínimo para isenção." },
+      { icon: <BarChart3 size={16} />,  title: "Painel de despacho",   desc: "Veja pedidos prontos e despache motoboys." },
     ],
-    terms:
-      `Ao ativar o módulo "Rastreamento de Entregadores", o contratante concorda com a cobrança adicional recorrente de R$ 29,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• O rastreamento GPS depende do entregador manter o app aberto com GPS ativo.\n• A precisão varia conforme qualidade de sinal do celular do entregador.\n• A FoodSaaS não se responsabiliza por disputas decorrentes de divergências de rota.\n• O cancelamento encerra o rastreamento no próximo ciclo.`,
+    terms: `Ao ativar o módulo "Gestão de Entregas", o contratante concorda com a cobrança adicional recorrente de R$ 48,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
   },
 
-  // ── Nota Fiscal ───────────────────────────────────────────────────────────
+  // ── Emissão de Nota Fiscal ────────────────────
   {
     slug: "fiscal",
     name: "Emissão de Nota Fiscal",
-    category: "Financeiro",
-    price: 59.90,
+    category: "Operação",
+    price: 79,
     highlighted: true,
     icon: <FileText size={20} />,
     description: "Emita NFS-e e NFC-e direto pelo sistema de forma automatizada e sem burocracia.",
@@ -253,49 +214,98 @@ const MODULES: ModuleDef[] = [
       { icon: <Shield size={16} />,    title: "SEFAZ homologado",      desc: "Integração direta com a SEFAZ de cada estado." },
       { icon: <BarChart3 size={16} />, title: "Histórico e reemissão", desc: "Consulte e cancele notas emitidas com facilidade." },
     ],
-    terms:
-      `Ao ativar o módulo "Emissão de Nota Fiscal (NFS-e / NFC-e)", o contratante concorda com a cobrança adicional recorrente de R$ 59,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• O contratante é responsável por manter seus dados fiscais (CNPJ, certificado digital, regime tributário) atualizados.\n• A FoodSaaS não se responsabiliza por notas emitidas com dados incorretos fornecidos pelo contratante.\n• A validade das notas está sujeita às regras da prefeitura/SEFAZ de cada município.\n• O cancelamento do módulo não cancela notas já emitidas.`,
+    terms: `Ao ativar o módulo "Emissão de Nota Fiscal (NFS-e / NFC-e)", o contratante concorda com a cobrança adicional recorrente de R$ 79,00/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• O contratante é responsável por manter seus dados fiscais atualizados.\n• A FoodSaaS não se responsabiliza por notas emitidas com dados incorretos.\n• O cancelamento do módulo não cancela notas já emitidas.`,
   },
 
-  // ── WhatsApp IA ───────────────────────────────────────────────────────────
+  // ── Controle de Estoque ───────────────────────
   {
-    slug: "whatsapp-ia",
-    name: "Robô de Atendimento WhatsApp IA",
-    category: "Automação",
-    price: 79.90,
-    highlighted: true,
-    icon: <Bot size={20} />,
-    description: "Atendente virtual com IA que responde clientes e anota pedidos sozinho no WhatsApp.",
+    slug: "stock",
+    name: "Controle de Estoque",
+    category: "Operação",
+    price: 29,
+    icon: <Settings size={20} />,
+    description: "Fichas técnicas, baixa automática de ingredientes a cada venda e alertas de estoque mínimo.",
     longDescription:
-      "Atenda centenas de clientes simultaneamente, 24 horas por dia, sem contratar mais atendentes. A Kely — IA da FoodSaaS — responde dúvidas, apresenta o cardápio, anota pedidos, confirma endereço e encaminha para pagamento, tudo pelo WhatsApp. Quando o cliente pede para falar com uma pessoa, ela transfere automaticamente. Você configura o horário de atendimento, mensagem de boas-vindas e estilo de comunicação.",
+      "Saiba em tempo real quanto de cada ingrediente você tem em estoque. Configure fichas técnicas por produto e o sistema baixa automaticamente ao confirmar cada pedido. Alertas automáticos quando o estoque chegar ao mínimo configurado.",
     howToUse: [
-      "Acesse 'Configurar IA → Conexões' e clique em 'Nova Conexão'.",
-      "Escolha o provedor (WhatsApp Business / Evolution API / Meta Cloud API).",
-      "Conecte seu número escaneando o QR Code.",
-      "Em 'Configurar IA', defina o horário de atendimento e modo (Auto/Híbrido/Manual).",
-      "Personalize a saudação e o comportamento da Kely no campo 'Prompt personalizado'.",
-      "Pronto — a Kely já começa a atender automaticamente.",
+      "Cadastre seus ingredientes em 'Estoque → Ingredientes'.",
+      "Em 'Receitas', crie a ficha técnica de cada produto com as quantidades.",
+      "Ao confirmar pedidos, o estoque é baixado automaticamente.",
+      "Configure o estoque mínimo para receber alertas de reposição.",
     ],
     features: [
-      { icon: <Bot size={16} />,         title: "IA humanizada (Kely)",     desc: "Conversa natural, entende contexto e variações de texto." },
-      { icon: <Zap size={16} />,         title: "Pedidos automáticos",      desc: "Anota e confirma pedidos sem intervenção humana." },
-      { icon: <Headphones size={16} />,  title: "Transferência inteligente", desc: "Encaminha para atendente quando necessário." },
-      { icon: <Clock size={16} />,       title: "24/7 sem pausas",           desc: "Atende fora do horário comercial sem custo extra." },
+      { icon: <Zap size={16} />,        title: "Baixa automática",     desc: "Estoque descontado a cada pedido confirmado." },
+      { icon: <AlertTriangle size={16} />, title: "Alertas de mínimo", desc: "Notificação quando o estoque cair abaixo do limite." },
+      { icon: <FileText size={16} />,   title: "Ficha técnica",        desc: "CMV real calculado por ingrediente e produto." },
+      { icon: <BarChart3 size={16} />,  title: "Relatório de perdas",  desc: "Controle de desperdício e ajuste de inventário." },
     ],
-    terms:
-      `Ao ativar o módulo "Robô de Atendimento WhatsApp IA", o contratante concorda com a cobrança adicional recorrente de R$ 79,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• O contratante é responsável por fornecer um número WhatsApp Business ativo. A FoodSaaS não fornece o número.\n• O custo de uso da API WhatsApp (Meta Cloud API) é cobrado diretamente pela Meta ao titular da conta.\n• A IA opera com base nos dados do cardápio cadastrado. Alterações levam até 5 minutos para refletir.\n• A IA não substitui atendimento humano em situações complexas.\n• O cancelamento do módulo desativa o robô no próximo ciclo.`,
+    terms: `Ao ativar o módulo "Controle de Estoque", o contratante concorda com a cobrança adicional recorrente de R$ 29,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
   },
 
-  // ── Fidelidade ────────────────────────────────────────────────────────────
+  // ── Sistema de Cozinha (KDS) ──────────────────
+  {
+    slug: "kitchen",
+    name: "Sistema de Cozinha (KDS)",
+    category: "Operação",
+    price: 29,
+    icon: <Play size={20} />,
+    description: "Tela de cozinha em tempo real com pedidos organizados por tempo de espera e por setor (bar, fritadeira).",
+    longDescription:
+      "Elimine o papel na cozinha. O KDS exibe os pedidos em tempo real na tela da cozinha, com temporizador por pedido, roteamento por setor (bebidas no bar, frituras na fritadeira) e impressão automática. Quando o prato fica pronto, o operador muda o status e o salão é avisado.",
+    howToUse: [
+      "Instale o KDS em um tablet ou TV conectada ao Wi-Fi.",
+      "Acesse /kitchen no navegador — sem instalar app.",
+      "Pedidos chegam automaticamente assim que confirmados no PDV.",
+      "Toque em 'Preparando' → 'Pronto' à medida que cada prato fica pronto.",
+    ],
+    features: [
+      { icon: <Zap size={16} />,        title: "Tempo real",          desc: "Pedidos chegam instantaneamente na tela da cozinha." },
+      { icon: <Play size={16} />,       title: "Sem instalação",       desc: "Funciona em qualquer navegador (tablet, TV, PC)." },
+      { icon: <Shield size={16} />,     title: "Por setor",            desc: "Roteamento: bebidas no bar, pratos na cozinha." },
+      { icon: <BarChart3 size={16} />,  title: "Temporizador",         desc: "Alertas de pedidos há mais de X minutos em espera." },
+    ],
+    terms: `Ao ativar o módulo "Sistema de Cozinha (KDS)", o contratante concorda com a cobrança adicional recorrente de R$ 29,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── Multi-Loja ────────────────────────────────
+  {
+    slug: "multi-store",
+    name: "Multi-Loja",
+    category: "Operação",
+    price: 149,
+    icon: <Sparkles size={20} />,
+    description: "Gerencie múltiplas unidades em um único painel com dashboards consolidados e cardápio centralizado.",
+    longDescription:
+      "Para redes e franquias. Acesse todas as unidades em um único login, compare faturamento entre lojas, replique o cardápio de uma unidade para outras e consolide relatórios em um painel executivo único.",
+    howToUse: [
+      "Contrate o módulo Multi-Loja e informe o CNPJ de cada unidade.",
+      "Cada unidade recebe seu próprio acesso e cardápio digital.",
+      "No painel principal, acesse 'Relatórios → Consolidado' para ver todas as unidades.",
+      "Replique promoções e cardápio de uma unidade para outras com um clique.",
+    ],
+    features: [
+      { icon: <BarChart3 size={16} />, title: "Dashboard consolidado", desc: "Faturamento de todas as unidades em tempo real." },
+      { icon: <RefreshCw size={16} />, title: "Replicação de cardápio", desc: "Propague atualizações para todas as unidades." },
+      { icon: <Shield size={16} />,    title: "Acesso por unidade",     desc: "Equipe de cada loja acessa apenas a sua unidade." },
+      { icon: <Sparkles size={16} />,  title: "Franquias",              desc: "Ideal para redes com múltiplos CNPJ." },
+    ],
+    terms: `Ao ativar o módulo "Multi-Loja", o contratante concorda com a cobrança adicional recorrente de R$ 149,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ══════════════════════════════════════════════
+  // MARKETING
+  // ══════════════════════════════════════════════
+
+  // ── Fidelidade & Cupons ───────────────────────
   {
     slug: "loyalty",
     name: "Fidelidade & Cupons",
     category: "Marketing",
-    price: 19.90,
+    price: 39,
     icon: <Gift size={20} />,
     description: "Crie programas de pontos, cashback e campanhas de cupons para reter seus clientes.",
     longDescription:
-      "Transforme clientes eventuais em clientes fiéis. Configure regras de pontuação (ex: 1 ponto a cada R$1 gasto), cashback automático e cupons de desconto com validade e limite de uso. Os clientes visualizam seu saldo pelo cardápio digital e escolhem como resgatar. Você acompanha tudo pelo painel de fidelidade com ranking de melhores clientes.",
+      "Transforme clientes eventuais em clientes fiéis. Configure regras de pontuação (ex: 1 ponto a cada R$1 gasto), cashback automático e cupons de desconto com validade e limite de uso. Os clientes visualizam seu saldo pelo cardápio digital e escolhem como resgatar.",
     howToUse: [
       "Acesse 'Fidelidade' no menu lateral e clique em 'Configurar programa'.",
       "Defina a regra de acúmulo (ex: 1 ponto por R$1 gasto ou por pedido).",
@@ -309,10 +319,389 @@ const MODULES: ModuleDef[] = [
       { icon: <Zap size={16} />,       title: "Cupons de desconto",       desc: "%, valor fixo ou frete grátis com limite de uso." },
       { icon: <BarChart3 size={16} />, title: "Ranking de clientes",      desc: "Identifique e recompense os melhores clientes." },
     ],
-    terms:
-      `Ao ativar o módulo "Fidelidade & Cupons", o contratante concorda com a cobrança adicional recorrente de R$ 19,90/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• As regras de pontuação, cashback e validade são definidas e de responsabilidade exclusiva do contratante.\n• A FoodSaaS não se responsabiliza por disputas entre o estabelecimento e clientes quanto ao resgate.\n• Pontos expirados não podem ser recuperados após o prazo configurado.\n• Ao desativar o módulo, pontos acumulados ficam preservados até a reativação.`,
+    terms: `Ao ativar o módulo "Fidelidade & Cupons", o contratante concorda com a cobrança adicional recorrente de R$ 39,00/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• As regras de pontuação, cashback e validade são de responsabilidade exclusiva do contratante.\n• Ao desativar o módulo, pontos acumulados ficam preservados até a reativação.`,
+  },
+
+  // ── Cupons Avançados ──────────────────────────
+  {
+    slug: "coupons",
+    name: "Cupons & Promoções",
+    category: "Marketing",
+    price: 39,
+    icon: <Zap size={20} />,
+    description: "Motor de cupons avançado com combos, promoções relâmpago e campanhas por segmento de cliente.",
+    longDescription:
+      "Crie cupons com regras avançadas: desconto por categoria, valor mínimo de pedido, uso por CPF, validade por data e hora, quantidade máxima de resgates. Lance promoções relâmpago (ex: 20% de desconto das 12h às 14h) e notifique seus clientes automaticamente.",
+    howToUse: [
+      "Acesse 'Cupons → Novo Cupom' e defina o tipo (%, fixo, frete grátis).",
+      "Configure restrições: valor mínimo, validade, limite de usos, categorias elegíveis.",
+      "Compartilhe o código via WhatsApp, redes sociais ou QR Code.",
+      "Acompanhe resgates e conversão em tempo real no painel.",
+    ],
+    features: [
+      { icon: <Zap size={16} />,        title: "Promoções relâmpago",   desc: "Cupons com janela de horário configurável." },
+      { icon: <Shield size={16} />,     title: "Regras avançadas",      desc: "Limite por CPF, categoria de produto ou valor mínimo." },
+      { icon: <BarChart3 size={16} />,  title: "Relatório de conversão", desc: "Veja quais cupons geraram mais vendas." },
+      { icon: <MessageCircle size={16} />, title: "QR Code para o cupom", desc: "Geração automática de QR para exibição física." },
+    ],
+    terms: `Ao ativar o módulo "Cupons & Promoções", o contratante concorda com a cobrança adicional recorrente de R$ 39,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── Robô WhatsApp IA ──────────────────────────
+  {
+    slug: "whatsapp-ia",
+    name: "Robô de Atendimento WhatsApp IA",
+    category: "Marketing",
+    price: 55,
+    highlighted: true,
+    icon: <Bot size={20} />,
+    description: "Atendente virtual com IA que responde clientes e anota pedidos sozinho no WhatsApp.",
+    longDescription:
+      "Atenda centenas de clientes simultaneamente, 24 horas por dia, sem contratar mais atendentes. A Kely — IA da FoodSaaS — responde dúvidas, apresenta o cardápio, anota pedidos, confirma endereço e encaminha para pagamento, tudo pelo WhatsApp. Quando o cliente pede para falar com uma pessoa, ela transfere automaticamente.",
+    howToUse: [
+      "Acesse 'Configurar IA → Conexões' e clique em 'Nova Conexão'.",
+      "Escolha o provedor (WhatsApp Business / Evolution API / Meta Cloud API).",
+      "Conecte seu número escaneando o QR Code.",
+      "Em 'Configurar IA', defina o horário de atendimento e modo (Auto/Híbrido/Manual).",
+      "Personalize a saudação e o comportamento da Kely no campo 'Prompt personalizado'.",
+    ],
+    features: [
+      { icon: <Bot size={16} />,         title: "IA humanizada (Kely)",     desc: "Conversa natural, entende contexto e variações." },
+      { icon: <Zap size={16} />,         title: "Pedidos automáticos",      desc: "Anota e confirma pedidos sem intervenção humana." },
+      { icon: <Headphones size={16} />,  title: "Transferência inteligente", desc: "Encaminha para atendente quando necessário." },
+      { icon: <Clock size={16} />,       title: "24/7 sem pausas",           desc: "Atende fora do horário comercial sem custo extra." },
+    ],
+    terms: `Ao ativar o módulo "Robô de Atendimento WhatsApp IA", o contratante concorda com a cobrança adicional recorrente de R$ 55,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── Recuperação de Clientes ───────────────────
+  {
+    slug: "customer-recovery",
+    name: "Recuperação de Clientes",
+    category: "Marketing",
+    price: 45,
+    icon: <RefreshCw size={20} />,
+    description: "Envio automático de mensagens para clientes inativos com cupons personalizados de reativação.",
+    longDescription:
+      "Identifique automaticamente clientes que não pedem há 7, 14 ou 30 dias e dispare campanhas de reativação via WhatsApp com cupons personalizados. Configure gatilhos por tempo de inatividade e veja a taxa de reativação em tempo real.",
+    howToUse: [
+      "Acesse 'Marketing → Recuperação' e defina o prazo de inatividade (ex: 14 dias).",
+      "Configure o cupom de reativação (ex: 15% de desconto).",
+      "Ative a campanha — o sistema enviará automaticamente via WhatsApp.",
+      "Acompanhe clientes reativados e ROI da campanha no painel.",
+    ],
+    features: [
+      { icon: <RefreshCw size={16} />, title: "Disparo automático",    desc: "Mensagens enviadas sozinhas quando o cliente some." },
+      { icon: <Gift size={16} />,      title: "Cupom personalizado",   desc: "Desconto exclusivo para incentivar o retorno." },
+      { icon: <BarChart3 size={16} />, title: "Taxa de reativação",    desc: "Veja quantos voltaram a pedir após a campanha." },
+      { icon: <MessageCircle size={16} />, title: "Via WhatsApp",      desc: "Mensagens enviadas pelo número da sua loja." },
+    ],
+    terms: `Ao ativar o módulo "Recuperação de Clientes", o contratante concorda com a cobrança adicional recorrente de R$ 45,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ══════════════════════════════════════════════
+  // FINANCEIRO
+  // ══════════════════════════════════════════════
+
+  // ── Controle de Caixa (gratuito) ─────────────
+  {
+    slug: "cash",
+    name: "Controle de Caixa",
+    category: "Financeiro",
+    price: 0,
+    isFree: true,
+    icon: <Shield size={20} />,
+    description: "Abertura e fechamento de caixa, registro de sangrias e suprimentos. Incluso em todos os planos.",
+    longDescription:
+      "Abra o caixa com o valor inicial, registre entradas e saídas ao longo do dia, faça sangrias e feche o caixa com relatório completo. Histórico de todos os movimentos disponível para auditoria.",
+    howToUse: [
+      "Acesse 'Financeiro → Caixa' e clique em 'Abrir Caixa'.",
+      "Informe o valor inicial em espécie.",
+      "Durante o dia, registre sangrias e suprimentos conforme necessário.",
+      "No fim do dia, clique em 'Fechar Caixa' e confira o relatório.",
+    ],
+    features: [
+      { icon: <Shield size={16} />,     title: "Abertura/fechamento",   desc: "Controle rigoroso com conferência de diferença." },
+      { icon: <BarChart3 size={16} />,  title: "Sangrias e suprimentos", desc: "Registro de todas as movimentações manuais." },
+      { icon: <CheckCircle2 size={16} />, title: "Gratuito",            desc: "Incluso em todos os planos sem custo extra." },
+      { icon: <FileText size={16} />,   title: "Relatório diário",       desc: "Extrato completo ao fechar o caixa." },
+    ],
+    terms: `O módulo "Controle de Caixa" está incluso em todos os planos FoodSaaS sem custo adicional.`,
+  },
+
+  // ── Dashboard Financeiro ──────────────────────
+  {
+    slug: "financial-dashboard",
+    name: "Dashboard Financeiro",
+    category: "Financeiro",
+    price: 39,
+    icon: <BarChart3 size={20} />,
+    description: "Visão unificada de receitas, despesas, CMV e margem bruta em gráficos interativos.",
+    longDescription:
+      "Acompanhe a saúde financeira do seu negócio em um único painel. Veja receitas vs despesas por período, CMV por categoria, margem bruta por produto e evolução do ticket médio — tudo em gráficos interativos com filtros por data.",
+    howToUse: [
+      "Acesse 'BI / Dashboard' no menu lateral.",
+      "Selecione o período desejado (dia, semana, mês, período personalizado).",
+      "Analise os KPIs: receita, CMV, margem bruta, ticket médio.",
+      "Exporte o relatório em PDF ou CSV para apresentações.",
+    ],
+    features: [
+      { icon: <BarChart3 size={16} />, title: "KPIs em tempo real",    desc: "Receita, CMV e margem sempre atualizados." },
+      { icon: <Zap size={16} />,       title: "Gráficos interativos",  desc: "Filtros por data, categoria e forma de pagamento." },
+      { icon: <FileText size={16} />,  title: "Exportação",            desc: "Relatórios em PDF e CSV com um clique." },
+      { icon: <Shield size={16} />,    title: "Comparativo",           desc: "Compare períodos e veja tendências de crescimento." },
+    ],
+    terms: `Ao ativar o módulo "Dashboard Financeiro", o contratante concorda com a cobrança adicional recorrente de R$ 39,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── DRE Gerencial ─────────────────────────────
+  {
+    slug: "dre",
+    name: "DRE Gerencial",
+    category: "Financeiro",
+    price: 59,
+    icon: <FileText size={20} />,
+    description: "Demonstrativo de Resultado do Exercício automático com receitas, custos, despesas e lucro líquido.",
+    longDescription:
+      "Gere o DRE completo do seu restaurante automaticamente. Receitas brutas, deduções, CMV, despesas operacionais fixas e variáveis, resultado operacional e lucro líquido calculados e apresentados em formato padrão contábil — sem precisar de planilha.",
+    howToUse: [
+      "Cadastre suas despesas fixas em 'Financeiro → Custos Operacionais'.",
+      "Acesse 'Relatórios → DRE' e selecione o período.",
+      "O sistema compila automaticamente receitas, CMV e despesas.",
+      "Exporte o DRE em PDF ou CSV para o contador.",
+    ],
+    features: [
+      { icon: <FileText size={16} />,  title: "DRE automático",        desc: "Compilado a partir dos dados reais do sistema." },
+      { icon: <BarChart3 size={16} />, title: "Custos fixos/variáveis", desc: "Cadastre despesas e veja o impacto no resultado." },
+      { icon: <Shield size={16} />,    title: "Padrão contábil",       desc: "Formato reconhecido por contadores e bancos." },
+      { icon: <Zap size={16} />,       title: "Exportação PDF/CSV",    desc: "Pronto para enviar ao contador com um clique." },
+    ],
+    terms: `Ao ativar o módulo "DRE Gerencial", o contratante concorda com a cobrança adicional recorrente de R$ 59,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── PIX Automático ────────────────────────────
+  {
+    slug: "pix-auto",
+    name: "PIX Automático",
+    category: "Financeiro",
+    price: 29,
+    icon: <Zap size={20} />,
+    description: "Gere QR Code PIX automaticamente a cada pedido e confirme o pagamento sem intervenção manual.",
+    longDescription:
+      "Elimine a conferência manual de PIX. O sistema gera um QR Code único por pedido, detecta o pagamento automaticamente via API do banco e confirma o pedido — sem o atendente precisar checar o celular.",
+    howToUse: [
+      "Configure sua chave PIX em 'Configurações → Pagamentos'.",
+      "Selecione PIX como forma de pagamento ao finalizar o pedido.",
+      "Um QR Code único é gerado e exibido na tela.",
+      "Após o pagamento, o sistema confirma automaticamente e avisa a cozinha.",
+    ],
+    features: [
+      { icon: <Zap size={16} />,        title: "QR Code por pedido",   desc: "Cada pedido tem seu próprio QR Code único." },
+      { icon: <CheckCircle2 size={16} />, title: "Confirmação auto",   desc: "Pagamento detectado sem conferência manual." },
+      { icon: <Shield size={16} />,     title: "Anti-fraude",          desc: "Cada QR Code expira após o pagamento ou timeout." },
+      { icon: <BarChart3 size={16} />,  title: "Conciliação",          desc: "Todos os PIX reconciliados no extrato financeiro." },
+    ],
+    terms: `Ao ativar o módulo "PIX Automático", o contratante concorda com a cobrança adicional recorrente de R$ 29,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── Relatórios Avançados ──────────────────────
+  {
+    slug: "reports",
+    name: "Relatórios Avançados",
+    category: "Financeiro",
+    price: 45,
+    icon: <BarChart3 size={20} />,
+    description: "Relatórios de lucratividade por produto, ranking de vendas, CMV por receita e análise de mesas.",
+    longDescription:
+      "Descubra quais produtos dão mais lucro (não só mais vendas), quais horários têm mais movimento, quais mesas ficam mais tempo ocupadas e como o CMV varia ao longo do tempo. Relatórios exportáveis em PDF e Excel.",
+    howToUse: [
+      "Acesse 'Relatórios' no menu lateral e escolha o tipo de relatório.",
+      "Filtre por produto, categoria, período ou forma de pagamento.",
+      "Analise margem bruta, ticket médio e ranking de produtos.",
+      "Exporte em PDF ou Excel para análise externa.",
+    ],
+    features: [
+      { icon: <BarChart3 size={16} />, title: "Margem por produto",    desc: "Saiba quais produtos realmente lucram mais." },
+      { icon: <Zap size={16} />,       title: "Análise de horários",   desc: "Identifique picos e vales de movimento." },
+      { icon: <FileText size={16} />,  title: "Exportação Excel",      desc: "Relatórios prontos para planilhas e BI externo." },
+      { icon: <Star size={16} />,      title: "Ranking de produtos",   desc: "Top vendas, top lucro e top ticket por item." },
+    ],
+    terms: `Ao ativar o módulo "Relatórios Avançados", o contratante concorda com a cobrança adicional recorrente de R$ 45,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ══════════════════════════════════════════════
+  // AUTOMAÇÃO
+  // ══════════════════════════════════════════════
+
+  // ── IA no Cardápio ────────────────────────────
+  {
+    slug: "ai-menu",
+    name: "IA no Cardápio",
+    category: "Automação",
+    price: 39,
+    icon: <Sparkles size={20} />,
+    description: "Sugestões inteligentes de produtos baseadas no histórico do cliente e no perfil do pedido.",
+    longDescription:
+      "A IA analisa o histórico de pedidos do cliente, o horário, o clima e o perfil de consumo para sugerir produtos no cardápio digital. Aumente o ticket médio com upsell automático sem intervenção humana.",
+    howToUse: [
+      "Ative 'IA no Cardápio' em Configurações → Módulos.",
+      "Defina quais produtos entram nas sugestões automáticas.",
+      "No cardápio digital, a IA exibirá sugestões personalizadas para cada cliente.",
+      "Acompanhe o impacto no ticket médio em Relatórios → IA.",
+    ],
+    features: [
+      { icon: <Sparkles size={16} />,  title: "Sugestões personalizadas", desc: "Baseadas no histórico e preferências de cada cliente." },
+      { icon: <Zap size={16} />,       title: "Upsell automático",       desc: "Aumento de ticket médio sem ação do operador." },
+      { icon: <BarChart3 size={16} />, title: "A/B testing",             desc: "Compare sugestões e veja qual converte mais." },
+      { icon: <Bot size={16} />,       title: "Atualização contínua",    desc: "A IA aprende com cada pedido e melhora as sugestões." },
+    ],
+    terms: `Ao ativar o módulo "IA no Cardápio", o contratante concorda com a cobrança adicional recorrente de R$ 39,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── iFood Integrado ───────────────────────────
+  {
+    slug: "ifood",
+    name: "iFood Integrado",
+    category: "Automação",
+    price: 89,
+    highlighted: true,
+    icon: (
+      <img
+        src="https://logo.clearbit.com/ifood.com.br"
+        width="28" height="28"
+        className="rounded-lg object-contain"
+        alt="iFood"
+        onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { textContent: '🛵', style: 'font-size:20px' })); }}
+      />
+    ),
+    description: "Sincronize seu cardápio, receba e gerencie pedidos do iFood direto no nosso PDV.",
+    longDescription:
+      "Pare de alternar entre aplicativos. Com o módulo iFood Integrado, todos os pedidos recebidos pelo iFood aparecem automaticamente no seu painel FoodSaaS em tempo real — prontos para serem aceitos, preparados e entregues sem que o operador precise digitar nada manualmente.",
+    howToUse: [
+      "Acesse 'Configurações → Integrações' e clique em 'Conectar iFood'.",
+      "Insira suas credenciais de parceiro iFood (Client ID e Client Secret).",
+      "Aguarde a sincronização inicial do cardápio (até 5 minutos).",
+      "A partir de agora, novos pedidos iFood aparecem automaticamente na tela de Pedidos.",
+      "Confirme, prepare e atualize o status — o cliente recebe notificações em tempo real.",
+    ],
+    features: [
+      { icon: <Zap size={16} />,      title: "Pedidos em tempo real",       desc: "Novos pedidos chegam instantaneamente na cozinha." },
+      { icon: <RefreshCw size={16} />, title: "Cardápio sincronizado",       desc: "Preços e disponibilidade atualizados automaticamente." },
+      { icon: <BarChart3 size={16} />, title: "Relatórios unificados",       desc: "Faturamento iFood consolidado no BI do FoodSaaS." },
+      { icon: <Shield size={16} />,    title: "Sem dupla digitação",         desc: "Elimine erros causados por pedidos digitados manualmente." },
+    ],
+    terms: `Ao ativar o módulo "iFood Integrado", o contratante concorda com a cobrança adicional recorrente de R$ 89,00/mês adicionada ao plano atual. A ativação do recurso é imediata e a cobrança será proporcional ou inclusa no próximo ciclo do Mercado Pago.\n\nCONDIÇÕES ESPECÍFICAS:\n• A integração requer credenciais de API liberadas pelo iFood para parceiros técnicos.\n• Comissões e taxas do iFood são cobradas diretamente pelo marketplace.\n• O cancelamento do módulo encerra a sincronização no próximo ciclo.`,
+  },
+
+  // ── 99 Food ───────────────────────────────────
+  {
+    slug: "99food",
+    name: "99 Food",
+    category: "Automação",
+    price: 15,
+    icon: (
+      <img
+        src="https://logo.clearbit.com/99app.com"
+        width="28" height="28"
+        className="rounded-lg object-contain"
+        alt="99Food"
+        onError={(e) => { (e.target as HTMLImageElement).replaceWith(Object.assign(document.createElement('span'), { textContent: '🛵', style: 'font-size:20px' })); }}
+      />
+    ),
+    description: "Integração direta com a plataforma 99 Food para recebimento automático de pedidos.",
+    longDescription:
+      "Expanda seus canais de venda sem aumentar a equipe. Com a integração 99 Food, pedidos feitos pelos clientes na plataforma chegam direto no FoodSaaS — sem intermediários humanos.",
+    howToUse: [
+      "Acesse 'Configurações → Integrações' e selecione '99 Food'.",
+      "Insira o token de API fornecido pela 99 Food no seu painel de parceiro.",
+      "Confirme a sincronização do cardápio.",
+      "Pedidos recebidos aparecem automaticamente na fila de Pedidos.",
+    ],
+    features: [
+      { icon: <Zap size={16} />,       title: "Integração automática",   desc: "Pedidos chegam sem nenhuma ação do operador." },
+      { icon: <Settings size={16} />,  title: "Gestão centralizada",     desc: "Um único painel para todos os seus marketplaces." },
+      { icon: <Shield size={16} />,    title: "Zero retrabalho",         desc: "Elimine anotações em papel e digitação manual." },
+      { icon: <BarChart3 size={16} />, title: "Faturamento consolidado", desc: "Receitas da 99 Food no relatório financeiro unificado." },
+    ],
+    terms: `Ao ativar o módulo "99 Food", o contratante concorda com a cobrança adicional recorrente de R$ 15,00/mês adicionada ao plano atual. O cancelamento do módulo encerra a sincronização no próximo ciclo.`,
+  },
+
+  // ── Automação de Marketing ────────────────────
+  {
+    slug: "marketing-automation",
+    name: "Automação de Marketing",
+    category: "Automação",
+    price: 69,
+    icon: <MessageCircle size={20} />,
+    description: "Régua de e-mail e WhatsApp automatizada: boas-vindas, aniversário, reativação e pesquisa de satisfação.",
+    longDescription:
+      "Configure fluxos automáticos de comunicação: mensagem de boas-vindas ao novo cliente, cupom de aniversário, pesquisa de satisfação pós-pedido e campanhas sazonais. Tudo enviado automaticamente no momento certo.",
+    howToUse: [
+      "Acesse 'Marketing → Automação' e escolha um fluxo (ex: Boas-vindas).",
+      "Configure o gatilho (ex: primeiro pedido) e o canal (WhatsApp ou e-mail).",
+      "Personalize a mensagem com o nome do cliente e um cupom.",
+      "Ative o fluxo — ele roda automaticamente a partir daí.",
+    ],
+    features: [
+      { icon: <Zap size={16} />,        title: "Fluxos automáticos",     desc: "Mensagens disparadas no momento exato." },
+      { icon: <MessageCircle size={16} />, title: "WhatsApp + e-mail",   desc: "Multi-canal em um único painel." },
+      { icon: <Gift size={16} />,       title: "Cupons no fluxo",        desc: "Insira cupons de desconto nas mensagens automáticas." },
+      { icon: <BarChart3 size={16} />,  title: "Métricas de engajamento", desc: "Taxa de abertura, cliques e conversão por fluxo." },
+    ],
+    terms: `Ao ativar o módulo "Automação de Marketing", o contratante concorda com a cobrança adicional recorrente de R$ 69,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── Webhooks & API ────────────────────────────
+  {
+    slug: "webhooks",
+    name: "Webhooks & API",
+    category: "Automação",
+    price: 45,
+    icon: <Wifi size={20} />,
+    description: "Acesso à API REST do FoodSaaS e webhooks para integrar com ERP, CRM ou qualquer sistema externo.",
+    longDescription:
+      "Conecte o FoodSaaS ao seu ecossistema de ferramentas. Receba notificações em tempo real via webhook quando um pedido é criado ou tem o status alterado. Use a API REST para consultar pedidos, produtos, estoque e clientes de sistemas externos.",
+    howToUse: [
+      "Acesse 'Configurações → Webhooks' e clique em 'Novo Webhook'.",
+      "Informe a URL do seu sistema que vai receber as notificações.",
+      "Escolha os eventos que deseja receber (pedido criado, pago, entregue, etc.).",
+      "Teste o webhook com o botão 'Enviar teste' antes de ativar.",
+    ],
+    features: [
+      { icon: <Wifi size={16} />,       title: "Webhooks em tempo real",  desc: "Notificações instantâneas ao seu sistema externo." },
+      { icon: <Shield size={16} />,     title: "API REST documentada",    desc: "Endpoints para pedidos, produtos, clientes e estoque." },
+      { icon: <Zap size={16} />,        title: "Assinatura HMAC",        desc: "Segurança via assinatura criptográfica em cada evento." },
+      { icon: <BarChart3 size={16} />,  title: "Log de eventos",         desc: "Histórico de todos os webhooks enviados e falhas." },
+    ],
+    terms: `Ao ativar o módulo "Webhooks & API", o contratante concorda com a cobrança adicional recorrente de R$ 45,00/mês adicionada ao plano atual. O cancelamento encerra o módulo no próximo ciclo.`,
+  },
+
+  // ── Rastreamento de Entregadores ──────────────
+  {
+    slug: "tracking",
+    name: "Rastreamento de Entregadores",
+    category: "Automação",
+    price: 29,
+    icon: <Map size={20} />,
+    description: "Acompanhe seus motoboys em tempo real no mapa e envie atualizações automáticas de rota para o cliente.",
+    longDescription:
+      "Dê transparência total para o processo de entrega. O entregador usa o app PWA FoodSaaS no celular — sem precisar instalar nada. Sua posição GPS é transmitida ao painel administrativo em tempo real. O cliente recebe um link de rastreamento e acompanha a entrega no mapa.",
+    howToUse: [
+      "Cadastre o entregador em 'Entregadores' e informe o celular dele.",
+      "O entregador acessa /driver no navegador do celular (PWA, sem instalação).",
+      "Ao aceitar um pedido, o GPS é ativado automaticamente.",
+      "No painel 'Rastreamento', você vê todos os entregadores em rota no mapa.",
+    ],
+    features: [
+      { icon: <Map size={16} />,         title: "Mapa ao vivo",              desc: "Posição GPS atualizada a cada 5 segundos no painel." },
+      { icon: <Headphones size={16} />,  title: "Link para o cliente",       desc: "Página pública de rastreamento sem precisar de app." },
+      { icon: <Play size={16} />,        title: "PWA sem instalação",        desc: "Entregador acessa pelo navegador do celular." },
+      { icon: <BarChart3 size={16} />,   title: "Painel de entregas",        desc: "Histórico de rotas e tempo médio por entregador." },
+    ],
+    terms: `Ao ativar "Rastreamento de Entregadores", o contratante concorda com cobrança adicional recorrente de R$ 29,00/mês. O cancelamento encerra o módulo no próximo ciclo.`,
   },
 ];
+
 
 // ─────────────────────────────────────────────
 // Constantes visuais
@@ -506,7 +895,11 @@ function DetailModal({
           <div className="mt-5 flex items-end gap-3">
             <div>
               <p className="text-white/50 text-[10px] uppercase font-semibold tracking-wide">Valor mensal</p>
-              <p className="text-3xl font-black">{fmt(mod.price)}<span className="text-base font-normal text-white/50">/mês</span></p>
+              {mod.isFree ? (
+                <p className="text-3xl font-black text-emerald-300">Grátis <span className="text-base font-normal text-white/50">— incluso no plano</span></p>
+              ) : (
+                <p className="text-3xl font-black">{fmt(mod.price)}<span className="text-base font-normal text-white/50">/mês</span></p>
+              )}
             </div>
           </div>
         </div>
@@ -719,14 +1112,41 @@ function ModuleCard({
             {def.description}
           </p>
 
-          {/* Preço + CTA */}
-          <div className="flex items-center justify-between">
+          {/* Preço + Toggle + CTA */}
+          <div className="flex items-center justify-between gap-2">
             <div>
-              <span className="text-lg font-black text-gray-900">{fmt(def.price)}</span>
-              <span className="text-xs text-gray-400 font-medium">/mês</span>
+              {def.isFree ? (
+                <span className="text-sm font-black text-emerald-600">Grátis</span>
+              ) : (
+                <>
+                  <span className="text-lg font-black text-gray-900">{fmt(def.price)}</span>
+                  <span className="text-xs text-gray-400 font-medium">/mês</span>
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-1 text-xs font-semibold text-orange-500 group-hover:gap-2 transition-all">
-              Ver detalhes <ChevronRight size={13} />
+            <div className="flex items-center gap-2">
+              {/* Toggle rápido */}
+              <button
+                type="button"
+                title={isOn ? "Desativar módulo" : def.isFree ? "Ativar módulo" : "Contratar módulo"}
+                disabled={loading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isOn) { deactivate(); }
+                  else if (def.isFree) { activate(); }
+                  else { setShowContract(true); }
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                  isOn ? "bg-emerald-500 border-emerald-500" : "bg-gray-200 border-gray-200"
+                }`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 ${
+                  isOn ? "translate-x-4" : "translate-x-0"
+                }`} />
+              </button>
+              <div className="flex items-center gap-1 text-xs font-semibold text-orange-500 group-hover:gap-2 transition-all">
+                Ver <ChevronRight size={13} />
+              </div>
             </div>
           </div>
 

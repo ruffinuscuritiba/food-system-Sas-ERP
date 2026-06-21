@@ -460,6 +460,154 @@ function LoyaltyMockup() {
 
 const MOCKUP_COMPONENTS = [PdvMockup, DashboardMockup, MenuMockup, ChatMockup, LoyaltyMockup];
 
+// ─── Hero Device Mockup (iMac monitor) ──────────────────────────────────────
+function HeroDeviceMockup() {
+  return (
+    <div className="relative w-full max-w-xl select-none">
+      {/* Monitor body */}
+      <div className="relative rounded-[18px] bg-[#1c1c1e] p-[5px] shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_30px_70px_-15px_rgba(0,0,0,0.85),0_0_80px_-30px_rgba(249,115,22,0.18)]">
+        {/* Camera dot */}
+        <div className="flex justify-center py-2.5">
+          <div className="w-2 h-2 rounded-full bg-[#3a3a3c]" />
+        </div>
+        {/* Screen — 16:10 */}
+        <div className="rounded-xl overflow-hidden" style={{ aspectRatio: "8/5" }}>
+          {/* Simulated FoodSaaS landing page inside the monitor */}
+          <div className="h-full bg-[#09090b] flex flex-col">
+            {/* Top nav */}
+            <div className="flex items-center justify-between px-3 py-2 bg-[#0f1117] border-b border-white/[0.06] flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm bg-orange-500 flex items-center justify-center">
+                  <span className="text-[5px] font-black text-white">F</span>
+                </div>
+                <span className="text-[7px] font-black text-white/70">FoodSaaS ERP</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[6px] text-white/30 hidden sm:block">Sistema</span>
+                <div className="rounded-full bg-orange-500 px-2 py-0.5">
+                  <span className="text-[5.5px] font-black text-white">Agendar Demo</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature cards row */}
+            <div className="flex gap-1.5 px-3 pt-2 pb-1.5 flex-shrink-0">
+              {[
+                { icon: "⚡", t: "Operação rápida",   s: "PDV otimizado para velocidade" },
+                { icon: "📊", t: "Gestão completa",   s: "Financeiro, dossiê e relatórios" },
+                { icon: "📱", t: "Cardápio digital",  s: "Cardápio online com pedidos" },
+                { icon: "🤖", t: "Automação",         s: "IA no WhatsApp para vender" },
+              ].map((f) => (
+                <div key={f.t} className="flex-1 rounded-lg bg-white/[0.04] border border-white/[0.06] p-1.5">
+                  <span className="text-[8px]">{f.icon}</span>
+                  <p className="text-[4.5px] font-black text-white/80 mt-0.5 leading-tight">{f.t}</p>
+                  <p className="text-[3.5px] text-white/35 leading-tight mt-0.5 hidden lg:block">{f.s}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Main split: text left + PDV right */}
+            <div className="flex-1 flex gap-2 px-3 pb-2 min-h-0">
+              {/* Left text */}
+              <div className="w-[30%] flex-shrink-0 flex flex-col justify-center">
+                <p className="text-[5px] font-black text-orange-400 uppercase tracking-widest mb-1">PDV</p>
+                <h3 className="text-[9px] font-black text-white leading-tight">
+                  OPERAÇÃO<br />RÁPIDA:<br />
+                  <span className="text-orange-400">AGILIZADO</span>
+                </h3>
+                <ul className="mt-1.5 space-y-0.5">
+                  {["Lançamento de pedidos em 3 segundos", "Interface tátil e intuitiva", "Integração instantânea com KDS"].map((b) => (
+                    <li key={b} className="flex items-start gap-1">
+                      <span className="mt-[1.5px] w-1 h-1 rounded-full bg-orange-500 flex-shrink-0" />
+                      <span className="text-[4px] text-white/55 leading-tight">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 rounded-lg bg-orange-500 px-2 py-1 text-center">
+                  <span className="text-[5px] font-black text-white">Agendar Demo</span>
+                </div>
+              </div>
+
+              {/* Right PDV screenshot */}
+              <div className="flex-1 rounded-xl bg-[#0d1020] border border-white/[0.08] overflow-hidden flex flex-col">
+                <div className="px-2 py-1 bg-[#111828] border-b border-white/[0.06] flex justify-between items-center flex-shrink-0">
+                  <span className="text-[5px] font-black text-white/60">PDV · Today</span>
+                  <span className="text-[4px] text-white/20">Current Order</span>
+                </div>
+                <div className="flex flex-1 min-h-0">
+                  {/* Product grid */}
+                  <div className="flex-1 p-1.5 grid grid-cols-3 gap-1 content-start">
+                    {[
+                      { n: "Pizza Mg.", c: "bg-orange-500/15", emoji: "🍕" },
+                      { n: "Hambúrg.", c: "bg-yellow-500/15", emoji: "🍔" },
+                      { n: "Batata",   c: "bg-amber-500/15",  emoji: "🍟" },
+                      { n: "Coca",     c: "bg-red-500/15",    emoji: "🥤" },
+                      { n: "Pizza Fg.", c: "bg-orange-500/15", emoji: "🍕" },
+                      { n: "Hambúrg.", c: "bg-yellow-500/15", emoji: "🍔" },
+                    ].map((p, i) => (
+                      <div key={i} className={`${p.c} rounded-lg border border-white/[0.05] p-1`}>
+                        <div className="h-6 rounded-md bg-white/[0.06] mb-0.5 flex items-center justify-center text-[10px]">
+                          {p.emoji}
+                        </div>
+                        <p className="text-[4px] text-white/55 truncate leading-tight">{p.n}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Cart sidebar */}
+                  <div className="w-14 border-l border-white/[0.06] p-1.5 bg-black/20 flex flex-col">
+                    <p className="text-[4.5px] font-black text-white/35 uppercase tracking-wide mb-1">Carrinho</p>
+                    <div className="flex-1 space-y-0.5">
+                      {[["1× Pizza", "31,99"], ["Garçom 1", "3,00"], ["Sobrem 2", "1,99"]].map(([l, v]) => (
+                        <div key={l} className="flex justify-between">
+                          <span className="text-[4px] text-white/40">{l}</span>
+                          <span className="text-[4px] text-white/25">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-1 border-t border-white/[0.06]">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-[4px] text-white/30">Total</span>
+                        <span className="text-[5px] font-black text-white">$35,00</span>
+                      </div>
+                      <div className="rounded bg-orange-500 py-1 text-center">
+                        <span className="text-[4.5px] font-black text-white">Finalizar</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom chin */}
+        <div className="h-6 flex items-center justify-center">
+          <div className="w-4 h-4 rounded-full border border-white/[0.08]" />
+        </div>
+      </div>
+
+      {/* Stand neck — trapezoid */}
+      <div
+        className="mx-auto"
+        style={{
+          width: 56,
+          height: 44,
+          background: "linear-gradient(180deg, #2a2a2e 0%, #1c1c1e 100%)",
+          clipPath: "polygon(28% 0%, 72% 0%, 85% 100%, 15% 100%)",
+        }}
+      />
+      {/* Base */}
+      <div
+        className="mx-auto rounded-full shadow-[0_4px_16px_-4px_rgba(0,0,0,0.6)]"
+        style={{ width: 160, height: 8, background: "linear-gradient(180deg, #2a2a2e, #1c1c1e)" }}
+      />
+
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute -inset-8 -z-10 rounded-full bg-orange-500/[0.06] blur-3xl" />
+    </div>
+  );
+}
+
 // ─── Interactive Pillars Section ──────────────────────────────────────────────
 function PillarsSection() {
   const [active, setActive] = useState(0);
@@ -888,50 +1036,62 @@ function DemoContent() {
         </header>
 
         {/* ── HERO ── */}
-        <section className="mx-auto max-w-6xl px-5 pb-16 pt-20 text-center sm:px-8 sm:pb-24 sm:pt-28">
-          <div className="inline-flex flex-col items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
-              Demonstrações ao vivo
-            </span>
-            {selectedNiche !== "restaurante" && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold text-white/55">
-                {nicheContent.badge}
-              </span>
-            )}
-          </div>
+        <section className="mx-auto max-w-7xl px-5 pb-12 pt-20 sm:px-8 sm:pb-16 sm:pt-28">
+          <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-14">
 
-          <h1 className="mx-auto mt-7 max-w-4xl text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
-            FoodSaaS{" "}
-            <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
-              ERP
-            </span>
-          </h1>
+            {/* Left column — copy */}
+            <div className="flex-1 text-center lg:text-left">
+              <div className="inline-flex flex-col items-center lg:items-start gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
+                  Demonstrações ao vivo
+                </span>
+                {selectedNiche !== "restaurante" && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold text-white/55">
+                    {nicheContent.badge}
+                  </span>
+                )}
+              </div>
 
-          <p className="mx-auto mt-6 max-w-3xl text-base leading-relaxed text-white/50 sm:text-lg">
-            Sistema completo para{" "}
-            <span className="text-white/80 font-semibold">{nicheContent.heroHighlight}</span>
-            {selectedNiche === "restaurante" && (
-              <>
-                ,{" "}
-                <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
-                <span className="text-white/80 font-semibold">conveniências, pastelarias</span>{" "}
-                e <span className="text-white/80 font-semibold">marmitarias</span>
-              </>
-            )}
-            .
-          </p>
+              <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+                FoodSaaS{" "}
+                <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
+                  ERP
+                </span>
+              </h1>
 
-          <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <button onClick={scrollToDemo}
-              className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-7 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]">
-              Testar Demonstrações
-              <ChevronDown className="h-4 w-4" />
-            </button>
-            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur transition hover:border-white/20 hover:bg-white/10">
-              <MessageCircle className="h-4 w-4" />
-              Falar com Especialista
-            </a>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto lg:mx-0">
+                Sistema completo para{" "}
+                <span className="text-white/80 font-semibold">{nicheContent.heroHighlight}</span>
+                {selectedNiche === "restaurante" && (
+                  <>
+                    ,{" "}
+                    <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
+                    <span className="text-white/80 font-semibold">conveniências, pastelarias</span>{" "}
+                    e <span className="text-white/80 font-semibold">marmitarias</span>
+                  </>
+                )}
+                .
+              </p>
+
+              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+                <button onClick={scrollToDemo}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-7 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]">
+                  Testar Demonstrações
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur transition hover:border-white/20 hover:bg-white/10">
+                  <MessageCircle className="h-4 w-4" />
+                  Falar com Especialista
+                </a>
+              </div>
+            </div>
+
+            {/* Right column — iMac mockup (hidden on mobile, visible lg+) */}
+            <div className="hidden lg:block w-full max-w-[520px] flex-shrink-0">
+              <HeroDeviceMockup />
+            </div>
+
           </div>
         </section>
 

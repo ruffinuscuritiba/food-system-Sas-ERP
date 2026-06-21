@@ -59,46 +59,153 @@ const PLAN_CARDS = [
     label: "FoodSaaS Basic",
     btnClass:
       "bg-green-600 hover:bg-green-700 shadow-[0_8px_24px_-8px_rgba(22,163,74,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
-    niches: ["Restaurantes", "Marmitarias", "Fast food light", "Padaria", "Confeitaria"],
-    images: {
-      Restaurantes:     "/demo-assets/banners/pizzas-salgadas.jpg",
-      Marmitarias:      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=280&fit=crop&q=80",
-      "Fast food light":"https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600&h=280&fit=crop&q=80",
-      Padaria:          "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=280&fit=crop&q=80",
-      Confeitaria:      "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&h=280&fit=crop&q=80",
-    } as Record<string, string>,
-    defaultImg: "/demo-assets/banners/pizzas-salgadas.jpg",
   },
   {
     plan: "PRO" as const,
     label: "FoodSaaS Pro",
     btnClass:
       "bg-blue-600 hover:bg-blue-700 shadow-[0_8px_24px_-8px_rgba(37,99,235,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
-    niches: ["Pizzaria", "Lanchonetes", "Hotdogs", "Hamburgueria", "Churrascaria"],
-    images: {
-      Pizzaria:     "/demo-assets/banners/combos.jpg",
-      Lanchonetes:  "https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600&h=280&fit=crop&q=80",
-      Hotdogs:      "https://images.unsplash.com/photo-1519984388953-d2406bc725e1?w=600&h=280&fit=crop&q=80",
-      Hamburgueria: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=280&fit=crop&q=80",
-      Churrascaria: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=600&h=280&fit=crop&q=80",
-    } as Record<string, string>,
-    defaultImg: "/demo-assets/banners/combos.jpg",
   },
   {
     plan: "ENTERPRISE" as const,
     label: "FoodSaaS Enterprise",
     btnClass:
       "bg-purple-600 hover:bg-purple-700 shadow-[0_8px_24px_-8px_rgba(124,58,237,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
-    niches: ["Conveniências", "Mercearias", "Mercados", "Açaí"],
-    images: {
-      "Conveniências": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&h=280&fit=crop&q=80",
-      Mercearias:      "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&h=280&fit=crop&q=80",
-      Mercados:        "https://images.unsplash.com/photo-1534723452862-4c874986cb88?w=600&h=280&fit=crop&q=80",
-      "Açaí":          "https://images.unsplash.com/photo-1590080876351-41a4cfe7fffd?w=600&h=280&fit=crop&q=80",
-    } as Record<string, string>,
-    defaultImg: "/demo-assets/banners/pizzas-doces.jpg",
   },
 ];
+
+// ─── Niches unified data ──────────────────────────────────────────────────────
+const ALL_NICHES = [
+  "Restaurantes", "Pizzaria", "Hamburgueria", "Lanchonetes",
+  "Churrascaria", "Hotdogs", "Marmitarias", "Padaria",
+  "Confeitaria", "Pastelaria", "Açaí", "Conveniências", "Mercados",
+];
+
+interface NicheInfo {
+  emoji: string;
+  image: string;
+  features: { basic: string[]; pro: string[]; enterprise: string[] };
+}
+
+const NICHES_DATA: Record<string, NicheInfo> = {
+  Restaurantes: {
+    emoji: "🍽️",
+    image: "/demo-assets/banners/pizzas-salgadas.jpg",
+    features: {
+      basic:      ["PDV rápido por mesa ou balcão", "Cardápio digital sem comissão", "Cozinha integrada em tempo real", "Controle de caixa diário"],
+      pro:        ["Cupons e programa de fidelidade", "Relatórios de CMV por produto", "Ficha técnica e controle de estoque", "Relatórios de lucratividade"],
+      enterprise: ["Multi-unidades em dashboard único", "WhatsApp IA 24h no cardápio", "Usuários ilimitados com papéis", "BI com metas e benchmarks"],
+    },
+  },
+  Pizzaria: {
+    emoji: "🍕",
+    image: "/demo-assets/banners/combos.jpg",
+    features: {
+      basic:      ["Montagem de pizza com meio a meio", "Bordas recheadas por tamanho", "Impressão automática na produção", "PDV de balcão e delivery"],
+      pro:        ["Controle de insumos por ingrediente", "Cupons de Sexta e Sábado à noite", "Fidelidade e cashback por pedido", "Relatório de CMV por sabor"],
+      enterprise: ["Gestão de múltiplas unidades", "WhatsApp IA fecha pedidos às 2h", "iFood e Rappi integrados", "Suporte VIP com SLA gerencial"],
+    },
+  },
+  Hamburgueria: {
+    emoji: "🍔",
+    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Montagem com complementos (bacon, queijo...)", "PDV tátil para alta rotatividade", "KDS na cozinha sem papel", "Impressão de senha para retirada"],
+      pro:        ["Combos automáticos com batata e bebida", "Controle de estoque de pães e carnes", "WhatsApp notifica quando o lanche saiu", "Fidelidade por carimbo digital"],
+      enterprise: ["Múltiplos caixas simultâneos", "BI de conversão por combo", "Robô WhatsApp atende e fecha pedido", "Integração com iFood e Rappi"],
+    },
+  },
+  Lanchonetes: {
+    emoji: "🥪",
+    image: "https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Frente de caixa veloz para balcão", "Cardápio digital com link próprio", "Controle de caixa e sangria", "Impressão automática na cozinha"],
+      pro:        ["Complementos e adicionais por item", "Cupons e promoções do dia", "Controle de estoque por ingrediente", "Relatórios de lucro por produto"],
+      enterprise: ["Franquias e múltiplos terminais", "WhatsApp IA atende 24h", "Painéis consolidados multi-unidade", "Suporte VIP e SLA gerencial"],
+    },
+  },
+  Churrascaria: {
+    emoji: "🥩",
+    image: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Comanda por mesa com totalizador", "Rodízio: controle de saídas por corte", "Impressão de pedido para o churrasqueiro", "Caixa com fechamento por grupo"],
+      pro:        ["Controle de peso e rendimento do corte", "Reservas e lista de espera digital", "Cupons para datas especiais", "Relatório de consumo médio por pessoa"],
+      enterprise: ["Multi-salões e galpões integrados", "Gestão de brigadistas por setor", "WhatsApp IA para reservas", "BI de ocupação e giro de mesa"],
+    },
+  },
+  Hotdogs: {
+    emoji: "🌭",
+    image: "https://images.unsplash.com/photo-1519984388953-d2406bc725e1?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Grade de complementos (milho, queijo, vinagrete...)", "KDS na chapa sem papelzinho sumindo", "PDV rápido para fila de balcão", "Controle de caixa simplificado"],
+      pro:        ["Cardápio digital com foto e complementos", "Controle de estoque de pão e salsicha", "Cupons e combo promoção", "Relatório de itens mais vendidos"],
+      enterprise: ["Multi-caixas em pico noturno", "WhatsApp IA atende pedidos online", "BI de produto por horário", "Suporte prioritário nos picos"],
+    },
+  },
+  Marmitarias: {
+    emoji: "🍱",
+    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["PDV de montagem rápida (P/M/G)", "Link de pedidos online sem comissão", "Aviso automático de PIX recebido", "Impressão automática na cozinha"],
+      pro:        ["Agrupamento de entregadores por bairro", "Programa de fidelidade integrado", "Controle de insumos (arroz, proteína, salada)", "Relatório de marmitas por período"],
+      enterprise: ["Múltiplos terminais de produção", "WhatsApp IA para pedidos de almoço", "Dashboards em tempo real", "API para logística de entrega"],
+    },
+  },
+  Padaria: {
+    emoji: "🥐",
+    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["PDV rápido para balcão e caixa", "Venda por unidade, kg ou dúzia", "Controle de caixa de abertura às 6h", "Cardápio digital para delivery local"],
+      pro:        ["Controle de estoque de farinha e insumos", "Cupons de café da manhã e promoção", "Programa de pontos para clientes fiéis", "Relatório de curva ABC por produto"],
+      enterprise: ["Múltiplas lojas com estoque central", "WhatsApp IA para pedidos antecipados", "BI de desperdício e perda", "Gestão de produção por turno"],
+    },
+  },
+  Confeitaria: {
+    emoji: "🎂",
+    image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Pedidos personalizados com observações", "Cardápio visual com fotos dos bolos", "Controle de agenda de retiradas", "Caixa com formas de pagamento variadas"],
+      pro:        ["Controle de ingredientes e custo por bolo", "Cupons de aniversário e datas especiais", "Fidelidade com pontos por valor gasto", "Relatório de lucro por categoria"],
+      enterprise: ["Multi-lojas com produção central", "WhatsApp IA para orçamentos 24h", "BI de sazonalidade e picos de demanda", "Suporte VIP e gerente dedicado"],
+    },
+  },
+  Pastelaria: {
+    emoji: "🥟",
+    image: "https://images.unsplash.com/photo-1626132647523-66f5bf380027?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Grade de recheios sem erro de comanda", "Impressão setorizada para fritadeira", "Painel de senhas para retirada", "PDV tátil de alta velocidade"],
+      pro:        ["Controle de insumos por gramatura de recheio", "Cupons de fim de semana", "Cardápio digital com foto de cada pastel", "Upsell automático de bebidas"],
+      enterprise: ["Franquias com cardápio central", "WhatsApp IA fecha pedidos online", "BI de rendimento por kg de massa", "Multi-caixas no pico de feira"],
+    },
+  },
+  Açaí: {
+    emoji: "🫐",
+    image: "https://images.unsplash.com/photo-1590080876351-41a4cfe7fffd?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Grade de complementos (granola, morango, leite condensado...)", "Tamanhos de copo (300ml/500ml/700ml)", "PDV rápido para fila de balcão", "Cardápio digital com link próprio"],
+      pro:        ["Controle de ficha técnica por tamanho", "Cupons e combos de açaí + crepe", "Programa de fidelidade por copo", "Controle de estoque de frutas e complementos"],
+      enterprise: ["Multi-unidades com estoque central", "WhatsApp IA para pedidos delivery", "BI de consumo por complemento", "Integração iFood e Rappi"],
+    },
+  },
+  Conveniências: {
+    emoji: "🏪",
+    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Leitura de código de barras EAN", "PDV rápido com preço automático", "Controle de caixa e troco", "Relatório de vendas por turno"],
+      pro:        ["Controle de validade e lote de produtos", "Estoque com alerta de reposição", "Relatório de curva ABC por item", "Multi-forma de pagamento integrada"],
+      enterprise: ["Multi-lojas com estoque central", "Relatório de giro por prateleira", "Integração com fornecedores", "BI de margem por categoria"],
+    },
+  },
+  Mercados: {
+    emoji: "🛒",
+    image: "https://images.unsplash.com/photo-1534723452862-4c874986cb88?w=600&h=280&fit=crop&q=80",
+    features: {
+      basic:      ["Scanner EAN na frente de caixa", "PDV com busca rápida por código/nome", "Controle de caixa e fechamento", "Cardápio online para delivery local"],
+      pro:        ["Gestão de estoque com validade e lote", "Alerta automático de ruptura de prateleira", "Programa de fidelidade por compra", "Relatório de produtos mais vendidos"],
+      enterprise: ["Multi-filiais com estoque centralizado", "BI de margem por departamento", "Integração com distribuidor", "Gestão de promotores por setor"],
+    },
+  },
+};
 
 // ─── Pillars data ─────────────────────────────────────────────────────────────
 const PILLARS_DATA = [
@@ -776,66 +883,87 @@ function DemoContent() {
 
         {/* ── ESCOLHA UMA DEMONSTRAÇÃO ── */}
         <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-          <div className="mb-12 text-center">
+          <div className="mb-8 text-center">
             <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
               Escolha uma demonstração
             </h2>
             <p className="mt-3 text-sm text-white/50">
-              Acesse, explore — e veja como o FoodSaaS ERP pode transformar seu negócio
+              Selecione seu segmento — os 3 planos se atualizam automaticamente
             </p>
           </div>
 
+          {/* ── Unified niche selector ── */}
+          <div className="mb-8 flex flex-wrap justify-center gap-2">
+            {ALL_NICHES.map((niche) => {
+              const info = NICHES_DATA[niche];
+              const isActive = selectedNiche === niche;
+              return (
+                <button
+                  key={niche}
+                  onClick={() => setSelectedNiche(niche)}
+                  className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                    isActive
+                      ? "bg-white text-black shadow-lg scale-105"
+                      : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white"
+                  }`}
+                >
+                  <span>{info?.emoji ?? "🍽️"}</span>
+                  {niche}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Plan cards ── */}
           <div className="grid gap-6 md:grid-cols-3">
             {PLAN_CARDS.map((card) => {
               const demo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
-              const activeImg = card.images[selectedNiche] ?? card.defaultImg;
+              const nicheInfo = NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"];
+              const planKey = card.plan.toLowerCase() as "basic" | "pro" | "enterprise";
+              const features = nicheInfo.features[planKey] ?? [];
 
               return (
                 <div
                   key={card.plan}
                   className="flex flex-col overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0d1117] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
                 >
-                  {/* White niche selection box */}
-                  <div className="m-4 mb-0 rounded-2xl bg-white p-4">
-                    {card.niches.map((niche) => (
-                      <button
-                        key={niche}
-                        onClick={() => setSelectedNiche(niche)}
-                        className={`block w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
-                          selectedNiche === niche
-                            ? "font-bold text-red-600"
-                            : "font-medium text-gray-900 hover:text-gray-500"
-                        }`}
-                      >
-                        {niche}
-                      </button>
-                    ))}
-                  </div>
-
                   {/* Dynamic image */}
-                  <div className="relative mx-4 mt-4 h-36 overflow-hidden rounded-2xl">
+                  <div className="relative mx-4 mt-4 h-40 overflow-hidden rounded-2xl">
                     <Image
-                      src={activeImg}
-                      alt={card.label}
+                      src={nicheInfo.image}
+                      alt={selectedNiche}
                       fill
                       className="object-cover transition-all duration-500"
                       sizes="(max-width: 768px) 100vw, 33vw"
                     />
+                    {/* Plan label overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <span className="absolute bottom-3 left-3 text-xs font-black text-white drop-shadow">
+                      {card.label}
+                    </span>
                   </div>
 
-                  {/* Plan info + CTA */}
-                  <div className="flex flex-1 flex-col justify-between p-5">
-                    <h3 className="mb-4 text-lg font-black text-white">{card.label}</h3>
+                  {/* Features */}
+                  <div className="flex-1 px-5 py-4">
+                    <ul className="space-y-2">
+                      {features.map((feat, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-white/70">
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                          {feat}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="p-5 pt-0">
                     <button
                       onClick={() => setModalDemo(demo)}
                       disabled={entering !== null}
                       className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${card.btnClass}`}
                     >
-                      {entering === demo.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      Testar{" "}
-                      {card.plan.charAt(0) + card.plan.slice(1).toLowerCase()}
+                      {entering === demo.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Testar {card.plan.charAt(0) + card.plan.slice(1).toLowerCase()}
                     </button>
                   </div>
                 </div>

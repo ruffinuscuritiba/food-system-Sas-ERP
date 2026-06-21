@@ -20,7 +20,22 @@ interface Company {
   isBlocked: boolean
   archivedAt: string | null
   createdAt: string
+  businessSegment?: string
   _count: { users: number; orders: number }
+}
+
+const SEGMENT_LABELS: Record<string, string> = {
+  RESTAURANTE:  "Restaurantes",
+  LANCHONETE:   "Lanchonetes",
+  PIZZARIA:     "Pizzarias",
+  CHURRASCARIA: "Churrascos",
+  MARMITARIA:   "Marmitarias",
+  HOT_DOG:      "Hot Dogs",
+  PASTELARIA:   "Pastelarias",
+  PADARIA:      "Padarias",
+  DOCERIA:      "Docerias",
+  CONVENIENCIA: "Conveniências",
+  MERCADO:      "Mercados",
 }
 
 interface Stats {
@@ -119,6 +134,7 @@ export default function SuperAdminDashboard() {
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState("")
   const [planFilter, setPlanFilter] = useState("ALL")
+  const [segmentTab, setSegmentTab] = useState("ALL")
   const [blocking, setBlocking] = useState<string | null>(null)
   const [archiving, setArchiving] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -160,8 +176,9 @@ export default function SuperAdminDashboard() {
       list = list.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))
     }
     if (planFilter !== "ALL") list = list.filter(c => c.plan === planFilter)
+    if (segmentTab !== "ALL") list = list.filter(c => (c.businessSegment ?? "RESTAURANTE") === segmentTab)
     setFiltered(list)
-  }, [search, planFilter, companies])
+  }, [search, planFilter, segmentTab, companies])
 
   async function load() {
     setLoading(true)
@@ -394,7 +411,7 @@ export default function SuperAdminDashboard() {
           <div className="flex items-center gap-2 text-sm text-zinc-500">
             <span className="text-zinc-300 font-medium">Dashboard</span>
             <ChevronRight className="w-3.5 h-3.5" />
-            <span>Restaurantes</span>
+            <span>{segmentTab === "ALL" ? "Estabelecimentos" : (SEGMENT_LABELS[segmentTab] ?? segmentTab)}</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -485,10 +502,48 @@ export default function SuperAdminDashboard() {
           {/* ── TABLE ── */}
           <div className="bg-zinc-900 border border-zinc-800/60 rounded-2xl overflow-hidden">
 
+            {/* Segment tabs */}
+            {(() => {
+              const segments = Array.from(new Set(companies.map(c => c.businessSegment ?? "RESTAURANTE"))).sort()
+              if (segments.length <= 1) return null
+              return (
+                <div className="px-5 pt-4 flex items-center gap-1 flex-wrap border-b border-zinc-800/60 pb-0">
+                  <button
+                    onClick={() => setSegmentTab("ALL")}
+                    className={`px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+                      segmentTab === "ALL"
+                        ? "border-indigo-500 text-white bg-zinc-800/60"
+                        : "border-transparent text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    Todos <span className="ml-1 text-[10px] text-zinc-600">{companies.length}</span>
+                  </button>
+                  {segments.map(seg => {
+                    const count = companies.filter(c => (c.businessSegment ?? "RESTAURANTE") === seg).length
+                    return (
+                      <button
+                        key={seg}
+                        onClick={() => setSegmentTab(seg)}
+                        className={`px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+                          segmentTab === seg
+                            ? "border-indigo-500 text-white bg-zinc-800/60"
+                            : "border-transparent text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        {SEGMENT_LABELS[seg] ?? seg} <span className="ml-1 text-[10px] text-zinc-600">{count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+
             {/* Table header / filters */}
             <div className="px-5 py-4 border-b border-zinc-800/60 flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <h2 className="text-sm font-semibold text-white shrink-0">Restaurantes</h2>
+                <h2 className="text-sm font-semibold text-white shrink-0">
+                  {segmentTab === "ALL" ? "Estabelecimentos" : (SEGMENT_LABELS[segmentTab] ?? segmentTab)}
+                </h2>
                 <span className="text-[10px] text-zinc-600 bg-zinc-800 rounded-full px-2 py-0.5 tabular-nums">{filtered.length}</span>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">

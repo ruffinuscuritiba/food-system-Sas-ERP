@@ -6,7 +6,7 @@ import {
   LogIn, MoreVertical, ShieldOff, Shield, Wrench, Copy, Archive,
   RotateCcw, Trash2, Plus, Zap, Users, Building2,
   BarChart3, Ban, Search, ChevronRight, LayoutDashboard,
-  UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw, ExternalLink, Layout,
+  UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw, ExternalLink, Layout, Package,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
@@ -59,6 +59,7 @@ const NAV_ITEMS = [
   { label: "Dashboard",    href: "/super-admin/dashboard",  icon: LayoutDashboard },
   { label: "Clientes",     href: "/super-admin/clientes",   icon: UserCheck },
   { label: "Leads",        href: "/super-admin/leads",      icon: TrendingUp },
+  { label: "Módulos",      href: "/super-admin/modulos",    icon: Package },
   { label: "Construtor",   href: "/super-admin/construtor", icon: Layout },
   { label: "Editor Tema",  href: "/super-admin/tema",       icon: Star },
   { label: "Preços",       href: "/super-admin/pricing",    icon: DollarSign },

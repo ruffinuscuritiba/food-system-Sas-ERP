@@ -651,10 +651,17 @@ function PillarsSection() {
             </ul>
           </div>
 
-          {/* Right: iMac device mockup */}
+          {/* Right: iMac real photo */}
           <div className="p-6 sm:p-8 lg:p-10 flex items-center justify-center bg-white/[0.01] border-t border-white/[0.06] lg:border-t-0 lg:border-l lg:border-white/[0.06]">
-            <div className="w-full max-w-md">
-              <HeroDeviceMockup />
+            <div className="w-full max-w-lg">
+              <Image
+                src="/demo-assets/imac-real.png"
+                alt="FoodSaaS ERP no iMac"
+                width={640}
+                height={480}
+                className="w-full h-auto object-contain drop-shadow-2xl"
+                priority
+              />
             </div>
           </div>
         </div>
@@ -833,10 +840,10 @@ function DemoContent() {
 
         {/* ── HERO ── */}
         <section className="mx-auto max-w-7xl px-5 pb-12 pt-20 sm:px-8 sm:pb-16 sm:pt-28">
-          <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-14">
+          <div className="flex flex-col items-center text-center">
 
-            {/* Left column — copy */}
-            <div className="flex-1 text-center lg:text-left">
+            {/* Copy — centered */}
+            <div className="max-w-3xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
                 Demonstrações ao vivo
               </span>
@@ -848,7 +855,7 @@ function DemoContent() {
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto lg:mx-0">
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto">
                 Sistema completo e inteligente para{" "}
                 <span className="text-white/80 font-semibold">pizzarias, restaurantes, hamburguerias</span>,{" "}
                 <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
@@ -856,7 +863,7 @@ function DemoContent() {
                 e muito mais.
               </p>
 
-              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <button onClick={scrollToDemo}
                   className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-7 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]">
                   Testar Demonstrações
@@ -868,11 +875,6 @@ function DemoContent() {
                   Falar com Especialista
                 </a>
               </div>
-            </div>
-
-            {/* Right column — iMac mockup */}
-            <div className="hidden lg:block w-full max-w-[520px] flex-shrink-0">
-              <HeroDeviceMockup />
             </div>
 
           </div>

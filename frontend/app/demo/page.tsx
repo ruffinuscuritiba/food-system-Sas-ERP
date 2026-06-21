@@ -1,25 +1,20 @@
 "use client";
 
 import { Suspense, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowRight,
   BarChart3,
   Check,
   ChevronDown,
-  ChevronUp,
   Cpu,
-  LayoutGrid,
-  List,
   Loader2,
   Mail,
   MessageCircle,
   Minus,
   Phone,
-  RotateCcw,
   Smartphone,
-  Star,
   Store,
   TrendingUp,
   UtensilsCrossed,
@@ -32,7 +27,6 @@ import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 import { SUPPORT_WHATSAPP } from "@/config/support";
-import { NICHE_DATA, resolveNiche, type NicheKey } from "@/lib/nicheData";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
   "Olá! Gostaria de falar com um especialista da Ruffinu's FoodSaaS ERP.",
@@ -55,55 +49,55 @@ const COMPARISON: Feature[] = [
   { label: "White Label",      basic: false, pro: false, enterprise: true  },
 ];
 
-// Screenshots agora vêm de NICHE_DATA, dinâmicos por nicho selecionado
-
 function planKey(plan: string): PlanKey { return plan.toLowerCase() as PlanKey; }
 
-// ─── Niche selector list ──────────────────────────────────────────────────────
-const NICHES_LIST: { key: NicheKey; emoji: string; label: string }[] = [
-  { key: "restaurante", emoji: "🍕", label: "Restaurantes & Pizzarias"    },
-  { key: "marmitaria",  emoji: "🍱", label: "Marmitarias & Dark Kitchens" },
-  { key: "pastelaria",  emoji: "🥟", label: "Pastelarias & Food Trucks"   },
-  { key: "hotdog",      emoji: "🌭", label: "Hot-Dogs & Lanchonetes"      },
+// ─── Plan cards data ──────────────────────────────────────────────────────────
+const PLAN_CARDS = [
+  {
+    plan: "BASIC" as const,
+    label: "FoodSaaS Basic",
+    btnClass:
+      "bg-green-600 hover:bg-green-700 shadow-[0_8px_24px_-8px_rgba(22,163,74,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
+    niches: ["Restaurantes", "Marmitarias", "Fast food light", "Padaria", "Confeitaria"],
+    images: {
+      Restaurantes:     "/demo-assets/banners/pizzas-salgadas.jpg",
+      Marmitarias:      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=280&fit=crop&q=80",
+      "Fast food light":"https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600&h=280&fit=crop&q=80",
+      Padaria:          "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=280&fit=crop&q=80",
+      Confeitaria:      "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&h=280&fit=crop&q=80",
+    } as Record<string, string>,
+    defaultImg: "/demo-assets/banners/pizzas-salgadas.jpg",
+  },
+  {
+    plan: "PRO" as const,
+    label: "FoodSaaS Pro",
+    btnClass:
+      "bg-blue-600 hover:bg-blue-700 shadow-[0_8px_24px_-8px_rgba(37,99,235,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
+    niches: ["Pizzaria", "Lanchonetes", "Hotdogs", "Hamburgueria", "Churrascaria"],
+    images: {
+      Pizzaria:     "/demo-assets/banners/combos.jpg",
+      Lanchonetes:  "https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600&h=280&fit=crop&q=80",
+      Hotdogs:      "https://images.unsplash.com/photo-1519984388953-d2406bc725e1?w=600&h=280&fit=crop&q=80",
+      Hamburgueria: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=280&fit=crop&q=80",
+      Churrascaria: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=600&h=280&fit=crop&q=80",
+    } as Record<string, string>,
+    defaultImg: "/demo-assets/banners/combos.jpg",
+  },
+  {
+    plan: "ENTERPRISE" as const,
+    label: "FoodSaaS Enterprise",
+    btnClass:
+      "bg-purple-600 hover:bg-purple-700 shadow-[0_8px_24px_-8px_rgba(124,58,237,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
+    niches: ["Conveniências", "Mercearias", "Mercados", "Açaí"],
+    images: {
+      "Conveniências": "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&h=280&fit=crop&q=80",
+      Mercearias:      "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&h=280&fit=crop&q=80",
+      Mercados:        "https://images.unsplash.com/photo-1534723452862-4c874986cb88?w=600&h=280&fit=crop&q=80",
+      "Açaí":          "https://images.unsplash.com/photo-1590080876351-41a4cfe7fffd?w=600&h=280&fit=crop&q=80",
+    } as Record<string, string>,
+    defaultImg: "/demo-assets/banners/pizzas-doces.jpg",
+  },
 ];
-
-// ─── Portfolio simulator data ─────────────────────────────────────────────────
-interface MenuItem { id: string; name: string; emoji: string; count: number; }
-
-const NICHE_MENU_ITEMS: Record<NicheKey, MenuItem[]> = {
-  restaurante: [
-    { id: "r1", name: "Pizzas",           emoji: "🍕", count: 12 },
-    { id: "r2", name: "Bebidas",          emoji: "🥤", count: 8  },
-    { id: "r3", name: "Bordas Especiais", emoji: "🧀", count: 5  },
-    { id: "r4", name: "Sobremesas",       emoji: "🍰", count: 4  },
-    { id: "r5", name: "Entradas",         emoji: "🥗", count: 6  },
-    { id: "r6", name: "Combos",           emoji: "📦", count: 3  },
-  ],
-  marmitaria: [
-    { id: "m1", name: "Proteínas",        emoji: "🥩", count: 8  },
-    { id: "m2", name: "Acompanhamentos",  emoji: "🍚", count: 10 },
-    { id: "m3", name: "Diet / Fit",       emoji: "🥦", count: 5  },
-    { id: "m4", name: "Bebidas",          emoji: "🥤", count: 4  },
-    { id: "m5", name: "Encomendas",       emoji: "📦", count: 3  },
-    { id: "m6", name: "Sobremesas",       emoji: "🍮", count: 3  },
-  ],
-  pastelaria: [
-    { id: "p1", name: "Pastéis Salgados", emoji: "🥟", count: 15 },
-    { id: "p2", name: "Pastéis Doces",    emoji: "🍬", count: 8  },
-    { id: "p3", name: "Caldos",           emoji: "🍜", count: 4  },
-    { id: "p4", name: "Bebidas Geladas",  emoji: "🧃", count: 6  },
-    { id: "p5", name: "Combos",           emoji: "📦", count: 3  },
-    { id: "p6", name: "Adicionais",       emoji: "✨", count: 5  },
-  ],
-  hotdog: [
-    { id: "h1", name: "Hot-Dogs",         emoji: "🌭", count: 10 },
-    { id: "h2", name: "Hambúrgueres",     emoji: "🍔", count: 8  },
-    { id: "h3", name: "Batatas Fritas",   emoji: "🍟", count: 4  },
-    { id: "h4", name: "Bebidas",          emoji: "🥤", count: 6  },
-    { id: "h5", name: "Porções",          emoji: "🍗", count: 4  },
-    { id: "h6", name: "Sobremesas",       emoji: "🍦", count: 3  },
-  ],
-};
 
 // ─── Pillars data ─────────────────────────────────────────────────────────────
 const PILLARS_DATA = [
@@ -206,253 +200,155 @@ function PdvMockup() {
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           <span className="text-[10px] font-bold text-white/80">PDV — Balcão</span>
         </div>
-        <span className="text-[9px] text-white/35">Pedido #142</span>
+        <span className="text-[10px] text-white/30 font-mono">12:34</span>
       </div>
-      <div className="flex">
-        <div className="flex-1 p-2.5 grid grid-cols-3 gap-1.5">
-          {products.map((p) => (
-            <div key={p.name} className={`rounded-xl ${p.c} border border-white/[0.06] p-2 cursor-pointer`}>
-              <div className="h-8 rounded-lg bg-white/[0.07] mb-1.5" />
-              <p className="text-[7.5px] font-semibold text-white/75 truncate leading-tight">{p.name}</p>
-              <p className="text-[9px] font-black text-orange-400">{p.price}</p>
-            </div>
-          ))}
-        </div>
-        <div className="w-[96px] border-l border-white/[0.06] p-2.5 flex flex-col bg-black/20">
-          <p className="text-[7.5px] font-black text-white/50 uppercase tracking-wide mb-2">Carrinho</p>
-          <div className="flex-1 space-y-1.5">
-            {[["1× Pizza Mg.", "52,00"], ["2× Burger Cl.", "68,00"], ["1× Coca-Cola", "8,00"]].map(([l, v]) => (
-              <div key={l} className="flex justify-between">
-                <span className="text-[7px] text-white/55">{l}</span>
-                <span className="text-[7px] text-white/35">{v}</span>
-              </div>
-            ))}
+      <div className="grid grid-cols-3 gap-2 p-3">
+        {products.map((p) => (
+          <div key={p.name} className={`rounded-xl ${p.c} border border-white/[0.06] p-2.5 flex flex-col gap-1 cursor-default hover:brightness-125 transition`}>
+            <p className="text-[9px] font-bold text-white/90 leading-tight">{p.name}</p>
+            <p className="text-[11px] font-black text-orange-400">{p.price}</p>
           </div>
-          <div className="pt-2 border-t border-white/[0.06] mt-2 space-y-1.5">
-            <div className="flex justify-between">
-              <span className="text-[7px] text-white/35">Total</span>
-              <span className="text-[9px] text-white font-black">R$ 128,00</span>
-            </div>
-            <div className="rounded-lg bg-orange-500 py-1.5 text-center text-[7.5px] font-black text-white cursor-pointer">
-              Finalizar
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
-      <div className="px-3.5 py-1.5 bg-white/[0.015] border-t border-white/[0.05] flex items-center">
-        <span className="text-[7px] text-white/25">Caixa: Felipe • turno 18h</span>
-        <span className="ml-auto text-[7px] text-green-400">● 3 pedidos ativos</span>
+      <div className="border-t border-white/[0.06] px-3.5 py-2.5 flex items-center justify-between">
+        <div>
+          <p className="text-[9px] text-white/40">Total do pedido</p>
+          <p className="text-sm font-black text-white">R$ 86,00</p>
+        </div>
+        <div className="rounded-lg bg-orange-500 px-3 py-1.5">
+          <p className="text-[10px] font-black text-white">Fechar pedido</p>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Mockup: Dashboard Financeiro ────────────────────────────────────────────
+// ─── Mockup: Dashboard ────────────────────────────────────────────────────────
 function DashboardMockup() {
-  const bars = [55, 38, 75, 50, 90, 68, 82];
+  const bars = [42, 68, 55, 90, 73, 88, 61];
+  const days = ["S", "T", "Q", "Q", "S", "S", "D"];
   return (
     <div className="rounded-2xl bg-[#0a0d14] border border-white/[0.08] overflow-hidden shadow-2xl">
-      <div className="px-4 py-2.5 border-b border-white/[0.06] flex items-center justify-between">
-        <span className="text-[10px] font-bold text-white/80">Painel Financeiro</span>
-        <span className="text-[9px] text-white/30">Hoje · Jun 20</span>
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wider mb-3">Faturamento — 7 dias</p>
+        <div className="flex items-end gap-1.5 h-20">
+          {bars.map((h, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full rounded-t-sm bg-orange-500/80 transition-all" style={{ height: `${h}%` }} />
+              <span className="text-[8px] text-white/25 font-mono">{days[i]}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="p-3 space-y-2.5">
-        <div className="grid grid-cols-3 gap-1.5">
-          {[
-            { l: "Receita Hoje", v: "R$ 2.840", c: "text-green-400", bg: "bg-green-500/10 border-green-500/20" },
-            { l: "CMV",          v: "28,4%",    c: "text-blue-400",  bg: "bg-blue-500/10 border-blue-500/20" },
-            { l: "Lucro",        v: "R$ 718",   c: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
-          ].map((k) => (
-            <div key={k.l} className={`${k.bg} rounded-xl border p-2.5`}>
-              <p className="text-[7px] text-white/35 mb-0.5">{k.l}</p>
-              <p className={`text-[11px] font-black ${k.c}`}>{k.v}</p>
-            </div>
-          ))}
-        </div>
-        <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-2.5">
-          <p className="text-[7.5px] text-white/35 mb-2">Receita por dia (semana atual)</p>
-          <div className="flex items-end gap-1 h-14">
-            {bars.map((h, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                <div className="w-full rounded-t-sm" style={{ height: `${h}%`, background: i === 4 ? "#f97316" : "rgba(249,115,22,0.45)" }} />
-                <span className="text-[5.5px] text-white/20">{["S","T","Q","Q","S","S","D"][i]}</span>
-              </div>
-            ))}
+      <div className="grid grid-cols-3 gap-px bg-white/[0.04] border-t border-white/[0.06]">
+        {[
+          { label: "Receita hoje", value: "R$2.847" },
+          { label: "Pedidos",      value: "47" },
+          { label: "Ticket médio", value: "R$60,57" },
+        ].map((k) => (
+          <div key={k.label} className="bg-[#0a0d14] p-3">
+            <p className="text-[8px] text-white/35 font-semibold uppercase tracking-wider">{k.label}</p>
+            <p className="text-sm font-black text-white mt-0.5">{k.value}</p>
           </div>
-        </div>
-        <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] p-2.5">
-          <p className="text-[7.5px] text-white/35 mb-2">Produtos mais lucrativos</p>
-          {[["Pizza Margherita", "68%", 85], ["Burger Classic", "54%", 65], ["Batata Frita", "72%", 45]].map(([n, m, b]) => (
-            <div key={n as string} className="flex items-center gap-2 mb-1.5">
-              <span className="text-[7px] text-white/55 w-20 truncate">{n}</span>
-              <div className="flex-1 h-1 rounded-full bg-white/[0.06]">
-                <div className="h-full rounded-full bg-green-500/70" style={{ width: `${b}%` }} />
-              </div>
-              <span className="text-[7px] text-green-400 font-bold">{m}</span>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ─── Mockup: Cardápio Mobile ──────────────────────────────────────────────────
+// ─── Mockup: Menu ─────────────────────────────────────────────────────────────
 function MenuMockup() {
-  return (
-    <div className="flex justify-center">
-      <div className="relative w-[188px]">
-        <div className="rounded-[2.2rem] bg-[#1a1a2e] border-[4px] border-[#2a2a40] shadow-2xl overflow-hidden">
-          <div className="flex justify-center pt-2 pb-1 bg-[#0f0f1e]">
-            <div className="w-16 h-3 rounded-full bg-[#2a2a40]" />
-          </div>
-          <div className="bg-white text-gray-900">
-            <div className="px-3 pt-3 pb-2.5 bg-orange-500">
-              <p className="text-[8.5px] font-black text-white">🍕 Bella Napoli</p>
-              <div className="flex items-center justify-between mt-0.5">
-                <p className="text-[6.5px] text-white/80">Aberto · Entrega ~35 min</p>
-                <span className="text-[6px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold">Frete R$ 5,00</span>
-              </div>
-            </div>
-            <div className="flex gap-1.5 px-2.5 py-2">
-              {["Pizzas","Bebidas","Bordas","Combos"].map((c, i) => (
-                <span key={c} className={`text-[6.5px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${i === 0 ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-500"}`}>{c}</span>
-              ))}
-            </div>
-            <div className="px-2.5 space-y-1.5">
-              {[
-                { n: "Pizza Margherita", d: "Molho, muzz, manjericão", p: "R$ 52,00" },
-                { n: "Pizza Frango", d: "Frango, cheddar, milho", p: "R$ 48,00" },
-              ].map((p) => (
-                <div key={p.n} className="flex items-center gap-2 rounded-xl bg-gray-50 p-2 border border-gray-100">
-                  <div className="w-10 h-10 rounded-lg bg-orange-100 flex-shrink-0 flex items-center justify-center text-lg">🍕</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[7.5px] font-black text-gray-900 leading-tight">{p.n}</p>
-                    <p className="text-[6px] text-gray-400 truncate">{p.d}</p>
-                    <p className="text-[8px] font-black text-orange-500 mt-0.5">{p.p}</p>
-                  </div>
-                  <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <span className="text-white text-[11px] font-black leading-none">+</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mx-2.5 mt-2 mb-2 rounded-xl bg-orange-500 py-2 flex items-center justify-between px-3 shadow-md">
-              <span className="text-[7.5px] font-black text-white">Ver pedido (1 item)</span>
-              <span className="text-[7.5px] font-black text-white">R$ 52,00</span>
-            </div>
-          </div>
-          <div className="flex justify-center py-1.5 bg-white">
-            <div className="w-10 h-[3px] rounded-full bg-gray-200" />
-          </div>
-        </div>
-        <div className="pointer-events-none absolute inset-0 rounded-[2.2rem]"
-          style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 50%)" }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Mockup: WhatsApp Chat ────────────────────────────────────────────────────
-function ChatMockup() {
-  const messages = [
-    { from: "c", text: "Boa tarde! Quero fazer um pedido 😊" },
-    { from: "b", text: "Olá! Bem-vindo à Bella Napoli 🍕 O que você vai querer hoje?" },
-    { from: "c", text: "Pizza grande de frango com borda de catupiry" },
-    { from: "b", text: "Anotado! Pizza Grande Frango + Borda Catupiry = R$ 68,00.\n\nVai pagar como — PIX ou Cartão?" },
-    { from: "c", text: "PIX" },
-    { from: "b", text: "✅ Pedido #143 confirmado! Tempo estimado: 40 min. Mandei o QR Code do PIX por aqui 👆" },
+  const items = [
+    { name: "Pizza Quatro Queijos", sub: "Muçarela, parmesão, catupiry, gorgonzola", price: "R$ 62,00", emoji: "🍕" },
+    { name: "Combo Família",        sub: "2 pizzas grandes + 2 refris 2L",           price: "R$ 119,00", emoji: "🎉" },
+    { name: "Esfiha de Carne",      sub: "Massa leve, recheio generoso",              price: "R$ 8,00",  emoji: "🥙" },
   ];
-  const times = ["14:23","14:23","14:24","14:24","14:25","14:25"];
   return (
-    <div className="rounded-2xl bg-[#0b1521] border border-white/[0.08] overflow-hidden shadow-2xl">
-      <div className="flex items-center gap-2.5 px-3 py-2.5 bg-[#1a2c3a]">
-        <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center text-white text-[9px] font-black flex-shrink-0">BN</div>
-        <div>
-          <p className="text-[10px] font-bold text-white leading-tight">Bella Napoli</p>
-          <p className="text-[7px] text-green-400">● online agora · atendente virtual</p>
-        </div>
-        <div className="ml-auto flex items-center gap-0.5">
-          {[0,1,2].map(i => <div key={i} className="w-[3px] h-[3px] rounded-full bg-white/25" />)}
-        </div>
+    <div className="rounded-2xl bg-white overflow-hidden shadow-2xl border border-black/5">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-black/5 bg-orange-500">
+        <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-sm">🍕</div>
+        <p className="text-sm font-black text-white">Pizzaria Bella Napoli</p>
       </div>
-      <div className="p-2.5 space-y-1.5" style={{ background: "#0d1f2d" }}>
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.from === "c" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[82%] rounded-2xl px-2.5 py-1.5 ${msg.from === "c" ? "bg-[#005c4b] rounded-tr-sm" : "bg-[#1f2c33] rounded-tl-sm"}`}>
-              <p className="text-[7.5px] text-white/90 leading-relaxed whitespace-pre-line">{msg.text}</p>
-              <p className={`text-[5.5px] mt-0.5 ${msg.from === "c" ? "text-right text-white/35" : "text-white/25"}`}>{times[i]} ✓✓</p>
+      <div className="divide-y divide-black/5">
+        {items.map((item) => (
+          <div key={item.name} className="flex items-start gap-3 px-4 py-3">
+            <span className="text-2xl flex-shrink-0">{item.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-gray-900 leading-tight">{item.name}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 leading-tight truncate">{item.sub}</p>
+            </div>
+            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+              <p className="text-[11px] font-black text-gray-900">{item.price}</p>
+              <div className="rounded-full bg-orange-500 w-5 h-5 flex items-center justify-center">
+                <span className="text-[10px] font-black text-white leading-none">+</span>
+              </div>
             </div>
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2 px-2.5 py-2 bg-[#1a2c3a]">
-        <div className="flex-1 rounded-2xl bg-[#2a3c4a] px-3 py-1.5">
-          <p className="text-[7.5px] text-white/20">Mensagem</p>
+    </div>
+  );
+}
+
+// ─── Mockup: Chat ─────────────────────────────────────────────────────────────
+function ChatMockup() {
+  const messages = [
+    { from: "user", text: "Oi! Quero uma pizza grande de frango com catupiry" },
+    { from: "bot",  text: "Ótima escolha! 🍕 Pizza Grande Frango com Catupiry — R$ 62,00.\nQuer adicionar borda recheada? Temos catupiry, cheddar e cream cheese!" },
+    { from: "user", text: "Borda de catupiry, sim!" },
+    { from: "bot",  text: "Perfeito! 🎉 Pedido confirmado:\n• Pizza G. Frango + Borda Catupiry — R$ 72,00\n\nEndereço de entrega?" },
+  ];
+  return (
+    <div className="rounded-2xl bg-[#0f1218] border border-white/[0.08] overflow-hidden shadow-2xl">
+      <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white/[0.03] border-b border-white/[0.06]">
+        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+          <span className="text-[10px] font-black text-white">K</span>
         </div>
-        <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
-          <ArrowRight size={11} className="text-white" />
+        <div>
+          <p className="text-[10px] font-bold text-white/90 leading-tight">Kely · Atendente IA</p>
+          <p className="text-[8px] text-green-400 font-semibold">● online agora</p>
         </div>
+      </div>
+      <div className="p-3 space-y-2">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-[10px] leading-relaxed whitespace-pre-line ${
+              m.from === "user"
+                ? "bg-green-500/90 text-white rounded-br-sm"
+                : "bg-white/[0.07] text-white/85 rounded-bl-sm"
+            }`}>
+              {m.text}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ─── Mockup: Fidelidade & Mais Vendas ────────────────────────────────────────
+// ─── Mockup: Loyalty ──────────────────────────────────────────────────────────
 function LoyaltyMockup() {
   return (
     <div className="rounded-2xl bg-[#0a0d14] border border-white/[0.08] overflow-hidden shadow-2xl">
-      <div className="px-4 py-2.5 border-b border-white/[0.06] flex items-center justify-between">
-        <span className="text-[10px] font-bold text-white/80">Fidelidade & Mais Vendas</span>
-        <span className="text-[8.5px] text-green-400">● ativo</span>
+      <div className="px-4 py-4 bg-gradient-to-b from-orange-500/15 to-transparent border-b border-white/[0.06]">
+        <p className="text-[9px] text-orange-400 font-bold uppercase tracking-wider mb-1">Programa de Fidelidade</p>
+        <p className="text-base font-black text-white">1.240 pontos</p>
+        <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: "62%" }} />
+        </div>
+        <p className="mt-1 text-[9px] text-white/40">760 pontos para o próximo brinde</p>
       </div>
-      <div className="p-3 space-y-2.5">
-        <div className="rounded-xl bg-gradient-to-r from-orange-600/25 to-orange-500/8 border border-orange-500/20 p-3">
-          <div className="flex items-center justify-between mb-2.5">
-            <div>
-              <p className="text-[7px] text-orange-300/60 mb-0.5">Cliente Fiel · Gold</p>
-              <p className="text-[11px] font-black text-white">João Silva</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[7px] text-orange-300/60 mb-0.5">Seus pontos</p>
-              <p className="text-[16px] font-black text-orange-400 leading-none">1.240 <span className="text-[9px]">pts</span></p>
-            </div>
+      <div className="divide-y divide-white/[0.04]">
+        {[
+          { desc: "Pizza Quatro Queijos",  pts: "+120 pts", color: "text-green-400" },
+          { desc: "Resgate — Borda grátis", pts: "-80 pts",  color: "text-red-400"  },
+          { desc: "Burger Clássico",        pts: "+60 pts",  color: "text-green-400" },
+        ].map((t) => (
+          <div key={t.desc} className="flex items-center justify-between px-4 py-2.5">
+            <p className="text-[10px] text-white/70 font-medium">{t.desc}</p>
+            <p className={`text-[10px] font-black ${t.color}`}>{t.pts}</p>
           </div>
-          <div className="h-1 rounded-full bg-white/10 mb-1">
-            <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-500" style={{ width: "62%" }} />
-          </div>
-          <p className="text-[6.5px] text-white/35">620 pts para o próximo brinde grátis</p>
-        </div>
-
-        <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-2.5">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Star size={9} className="text-blue-400 fill-blue-400" />
-            <p className="text-[8px] font-bold text-blue-300">Sugestão inteligente no carrinho</p>
-          </div>
-          <p className="text-[7px] text-white/50 mb-2">João adicionou Pizza — sugerir complemento?</p>
-          <div className="flex gap-1.5">
-            {[["+ Borda Catupiry", "+R$ 12"], ["+ Combo Bebida", "+R$ 8"]].map(([l, p]) => (
-              <div key={l} className="flex-1 rounded-lg bg-blue-500/15 border border-blue-500/25 py-1.5 px-2 text-center">
-                <p className="text-[7px] font-black text-blue-300">{l}</p>
-                <p className="text-[6px] text-white/35">{p}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-1.5">
-          {[
-            { l: "Cupons ativos",  v: "4",  c: "text-green-400",  bg: "bg-green-500/10 border-green-500/20" },
-            { l: "Resgatados",     v: "38", c: "text-blue-400",   bg: "bg-blue-500/10 border-blue-500/20" },
-            { l: "Clientes VIP",  v: "12", c: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
-          ].map((s) => (
-            <div key={s.l} className={`rounded-xl border ${s.bg} p-2 text-center`}>
-              <p className={`text-[14px] font-black ${s.c} leading-none`}>{s.v}</p>
-              <p className="text-[6px] text-white/35 mt-0.5 leading-tight">{s.l}</p>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -470,110 +366,87 @@ function HeroDeviceMockup() {
         <div className="flex justify-center py-2.5">
           <div className="w-2 h-2 rounded-full bg-[#3a3a3c]" />
         </div>
-        {/* Screen — 16:10 */}
-        <div className="rounded-xl overflow-hidden" style={{ aspectRatio: "8/5" }}>
-          {/* Simulated FoodSaaS landing page inside the monitor */}
-          <div className="h-full bg-[#09090b] flex flex-col">
-            {/* Top nav */}
-            <div className="flex items-center justify-between px-3 py-2 bg-[#0f1117] border-b border-white/[0.06] flex-shrink-0">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm bg-orange-500 flex items-center justify-center">
-                  <span className="text-[5px] font-black text-white">F</span>
-                </div>
-                <span className="text-[7px] font-black text-white/70">FoodSaaS ERP</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[6px] text-white/30 hidden sm:block">Sistema</span>
-                <div className="rounded-full bg-orange-500 px-2 py-0.5">
-                  <span className="text-[5.5px] font-black text-white">Agendar Demo</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Feature cards row */}
-            <div className="flex gap-1.5 px-3 pt-2 pb-1.5 flex-shrink-0">
-              {[
-                { icon: "⚡", t: "Operação rápida",   s: "PDV otimizado para velocidade" },
-                { icon: "📊", t: "Gestão completa",   s: "Financeiro, dossiê e relatórios" },
-                { icon: "📱", t: "Cardápio digital",  s: "Cardápio online com pedidos" },
-                { icon: "🤖", t: "Automação",         s: "IA no WhatsApp para vender" },
-              ].map((f) => (
-                <div key={f.t} className="flex-1 rounded-lg bg-white/[0.04] border border-white/[0.06] p-1.5">
-                  <span className="text-[8px]">{f.icon}</span>
-                  <p className="text-[4.5px] font-black text-white/80 mt-0.5 leading-tight">{f.t}</p>
-                  <p className="text-[3.5px] text-white/35 leading-tight mt-0.5 hidden lg:block">{f.s}</p>
+        {/* Screen */}
+        <div
+          className="relative overflow-hidden rounded-[12px] bg-[#07090f]"
+          style={{ aspectRatio: "8 / 5" }}
+        >
+          {/* Navbar */}
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded-md bg-orange-500/20 flex items-center justify-center">
+                <UtensilsCrossed className="w-2.5 h-2.5 text-orange-400" />
+              </div>
+              <span className="text-[8px] font-black text-white/90">FoodSaaS ERP</span>
+            </div>
+            <div className="flex-1" />
+            <div className="flex gap-1.5">
+              {["PDV", "Pedidos", "Cozinha", "Financeiro"].map((t) => (
+                <span key={t} className="text-[6px] text-white/35 font-semibold px-2 py-0.5 rounded-md bg-white/[0.04]">{t}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Body: split layout */}
+          <div className="flex h-full">
+            {/* Sidebar */}
+            <div className="w-12 border-r border-white/[0.05] bg-white/[0.01] py-3 flex flex-col gap-2 items-center">
+              {["🍕", "📦", "👨‍🍳", "💰", "📊"].map((e, i) => (
+                <div key={i} className={`w-7 h-7 rounded-lg flex items-center justify-center text-[12px] ${i === 0 ? "bg-orange-500/20" : "bg-white/[0.04]"}`}>
+                  {e}
                 </div>
               ))}
             </div>
 
-            {/* Main split: text left + PDV right */}
-            <div className="flex-1 flex gap-2 px-3 pb-2 min-h-0">
-              {/* Left text */}
-              <div className="w-[30%] flex-shrink-0 flex flex-col justify-center">
-                <p className="text-[5px] font-black text-orange-400 uppercase tracking-widest mb-1">PDV</p>
-                <h3 className="text-[9px] font-black text-white leading-tight">
-                  OPERAÇÃO<br />RÁPIDA:<br />
-                  <span className="text-orange-400">AGILIZADO</span>
-                </h3>
-                <ul className="mt-1.5 space-y-0.5">
-                  {["Lançamento de pedidos em 3 segundos", "Interface tátil e intuitiva", "Integração instantânea com KDS"].map((b) => (
-                    <li key={b} className="flex items-start gap-1">
-                      <span className="mt-[1.5px] w-1 h-1 rounded-full bg-orange-500 flex-shrink-0" />
-                      <span className="text-[4px] text-white/55 leading-tight">{b}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-2 rounded-lg bg-orange-500 px-2 py-1 text-center">
-                  <span className="text-[5px] font-black text-white">Agendar Demo</span>
-                </div>
+            {/* Content */}
+            <div className="flex-1 p-3 flex flex-col gap-2">
+              {/* Stats row */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: "Faturamento", val: "R$2.847" },
+                  { label: "Pedidos",     val: "47" },
+                  { label: "Ticket",      val: "R$60" },
+                  { label: "CMV",         val: "28%" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg bg-white/[0.04] border border-white/[0.05] p-1.5">
+                    <p className="text-[5.5px] text-white/35 font-semibold">{s.label}</p>
+                    <p className="text-[9px] font-black text-white mt-0.5">{s.val}</p>
+                  </div>
+                ))}
               </div>
 
-              {/* Right PDV screenshot */}
-              <div className="flex-1 rounded-xl bg-[#0d1020] border border-white/[0.08] overflow-hidden flex flex-col">
-                <div className="px-2 py-1 bg-[#111828] border-b border-white/[0.06] flex justify-between items-center flex-shrink-0">
-                  <span className="text-[5px] font-black text-white/60">PDV · Today</span>
-                  <span className="text-[4px] text-white/20">Current Order</span>
+              {/* PDV area label */}
+              <div className="flex items-center gap-2">
+                <span className="text-[6px] text-orange-400 font-bold uppercase tracking-wider">PDV AGILIZADO</span>
+                <div className="flex-1 h-px bg-white/[0.06]" />
+              </div>
+
+              {/* Product grid */}
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { name: "Pizza Margherita", price: "R$52", c: "bg-orange-500/15" },
+                  { name: "Burger Classic",   price: "R$34", c: "bg-blue-500/15" },
+                  { name: "Coca-Cola 2L",     price: "R$12", c: "bg-red-500/15" },
+                  { name: "Pizza Frango",     price: "R$48", c: "bg-purple-500/15" },
+                  { name: "Batata Frita",     price: "R$18", c: "bg-amber-500/15" },
+                  { name: "Milk Shake",       price: "R$22", c: "bg-green-500/15" },
+                ].map((p) => (
+                  <div key={p.name} className={`${p.c} border border-white/[0.05] rounded-lg p-2`}>
+                    <p className="text-[7px] font-bold text-white/85 leading-tight">{p.name}</p>
+                    <p className="text-[9px] font-black text-orange-400 mt-0.5">{p.price}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cart strip */}
+              <div className="mt-auto flex items-center justify-between rounded-xl bg-orange-500/10 border border-orange-500/20 px-3 py-2">
+                <div>
+                  <p className="text-[6px] text-white/40">Pedido em aberto · 3 itens</p>
+                  <p className="text-[10px] font-black text-white">R$ 86,00</p>
                 </div>
-                <div className="flex flex-1 min-h-0">
-                  {/* Product grid */}
-                  <div className="flex-1 p-1.5 grid grid-cols-3 gap-1 content-start">
-                    {[
-                      { n: "Pizza Mg.", c: "bg-orange-500/15", emoji: "🍕" },
-                      { n: "Hambúrg.", c: "bg-yellow-500/15", emoji: "🍔" },
-                      { n: "Batata",   c: "bg-amber-500/15",  emoji: "🍟" },
-                      { n: "Coca",     c: "bg-red-500/15",    emoji: "🥤" },
-                      { n: "Pizza Fg.", c: "bg-orange-500/15", emoji: "🍕" },
-                      { n: "Hambúrg.", c: "bg-yellow-500/15", emoji: "🍔" },
-                    ].map((p, i) => (
-                      <div key={i} className={`${p.c} rounded-lg border border-white/[0.05] p-1`}>
-                        <div className="h-6 rounded-md bg-white/[0.06] mb-0.5 flex items-center justify-center text-[10px]">
-                          {p.emoji}
-                        </div>
-                        <p className="text-[4px] text-white/55 truncate leading-tight">{p.n}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Cart sidebar */}
-                  <div className="w-14 border-l border-white/[0.06] p-1.5 bg-black/20 flex flex-col">
-                    <p className="text-[4.5px] font-black text-white/35 uppercase tracking-wide mb-1">Carrinho</p>
-                    <div className="flex-1 space-y-0.5">
-                      {[["1× Pizza", "31,99"], ["Garçom 1", "3,00"], ["Sobrem 2", "1,99"]].map(([l, v]) => (
-                        <div key={l} className="flex justify-between">
-                          <span className="text-[4px] text-white/40">{l}</span>
-                          <span className="text-[4px] text-white/25">{v}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="pt-1 border-t border-white/[0.06]">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-[4px] text-white/30">Total</span>
-                        <span className="text-[5px] font-black text-white">$35,00</span>
-                      </div>
-                      <div className="rounded bg-orange-500 py-1 text-center">
-                        <span className="text-[4.5px] font-black text-white">Finalizar</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="rounded-lg bg-orange-500 px-2.5 py-1">
+                  <span className="text-[7px] font-black text-white">Finalizar</span>
                 </div>
               </div>
             </div>
@@ -688,189 +561,6 @@ function PillarsSection() {
   );
 }
 
-// ─── Portfolio Simulator ──────────────────────────────────────────────────────
-interface PortfolioSimulatorProps { niche: NicheKey; }
-
-function PortfolioSimulator({ niche }: PortfolioSimulatorProps) {
-  const [items, setItems] = useState<MenuItem[]>(() => [...NICHE_MENU_ITEMS[niche]]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const nicheEmoji = NICHE_DATA[niche].badge.split(" ")[0];
-
-  function startEdit(item: MenuItem) { setEditingId(item.id); setEditValue(item.name); }
-  function commitEdit(id: string) {
-    if (editValue.trim()) setItems((p) => p.map((i) => i.id === id ? { ...i, name: editValue.trim() } : i));
-    setEditingId(null);
-  }
-  function deleteItem(id: string) { setItems((p) => p.filter((i) => i.id !== id)); }
-  function moveItem(index: number, dir: -1 | 1) {
-    const nx = index + dir;
-    if (nx < 0 || nx >= items.length) return;
-    const next = [...items];
-    [next[index], next[nx]] = [next[nx], next[index]];
-    setItems(next);
-  }
-
-  return (
-    <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-3">
-            Simulador Interativo
-          </span>
-          <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-            Simule o cardápio do seu negócio
-          </h2>
-          <p className="mt-1.5 text-sm text-white/45 max-w-lg">
-            Edite nomes, reordene categorias e exclua o que não quiser — veja em tempo real como ficaria seu cardápio digital.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="flex rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-            {(["grid", "list"] as const).map((mode) => (
-              <button key={mode} onClick={() => setViewMode(mode)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${viewMode === mode ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white/70"}`}>
-                {mode === "grid" ? <><LayoutGrid className="h-3.5 w-3.5" /> Grade</> : <><List className="h-3.5 w-3.5" /> Lista</>}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => { setItems([...NICHE_MENU_ITEMS[niche]]); setEditingId(null); }}
-            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/55 transition hover:bg-white/10 hover:text-white">
-            <RotateCcw className="h-3 w-3" /> Resetar
-          </button>
-        </div>
-      </div>
-
-      {/* Mock browser frame */}
-      <div className="rounded-3xl border border-white/[0.08] bg-[#0b0e18] overflow-hidden shadow-2xl">
-        {/* Browser bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-          <div className="flex gap-1.5">
-            {["bg-red-500/50", "bg-yellow-500/50", "bg-green-500/50"].map((c, i) => (
-              <div key={i} className={`w-2.5 h-2.5 rounded-full ${c}`} />
-            ))}
-          </div>
-          <div className="flex-1 mx-3 rounded-lg bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-white/25 font-mono">
-            cardapio.foodsaas.app/minha-loja
-          </div>
-          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-400/20 border border-green-400/30">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-          </span>
-        </div>
-
-        {/* Menu header */}
-        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-xl">
-              {nicheEmoji}
-            </div>
-            <div>
-              <p className="text-sm font-black text-white leading-tight">Minha Loja</p>
-              <p className="text-[10px] text-green-400">● Aberto · Pedidos online ativos</p>
-            </div>
-          </div>
-          <span className="text-[10px] text-white/30 border border-white/[0.08] rounded-full px-2.5 py-1">
-            {items.length} categoria{items.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {/* Empty state */}
-        {items.length === 0 && (
-          <div className="py-16 text-center">
-            <p className="text-4xl mb-3">📭</p>
-            <p className="text-sm font-semibold text-white/50">Sem categorias</p>
-            <p className="text-xs text-white/30 mt-1">Clique em &quot;Resetar&quot; para restaurar</p>
-          </div>
-        )}
-
-        {/* Grid view */}
-        {items.length > 0 && viewMode === "grid" && (
-          <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {items.map((item, index) => (
-              <div key={item.id} className="group relative rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 transition-all hover:border-orange-500/20 hover:bg-white/[0.05]">
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                  <button onClick={() => moveItem(index, -1)} disabled={index === 0}
-                    className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
-                    <ChevronUp className="h-2.5 w-2.5 text-white" />
-                  </button>
-                  <button onClick={() => moveItem(index, 1)} disabled={index === items.length - 1}
-                    className="w-5 h-5 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
-                    <ChevronDown className="h-2.5 w-2.5 text-white" />
-                  </button>
-                  <button onClick={() => deleteItem(item.id)}
-                    className="w-5 h-5 rounded-md bg-red-500/15 hover:bg-red-500/35 flex items-center justify-center transition">
-                    <X className="h-2.5 w-2.5 text-red-400" />
-                  </button>
-                </div>
-                <div className="text-3xl mb-3 leading-none">{item.emoji}</div>
-                {editingId === item.id ? (
-                  <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={() => commitEdit(item.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item.id); if (e.key === "Escape") setEditingId(null); }}
-                    className="w-full bg-white/10 border border-orange-500/60 rounded-lg px-2 py-1 text-xs font-bold text-white focus:outline-none focus:border-orange-500" />
-                ) : (
-                  <p onClick={() => startEdit(item)} title="Clique para editar"
-                    className="text-xs font-bold text-white/85 cursor-text hover:text-orange-400 transition-colors leading-snug">
-                    {item.name}
-                  </p>
-                )}
-                <p className="text-[10px] text-white/30 mt-1">{item.count} itens</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* List view */}
-        {items.length > 0 && viewMode === "list" && (
-          <div className="divide-y divide-white/[0.04]">
-            {items.map((item, index) => (
-              <div key={item.id} className="group flex items-center gap-4 px-5 py-3 transition hover:bg-white/[0.02]">
-                <span className="text-2xl flex-shrink-0 w-8 text-center">{item.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  {editingId === item.id ? (
-                    <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={() => commitEdit(item.id)}
-                      onKeyDown={(e) => { if (e.key === "Enter") commitEdit(item.id); if (e.key === "Escape") setEditingId(null); }}
-                      className="w-full max-w-[220px] bg-white/10 border border-orange-500/60 rounded-lg px-2 py-0.5 text-sm font-bold text-white focus:outline-none" />
-                  ) : (
-                    <p onClick={() => startEdit(item)} title="Clique para editar"
-                      className="text-sm font-bold text-white/85 cursor-text hover:text-orange-400 transition-colors truncate">
-                      {item.name}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-white/30">{item.count} itens</p>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                  <button onClick={() => moveItem(index, -1)} disabled={index === 0}
-                    className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
-                    <ChevronUp className="h-3.5 w-3.5 text-white" />
-                  </button>
-                  <button onClick={() => moveItem(index, 1)} disabled={index === items.length - 1}
-                    className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed transition">
-                    <ChevronDown className="h-3.5 w-3.5 text-white" />
-                  </button>
-                  <button onClick={() => deleteItem(item.id)}
-                    className="w-7 h-7 rounded-lg bg-red-500/15 hover:bg-red-500/35 flex items-center justify-center transition">
-                    <X className="h-3.5 w-3.5 text-red-400" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Hint footer */}
-        <div className="px-5 py-3 border-t border-white/[0.05] bg-white/[0.01]">
-          <p className="text-[10px] text-white/20">
-            💡 Passe o mouse sobre uma categoria para editar, reordenar ou excluir
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ─── Lead Capture Modal ───────────────────────────────────────────────────────
 interface LeadForm { name: string; email: string; whatsapp: string; restaurantName: string; }
 interface LeadCaptureModalProps { demo: DemoAccount; onClose: () => void; onConfirm: (form: LeadForm) => Promise<void>; loading: boolean; }
@@ -953,12 +643,8 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
 // ─── Main page ────────────────────────────────────────────────────────────────
 function DemoContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [selectedNiche, setSelectedNiche] = useState<NicheKey>(() =>
-    resolveNiche(searchParams.get("niche"))
-  );
-  const nicheContent = NICHE_DATA[selectedNiche];
   const { setAuth } = useAuthStore();
+  const [selectedNiche, setSelectedNiche] = useState<string>("Restaurantes");
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
@@ -1041,16 +727,9 @@ function DemoContent() {
 
             {/* Left column — copy */}
             <div className="flex-1 text-center lg:text-left">
-              <div className="inline-flex flex-col items-center lg:items-start gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
-                  Demonstrações ao vivo
-                </span>
-                {selectedNiche !== "restaurante" && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold text-white/55">
-                    {nicheContent.badge}
-                  </span>
-                )}
-              </div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
+                Demonstrações ao vivo
+              </span>
 
               <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
                 FoodSaaS{" "}
@@ -1061,16 +740,10 @@ function DemoContent() {
 
               <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto lg:mx-0">
                 Sistema completo para{" "}
-                <span className="text-white/80 font-semibold">{nicheContent.heroHighlight}</span>
-                {selectedNiche === "restaurante" && (
-                  <>
-                    ,{" "}
-                    <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
-                    <span className="text-white/80 font-semibold">conveniências, pastelarias</span>{" "}
-                    e <span className="text-white/80 font-semibold">marmitarias</span>
-                  </>
-                )}
-                .
+                <span className="text-white/80 font-semibold">pizzarias, restaurantes</span>,{" "}
+                <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
+                <span className="text-white/80 font-semibold">conveniências, marmitarias</span>{" "}
+                e muito mais.
               </p>
 
               <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -1098,56 +771,75 @@ function DemoContent() {
         {/* ── PILLARS (interactive tabs) ── */}
         <PillarsSection />
 
-        {/* ── NICHE SELECTOR + PLAN CARDS ── */}
-        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
-          <div className="mb-8 text-center">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Para qual segmento você quer ver a demo?</h2>
-            <p className="mt-3 text-sm text-white/50">Clique no seu tipo de negócio — os planos se adaptam na hora.</p>
+        {/* ── ESCOLHA UMA DEMONSTRAÇÃO ── */}
+        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
+              Escolha uma demonstração
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Acesse, explore — e veja como o FoodSaaS ERP pode transformar seu negócio
+            </p>
           </div>
 
-          {/* Niche pills */}
-          <div className="flex flex-wrap justify-center gap-3 mb-10">
-            {NICHES_LIST.map((n) => {
-              const isActive = selectedNiche === n.key;
-              return (
-                <button key={n.key} onClick={() => setSelectedNiche(n.key)}
-                  className={`flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold transition-all duration-200 ${
-                    isActive
-                      ? "border-orange-500/50 bg-orange-500/15 text-white shadow-[0_0_24px_-4px_rgba(249,115,22,0.4)]"
-                      : "border-white/[0.07] bg-white/[0.025] text-white/55 hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-white/85"
-                  }`}>
-                  <span className="text-base">{n.emoji}</span>
-                  <span>{n.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Plan cards — dynamic */}
           <div className="grid gap-6 md:grid-cols-3">
-            {DEMO_ACCOUNTS.map((demo) => {
-              const pk = planKey(demo.plan);
-              const enriched: DemoAccount = {
-                ...demo,
-                tagline:  nicheContent.plans[pk].tagline,
-                features: nicheContent.plans[pk].features,
-              };
+            {PLAN_CARDS.map((card) => {
+              const demo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
+              const activeImg = card.images[selectedNiche] ?? card.defaultImg;
+
               return (
-                <DemoCard
-                  key={demo.id}
-                  demo={enriched}
-                  screenshot={nicheContent.screenshots[pk]}
-                  loading={entering === demo.id}
-                  disabled={entering !== null && entering !== demo.id}
-                  onSelect={() => setModalDemo(enriched)}
-                />
+                <div
+                  key={card.plan}
+                  className="flex flex-col overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0d1117] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.6)]"
+                >
+                  {/* White niche selection box */}
+                  <div className="m-4 mb-0 rounded-2xl bg-white p-4">
+                    {card.niches.map((niche) => (
+                      <button
+                        key={niche}
+                        onClick={() => setSelectedNiche(niche)}
+                        className={`block w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                          selectedNiche === niche
+                            ? "font-bold text-red-600"
+                            : "font-medium text-gray-900 hover:text-gray-500"
+                        }`}
+                      >
+                        {niche}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Dynamic image */}
+                  <div className="relative mx-4 mt-4 h-36 overflow-hidden rounded-2xl">
+                    <Image
+                      src={activeImg}
+                      alt={card.label}
+                      fill
+                      className="object-cover transition-all duration-500"
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                    />
+                  </div>
+
+                  {/* Plan info + CTA */}
+                  <div className="flex flex-1 flex-col justify-between p-5">
+                    <h3 className="mb-4 text-lg font-black text-white">{card.label}</h3>
+                    <button
+                      onClick={() => setModalDemo(demo)}
+                      disabled={entering !== null}
+                      className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${card.btnClass}`}
+                    >
+                      {entering === demo.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : null}
+                      Testar{" "}
+                      {card.plan.charAt(0) + card.plan.slice(1).toLowerCase()}
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
         </section>
-
-        {/* ── PORTFOLIO SIMULATOR ── */}
-        <PortfolioSimulator key={selectedNiche} niche={selectedNiche} />
 
         {/* ── COMPARISON TABLE ── */}
         <section className="mx-auto max-w-4xl px-5 pb-28 sm:px-8">
@@ -1231,51 +923,5 @@ export default function DemoPage() {
     <Suspense fallback={<div className="min-h-screen bg-[#07090f]" />}>
       <DemoContent />
     </Suspense>
-  );
-}
-
-// ─── Demo Card ────────────────────────────────────────────────────────────────
-interface DemoCardProps { demo: DemoAccount; screenshot: string; loading: boolean; disabled: boolean; onSelect: () => void; }
-
-function DemoCard({ demo, screenshot, loading, disabled, onSelect }: DemoCardProps) {
-  const color = demo.primaryColor;
-  return (
-    <article
-      className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0b0e18] shadow-[0_2px_0_rgba(255,255,255,0.04)_inset,0_24px_48px_-16px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)]"
-      style={{ boxShadow: `0 0 0 1px rgba(255,255,255,0.04), 0 24px 60px -20px ${color}44` }}
-    >
-      <div className="relative h-40 overflow-hidden">
-        <Image src={screenshot} alt={`Preview ${demo.label}`} fill className="object-cover transition-transform duration-500 group-hover:scale-105" sizes="(max-width: 768px) 100vw, 33vw" />
-        <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${color}22 0%, #0b0e18 100%)` }} />
-        <span className="absolute left-4 top-4 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest backdrop-blur"
-          style={{ color, backgroundColor: `${color}33`, border: `1px solid ${color}55` }}>
-          {demo.plan}
-        </span>
-      </div>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 opacity-30 transition-opacity duration-300 group-hover:opacity-50"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${color}55, transparent 70%)` }} aria-hidden />
-      <div className="relative flex flex-1 flex-col p-7">
-        <h2 className="text-xl font-black tracking-tight">{demo.label}</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-white/55">{demo.tagline}</p>
-        <ul className="mt-5 space-y-2.5 flex-1">
-          {demo.features.map((feat) => (
-            <li key={feat} className="flex items-start gap-2.5 text-sm text-white/75">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                style={{ backgroundColor: `${color}22` }}>
-                <Check className="h-3 w-3" style={{ color }} strokeWidth={3} />
-              </span>
-              {feat}
-            </li>
-          ))}
-        </ul>
-        <button onClick={onSelect} disabled={loading || disabled}
-          className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ backgroundColor: color, boxShadow: `0 8px 24px -8px ${color}cc, inset 0 1px 0 rgba(255,255,255,0.15)` }}>
-          {loading
-            ? (<><Loader2 className="h-4 w-4 animate-spin" />Abrindo…</>)
-            : `Testar ${demo.plan.charAt(0) + demo.plan.slice(1).toLowerCase()}`}
-        </button>
-      </div>
-    </article>
   );
 }

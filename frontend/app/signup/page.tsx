@@ -34,6 +34,7 @@ export default function SignupPage() {
     companyName: "",
     name: "",
     email: "",
+    whatsapp: "",
     password: "",
     confirmPassword: "",
   });
@@ -68,6 +69,7 @@ export default function SignupPage() {
         name: form.name,
         email: form.email,
         password: form.password,
+        whatsapp: form.whatsapp || undefined,
         businessSegment: segment || "RESTAURANTE",
       });
       setAuth(data.accessToken, data.user);
@@ -166,6 +168,15 @@ export default function SignupPage() {
                 onChange={(e) => set("email", e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 focus:border-green-500 transition text-white p-4 rounded-2xl outline-none"
                 autoComplete="email"
+              />
+              <input
+                type="tel"
+                placeholder="WhatsApp (opcional) — ex: 41999999999"
+                value={form.whatsapp}
+                onChange={(e) => set("whatsapp", e.target.value.replace(/\D/g, ""))}
+                className="w-full bg-slate-800 border border-slate-700 focus:border-green-500 transition text-white p-4 rounded-2xl outline-none"
+                autoComplete="tel"
+                maxLength={13}
               />
               <PasswordInput
                 value={form.password}

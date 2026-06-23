@@ -20,9 +20,9 @@ export class CategoriesService {
         categoryType: data.categoryType ?? 'normal',
         displayColumns: data.displayColumns ?? 4,
         sortOrder: nextSort,
-        // White Label Fase 4 — banner por categoria (base64 ou URL)
-        ...(data.bannerImage !== undefined && {
-          bannerImage: data.bannerImage,
+        ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+        ...(data.parentCategoryId !== undefined && data.parentCategoryId !== null && {
+          parent: { connect: { id: data.parentCategoryId } },
         }),
         company: { connect: { id: data.companyId } },
       },
@@ -41,6 +41,21 @@ export class CategoriesService {
         bannerImage: true,
         sortOrder: true,
         companyId: true,
+        parentCategoryId: true,
+        children: {
+          select: {
+            id: true,
+            name: true,
+            categoryType: true,
+            displayColumns: true,
+            allowMultipleFlavors: true,
+            bannerImage: true,
+            sortOrder: true,
+            companyId: true,
+            parentCategoryId: true,
+          },
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        },
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
@@ -55,23 +70,19 @@ export class CategoriesService {
       categoryType?: string;
       displayColumns?: number;
       bannerImage?: string | null;
+      parentCategoryId?: string | null;
     },
   ) {
     return this.prisma.category.update({
       where: { id, companyId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
-        ...(data.allowMultipleFlavors !== undefined && {
-          allowMultipleFlavors: data.allowMultipleFlavors,
-        }),
-        ...(data.categoryType !== undefined && {
-          categoryType: data.categoryType,
-        }),
-        ...(data.displayColumns !== undefined && {
-          displayColumns: data.displayColumns,
-        }),
-        ...(data.bannerImage !== undefined && {
-          bannerImage: data.bannerImage,
+        ...(data.allowMultipleFlavors !== undefined && { allowMultipleFlavors: data.allowMultipleFlavors }),
+        ...(data.categoryType !== undefined && { categoryType: data.categoryType }),
+        ...(data.displayColumns !== undefined && { displayColumns: data.displayColumns }),
+        ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+        ...(data.parentCategoryId !== undefined && {
+          parentCategoryId: data.parentCategoryId,
         }),
       },
     });

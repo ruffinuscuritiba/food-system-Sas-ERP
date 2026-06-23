@@ -390,6 +390,11 @@ model Category {
   // White Label — banner exibido no topo do PDV ao selecionar esta categoria (Fase 5)
   bannerImage String?
 
+  // Hierarquia: categoria pai (opcional) — subcategorias ficam aninhadas no PDV
+  parentCategoryId String?
+  parent           Category?  @relation("CategoryParent", fields: [parentCategoryId], references: [id], onDelete: SetNull)
+  children         Category[] @relation("CategoryParent")
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])

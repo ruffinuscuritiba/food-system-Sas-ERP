@@ -203,6 +203,85 @@ const SEGMENT_DATA: Record<string, CategoryDef[]> = {
       { name: 'Chá Especial', salePrice: 8.9, costPrice: 2.5 },
     ]},
   ],
+  HAMBURGUERIA: [
+    { name: 'Burguers', products: [
+      { name: 'X-Burguer Clássico', description: 'Blend 180g, queijo, alface, tomate e maionese', salePrice: 24.9, costPrice: 9.0 },
+      { name: 'Smash Duplo', description: 'Dois blends 90g smashados com cheddar e picles', salePrice: 32.9, costPrice: 12.0 },
+      { name: 'Cheddar Bacon', description: 'Blend 180g com cheddar cremoso e bacon crocante', salePrice: 29.9, costPrice: 11.0 },
+      { name: 'Burguer Frango Crispy', description: 'Peito de frango empanado crocante com aioli', salePrice: 27.9, costPrice: 10.0 },
+    ]},
+    { name: 'Combos', products: [
+      { name: 'Combo Clássico', description: 'X-Burguer + Batata Frita + Refrigerante', salePrice: 38.9, costPrice: 14.0 },
+      { name: 'Combo Smash', description: 'Smash Duplo + Batata Rústica + Refrigerante', salePrice: 46.9, costPrice: 17.0 },
+    ]},
+    { name: 'Acompanhamentos', products: [
+      { name: 'Batata Frita Crocante', description: 'Batata palito crocante com sal defumado', salePrice: 12.9, costPrice: 3.5 },
+      { name: 'Batata Rústica', description: 'Batata com casca temperada ao forno', salePrice: 14.9, costPrice: 4.0 },
+      { name: 'Anéis de Cebola', description: 'Anéis empanados com molho ranch', salePrice: 14.9, costPrice: 4.5 },
+    ]},
+    { name: 'Bebidas & Shakes', products: [
+      { name: 'Milkshake Chocolate 400ml', description: 'Sorvete batido com leite e chocolate', salePrice: 18.9, costPrice: 6.0 },
+      { name: 'Milkshake Morango 400ml', description: 'Sorvete batido com leite e morango fresco', salePrice: 18.9, costPrice: 6.0 },
+      { name: 'Refrigerante Lata 350ml', salePrice: 6.9, costPrice: 2.5 },
+    ]},
+  ],
+  ACAI: [
+    { name: 'Açaí', products: [
+      { name: 'Açaí 300ml', description: 'Açaí puro na consistência cremosa', salePrice: 16.9, costPrice: 6.0 },
+      { name: 'Açaí 500ml', description: 'Açaí puro na consistência cremosa', salePrice: 24.9, costPrice: 9.0 },
+      { name: 'Açaí 700ml', description: 'Açaí puro na consistência cremosa', salePrice: 32.9, costPrice: 12.0 },
+      { name: 'Açaí 1L (Família)', description: 'Açaí puro no potão para a família', salePrice: 42.9, costPrice: 16.0 },
+    ]},
+    { name: 'Tigelas Especiais', products: [
+      { name: 'Tigela Tropical', description: 'Açaí + banana + granola + mel + frutas da estação', salePrice: 28.9, costPrice: 10.0 },
+      { name: 'Tigela Power', description: 'Açaí + amendoim + banana + mel', salePrice: 34.9, costPrice: 13.0 },
+      { name: 'Tigela Kids', description: 'Açaí pequeno + granola + leite ninho + confetes', salePrice: 19.9, costPrice: 7.0 },
+    ]},
+    { name: 'Vitaminas & Smoothies', products: [
+      { name: 'Vitamina de Mamão', description: 'Mamão com leite e mel', salePrice: 14.9, costPrice: 4.5 },
+      { name: 'Smoothie Verde Detox', description: 'Couve, maçã, gengibre e água de coco', salePrice: 18.9, costPrice: 6.0 },
+      { name: 'Vitamina de Morango com Banana', salePrice: 15.9, costPrice: 5.0 },
+    ]},
+    { name: 'Adicionais', products: [
+      { name: 'Granola (100g)', salePrice: 5.9, costPrice: 2.0 },
+      { name: 'Leite Ninho (colher)', salePrice: 4.9, costPrice: 1.5 },
+      { name: 'Paçoca (un)', salePrice: 3.9, costPrice: 1.0 },
+      { name: 'Nutella (colher)', salePrice: 5.9, costPrice: 2.5 },
+      { name: 'Frutas Extras (porção)', salePrice: 6.9, costPrice: 2.5 },
+    ]},
+  ],
+  MERCADO: [
+    { name: 'Bebidas & Frios', products: [
+      { name: 'Coca-Cola 2L', salePrice: 10.9, costPrice: 6.5 },
+      { name: 'Coca-Cola Lata 350ml', salePrice: 5.9, costPrice: 3.0 },
+      { name: 'Água Mineral 1,5L', salePrice: 3.9, costPrice: 1.5 },
+      { name: 'Suco de Laranja 1L', salePrice: 7.9, costPrice: 4.5 },
+      { name: 'Cerveja Lata 350ml', salePrice: 5.9, costPrice: 2.8 },
+    ]},
+    { name: 'Laticínios', products: [
+      { name: 'Leite Integral 1L', salePrice: 6.9, costPrice: 4.5 },
+      { name: 'Queijo Mussarela (kg)', description: 'Preço por kg no balcão', salePrice: 42.9, costPrice: 28.0 },
+      { name: 'Iogurte Natural 170g', salePrice: 4.9, costPrice: 2.5 },
+      { name: 'Manteiga com Sal 200g', salePrice: 12.9, costPrice: 8.0 },
+    ]},
+    { name: 'Mercearia', products: [
+      { name: 'Arroz Branco 5kg', salePrice: 28.9, costPrice: 20.0 },
+      { name: 'Feijão Preto 1kg', salePrice: 9.9, costPrice: 6.5 },
+      { name: 'Macarrão Espaguete 500g', salePrice: 4.9, costPrice: 2.5 },
+      { name: 'Óleo de Soja 900ml', salePrice: 7.9, costPrice: 5.0 },
+      { name: 'Açúcar Cristal 1kg', salePrice: 5.9, costPrice: 3.5 },
+    ]},
+    { name: 'Frios & Embutidos', products: [
+      { name: 'Presunto Cozido (100g)', salePrice: 4.9, costPrice: 2.8 },
+      { name: 'Calabresa Fatiada (100g)', salePrice: 5.9, costPrice: 3.0 },
+      { name: 'Requeijão Cremoso 200g', salePrice: 7.9, costPrice: 4.5 },
+    ]},
+    { name: 'Limpeza & Higiene', products: [
+      { name: 'Detergente 500ml', salePrice: 2.9, costPrice: 1.5 },
+      { name: 'Sabão em Pó 1kg', salePrice: 12.9, costPrice: 8.0 },
+      { name: 'Papel Higiênico (4 rolos)', salePrice: 7.9, costPrice: 4.5 },
+    ]},
+  ],
 };
 
 @Injectable()

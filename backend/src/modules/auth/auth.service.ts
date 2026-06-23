@@ -16,20 +16,42 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { SegmentSeedService } from '@/modules/segment-seed/segment-seed.service';
 
 /** Gera sidebarConfig inicial baseado no segmento de negócio.
- *  Itens com false ficam ocultos por padrão (usuário pode ligar depois). */
+ *  Itens com false ficam ocultos por padrão (usuário pode ligar depois em Configurações).
+ *
+ *  Motor 1 – Restauração completa (KDS + Mesas + Estoque + Entrega)
+ *    PIZZARIA, RESTAURANTE, LANCHONETE, CHURRASCARIA
+ *  Motor 2 – Fast-food / Balcão (KDS, sem Mesas)
+ *    HOT_DOG, HAMBURGUERIA, PASTELARIA
+ *  Motor 3 – Produção / Vitrine (sem KDS de comanda, sem Mesas)
+ *    MARMITARIA, ACAI, PADARIA, DOCERIA
+ *  Motor 4 – Varejo (sem Cozinha, sem Mesas, sem Receitas)
+ *    CONVENIENCIA, MERCADO
+ */
 function buildDefaultSidebarConfig(segment: string): Record<string, boolean> {
-  const noPizza = { 'pizza-borders': false };
+  const noPizza   = { 'pizza-borders': false } as const;
+  const noTables  = { tables: false, 'qrcode-mesas': false } as const;
+  const noKitchen = { kitchen: false } as const;
+  const noRecipes = { recipes: false, ingredients: false } as const;
+  const noComplements = { complements: false } as const;
+
   const configs: Record<string, Record<string, boolean>> = {
+    // Motor 1 — restauração completa
     PIZZARIA:     {},
     RESTAURANTE:  { ...noPizza },
     LANCHONETE:   { ...noPizza },
     CHURRASCARIA: { ...noPizza },
-    MARMITARIA:   { ...noPizza },
-    HOT_DOG:      { ...noPizza },
-    PASTELARIA:   { ...noPizza },
-    PADARIA:      { ...noPizza },
-    DOCERIA:      { ...noPizza },
-    CONVENIENCIA: { ...noPizza, kitchen: false, tables: false },
+    // Motor 2 — fast-food / balcão (sem mesas)
+    HOT_DOG:      { ...noPizza, ...noTables },
+    HAMBURGUERIA: { ...noPizza, ...noTables },
+    PASTELARIA:   { ...noPizza, ...noTables },
+    // Motor 3 — produção / vitrine (sem comanda de cozinha, sem mesas)
+    MARMITARIA:   { ...noPizza, ...noTables, ...noComplements },
+    ACAI:         { ...noPizza, ...noTables, ...noKitchen },
+    PADARIA:      { ...noPizza, ...noTables, ...noComplements },
+    DOCERIA:      { ...noPizza, ...noTables, ...noComplements },
+    // Motor 4 — varejo (sem cozinha, mesas, receitas)
+    CONVENIENCIA: { ...noPizza, ...noTables, ...noKitchen, ...noRecipes, ...noComplements },
+    MERCADO:      { ...noPizza, ...noTables, ...noKitchen, ...noRecipes, ...noComplements },
   };
   return configs[segment] ?? { ...noPizza };
 }

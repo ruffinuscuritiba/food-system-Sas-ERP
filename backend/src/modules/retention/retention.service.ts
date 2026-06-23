@@ -33,6 +33,7 @@ export class RetentionService {
    * Runs every day at 03:00 (server time).
    * 1. Deletes demo/trial companies older than 31 days that never converted.
    * 2. Sends renewal reminder emails to ex-paying customers at day 5 / 15 / 30.
+   * 3. Sends WA retention messages at trial -3 days and -1 day.
    */
   @Cron('0 3 * * *')
   async runDailyRetention() {
@@ -46,6 +47,11 @@ export class RetentionService {
       await this.sendRenewalReminders();
     } catch (err) {
       this.logger.error(`[Retention] sendRenewalReminders failed: ${(err as Error)?.message}`);
+    }
+    try {
+      await this.sendTrialWarnings();
+    } catch (err) {
+      this.logger.error(`[Retention] sendTrialWarnings failed: ${(err as Error)?.message}`);
     }
     this.logger.log('[Retention] Daily run complete');
   }
@@ -172,5 +178,108 @@ export class RetentionService {
     }
 
     this.logger.log(`[Retention] Reminders complete — ${sent} emails sent`);
+  }
+
+  // ── 3. Trial warnings: WA messages at -3 and -1 days before trial expires ───
+
+  private async sendEvolutionWA(phone: string, text: string): Promise<void> {
+    const apiUrl   = this.config.get<string>('EVOLUTION_API_URL');
+    const apiKey   = this.config.get<string>('EVOLUTION_API_KEY');
+    const instance = this.config.get<string>('EVOLUTION_INSTANCE_NAME');
+    if (!apiUrl || !apiKey || !instance || !phone) return;
+    await fetch(`${apiUrl}/message/sendText/${instance}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ number: phone, text }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  }
+
+  private async sendTrialWarnings() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ||
+      'https://food-system-sas-erp-frontend.vercel.app';
+
+    // Support contact shown in the message
+    const supportWA =
+      this.config.get<string>('SUPPORT_WHATSAPP') || '5567991753455';
+
+    const trialCompanies = await this.prisma.company.findMany({
+      where: {
+        wasEverActive: false,
+        subscriptionStatus: 'PENDING_PAYMENT',
+        dueDate: { not: null },
+        isBlocked: false,
+        whatsapp: { not: null },
+      },
+      include: {
+        users: { where: { role: 'ADMIN' }, take: 1 },
+      },
+    });
+
+    let sent = 0;
+
+    for (const company of trialCompanies) {
+      if (!company.dueDate || !company.whatsapp) continue;
+      if (isMatrixCompany(company.id)) continue;
+
+      const adminEmail = company.users[0]?.email ?? '';
+      if (DEMO_EMAILS.includes(adminEmail)) continue;
+
+      const dueDate = new Date(company.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      const daysLeft = Math.round(
+        (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      let msg: string | null = null;
+
+      if (daysLeft === 3) {
+        msg =
+          `Olá, *${company.users[0]?.name ?? company.name}*! 👋\n\n` +
+          `Seu teste grátis do *FoodSaaS* termina em *3 dias* (${dueDate.toLocaleDateString('pt-BR')}).\n\n` +
+          `Durante o teste você experimentou:\n` +
+          `✅ PDV com carrinho e pagamentos\n` +
+          `✅ Cardápio digital para seus clientes\n` +
+          `✅ Gestão de cozinha em tempo real\n` +
+          `✅ Controle de estoque e financeiro\n\n` +
+          `Não perca o acesso! Garanta seu plano agora com *a partir de R$ 97/mês*:\n` +
+          `👉 ${frontendUrl}/assinatura\n\n` +
+          `Ficou com alguma dúvida? Fale com a gente:\n` +
+          `📱 wa.me/${supportWA}`;
+      } else if (daysLeft === 1) {
+        msg =
+          `⏰ *Último dia de teste, ${company.users[0]?.name ?? company.name}!*\n\n` +
+          `Seu acesso ao *FoodSaaS* expira *amanhã*.\n\n` +
+          `Mais de 100 estabelecimentos já usam nosso sistema para vender mais e perder menos tempo. Não fique de fora! 🚀\n\n` +
+          `Assine agora e continue sem interrupção:\n` +
+          `👉 ${frontendUrl}/assinatura\n\n` +
+          `Precisa de ajuda para escolher o plano certo? Manda mensagem:\n` +
+          `📱 wa.me/${supportWA}\n\n` +
+          `_Responda aqui se tiver alguma dúvida — teremos prazer em ajudar!_ 😊`;
+      }
+
+      if (!msg) continue;
+
+      try {
+        // Remove non-digit chars to normalize the phone number
+        const phone = company.whatsapp.replace(/\D/g, '');
+        await this.sendEvolutionWA(phone, msg);
+        sent++;
+        this.logger.log(
+          `[Retention] Trial warning (day -${daysLeft}) sent to ${company.name} (${phone})`,
+        );
+      } catch (e) {
+        this.logger.error(
+          `[Retention] Trial WA failed for ${company.name}: ${(e as Error)?.message}`,
+        );
+      }
+    }
+
+    this.logger.log(`[Retention] Trial warnings complete — ${sent} WA messages sent`);
   }
 }

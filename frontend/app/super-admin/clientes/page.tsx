@@ -89,8 +89,9 @@ export default function ClientesPage() {
       setTotal(res.data.total ?? 0);
       setSummary(res.data.summary ?? null);
       setPage(p);
-    } catch {
-      toast.error("Erro ao carregar relatório");
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Erro ao carregar relatório";
+      toast.error(`Erro: ${msg}`);
     } finally {
       setLoading(false);
     }

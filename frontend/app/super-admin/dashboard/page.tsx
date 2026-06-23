@@ -40,6 +40,40 @@ const SEGMENT_LABELS: Record<string, string> = {
   MERCADO:      "Mercados",
 }
 
+// Grupos temáticos de segmento para as abas do painel
+const SEGMENT_GROUPS = [
+  {
+    key:      "RESTAURANTES",
+    label:    "Restaurantes",
+    emoji:    "🍽️",
+    segments: ["RESTAURANTE", "CHURRASCARIA", "MARMITARIA"],
+  },
+  {
+    key:      "PIZZARIAS",
+    label:    "Pizzarias",
+    emoji:    "🍕",
+    segments: ["PIZZARIA"],
+  },
+  {
+    key:      "FASTFOOD",
+    label:    "Lanchonetes & Fast-Food",
+    emoji:    "🥪",
+    segments: ["LANCHONETE", "HOT_DOG", "PASTELARIA"],
+  },
+  {
+    key:      "PADARIAS",
+    label:    "Padarias & Doces",
+    emoji:    "🥖",
+    segments: ["PADARIA", "DOCERIA"],
+  },
+  {
+    key:      "VAREJO",
+    label:    "Comércio Varejista",
+    emoji:    "🏪",
+    segments: ["MERCADO", "CONVENIENCIA"],
+  },
+]
+
 const SEGMENT_EMOJI: Record<string, string> = {
   RESTAURANTE: "🍽️", LANCHONETE: "🥪", PIZZARIA: "🍕",
   CHURRASCARIA: "🥩", MARMITARIA: "🥡", HOT_DOG: "🌭",
@@ -175,7 +209,10 @@ export default function SuperAdminDashboard() {
       list = list.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))
     }
     if (planFilter !== "ALL") list = list.filter(c => c.plan === planFilter)
-    if (segmentTab !== "ALL") list = list.filter(c => (c.businessSegment ?? "RESTAURANTE") === segmentTab)
+    if (segmentTab !== "ALL") {
+      const group = SEGMENT_GROUPS.find(g => g.key === segmentTab)
+      if (group) list = list.filter(c => group.segments.includes(c.businessSegment ?? "RESTAURANTE"))
+    }
     setFiltered(list)
   }, [search, planFilter, segmentTab, companies])
 
@@ -672,30 +709,49 @@ export default function SuperAdminDashboard() {
           {/* ── TABELA ─────────────────────────────────────────────────── */}
           <div className={`rounded-2xl border overflow-hidden ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
 
-            {/* Segment tabs */}
+            {/* Segment group tabs */}
             {(() => {
-              const segments = Array.from(new Set(companies.map(co => co.businessSegment ?? "RESTAURANTE"))).sort()
-              if (segments.length <= 1) return null
+              // só mostra grupos que tenham ao menos 1 empresa
+              const activeGroups = SEGMENT_GROUPS.filter(g =>
+                companies.some(co => g.segments.includes(co.businessSegment ?? "RESTAURANTE"))
+              )
+              if (activeGroups.length === 0) return null
               return (
-                <div className={`px-5 pt-4 flex items-center gap-1 flex-wrap border-b pb-0 ${c("border-[#1c1c24]", "border-gray-100")}`}>
+                <div className={`px-5 pt-4 flex items-center gap-0.5 flex-wrap border-b pb-0 overflow-x-auto ${c("border-[#1c1c24]", "border-gray-100")}`}>
+                  {/* Aba "Todos" */}
                   <button onClick={() => setSegmentTab("ALL")}
-                    className={`px-3 py-2 text-xs font-medium rounded-t-lg border-b-2 -mb-px transition-colors ${
+                    className={`px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
                       segmentTab === "ALL"
                         ? c("border-indigo-500 text-white", "border-indigo-500 text-indigo-600")
                         : c("border-transparent text-zinc-500 hover:text-zinc-300", "border-transparent text-gray-400 hover:text-gray-700")
                     }`}>
-                    Todos <span className={`ml-1 text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{companies.length}</span>
+                    Todos
+                    <span className={`ml-1.5 tabular-nums text-[10px] px-1.5 py-0.5 rounded-full ${
+                      segmentTab === "ALL"
+                        ? c("bg-indigo-900 text-indigo-300", "bg-indigo-100 text-indigo-600")
+                        : c("bg-[#27272a] text-zinc-600", "bg-gray-100 text-gray-400")
+                    }`}>{companies.length}</span>
                   </button>
-                  {segments.map(seg => {
-                    const count = companies.filter(co => (co.businessSegment ?? "RESTAURANTE") === seg).length
+
+                  {activeGroups.map(group => {
+                    const count = companies.filter(co =>
+                      group.segments.includes(co.businessSegment ?? "RESTAURANTE")
+                    ).length
+                    const active = segmentTab === group.key
                     return (
-                      <button key={seg} onClick={() => setSegmentTab(seg)}
-                        className={`px-3 py-2 text-xs font-medium rounded-t-lg border-b-2 -mb-px transition-colors ${
-                          segmentTab === seg
+                      <button key={group.key} onClick={() => setSegmentTab(group.key)}
+                        className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                          active
                             ? c("border-indigo-500 text-white", "border-indigo-500 text-indigo-600")
                             : c("border-transparent text-zinc-500 hover:text-zinc-300", "border-transparent text-gray-400 hover:text-gray-700")
                         }`}>
-                        {SEGMENT_LABELS[seg] ?? seg} <span className={`ml-1 text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{count}</span>
+                        <span>{group.emoji}</span>
+                        <span>{group.label}</span>
+                        <span className={`tabular-nums text-[10px] px-1.5 py-0.5 rounded-full ${
+                          active
+                            ? c("bg-indigo-900 text-indigo-300", "bg-indigo-100 text-indigo-600")
+                            : c("bg-[#27272a] text-zinc-600", "bg-gray-100 text-gray-400")
+                        }`}>{count}</span>
                       </button>
                     )
                   })}
@@ -707,7 +763,9 @@ export default function SuperAdminDashboard() {
             <div className={`px-5 py-3 border-b flex flex-col sm:flex-row items-start sm:items-center gap-3 ${c("border-[#1c1c24]", "border-gray-100")}`}>
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <h2 className={`text-xs font-bold shrink-0 ${c("text-white", "text-gray-900")}`}>
-                  {segmentTab === "ALL" ? "Estabelecimentos" : (SEGMENT_LABELS[segmentTab] ?? segmentTab)}
+                  {segmentTab === "ALL"
+                    ? "Estabelecimentos"
+                    : (SEGMENT_GROUPS.find(g => g.key === segmentTab)?.label ?? segmentTab)}
                 </h2>
                 <span className={`text-[10px] rounded-full px-2 py-0.5 tabular-nums ${c("bg-[#27272a] text-zinc-500", "bg-gray-100 text-gray-500")}`}>{filtered.length}</span>
               </div>

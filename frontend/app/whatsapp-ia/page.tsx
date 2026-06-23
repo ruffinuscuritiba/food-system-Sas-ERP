@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { AiTrialLock } from "@/components/AiTrialLock";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
@@ -90,6 +91,7 @@ const BACKENDURL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.srv1747711.hs
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function WhatsappIaPage() {
+  useNavKeyGuard("whatsapp-ia");
   const { isAiLocked, isExpired, loading: subLoading } = useSubscription();
   const [tab, setTab] = useState<"connections" | "config" | "conversations" | "stats">("connections");
   const [connections, setConnections] = useState<Connection[]>([]);

@@ -5,6 +5,7 @@ import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { useSubscription } from "@/hooks/useSubscription";
 import { AiTrialLock } from "@/components/AiTrialLock";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 import {
   Sparkles, Upload, FileText, Image as ImageIcon, Loader2,
   CheckCircle2, XCircle, Trash2, ChevronDown, RefreshCw, Zap,
@@ -188,6 +189,7 @@ function ProgressBar({ logs }: { logs: SessionLog[] }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CadastroInteligentePage() {
+  useNavKeyGuard("smart-import");
   const { isAiLocked, isExpired, loading: subLoading } = useSubscription();
 
   const [tab, setTab]                       = useState<TabType>("menu");

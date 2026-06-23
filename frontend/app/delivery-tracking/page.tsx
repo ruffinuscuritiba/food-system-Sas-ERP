@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { Bike, MapPin, Navigation, CheckCircle2, RefreshCw, Clock } from "lucide-react";
 import { useDriverTracking } from "@/hooks/useDriverTracking";
 import type { ActiveDelivery, DriverRecord, LiveLocation } from "@/hooks/useDriverTracking";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // Leaflet must be imported client-side only (uses window/document)
 const TrackingMap = dynamic(
@@ -101,6 +102,7 @@ function DriverRow({
 }
 
 export default function DeliveryTrackingPage() {
+  useNavKeyGuard("delivery-tracking");
   const {
     drivers,
     liveLocations,

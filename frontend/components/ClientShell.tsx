@@ -45,6 +45,7 @@ import {
 
 import toast, { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/auth.store";
+import { useCompanyStore } from "@/stores/company.store";
 import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { buildSupportUrl } from "@/config/support";
@@ -220,6 +221,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const isPublicPage = PUBLIC_ROUTES.some((r) => pathname?.startsWith(r));
 
   const { loadAuth, user } = useAuthStore();
+  const { setSidebarConfig: setStoreSidebarConfig } = useCompanyStore();
   const [companyName, setCompanyName] = useState("FoodSaaS ERP");
   const [companyPlan, setCompanyPlan] = useState("");
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
@@ -282,7 +284,9 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     api.get("/company/settings")
       .then((r) => {
         if (r.data?.sidebarConfig && typeof r.data.sidebarConfig === "object") {
-          setSidebarConfig(r.data.sidebarConfig as Record<string, boolean>);
+          const cfg = r.data.sidebarConfig as Record<string, boolean>;
+          setSidebarConfig(cfg);
+          setStoreSidebarConfig(cfg); // expõe para useNavKeyGuard
         }
       })
       .catch(() => {});

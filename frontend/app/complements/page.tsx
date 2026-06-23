@@ -24,6 +24,7 @@ import {
   Copy, GripVertical, Image as ImageIcon, FolderTree,
 } from "lucide-react";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // DnD lazy
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -91,6 +92,7 @@ const EMPTY_FORM = () => ({
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function ComplementsPage() {
+  useNavKeyGuard("complements");
   const [complements, setComplements] = useState<Complement[]>([]);
   const [products,    setProducts]    = useState<any[]>([]);
   const [categories,  setCategories]  = useState<any[]>([]);

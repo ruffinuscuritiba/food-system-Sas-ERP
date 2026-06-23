@@ -5,8 +5,10 @@ import { motion } from "framer-motion";
 import { api } from "@/services/api";
 import { socket } from "@/services/socket";
 import toast from "react-hot-toast";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 export default function TablesPage() {
+  useNavKeyGuard("tables");
   const [tables, setTables] = useState<any[]>([]);
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [tableItems, setTableItems] = useState<any[]>([]);

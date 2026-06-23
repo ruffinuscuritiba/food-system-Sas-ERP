@@ -9,6 +9,7 @@ import {
   MessageCircle, ChevronDown, Trash2, History, Loader2, Zap,
   TrendingUp, Target, Package,
 } from "lucide-react";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ const sel = inp + " appearance-none cursor-pointer";
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MarketingPage() {
+  useNavKeyGuard("marketing");
   const { user } = useAuthStore();
 
   // Products fetched from API

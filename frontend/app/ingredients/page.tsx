@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { Plus, FlaskConical, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 const emptyForm = { name: "", stock: "", minimumStock: "", unit: "kg", cost: "" };
 
 export default function IngredientsPage() {
+  useNavKeyGuard("ingredients");
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [form, setForm]               = useState(emptyForm);
   const [loading, setLoading]         = useState(true);

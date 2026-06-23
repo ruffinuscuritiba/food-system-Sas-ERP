@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
+import { useCompanyStore } from "@/stores/company.store";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -192,6 +193,7 @@ function buildConfigFromSegment(segment: string): Record<string, boolean> {
 
 export default function InterfaceTab() {
   const { user } = useAuthStore();
+  const { setSidebarConfig: setStoreSidebarConfig } = useCompanyStore();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   const [config, setConfig] = useState<SidebarConfig>(null);
@@ -221,6 +223,7 @@ export default function InterfaceTab() {
       setSaving(true);
       try {
         await api.patch("/company/settings", { sidebarConfig: newConfig });
+        setStoreSidebarConfig(newConfig as Record<string, boolean>); // guard reage imediatamente
       } catch {
         toast.error("Erro ao salvar preferências");
       } finally {

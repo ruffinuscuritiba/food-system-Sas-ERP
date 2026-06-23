@@ -4,8 +4,10 @@ import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { BookOpen, Plus, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 export default function RecipesPage() {
+  useNavKeyGuard("recipes");
   const [products, setProducts] = useState<any[]>([]);
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);

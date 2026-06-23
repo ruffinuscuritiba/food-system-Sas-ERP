@@ -5,6 +5,7 @@ import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { Printer, RefreshCw } from "lucide-react";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 type OrderItem = {
   id: string;
@@ -55,6 +56,7 @@ function fmtDate(iso: string) {
 }
 
 export default function HistoricoPedidosPage() {
+  useNavKeyGuard("historico");
   const { user } = useAuthStore();
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);

@@ -47,6 +47,7 @@ import { RetentionModule } from './modules/retention/retention.module';
 import { SegmentSeedModule } from './modules/segment-seed/segment-seed.module';
 import { LayoutTemplatesModule } from './modules/layout-templates/layout-templates.module';
 import { WalletModule } from './modules/wallet/wallet.module';
+import { VisitsModule } from './modules/visits/visits.module';
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch:
 // - ChatModule, AlertsModule
@@ -96,6 +97,7 @@ import { WalletModule } from './modules/wallet/wallet.module';
     SegmentSeedModule,
     LayoutTemplatesModule,
     WalletModule,
+    VisitsModule,
   ],
   controllers: [AppController],
   providers: [

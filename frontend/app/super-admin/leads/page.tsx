@@ -28,6 +28,13 @@ interface LeadStats {
   porPlano: { BASIC: number; PRO: number; ENTERPRISE: number };
 }
 
+interface VisitStats {
+  total: number;
+  today: number;
+  thisWeek: number;
+  thisMonth: number;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   NOVO: "bg-blue-900 text-blue-300",
   CONTATADO: "bg-yellow-900 text-yellow-300",
@@ -65,6 +72,7 @@ export default function SuperAdminLeadsPage() {
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stats, setStats] = useState<LeadStats | null>(null);
+  const [visits, setVisits] = useState<VisitStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -78,10 +86,12 @@ export default function SuperAdminLeadsPage() {
     Promise.all([
       saApi.get<Lead[]>("/super-admin/leads"),
       saApi.get<LeadStats>("/super-admin/leads/stats"),
+      saApi.get<VisitStats>("/visits/stats?page=/demo"),
     ])
-      .then(([leadsRes, statsRes]) => {
+      .then(([leadsRes, statsRes, visitsRes]) => {
         setLeads(leadsRes.data);
         setStats(statsRes.data);
+        setVisits(visitsRes.data);
       })
       .catch(() => router.replace("/super-admin/login"))
       .finally(() => setLoading(false));
@@ -118,6 +128,19 @@ export default function SuperAdminLeadsPage() {
         >
           ← Dashboard
         </a>
+      </div>
+
+      {/* Visit Stats */}
+      <div className="mb-6">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-white/30 mb-3">
+          Visitas — /demo
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard label="Total de Visitas" value={loading ? "…" : String(visits?.total ?? 0)} accent="orange" />
+          <KpiCard label="Visitas Hoje"     value={loading ? "…" : String(visits?.today ?? 0)} accent="orange" />
+          <KpiCard label="Esta Semana"      value={loading ? "…" : String(visits?.thisWeek ?? 0)} accent="orange" />
+          <KpiCard label="Este Mês"         value={loading ? "…" : String(visits?.thisMonth ?? 0)} accent="orange" />
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -288,6 +311,7 @@ const ACCENT_CLASSES: Record<string, { border: string; text: string }> = {
   blue:    { border: "border-blue-500/30",    text: "text-blue-300"    },
   amber:   { border: "border-amber-500/30",   text: "text-amber-300"   },
   emerald: { border: "border-emerald-500/30", text: "text-emerald-300" },
+  orange:  { border: "border-orange-500/30",  text: "text-orange-300"  },
 };
 
 function KpiCard({

@@ -64,6 +64,16 @@ const KPI_CONFIG = [
   { key: "leads",    label: "Leads",           icon: TrendingUp, color: "text-pink-600",  bg: "bg-pink-50" },
 ];
 
+// Maps KPI summary key (camelCase) to ContactType enum value (SCREAMING_SNAKE_CASE)
+const KPI_TO_TYPE: Record<string, ContactType> = {
+  total:    "ALL",
+  active:   "ACTIVE",
+  trial:    "TRIAL",
+  demo:     "DEMO",
+  exClient: "EX_CLIENT",
+  leads:    "LEAD",
+};
+
 const BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -181,8 +191,8 @@ export default function ClientesPage() {
         {KPI_CONFIG.map(({ key, label, icon: Icon, color, bg }) => (
           <button
             key={key}
-            onClick={() => { setTypeFilter(key === "total" ? "ALL" : key as ContactType); setPage(1); }}
-            className={`rounded-2xl border border-gray-100 p-4 text-left transition hover:shadow-sm ${bg} ${typeFilter === (key === "total" ? "ALL" : key) ? "ring-2 ring-indigo-400" : ""}`}
+            onClick={() => { setTypeFilter(KPI_TO_TYPE[key] ?? "ALL"); setPage(1); }}
+            className={`rounded-2xl border border-gray-100 p-4 text-left transition hover:shadow-sm ${bg} ${typeFilter === KPI_TO_TYPE[key] ? "ring-2 ring-indigo-400" : ""}`}
           >
             <Icon className={`h-5 w-5 mb-2 ${color}`} />
             <div className={`text-2xl font-black ${color}`}>

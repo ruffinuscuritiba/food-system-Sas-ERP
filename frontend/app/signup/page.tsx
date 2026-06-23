@@ -19,6 +19,9 @@ const SEGMENTS = [
   { value: "PADARIA",      label: "Padaria",       emoji: "🥐" },
   { value: "DOCERIA",      label: "Doceria",       emoji: "🍰" },
   { value: "CONVENIENCIA", label: "Conveniência",  emoji: "🏪" },
+  { value: "HAMBURGUERIA", label: "Hamburgueria",  emoji: "🍔" },
+  { value: "ACAI",         label: "Açaí",          emoji: "🫐" },
+  { value: "MERCADO",      label: "Mercado",       emoji: "🛒" },
 ] as const;
 
 export default function SignupPage() {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saApi } from "@/services/superAdminApi";
+import { SuperAdminTopBar } from "@/components/super-admin/SuperAdminTopBar";
 
 interface Lead {
   id: string;
@@ -112,7 +113,9 @@ export default function SuperAdminLeadsPage() {
   const thisMonth = leadsThisMonth(leads);
 
   return (
-    <div className="min-h-screen bg-[#0a0a14] text-white p-4 md:p-6">
+    <div className="min-h-screen bg-[#0a0a14] text-white">
+      <SuperAdminTopBar />
+      <div className="p-4 md:p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
@@ -122,12 +125,6 @@ export default function SuperAdminLeadsPage() {
             {leads.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <a
-          href="/super-admin/dashboard"
-          className="text-xs text-white/40 hover:text-white transition"
-        >
-          ← Dashboard
-        </a>
       </div>
 
       {/* Visit Stats */}
@@ -299,6 +296,7 @@ export default function SuperAdminLeadsPage() {
           </table>
         </div>
       )}
+      </div>{/* /p-6 */}
     </div>
   );
 }

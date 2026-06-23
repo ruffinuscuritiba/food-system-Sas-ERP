@@ -5,8 +5,9 @@ import { saApi } from "@/services/superAdminApi";
 import {
   Users, Download, Search, RefreshCw, ChevronLeft, ChevronRight,
   Phone, Mail, Store, TrendingUp, UserCheck, Clock, Ghost,
-  UserMinus, Filter, FileText, ArrowLeft,
+  UserMinus, Filter, FileText,
 } from "lucide-react";
+import { SuperAdminTopBar, saBtn } from "@/components/super-admin/SuperAdminTopBar";
 import toast from "react-hot-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -141,16 +142,24 @@ export default function ClientesPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50">
+      <SuperAdminTopBar actions={
+        <>
+          <button onClick={() => load(1)} className={`flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 ${saBtn}`}>
+            <RefreshCw className="h-3.5 w-3.5" />Atualizar
+          </button>
+          <button onClick={downloadTxt} className={`flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 ${saBtn}`}>
+            <FileText className="h-3.5 w-3.5" />Exportar TXT
+          </button>
+          <button onClick={downloadCsv} className={`flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm ${saBtn}`}>
+            <Download className="h-3.5 w-3.5" />Exportar CSV
+          </button>
+        </>
+      } />
+
+      <div className="p-6">
       {/* ── Header ── */}
       <div className="mb-6">
-        <button
-          onClick={() => router.push("/super-admin/dashboard")}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar ao Painel
-        </button>
         <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
@@ -160,28 +169,6 @@ export default function ClientesPage() {
           <p className="text-sm text-gray-500 mt-0.5">
             Todos que interagiram com o FoodSaaS — leads, demos, trials e clientes.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => load(1)}
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />Atualizar
-          </button>
-          <button
-            onClick={downloadTxt}
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            <FileText className="h-3.5 w-3.5 text-gray-500" />
-            Exportar TXT
-          </button>
-          <button
-            onClick={downloadCsv}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 shadow-sm"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Exportar CSV (Excel)
-          </button>
         </div>
         </div>
       </div>
@@ -340,6 +327,7 @@ export default function ClientesPage() {
         <strong>💡 Dica de marketing:</strong> Filtre por "Ex-clientes" → clique em "Exportar TXT" →
         copie a lista de WhatsApps e carregue direto no seu software de disparo em massa para reengajamento.
       </div>
+      </div>{/* /p-6 */}
     </div>
   );
 }

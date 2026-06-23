@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { saApi } from "@/services/superAdminApi"
+import { SuperAdminTopBar, saBtn } from "@/components/super-admin/SuperAdminTopBar"
 
 interface PlanConfig {
   plan: string
@@ -125,18 +126,11 @@ export default function SuperAdminPricingPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <header className="bg-gray-900 border-b border-gray-800 px-8 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/super-admin/dashboard")}
-            className="text-sm text-gray-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-gray-800"
-          >
-            ← Voltar
-          </button>
-          <div>
-            <h1 className="text-lg font-bold">💰 Precificação</h1>
-            <p className="text-xs text-gray-400">Gerencie preços de planos e módulos avulsos</p>
-          </div>
+      <SuperAdminTopBar />
+      <header className="border-b border-gray-800 px-8 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold">💰 Precificação</h1>
+          <p className="text-xs text-gray-400">Gerencie preços de planos e módulos avulsos</p>
         </div>
       </header>
 

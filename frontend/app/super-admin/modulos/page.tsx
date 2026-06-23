@@ -7,6 +7,7 @@ import {
   RefreshCw, ChevronRight, ArrowLeft,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
+import { SuperAdminTopBar } from "@/components/super-admin/SuperAdminTopBar"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Company {
@@ -424,15 +425,13 @@ export default function SuperAdminModulosPage() {
   const activeCount = companyModules.filter(m => m.status === "ACTIVE" || m.status === "TRIAL").length
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-white flex">
+    <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col">
+      <SuperAdminTopBar />
+      <div className="flex flex-1">
 
       {/* ── Lista de empresas ─────────────────────────────────────────────── */}
       <aside className="w-64 shrink-0 border-r border-zinc-800 flex flex-col">
         <div className="p-4 border-b border-zinc-800">
-          <button onClick={() => router.push("/super-admin/dashboard")}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white mb-4 transition">
-            <ArrowLeft className="w-3.5 h-3.5" /> Voltar ao Dashboard
-          </button>
           <h2 className="text-sm font-bold text-white mb-3">Empresas</h2>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
@@ -656,6 +655,7 @@ export default function SuperAdminModulosPage() {
           </div>
         )}
       </div>
+      </div>{/* /flex */}
     </div>
   )
 }

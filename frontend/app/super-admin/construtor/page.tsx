@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
+import { SuperAdminTopBar } from "@/components/super-admin/SuperAdminTopBar";
 import {
   Store, Layout, ChevronUp, ChevronDown, Eye, EyeOff,
   Save, RefreshCw, Palette, Columns, CircleDot, Copy,
@@ -316,7 +317,9 @@ export default function ConstrutorPage() {
   const selectedCompany = companies.find(c => c.id === selectedId);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-white p-6">
+    <div className="min-h-screen bg-[#0a0a0b] text-white">
+      <SuperAdminTopBar />
+      <div className="p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -329,12 +332,6 @@ export default function ConstrutorPage() {
               Personalize o layout e aparência do cardápio digital de cada loja
             </p>
           </div>
-          <a
-            href="/super-admin/dashboard"
-            className="text-slate-400 hover:text-white text-sm px-3 py-1.5 border border-slate-700 rounded-lg transition"
-          >
-            ← Dashboard
-          </a>
         </div>
 
         {/* Company selector */}
@@ -632,6 +629,7 @@ export default function ConstrutorPage() {
           </div>
         )}
       </div>
+      </div>{/* /p-6 */}
     </div>
   );
 }

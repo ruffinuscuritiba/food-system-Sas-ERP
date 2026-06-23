@@ -940,10 +940,16 @@ export default function PDVPage() {
                   return (
                   <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-[var(--color-primary,#2563eb)] transition group"
                     onClick={() => openProductAdd(product)}>
-                    {imgSrc
-                      ? <img src={imgSrc} alt={product.name} className="w-full aspect-square object-cover" />
-                      : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>
-                    }
+                    <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl relative">
+                      <span>{activeIsBeverage ? "🥤" : "🍽️"}</span>
+                      {imgSrc && (
+                        <img src={imgSrc} alt={product.name}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                      )}
+                    </div>
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
                       {product.eanCode && (
@@ -963,8 +969,16 @@ export default function PDVPage() {
               <div className="space-y-5">
                 {buildDedupedPizzaProducts(filteredProducts).map((product) => (
                   <div key={product.id} className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] flex items-center px-6">
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] object-cover rounded-3xl shrink-0" />
-                      : <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center shrink-0 text-4xl">🍽️</div>}
+                    <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center shrink-0 text-4xl relative overflow-hidden">
+                      <span>🍽️</span>
+                      {product.imageUrl && (
+                        <img src={product.imageUrl} alt={product.name}
+                          className="absolute inset-0 w-full h-full object-cover rounded-3xl"
+                          loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                      )}
+                    </div>
                     <div className="flex-1 px-5 xl:px-8 min-w-0 overflow-hidden">
                       <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full">{product.name}</h2>
                       {product.description && <p className="text-zinc-400 text-sm xl:text-base leading-relaxed break-words max-w-full line-clamp-2">{product.description}</p>}

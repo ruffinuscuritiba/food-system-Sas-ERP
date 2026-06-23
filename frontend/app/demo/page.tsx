@@ -76,6 +76,12 @@ const PLAN_CARDS = [
     btnClass:
       "bg-purple-600 hover:bg-purple-700 shadow-[0_8px_24px_-8px_rgba(124,58,237,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
   },
+  {
+    plan: "DELIVERY" as const,
+    label: "FoodSaaS Delivery",
+    btnClass:
+      "bg-orange-600 hover:bg-orange-700 shadow-[0_8px_24px_-8px_rgba(234,88,12,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
+  },
 ];
 
 // ─── Niches unified data ──────────────────────────────────────────────────────
@@ -785,7 +791,7 @@ function DemoContent() {
       const { data } = await api.post("auth/demo-access", {
         name: form.name, email: form.email, whatsapp: form.whatsapp,
         restaurantName: form.restaurantName,
-        plan: demo.plan.toLowerCase() as "basic" | "pro" | "enterprise",
+        plan: demo.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery",
       });
       const { accessToken, user } = data;
       if (!accessToken) { toast.error("Demonstração indisponível."); return; }
@@ -988,12 +994,12 @@ function DemoContent() {
           </div>
 
           {/* ── Plan cards ── */}
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {PLAN_CARDS.map((card) => {
               const demo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
               const nicheInfo = NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"];
-              const planKey = card.plan.toLowerCase() as "basic" | "pro" | "enterprise";
-              const features = nicheInfo.features[planKey] ?? [];
+              const planKey = card.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery";
+              const features = (nicheInfo.features as any)[planKey] ?? demo.features ?? [];
 
               return (
                 <div

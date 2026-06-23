@@ -7,6 +7,7 @@ const DEMO_EMAILS = [
   'demo-basic@foodsaas.demo',
   'demo-pro@foodsaas.demo',
   'demo-enterprise@foodsaas.demo',
+  'demo-delivery@foodsaas.demo',
 ];
 
 /**
@@ -43,7 +44,7 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
       where: { email: { in: DEMO_EMAILS } },
     });
 
-    if (count >= 3) {
+    if (count >= 4) {
       this.logger.debug('Demo accounts present — running idempotent patches.');
       await this.vitrine.patchDemoCategoryNames();
       await this.vitrine.patchDemoThemesAndModules();
@@ -51,7 +52,7 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
     }
 
     this.logger.log(
-      `Demo accounts missing (${count}/3) — bootstrapping demo companies…`,
+      `Demo accounts missing (${count}/4) — bootstrapping demo companies…`,
     );
     await this.superAdmin.initDemoCompanies();
     await this.vitrine.populateAll();

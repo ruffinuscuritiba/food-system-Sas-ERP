@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import {
   CheckCircle2, Clock, XCircle, Zap, Star, Loader2,
@@ -1223,13 +1224,13 @@ function AnalyticsCard({
 
           {/* Botão + status — igual à screenshot */}
           <div className="flex items-center justify-between mt-1">
-            <a
+            <Link
               href={tool.configPath}
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 transition-colors"
             >
               <Settings size={12} />Configurar
-            </a>
+            </Link>
             {isActive ? (
               <span className="text-xs font-semibold text-emerald-600">Ativa</span>
             ) : (
@@ -1286,12 +1287,12 @@ function AnalyticsCard({
             </div>
 
             <div className="px-6 pb-6">
-              <a
+              <Link
                 href={tool.configPath}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-bold hover:bg-gray-800 transition-colors"
               >
                 <Settings size={15} />Abrir Configurações
-              </a>
+              </Link>
             </div>
           </div>
         </div>

@@ -1089,6 +1089,15 @@ export class SuperAdminService {
         primaryColor: '#7c3aed',
         modules: ALL_MODULES,
       },
+      {
+        id: 'demo-delivery-001',
+        name: 'Demo DELIVERY — FoodSaaS',
+        email: 'demo-delivery@foodsaas.demo',
+        password: 'DemoDelivery@123',
+        plan: 'DELIVERY',
+        primaryColor: '#ea580c',
+        modules: ALL_MODULES,
+      },
     ];
 
     const results: any[] = [];

@@ -6,7 +6,9 @@ import {
   LogIn, MoreVertical, ShieldOff, Shield, Wrench, Copy, Archive,
   RotateCcw, Trash2, Plus, Zap, Users, Building2,
   BarChart3, Ban, Search, ChevronRight, LayoutDashboard,
-  UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw, ExternalLink, Layout, Package,
+  UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw,
+  ExternalLink, Layout, Package, Bell, Moon, Sun, Activity,
+  PieChart, Layers,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
@@ -38,6 +40,13 @@ const SEGMENT_LABELS: Record<string, string> = {
   MERCADO:      "Mercados",
 }
 
+const SEGMENT_EMOJI: Record<string, string> = {
+  RESTAURANTE: "🍽️", LANCHONETE: "🥪", PIZZARIA: "🍕",
+  CHURRASCARIA: "🥩", MARMITARIA: "🥡", HOT_DOG: "🌭",
+  PASTELARIA: "🥟", PADARIA: "🥖", DOCERIA: "🍰",
+  CONVENIENCIA: "🏪", MERCADO: "🛒",
+}
+
 interface Stats {
   total: number
   active: number
@@ -52,11 +61,11 @@ const PLAN_LABELS: Record<string, string> = {
   DELIVERY: "Delivery",
 }
 
-const PLAN_BADGE: Record<string, string> = {
-  BASIC:        "bg-zinc-800 text-zinc-300 ring-1 ring-zinc-700",
-  PROFESSIONAL: "bg-blue-950 text-blue-300 ring-1 ring-blue-800",
-  ENTERPRISE:   "bg-violet-950 text-violet-300 ring-1 ring-violet-800",
-  DELIVERY:     "bg-emerald-950 text-emerald-300 ring-1 ring-emerald-800",
+const PLAN_COLORS: Record<string, string> = {
+  BASIC:        "#71717a",
+  PROFESSIONAL: "#3b82f6",
+  ENTERPRISE:   "#8b5cf6",
+  DELIVERY:     "#10b981",
 }
 
 const PROTECTED_EMAILS = new Set([
@@ -71,63 +80,53 @@ function isProtected(c: Company) {
 }
 
 const NAV_ITEMS = [
-  { label: "Dashboard",    href: "/super-admin/dashboard",  icon: LayoutDashboard },
-  { label: "Clientes",     href: "/super-admin/clientes",   icon: UserCheck },
-  { label: "Leads",        href: "/super-admin/leads",      icon: TrendingUp },
-  { label: "Módulos",      href: "/super-admin/modulos",    icon: Package },
-  { label: "Construtor",   href: "/super-admin/construtor", icon: Layout },
-  { label: "Editor Tema",  href: "/super-admin/tema",       icon: Star },
-  { label: "Preços",       href: "/super-admin/pricing",    icon: DollarSign },
+  { label: "Dashboard",    href: "/super-admin/dashboard",  icon: LayoutDashboard, section: "Principal" },
+  { label: "Restaurantes", href: "/super-admin/dashboard",  icon: Building2,        section: "Principal" },
+  { label: "Clientes",     href: "/super-admin/clientes",   icon: UserCheck,        section: "Principal" },
+  { label: "Leads",        href: "/super-admin/leads",      icon: TrendingUp,       section: "Principal" },
+  { label: "Módulos",      href: "/super-admin/modulos",    icon: Package,          section: "Produto"   },
+  { label: "Editor Tema",  href: "/super-admin/tema",       icon: Layers,           section: "Produto"   },
+  { label: "Construtor",   href: "/super-admin/construtor", icon: Layout,           section: "Produto"   },
+  { label: "Preços",       href: "/super-admin/pricing",    icon: DollarSign,       section: "Produto"   },
+  { label: "Analytics",    href: "/super-admin/leads",      icon: PieChart,         section: "Analytics" },
 ]
 
-function NavLink({ item, active }: { item: typeof NAV_ITEMS[0]; active: boolean }) {
-  const router = useRouter()
-  const Icon = item.icon
+// ── Ring chart SVG ─────────────────────────────────────────────────────────────
+function RingChart({ pct, color, trackColor }: { pct: number; color: string; trackColor: string }) {
+  const r = 18; const circ = 2 * Math.PI * r
+  const dash = circ * Math.min(pct, 100) / 100
   return (
-    <button
-      onClick={() => router.push(item.href)}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-        active
-          ? "bg-zinc-800 text-white font-medium"
-          : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50"
-      }`}
-    >
-      <Icon className="w-4 h-4 shrink-0" />
-      {item.label}
-    </button>
-  )
-}
-
-function StatCard({
-  label, value, sub, icon: Icon, accent,
-}: {
-  label: string
-  value: number | string
-  sub?: string
-  icon: React.ElementType
-  accent: string
-}) {
-  return (
-    <div className="bg-zinc-900 border border-zinc-800/60 rounded-2xl p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">{label}</span>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-      </div>
-      <div>
-        <span className="text-3xl font-black text-white tabular-nums">{value}</span>
-        {sub && <p className="text-xs text-zinc-600 mt-1">{sub}</p>}
-      </div>
-    </div>
+    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0">
+      <circle cx="24" cy="24" r={r} fill="none" stroke={trackColor} strokeWidth="5" />
+      <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="5"
+        strokeDasharray={`${dash} ${circ - dash}`}
+        strokeLinecap="round" transform="rotate(-90 24 24)" />
+    </svg>
   )
 }
 
 export default function SuperAdminDashboard() {
-  const router = useRouter()
+  const router   = useRouter()
   const pathname = usePathname()
+
+  // ── Theme ─────────────────────────────────────────────────────────────────
+  const [isDark, setIsDark] = useState(true)
+  useEffect(() => {
+    const saved = localStorage.getItem("sa_theme")
+    if (saved === "light") setIsDark(false)
+  }, [])
+  function toggleTheme() {
+    const next = !isDark
+    setIsDark(next)
+    localStorage.setItem("sa_theme", next ? "dark" : "light")
+  }
+
+  // helper: c(darkClass, lightClass)
+  const c = (dark: string, light: string) => isDark ? dark : light
+
+  // ── Data ──────────────────────────────────────────────────────────────────
   const [companies, setCompanies] = useState<Company[]>([])
-  const [filtered, setFiltered] = useState<Company[]>([])
+  const [filtered,  setFiltered]  = useState<Company[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, blocked: 0, archived: 0 })
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
@@ -135,10 +134,10 @@ export default function SuperAdminDashboard() {
   const [search, setSearch] = useState("")
   const [planFilter, setPlanFilter] = useState("ALL")
   const [segmentTab, setSegmentTab] = useState("ALL")
-  const [blocking, setBlocking] = useState<string | null>(null)
+  const [blocking,  setBlocking]  = useState<string | null>(null)
   const [archiving, setArchiving] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
-  const [entering, setEntering] = useState<string | null>(null)
+  const [deleting,  setDeleting]  = useState<string | null>(null)
+  const [entering,  setEntering]  = useState<string | null>(null)
   const [form, setForm] = useState({ name: "", email: "", adminPassword: "", plan: "BASIC", phone: "" })
   const [creating, setCreating] = useState(false)
   const [formError, setFormError] = useState("")
@@ -207,7 +206,7 @@ export default function SuperAdminDashboard() {
       document.cookie = `token=${data.accessToken}; path=/`
       window.location.href = "/"
     } catch {
-      alert("Erro ao acessar a loja. Verifique se ela possui usuários ativos.")
+      alert("Erro ao acessar a loja.")
     } finally {
       setEntering(null)
     }
@@ -218,8 +217,7 @@ export default function SuperAdminDashboard() {
     setDeleting(deleteTarget.id)
     try {
       await saApi.delete(`/super-admin/companies/${deleteTarget.id}`)
-      setDeleteTarget(null)
-      setConfirmText("")
+      setDeleteTarget(null); setConfirmText("")
       await load()
     } finally {
       setDeleting(null)
@@ -282,7 +280,7 @@ export default function SuperAdminDashboard() {
   }
 
   async function runSeed() {
-    if (!window.confirm("Criar/restaurar empresa demo com 15 categorias e 45 produtos?")) return
+    if (!window.confirm("Criar/restaurar empresa demo com categorias e produtos?")) return
     setSeeding(true)
     try {
       const { data } = await saApi.post("/super-admin/seed")
@@ -311,226 +309,393 @@ export default function SuperAdminDashboard() {
     router.push("/super-admin/login")
   }
 
-  function statusBadge(c: Company) {
-    if (c.archivedAt) return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800 text-zinc-500 ring-1 ring-zinc-700">
+  // ── Derivados ─────────────────────────────────────────────────────────────
+  const planCounts = companies.reduce((acc, co) => {
+    acc[co.plan] = (acc[co.plan] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  const segmentCounts = companies.reduce((acc, co) => {
+    const s = co.businessSegment ?? "RESTAURANTE"
+    acc[s] = (acc[s] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  const topSegments = Object.entries(segmentCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+
+  const recentCompanies = [...companies]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 4)
+
+  const activePct  = stats.total ? Math.round((stats.active  / stats.total) * 100) : 0
+  const blockedPct = stats.total ? Math.round((stats.blocked / stats.total) * 100) : 0
+
+  function statusBadge(co: Company) {
+    if (co.archivedAt) return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800 text-zinc-400">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />Arquivado
       </span>
     )
-    if (c.isBlocked) return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-950 text-red-400 ring-1 ring-red-900">
+    if (co.isBlocked) return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-950 text-red-400">
         <span className="w-1.5 h-1.5 rounded-full bg-red-500" />Bloqueado
       </span>
     )
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 ring-1 ring-emerald-900">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Ativo
       </span>
     )
   }
 
-  const planCounts = companies.reduce((acc, c) => {
-    acc[c.plan] = (acc[c.plan] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${c("bg-[#09090b]", "bg-gray-50")}`}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-zinc-700 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-zinc-500 text-sm">Carregando painel...</p>
+          <div className={`w-9 h-9 border-2 rounded-full animate-spin ${c("border-zinc-800 border-t-indigo-500", "border-gray-200 border-t-indigo-500")}`} />
+          <p className={`text-sm ${c("text-zinc-500", "text-gray-400")}`}>Carregando painel...</p>
         </div>
       </div>
     )
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#0a0a0b] flex text-white">
+    <div className={`min-h-screen flex text-sm ${c("bg-[#09090b] text-white", "bg-gray-50 text-gray-900")}`}>
 
-      {/* ── LEFT SIDEBAR ── */}
-      <aside className="hidden lg:flex w-60 xl:w-64 shrink-0 flex-col border-r border-zinc-800/60 bg-zinc-950">
+      {/* ══════════════════════════════════════════════════════════════════════
+          SIDEBAR
+      ══════════════════════════════════════════════════════════════════════ */}
+      <aside className={`hidden lg:flex w-56 xl:w-60 shrink-0 flex-col border-r ${c("bg-[#0c0c0f] border-[#1c1c24]", "bg-white border-gray-200")}`}>
+
         {/* Logo */}
-        <div className="px-5 py-5 border-b border-zinc-800/60">
+        <div className={`px-5 py-5 border-b ${c("border-[#1c1c24]", "border-gray-100")}`}>
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
-              <Zap className="w-3.5 h-3.5 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
+              <Zap className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white leading-none">FoodSaaS</p>
-              <p className="text-[10px] text-zinc-500 mt-0.5">Super Admin</p>
+              <p className={`text-sm font-black leading-none ${c("text-white", "text-gray-900")}`}>FoodSaaS</p>
+              <p className={`text-[10px] mt-0.5 ${c("text-zinc-500", "text-gray-400")}`}>Super Admin</p>
             </div>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          {NAV_ITEMS.map(item => (
-            <NavLink key={item.href} item={item} active={pathname === item.href} />
-          ))}
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          {(["Principal", "Produto", "Analytics"] as const).map(section => {
+            const items = NAV_ITEMS.filter(i => i.section === section)
+            return (
+              <div key={section} className="mb-4">
+                <p className={`text-[9px] font-bold uppercase tracking-widest px-2 mb-1.5 ${c("text-zinc-700", "text-gray-400")}`}>{section}</p>
+                {items.map(item => {
+                  const Icon = item.icon
+                  const active = pathname === item.href && item.label !== "Restaurantes"
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => router.push(item.href)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all mb-0.5 ${
+                        active
+                          ? c("bg-indigo-950 text-indigo-300 font-semibold border-l-2 border-indigo-500 pl-[10px]",
+                               "bg-indigo-50 text-indigo-600 font-semibold border-l-2 border-indigo-500 pl-[10px]")
+                          : c("text-zinc-500 hover:text-zinc-200 hover:bg-[#18181b]",
+                               "text-gray-500 hover:text-gray-800 hover:bg-gray-50")
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
 
-          <div className="pt-5 pb-1">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-700 px-3 mb-2">Ferramentas</p>
+          {/* Tools */}
+          <div className={`border-t pt-4 ${c("border-[#1c1c24]", "border-gray-100")}`}>
+            <p className={`text-[9px] font-bold uppercase tracking-widest px-2 mb-1.5 ${c("text-zinc-700", "text-gray-400")}`}>Ferramentas</p>
+            <button onClick={runSeed} disabled={seeding}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all disabled:opacity-40 ${c("text-zinc-500 hover:text-zinc-200 hover:bg-[#18181b]", "text-gray-500 hover:text-gray-800 hover:bg-gray-50")}`}>
+              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+              {seeding ? "Gerando..." : "Seed Demo"}
+            </button>
+            <button onClick={initDemos} disabled={initingDemos}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all disabled:opacity-40 ${c("text-zinc-500 hover:text-zinc-200 hover:bg-[#18181b]", "text-gray-500 hover:text-gray-800 hover:bg-gray-50")}`}>
+              <Star className="w-3.5 h-3.5 shrink-0" />
+              {initingDemos ? "Criando..." : "Init Demos"}
+            </button>
           </div>
-
-          <button
-            onClick={runSeed}
-            disabled={seeding}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-all disabled:opacity-40"
-          >
-            <RefreshCw className="w-4 h-4 shrink-0" />
-            {seeding ? "Gerando..." : "Seed Demo"}
-          </button>
-          <button
-            onClick={initDemos}
-            disabled={initingDemos}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50 transition-all disabled:opacity-40"
-          >
-            <Star className="w-4 h-4 shrink-0" />
-            {initingDemos ? "Criando..." : "Init Demos"}
-          </button>
         </nav>
 
-        {/* Footer logout */}
-        <div className="px-3 py-4 border-t border-zinc-800/60">
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-all"
-          >
-            <LogIn className="w-4 h-4 rotate-180 shrink-0" />
-            Sair
+        {/* Footer */}
+        <div className={`px-3 py-3 border-t ${c("border-[#1c1c24]", "border-gray-100")}`}>
+          <button onClick={logout}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all ${c("text-zinc-600 hover:text-red-400 hover:bg-red-950/30", "text-gray-500 hover:text-red-500 hover:bg-red-50")}`}>
+            <LogIn className="w-3.5 h-3.5 rotate-180 shrink-0" />
+            Sair do painel
           </button>
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          MAIN
+      ══════════════════════════════════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Top bar */}
-        <header className="h-14 border-b border-zinc-800/60 px-6 flex items-center justify-between gap-4 shrink-0 bg-zinc-950/80 backdrop-blur sticky top-0 z-20">
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
-            <span className="text-zinc-300 font-medium">Dashboard</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span>{segmentTab === "ALL" ? "Estabelecimentos" : (SEGMENT_LABELS[segmentTab] ?? segmentTab)}</span>
+        {/* TOP BAR */}
+        <header className={`h-14 border-b px-5 flex items-center gap-3 shrink-0 sticky top-0 z-20 ${c("bg-[#09090b]/95 border-[#1c1c24] backdrop-blur", "bg-white/95 border-gray-200 backdrop-blur")}`}>
+          {/* Greeting */}
+          <div className="flex-1 flex items-center gap-2">
+            <span className={`text-sm font-black ${c("text-white", "text-gray-900")}`}>Dashboard</span>
+            <ChevronRight className={`w-3.5 h-3.5 ${c("text-zinc-700", "text-gray-300")}`} />
+            <span className={`text-xs ${c("text-zinc-500", "text-gray-400")}`}>
+              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowArchived(v => !v)}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition ${
-                showArchived
-                  ? "border-zinc-600 bg-zinc-800 text-zinc-200"
-                  : "border-zinc-800 text-zinc-600 hover:border-zinc-700 hover:text-zinc-400"
-              }`}
-            >
-              {showArchived ? "Ocultar arquivadas" : "Ver arquivadas"}
-            </button>
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Novo restaurante
-            </button>
+
+          {/* Search */}
+          <div className={`hidden sm:flex items-center gap-2 rounded-xl px-3 py-2 w-52 border ${c("bg-[#18181b] border-[#27272a]", "bg-gray-50 border-gray-200")}`}>
+            <Search className={`w-3.5 h-3.5 shrink-0 ${c("text-zinc-600", "text-gray-400")}`} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar restaurante..."
+              className={`bg-transparent text-xs outline-none w-full ${c("text-zinc-300 placeholder-zinc-600", "text-gray-700 placeholder-gray-400")}`}
+            />
           </div>
+
+          {/* Theme toggle */}
+          <button onClick={toggleTheme}
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${c("bg-[#18181b] text-zinc-400 hover:text-white hover:bg-[#27272a]", "bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200")}`}
+            title={isDark ? "Mudar para tema claro" : "Mudar para tema escuro"}
+          >
+            {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          </button>
+
+          {/* Bell */}
+          <div className="relative">
+            <button className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${c("bg-[#18181b] text-zinc-400 hover:text-white", "bg-gray-100 text-gray-500 hover:text-gray-900")}`}>
+              <Bell className="w-3.5 h-3.5" />
+            </button>
+            {stats.blocked > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-[#09090b]" />
+            )}
+          </div>
+
+          {/* Archived toggle */}
+          <button onClick={() => setShowArchived(v => !v)}
+            className={`hidden sm:flex text-xs px-3 py-2 rounded-xl border transition-all ${
+              showArchived
+                ? c("border-zinc-600 bg-zinc-800 text-zinc-200", "border-gray-400 bg-gray-100 text-gray-700")
+                : c("border-[#27272a] text-zinc-600 hover:border-zinc-700 hover:text-zinc-300", "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600")
+            }`}>
+            {showArchived ? "Ocultar arquivadas" : "Ver arquivadas"}
+          </button>
+
+          {/* New */}
+          <button onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-lg shadow-indigo-500/25 transition-all">
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Novo restaurante</span>
+            <span className="sm:hidden">Novo</span>
+          </button>
         </header>
 
-        <main className="flex-1 p-6 xl:p-8 overflow-auto">
+        {/* CONTENT */}
+        <main className="flex-1 p-5 xl:p-6 overflow-auto space-y-5">
 
-          {/* ── STATS CARDS ── */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-            <StatCard
-              label="Total"
-              value={stats.total}
-              sub="estabelecimentos"
-              icon={Building2}
-              accent="bg-zinc-800 text-zinc-400"
-            />
-            <StatCard
-              label="Ativos"
-              value={stats.active}
-              sub={`${stats.total ? Math.round((stats.active / stats.total) * 100) : 0}% do total`}
-              icon={UserCheck}
-              accent="bg-emerald-950 text-emerald-400"
-            />
-            <StatCard
-              label="Bloqueados"
-              value={stats.blocked}
-              sub="acesso suspenso"
-              icon={Ban}
-              accent="bg-red-950 text-red-400"
-            />
-            <StatCard
-              label="Arquivados"
-              value={stats.archived}
-              sub="dados preservados"
-              icon={Archive}
-              accent="bg-zinc-800 text-zinc-500"
-            />
-          </div>
-
-          {/* ── PLAN DISTRIBUTION ── */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
-            {(["BASIC", "PROFESSIONAL", "ENTERPRISE", "DELIVERY"] as const).map(plan => {
-              const count = planCounts[plan] || 0
-              const pct = stats.total ? Math.round((count / stats.total) * 100) : 0
-              const barColor =
-                plan === "ENTERPRISE" ? "bg-violet-500" :
-                plan === "PROFESSIONAL" ? "bg-blue-500" :
-                plan === "DELIVERY" ? "bg-emerald-500" : "bg-zinc-500"
-              return (
-                <div key={plan} className="bg-zinc-900 border border-zinc-800/60 rounded-xl px-4 py-3.5 flex items-center justify-between gap-3">
+          {/* ── STATS CARDS ─────────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            {[
+              {
+                label: "Total de lojas",
+                value: stats.total,
+                sub: "estabelecimentos",
+                trend: `+${recentCompanies.length > 0 ? recentCompanies.filter(co => {
+                  const d = new Date(co.createdAt); const now = new Date();
+                  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+                }).length : 0} esse mês`,
+                trendUp: true,
+                color: "#6366f1",
+                trackDark: "#1e1b4b",
+                trackLight: "#e0e7ff",
+                pct: 100,
+                topColor: "from-indigo-500 to-violet-500",
+              },
+              {
+                label: "Lojas ativas",
+                value: stats.active,
+                sub: `${activePct}% do total`,
+                trend: "em operação",
+                trendUp: true,
+                color: "#10b981",
+                trackDark: "#052e16",
+                trackLight: "#d1fae5",
+                pct: activePct,
+                topColor: "from-emerald-400 to-teal-500",
+              },
+              {
+                label: "Bloqueadas",
+                value: stats.blocked,
+                sub: "acesso suspenso",
+                trend: blockedPct > 0 ? `${blockedPct}% do total` : "nenhuma bloqueada",
+                trendUp: false,
+                color: "#f43f5e",
+                trackDark: "#2d1515",
+                trackLight: "#ffe4e6",
+                pct: blockedPct,
+                topColor: "from-rose-500 to-pink-600",
+              },
+              {
+                label: "Arquivadas",
+                value: stats.archived,
+                sub: "dados preservados",
+                trend: "desativadas",
+                trendUp: null,
+                color: "#71717a",
+                trackDark: "#1c1c24",
+                trackLight: "#f4f4f5",
+                pct: stats.total ? Math.round((stats.archived / stats.total) * 100) : 0,
+                topColor: "from-zinc-500 to-zinc-600",
+              },
+            ].map((s, i) => (
+              <div key={i} className={`relative overflow-hidden rounded-2xl border p-5 ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+                {/* Top color bar */}
+                <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${s.topColor}`} />
+                <p className={`text-[9px] font-bold uppercase tracking-widest mb-3 ${c("text-zinc-600", "text-gray-400")}`}>{s.label}</p>
+                <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">{PLAN_LABELS[plan]}</p>
-                    <p className="text-2xl font-black text-white mt-0.5 tabular-nums">{count}</p>
+                    <p className={`text-3xl font-black tabular-nums leading-none ${c("text-white", "text-gray-900")}`}>{s.value}</p>
+                    <p className={`text-[10px] mt-1 ${c("text-zinc-600", "text-gray-400")}`}>{s.sub}</p>
+                    <p className={`text-[10px] mt-1 font-semibold ${
+                      s.trendUp === true ? "text-emerald-400" :
+                      s.trendUp === false && s.value > 0 ? "text-rose-400" :
+                      c("text-zinc-600", "text-gray-400")
+                    }`}>
+                      {s.trendUp === true && "▲ "}{s.trendUp === false && s.value > 0 && "▲ "}{s.trend}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-zinc-400 tabular-nums">{pct}%</p>
-                    <div className="w-14 h-1.5 bg-zinc-800 rounded-full mt-1.5 overflow-hidden">
-                      <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
+                  <RingChart pct={s.pct} color={s.color} trackColor={isDark ? s.trackDark : s.trackLight} />
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
 
-          {/* ── DEMO CENTRAL ── */}
-          <div className="mb-6">
-            <DemoCentralCard variant="dark" />
+          {/* ── MID ROW ─────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+            {/* Distribuição por plano */}
+            <div className={`rounded-2xl border p-5 ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+              <div className="flex items-center justify-between mb-4">
+                <p className={`text-xs font-bold ${c("text-zinc-300", "text-gray-700")}`}>Distribuição por Plano</p>
+                <span className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{stats.total} total</span>
+              </div>
+              {(["BASIC", "PROFESSIONAL", "ENTERPRISE", "DELIVERY"] as const).map(plan => {
+                const count = planCounts[plan] || 0
+                const pct   = stats.total ? Math.round((count / stats.total) * 100) : 0
+                const color = PLAN_COLORS[plan]
+                return (
+                  <div key={plan} className="flex items-center gap-3 mb-3 last:mb-0">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <span className={`text-xs flex-1 ${c("text-zinc-400", "text-gray-600")}`}>{PLAN_LABELS[plan]}</span>
+                    <div className={`w-20 h-1.5 rounded-full overflow-hidden ${c("bg-[#27272a]", "bg-gray-100")}`}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                    <span className={`text-xs font-bold w-5 text-right tabular-nums ${c("text-white", "text-gray-900")}`}>{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Top segmentos */}
+            <div className={`rounded-2xl border p-5 ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+              <div className="flex items-center justify-between mb-4">
+                <p className={`text-xs font-bold ${c("text-zinc-300", "text-gray-700")}`}>Top Segmentos</p>
+                <span className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>por quantidade</span>
+              </div>
+              {topSegments.length === 0 ? (
+                <p className={`text-xs ${c("text-zinc-600", "text-gray-400")}`}>Nenhum dado</p>
+              ) : topSegments.map(([seg, count], i) => {
+                const maxCount = topSegments[0][1]
+                const pct = Math.round((count / maxCount) * 100)
+                const colors = ["#f97316", "#f59e0b", "#10b981", "#3b82f6"]
+                return (
+                  <div key={seg} className="flex items-center gap-3 mb-3 last:mb-0">
+                    <span className="text-sm">{SEGMENT_EMOJI[seg] ?? "🏪"}</span>
+                    <span className={`text-xs flex-1 truncate ${c("text-zinc-400", "text-gray-600")}`}>{SEGMENT_LABELS[seg] ?? seg}</span>
+                    <div className={`w-20 h-1.5 rounded-full overflow-hidden ${c("bg-[#27272a]", "bg-gray-100")}`}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: colors[i] }} />
+                    </div>
+                    <span className={`text-xs font-bold w-5 text-right tabular-nums ${c("text-white", "text-gray-900")}`}>{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Atividade recente */}
+            <div className={`rounded-2xl border p-5 ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+              <div className="flex items-center justify-between mb-4">
+                <p className={`text-xs font-bold ${c("text-zinc-300", "text-gray-700")}`}>Cadastros Recentes</p>
+                <Activity className={`w-3.5 h-3.5 ${c("text-zinc-600", "text-gray-400")}`} />
+              </div>
+              {recentCompanies.length === 0 ? (
+                <p className={`text-xs ${c("text-zinc-600", "text-gray-400")}`}>Nenhum cadastro ainda</p>
+              ) : recentCompanies.map((co) => (
+                <div key={co.id} className={`flex items-center gap-3 py-2 border-b last:border-b-0 ${c("border-[#1c1c24]", "border-gray-50")}`}>
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${c("bg-[#27272a] text-zinc-300", "bg-gray-100 text-gray-600")}`}>
+                    {co.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold truncate ${c("text-zinc-200", "text-gray-800")}`}>{co.name}</p>
+                    <p className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>
+                      {new Date(co.createdAt).toLocaleDateString("pt-BR")} · {PLAN_LABELS[co.plan] ?? co.plan}
+                    </p>
+                  </div>
+                  <button onClick={() => enterStore(co.id)} disabled={entering === co.id}
+                    className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 transition shrink-0">
+                    Entrar →
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* ── TABLE ── */}
-          <div className="bg-zinc-900 border border-zinc-800/60 rounded-2xl overflow-hidden">
+          {/* ── DEMO CENTRAL ─────────────────────────────────────────────── */}
+          <div>
+            <DemoCentralCard variant={isDark ? "dark" : "light"} />
+          </div>
+
+          {/* ── TABELA ─────────────────────────────────────────────────── */}
+          <div className={`rounded-2xl border overflow-hidden ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
 
             {/* Segment tabs */}
             {(() => {
-              const segments = Array.from(new Set(companies.map(c => c.businessSegment ?? "RESTAURANTE"))).sort()
+              const segments = Array.from(new Set(companies.map(co => co.businessSegment ?? "RESTAURANTE"))).sort()
               if (segments.length <= 1) return null
               return (
-                <div className="px-5 pt-4 flex items-center gap-1 flex-wrap border-b border-zinc-800/60 pb-0">
-                  <button
-                    onClick={() => setSegmentTab("ALL")}
-                    className={`px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+                <div className={`px-5 pt-4 flex items-center gap-1 flex-wrap border-b pb-0 ${c("border-[#1c1c24]", "border-gray-100")}`}>
+                  <button onClick={() => setSegmentTab("ALL")}
+                    className={`px-3 py-2 text-xs font-medium rounded-t-lg border-b-2 -mb-px transition-colors ${
                       segmentTab === "ALL"
-                        ? "border-indigo-500 text-white bg-zinc-800/60"
-                        : "border-transparent text-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    Todos <span className="ml-1 text-[10px] text-zinc-600">{companies.length}</span>
+                        ? c("border-indigo-500 text-white", "border-indigo-500 text-indigo-600")
+                        : c("border-transparent text-zinc-500 hover:text-zinc-300", "border-transparent text-gray-400 hover:text-gray-700")
+                    }`}>
+                    Todos <span className={`ml-1 text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{companies.length}</span>
                   </button>
                   {segments.map(seg => {
-                    const count = companies.filter(c => (c.businessSegment ?? "RESTAURANTE") === seg).length
+                    const count = companies.filter(co => (co.businessSegment ?? "RESTAURANTE") === seg).length
                     return (
-                      <button
-                        key={seg}
-                        onClick={() => setSegmentTab(seg)}
-                        className={`px-3 py-2 text-xs font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
+                      <button key={seg} onClick={() => setSegmentTab(seg)}
+                        className={`px-3 py-2 text-xs font-medium rounded-t-lg border-b-2 -mb-px transition-colors ${
                           segmentTab === seg
-                            ? "border-indigo-500 text-white bg-zinc-800/60"
-                            : "border-transparent text-zinc-500 hover:text-zinc-300"
-                        }`}
-                      >
-                        {SEGMENT_LABELS[seg] ?? seg} <span className="ml-1 text-[10px] text-zinc-600">{count}</span>
+                            ? c("border-indigo-500 text-white", "border-indigo-500 text-indigo-600")
+                            : c("border-transparent text-zinc-500 hover:text-zinc-300", "border-transparent text-gray-400 hover:text-gray-700")
+                        }`}>
+                        {SEGMENT_LABELS[seg] ?? seg} <span className={`ml-1 text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{count}</span>
                       </button>
                     )
                   })}
@@ -538,29 +703,23 @@ export default function SuperAdminDashboard() {
               )
             })()}
 
-            {/* Table header / filters */}
-            <div className="px-5 py-4 border-b border-zinc-800/60 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            {/* Filters row */}
+            <div className={`px-5 py-3 border-b flex flex-col sm:flex-row items-start sm:items-center gap-3 ${c("border-[#1c1c24]", "border-gray-100")}`}>
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <h2 className="text-sm font-semibold text-white shrink-0">
+                <h2 className={`text-xs font-bold shrink-0 ${c("text-white", "text-gray-900")}`}>
                   {segmentTab === "ALL" ? "Estabelecimentos" : (SEGMENT_LABELS[segmentTab] ?? segmentTab)}
                 </h2>
-                <span className="text-[10px] text-zinc-600 bg-zinc-800 rounded-full px-2 py-0.5 tabular-nums">{filtered.length}</span>
+                <span className={`text-[10px] rounded-full px-2 py-0.5 tabular-nums ${c("bg-[#27272a] text-zinc-500", "bg-gray-100 text-gray-500")}`}>{filtered.length}</span>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
-                  <input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Buscar por nome ou e-mail..."
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition"
+                <div className="relative flex-1 sm:w-56">
+                  <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none ${c("text-zinc-600", "text-gray-400")}`} />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
+                    className={`w-full rounded-xl pl-8 pr-3 py-2 text-xs outline-none border transition ${c("bg-[#18181b] border-[#27272a] text-white placeholder-zinc-600 focus:border-indigo-500", "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-indigo-400")}`}
                   />
                 </div>
-                <select
-                  value={planFilter}
-                  onChange={e => setPlanFilter(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500 transition"
-                >
+                <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
+                  className={`rounded-xl px-3 py-2 text-xs outline-none border transition ${c("bg-[#18181b] border-[#27272a] text-zinc-300 focus:border-indigo-500", "bg-gray-50 border-gray-200 text-gray-700 focus:border-indigo-400")}`}>
                   <option value="ALL">Todos os planos</option>
                   <option value="BASIC">Básico</option>
                   <option value="PROFESSIONAL">Profissional</option>
@@ -570,149 +729,104 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
 
+            {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full">
                 <thead>
-                  <tr className="border-b border-zinc-800/60">
-                    {["Restaurante", "E-mail", "Plano", "Usuários", "Pedidos", "Cadastro", "Status", ""].map(h => (
-                      <th key={h} className="px-5 py-3 text-[10px] font-semibold text-zinc-600 uppercase tracking-widest text-left">
-                        {h}
-                      </th>
+                  <tr className={`border-b ${c("border-[#1c1c24]", "border-gray-100")}`}>
+                    {["Restaurante", "Plano", "Usuários", "Pedidos", "Cadastro", "Status", ""].map(h => (
+                      <th key={h} className={`px-5 py-3 text-[9px] font-bold uppercase tracking-widest text-left ${c("text-zinc-600", "text-gray-400")}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/40">
-                  {filtered.map((c) => (
-                    <tr
-                      key={c.id}
-                      className={`group transition-colors ${c.archivedAt ? "opacity-40 hover:opacity-60" : "hover:bg-zinc-800/30"}`}
-                    >
-                      {/* Name */}
+                <tbody className={`divide-y ${c("divide-[#1c1c24]/60", "divide-gray-50")}`}>
+                  {filtered.map((co) => (
+                    <tr key={co.id} className={`transition-colors ${co.archivedAt ? "opacity-40" : c("hover:bg-[#18181b]", "hover:bg-gray-50")}`}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center text-[11px] font-bold text-zinc-400 shrink-0">
-                            {c.name.charAt(0).toUpperCase()}
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${c("bg-[#27272a] text-zinc-400", "bg-gray-100 text-gray-600")}`}>
+                            {co.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-semibold text-white text-sm leading-tight">{c.name}</span>
+                          <div>
+                            <p className={`text-xs font-semibold ${c("text-white", "text-gray-900")}`}>{co.name}</p>
+                            <p className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{co.email}</p>
+                          </div>
                         </div>
                       </td>
-                      {/* Email */}
-                      <td className="px-5 py-3.5 text-zinc-500 text-xs">{c.email}</td>
-                      {/* Plan */}
                       <td className="px-5 py-3.5">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${PLAN_BADGE[c.plan] || "bg-zinc-800 text-zinc-300 ring-1 ring-zinc-700"}`}>
-                          {PLAN_LABELS[c.plan] || c.plan}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold"
+                          style={{ backgroundColor: `${PLAN_COLORS[co.plan]}22`, color: PLAN_COLORS[co.plan] }}>
+                          {PLAN_LABELS[co.plan] || co.plan}
                         </span>
                       </td>
-                      {/* Users */}
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1.5 text-zinc-400">
+                        <div className={`flex items-center gap-1.5 ${c("text-zinc-500", "text-gray-400")}`}>
                           <Users className="w-3 h-3" />
-                          <span className="text-xs tabular-nums">{c._count.users}</span>
+                          <span className="text-xs tabular-nums">{co._count.users}</span>
                         </div>
                       </td>
-                      {/* Orders */}
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1.5 text-zinc-400">
+                        <div className={`flex items-center gap-1.5 ${c("text-zinc-500", "text-gray-400")}`}>
                           <BarChart3 className="w-3 h-3" />
-                          <span className="text-xs tabular-nums">{c._count.orders}</span>
+                          <span className="text-xs font-bold tabular-nums">{co._count.orders}</span>
                         </div>
                       </td>
-                      {/* Date */}
-                      <td className="px-5 py-3.5 text-zinc-600 text-xs">
-                        {new Date(c.createdAt).toLocaleDateString("pt-BR")}
+                      <td className={`px-5 py-3.5 text-xs ${c("text-zinc-600", "text-gray-400")}`}>
+                        {new Date(co.createdAt).toLocaleDateString("pt-BR")}
                       </td>
-                      {/* Status */}
-                      <td className="px-5 py-3.5">{statusBadge(c)}</td>
-
-                      {/* Actions */}
+                      <td className="px-5 py-3.5">{statusBadge(co)}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
-                          {!c.archivedAt ? (
+                          {!co.archivedAt ? (
                             <>
-                              <button
-                                onClick={() => enterStore(c.id)}
-                                disabled={entering === c.id}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50 whitespace-nowrap"
-                              >
-                                {entering === c.id
+                              <button onClick={() => enterStore(co.id)} disabled={entering === co.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50">
+                                {entering === co.id
                                   ? <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
-                                  : <ExternalLink className="w-3 h-3" />
-                                }
+                                  : <ExternalLink className="w-3 h-3" />}
                                 Entrar
                               </button>
 
-                              <div className="relative" ref={openMenuId === c.id ? menuRef : undefined}>
-                                <button
-                                  onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)}
-                                  className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-200 hover:bg-zinc-700/60 transition"
-                                >
+                              <div className="relative" ref={openMenuId === co.id ? menuRef : undefined}>
+                                <button onClick={() => setOpenMenuId(openMenuId === co.id ? null : co.id)}
+                                  className={`p-1.5 rounded-lg transition ${c("text-zinc-600 hover:text-zinc-200 hover:bg-[#27272a]", "text-gray-400 hover:text-gray-700 hover:bg-gray-100")}`}>
                                   <MoreVertical className="w-4 h-4" />
                                 </button>
-
-                                {openMenuId === c.id && (
-                                  <div className="absolute right-0 top-9 z-50 w-52 bg-zinc-900 border border-zinc-700/80 rounded-xl shadow-2xl shadow-black/60 py-1.5 overflow-hidden">
-                                    <button
-                                      onClick={() => toggleBlock(c.id)}
-                                      disabled={blocking === c.id}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50"
-                                    >
-                                      {c.isBlocked
-                                        ? <><Shield className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Desbloquear acesso</span></>
-                                        : <><ShieldOff className="w-3.5 h-3.5 text-orange-400" /><span className="text-orange-400">Bloquear acesso</span></>
-                                      }
+                                {openMenuId === co.id && (
+                                  <div className={`absolute right-0 top-9 z-50 w-52 rounded-xl shadow-2xl shadow-black/60 py-1.5 overflow-hidden border ${c("bg-[#18181b] border-[#27272a]", "bg-white border-gray-200")}`}>
+                                    <button onClick={() => toggleBlock(co.id)} disabled={blocking === co.id}
+                                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left transition disabled:opacity-50 ${c("hover:bg-[#27272a]", "hover:bg-gray-50")}`}>
+                                      {co.isBlocked
+                                        ? <><Shield className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">Desbloquear</span></>
+                                        : <><ShieldOff className="w-3.5 h-3.5 text-orange-400" /><span className="text-orange-400">Bloquear acesso</span></>}
                                     </button>
-                                    <button
-                                      onClick={() => fixModules(c.id)}
-                                      disabled={fixingModules === c.id}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50 text-teal-400"
-                                    >
+                                    <button onClick={() => fixModules(co.id)} disabled={fixingModules === co.id}
+                                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left text-teal-400 transition disabled:opacity-50 ${c("hover:bg-[#27272a]", "hover:bg-gray-50")}`}>
                                       <Wrench className="w-3.5 h-3.5" />
-                                      {fixingModules === c.id ? "Corrigindo..." : "Fix módulos"}
+                                      {fixingModules === co.id ? "Corrigindo..." : "Fix módulos"}
                                     </button>
-                                    <button
-                                      onClick={() => {
-                                        setCloneTarget(c)
-                                        setCloneSourceId("")
-                                        setCloneResult(null)
-                                        setShowCloneModal(true)
-                                        setOpenMenuId(null)
-                                      }}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition text-amber-400"
-                                    >
+                                    <button onClick={() => { setCloneTarget(co); setCloneSourceId(""); setCloneResult(null); setShowCloneModal(true); setOpenMenuId(null) }}
+                                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left text-amber-400 transition ${c("hover:bg-[#27272a]", "hover:bg-gray-50")}`}>
                                       <Copy className="w-3.5 h-3.5" />
                                       Clonar cardápio
                                     </button>
-                                    <button
-                                      onClick={() => {
-                                        const url = `${window.location.origin}/configuracoes?tab=impressao-local`
-                                        navigator.clipboard.writeText(url)
-                                        alert(`Link copiado!\n\n${url}`)
-                                        setOpenMenuId(null)
-                                      }}
-                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition text-sky-400"
-                                    >
+                                    <button onClick={() => { const url = `${window.location.origin}/configuracoes?tab=impressao-local`; navigator.clipboard.writeText(url); alert(`Link copiado!\n\n${url}`); setOpenMenuId(null) }}
+                                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left text-sky-400 transition ${c("hover:bg-[#27272a]", "hover:bg-gray-50")}`}>
                                       <Printer className="w-3.5 h-3.5" />
                                       Link agente impressão
                                     </button>
-                                    {!isProtected(c) && (
+                                    {!isProtected(co) && (
                                       <>
-                                        <div className="border-t border-zinc-800 my-1" />
-                                        <button
-                                          onClick={() => archiveCompany(c.id, c.name)}
-                                          disabled={archiving === c.id}
-                                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-zinc-800 transition disabled:opacity-50 text-zinc-500"
-                                        >
+                                        <div className={`border-t my-1 ${c("border-[#27272a]", "border-gray-100")}`} />
+                                        <button onClick={() => archiveCompany(co.id, co.name)} disabled={archiving === co.id}
+                                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left text-zinc-500 transition disabled:opacity-50 ${c("hover:bg-[#27272a]", "hover:bg-gray-50")}`}>
                                           <Archive className="w-3.5 h-3.5" />
-                                          {archiving === c.id ? "Arquivando..." : "Arquivar empresa"}
+                                          {archiving === co.id ? "Arquivando..." : "Arquivar empresa"}
                                         </button>
-                                        <button
-                                          onClick={() => { setOpenMenuId(null); setConfirmText(""); setDeleteTarget(c) }}
-                                          disabled={deleting === c.id}
-                                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-left hover:bg-red-950/60 transition disabled:opacity-50 text-red-400"
-                                        >
+                                        <button onClick={() => { setOpenMenuId(null); setConfirmText(""); setDeleteTarget(co) }} disabled={deleting === co.id}
+                                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left text-red-400 transition disabled:opacity-50 ${c("hover:bg-red-950/40", "hover:bg-red-50")}`}>
                                           <Trash2 className="w-3.5 h-3.5" />
-                                          {deleting === c.id ? "Excluindo..." : "Excluir empresa"}
+                                          {deleting === co.id ? "Excluindo..." : "Excluir empresa"}
                                         </button>
                                       </>
                                     )}
@@ -722,22 +836,13 @@ export default function SuperAdminDashboard() {
                             </>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-zinc-700">
-                                {new Date(c.archivedAt!).toLocaleDateString("pt-BR")}
-                              </span>
-                              <button
-                                onClick={() => restoreCompany(c.id)}
-                                disabled={archiving === c.id}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-950 hover:bg-emerald-900 text-emerald-400 ring-1 ring-emerald-900 transition disabled:opacity-50"
-                              >
+                              <button onClick={() => restoreCompany(co.id)} disabled={archiving === co.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-950 hover:bg-emerald-900 text-emerald-400 ring-1 ring-emerald-900 transition disabled:opacity-50">
                                 <RotateCcw className="w-3 h-3" />Restaurar
                               </button>
-                              <button
-                                onClick={() => { setConfirmText(""); setDeleteTarget(c) }}
-                                disabled={deleting === c.id}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-950 hover:bg-red-900 text-red-400 ring-1 ring-red-900 transition disabled:opacity-50"
-                              >
-                                <Trash2 className="w-3 h-3" />{deleting === c.id ? "..." : "Excluir"}
+                              <button onClick={() => { setConfirmText(""); setDeleteTarget(co) }} disabled={deleting === co.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-950 hover:bg-red-900 text-red-400 ring-1 ring-red-900 transition disabled:opacity-50">
+                                <Trash2 className="w-3 h-3" />{deleting === co.id ? "..." : "Excluir"}
                               </button>
                             </div>
                           )}
@@ -747,11 +852,10 @@ export default function SuperAdminDashboard() {
                   ))}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-6 py-16 text-center text-zinc-700 text-sm">
+                      <td colSpan={7} className={`px-6 py-16 text-center text-sm ${c("text-zinc-700", "text-gray-400")}`}>
                         {search || planFilter !== "ALL"
                           ? "Nenhum resultado para os filtros aplicados"
-                          : showArchived
-                          ? "Nenhuma empresa arquivada"
+                          : showArchived ? "Nenhuma empresa arquivada"
                           : "Nenhum restaurante cadastrado"}
                       </td>
                     </tr>
@@ -763,53 +867,94 @@ export default function SuperAdminDashboard() {
         </main>
       </div>
 
-      {/* ── MODAL — Confirmar Exclusão ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          MODAL — Novo restaurante
+      ══════════════════════════════════════════════════════════════════════ */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`rounded-2xl p-7 w-full max-w-md shadow-2xl border ${c("bg-[#0f0f14] border-[#27272a]", "bg-white border-gray-200")}`}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className={`text-sm font-black ${c("text-white", "text-gray-900")}`}>Novo Restaurante</h3>
+              <button onClick={() => setShowModal(false)} className={`w-7 h-7 rounded-lg flex items-center justify-center text-lg transition ${c("text-zinc-500 hover:text-white hover:bg-[#27272a]", "text-gray-400 hover:text-gray-700 hover:bg-gray-100")}`}>×</button>
+            </div>
+            <form onSubmit={createCompany} className="space-y-3">
+              {[
+                { label: "Nome do restaurante *", key: "name", type: "text", placeholder: "Pizzaria Bella Napoli" },
+                { label: "E-mail admin *", key: "email", type: "email", placeholder: "admin@restaurante.com.br" },
+                { label: "Senha *", key: "adminPassword", type: "password", placeholder: "Mínimo 6 caracteres" },
+                { label: "Telefone", key: "phone", type: "tel", placeholder: "(11) 99999-9999" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className={`block text-[10px] font-semibold mb-1 ${c("text-zinc-400", "text-gray-500")}`}>{f.label}</label>
+                  <input type={f.type} value={form[f.key as keyof typeof form]}
+                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                    className={`w-full rounded-xl px-4 py-2.5 text-xs outline-none border transition ${c("bg-[#18181b] border-[#27272a] text-white placeholder-zinc-600 focus:border-indigo-500", "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-indigo-400")}`}
+                  />
+                </div>
+              ))}
+              <div>
+                <label className={`block text-[10px] font-semibold mb-1 ${c("text-zinc-400", "text-gray-500")}`}>Plano</label>
+                <select value={form.plan} onChange={e => setForm(p => ({ ...p, plan: e.target.value }))}
+                  className={`w-full rounded-xl px-4 py-2.5 text-xs outline-none border transition ${c("bg-[#18181b] border-[#27272a] text-zinc-300 focus:border-indigo-500", "bg-gray-50 border-gray-200 text-gray-700 focus:border-indigo-400")}`}>
+                  <option value="BASIC">Básico</option>
+                  <option value="PROFESSIONAL">Profissional</option>
+                  <option value="ENTERPRISE">Enterprise</option>
+                  <option value="DELIVERY">Delivery</option>
+                </select>
+              </div>
+              {formError && <p className="text-xs text-red-400">{formError}</p>}
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowModal(false)}
+                  className={`flex-1 rounded-xl py-2.5 text-xs font-medium transition ${c("bg-[#27272a] hover:bg-[#3f3f46] text-white", "bg-gray-100 hover:bg-gray-200 text-gray-700")}`}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={creating}
+                  className="flex-1 rounded-xl py-2.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition disabled:opacity-50">
+                  {creating ? "Criando..." : "Criar restaurante"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          MODAL — Excluir
+      ══════════════════════════════════════════════════════════════════════ */}
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-red-900/50 rounded-2xl p-7 w-full max-w-md shadow-2xl shadow-black/60">
+          <div className={`rounded-2xl p-7 w-full max-w-md shadow-2xl border ${c("bg-[#0f0f14] border-red-900/50", "bg-white border-red-200")}`}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-red-950 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-red-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Excluir empresa</h3>
-                <p className="text-xs text-zinc-500">Esta ação é permanente e irreversível</p>
+                <h3 className={`text-sm font-black ${c("text-white", "text-gray-900")}`}>Excluir empresa</h3>
+                <p className={`text-[10px] ${c("text-zinc-500", "text-gray-400")}`}>Esta ação é permanente e irreversível</p>
               </div>
             </div>
-
-            <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4 mb-5 text-sm text-red-300 space-y-1">
-              <p className="font-semibold">{deleteTarget.name}</p>
-              <p className="text-red-400/70 text-xs">{deleteTarget.email}</p>
-              <p className="text-xs text-red-400/60 mt-2">
-                Todos os dados serão apagados: usuários, pedidos, produtos, financeiro e histórico.
-              </p>
+            <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4 mb-5">
+              <p className="text-sm font-semibold text-red-300">{deleteTarget.name}</p>
+              <p className="text-[10px] text-red-400/70 mt-0.5">{deleteTarget.email}</p>
+              <p className="text-[10px] text-red-400/60 mt-2">Todos os dados serão apagados permanentemente.</p>
             </div>
-
             <div className="mb-5">
-              <label className="block text-xs text-zinc-400 mb-1.5">
-                Digite <span className="text-white font-bold">EXCLUIR</span> para confirmar
+              <label className={`block text-[10px] mb-1.5 ${c("text-zinc-400", "text-gray-500")}`}>
+                Digite <span className="font-black text-white">EXCLUIR</span> para confirmar
               </label>
-              <input
-                value={confirmText}
-                onChange={e => setConfirmText(e.target.value)}
-                placeholder="EXCLUIR"
-                autoFocus
-                className="w-full bg-zinc-800 border border-zinc-700 focus:border-red-600 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-600 outline-none transition"
+              <input value={confirmText} onChange={e => setConfirmText(e.target.value)}
+                placeholder="EXCLUIR" autoFocus
+                className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition ${c("bg-[#18181b] border-[#27272a] focus:border-red-600 text-white placeholder-zinc-600", "bg-gray-50 border-gray-200 focus:border-red-400 text-gray-900")}`}
               />
             </div>
-
             <div className="flex gap-3">
-              <button
-                onClick={() => { setDeleteTarget(null); setConfirmText("") }}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium text-white"
-              >
+              <button onClick={() => { setDeleteTarget(null); setConfirmText("") }}
+                className={`flex-1 rounded-xl py-3 text-sm font-medium transition ${c("bg-[#27272a] hover:bg-[#3f3f46] text-white", "bg-gray-100 hover:bg-gray-200 text-gray-700")}`}>
                 Cancelar
               </button>
-              <button
-                onClick={confirmDelete}
-                disabled={confirmText !== "EXCLUIR" || deleting === deleteTarget.id}
-                className="flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition rounded-xl py-3 text-sm font-bold text-white"
-              >
+              <button onClick={confirmDelete} disabled={confirmText !== "EXCLUIR" || deleting === deleteTarget.id}
+                className="flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition rounded-xl py-3 text-sm font-black text-white">
                 {deleting === deleteTarget.id ? "Excluindo..." : "Excluir definitivamente"}
               </button>
             </div>
@@ -817,110 +962,51 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* ── MODAL — Clonar Cardápio ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          MODAL — Clonar cardápio
+      ══════════════════════════════════════════════════════════════════════ */}
       {showCloneModal && cloneTarget && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-7 w-full max-w-md shadow-2xl shadow-black/60">
-            <h3 className="text-base font-bold mb-1 text-white">Clonar Cardápio</h3>
-            <p className="text-zinc-500 text-sm mb-6">
-              Copiar categorias e produtos para <strong className="text-white">{cloneTarget.name}</strong>
+          <div className={`rounded-2xl p-7 w-full max-w-md shadow-2xl border ${c("bg-[#0f0f14] border-[#27272a]", "bg-white border-gray-200")}`}>
+            <h3 className={`text-sm font-black mb-1 ${c("text-white", "text-gray-900")}`}>Clonar Cardápio</h3>
+            <p className={`text-xs mb-5 ${c("text-zinc-500", "text-gray-500")}`}>
+              Copiar para <strong className={c("text-white", "text-gray-900")}>{cloneTarget.name}</strong>
             </p>
-
             {cloneResult ? (
               <>
-                <div className="bg-emerald-950 border border-emerald-900 rounded-xl p-5 text-center mb-6">
-                  <p className="text-emerald-400 text-base font-bold">Cardápio clonado</p>
-                  <p className="text-emerald-600 text-sm mt-1.5">
-                    {cloneResult.categories} categorias e {cloneResult.products} produtos copiados.
-                  </p>
+                <div className="bg-emerald-950 border border-emerald-900 rounded-xl p-5 text-center mb-5">
+                  <p className="text-emerald-400 font-black">Cardápio clonado ✓</p>
+                  <p className="text-emerald-600 text-xs mt-1.5">{cloneResult.categories} categorias e {cloneResult.products} produtos copiados.</p>
                 </div>
-                <button onClick={() => setShowCloneModal(false)} className="w-full bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium text-white">
+                <button onClick={() => setShowCloneModal(false)}
+                  className={`w-full rounded-xl py-3 text-sm font-medium transition ${c("bg-[#27272a] hover:bg-[#3f3f46] text-white", "bg-gray-100 hover:bg-gray-200 text-gray-700")}`}>
                   Fechar
                 </button>
               </>
             ) : (
               <form onSubmit={cloneMenu} className="space-y-4">
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">Empresa de origem</label>
-                  <select
-                    value={cloneSourceId}
-                    onChange={(e) => setCloneSourceId(e.target.value)}
-                    required
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="">Selecione a empresa...</option>
-                    {companies.filter((c) => c.id !== cloneTarget.id && !c.archivedAt).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                  <label className={`block text-[10px] font-semibold mb-1 ${c("text-zinc-400", "text-gray-500")}`}>Empresa de origem</label>
+                  <select value={cloneSourceId} onChange={e => setCloneSourceId(e.target.value)} required
+                    className={`w-full rounded-xl px-4 py-2.5 text-xs outline-none border transition ${c("bg-[#18181b] border-[#27272a] text-zinc-300 focus:border-amber-500", "bg-gray-50 border-gray-200 text-gray-700")}`}>
+                    <option value="">Selecionar empresa...</option>
+                    {companies.filter(co => co.id !== cloneTarget.id).map(co => (
+                      <option key={co.id} value={co.id}>{co.name}</option>
                     ))}
                   </select>
-                  <p className="text-zinc-600 text-xs mt-1.5">Adiciona produtos sem apagar os existentes.</p>
                 </div>
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowCloneModal(false)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium text-white">
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowCloneModal(false)}
+                    className={`flex-1 rounded-xl py-2.5 text-xs font-medium transition ${c("bg-[#27272a] hover:bg-[#3f3f46] text-white", "bg-gray-100 hover:bg-gray-200 text-gray-700")}`}>
                     Cancelar
                   </button>
-                  <button type="submit" disabled={cloning || !cloneSourceId} className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 transition rounded-xl py-3 text-sm font-semibold text-white">
-                    {cloning ? "Clonando..." : "Clonar"}
+                  <button type="submit" disabled={cloning || !cloneSourceId}
+                    className="flex-1 rounded-xl py-2.5 text-xs font-black bg-amber-600 hover:bg-amber-500 text-white transition disabled:opacity-50">
+                    {cloning ? "Clonando..." : "Clonar cardápio"}
                   </button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL — Criar Restaurante ── */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-7 w-full max-w-md shadow-2xl shadow-black/60">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-bold text-white">Novo Restaurante</h3>
-              <button onClick={() => { setShowModal(false); setFormError("") }} className="text-zinc-600 hover:text-zinc-300 transition text-lg leading-none">✕</button>
-            </div>
-            <form onSubmit={createCompany} className="space-y-4">
-              {[
-                { label: "Nome do restaurante *", key: "name",          type: "text",     ph: "Ex: Pizzaria Bella Napoli", ac: "off" },
-                { label: "E-mail do admin *",      key: "email",         type: "email",    ph: "admin@restaurante.com",     ac: "off" },
-                { label: "Senha inicial *",         key: "adminPassword", type: "password", ph: "Mínimo 6 caracteres",       ac: "new-password" },
-                { label: "Telefone",                key: "phone",         type: "text",     ph: "(41) 99999-9999",           ac: "off" },
-              ].map((f) => (
-                <div key={f.key}>
-                  <label className="block text-xs text-zinc-400 mb-1.5">{f.label}</label>
-                  <input
-                    type={f.type}
-                    value={(form as any)[f.key]}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                    placeholder={f.ph}
-                    autoComplete={f.ac}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition"
-                  />
-                </div>
-              ))}
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Plano</label>
-                <select
-                  value={form.plan}
-                  onChange={(e) => setForm({ ...form, plan: e.target.value })}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition"
-                >
-                  <option value="BASIC">Básico</option>
-                  <option value="PROFESSIONAL">Profissional</option>
-                  <option value="ENTERPRISE">Enterprise</option>
-                  <option value="DELIVERY">Delivery</option>
-                </select>
-              </div>
-              {formError && (
-                <p className="text-red-400 text-xs bg-red-950/50 border border-red-900 rounded-lg px-3 py-2">{formError}</p>
-              )}
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => { setShowModal(false); setFormError("") }} className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-xl py-3 text-sm font-medium text-white">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={creating} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition rounded-xl py-3 text-sm font-semibold text-white">
-                  {creating ? "Criando..." : "Criar restaurante"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

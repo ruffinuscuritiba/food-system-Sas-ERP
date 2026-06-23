@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   Store, Palette, ClipboardList, CreditCard, Bike, Pizza,
   Printer, MessageCircle, Cable, Users, Star, Settings,
-  Save, Loader2, CheckCircle2, AlertCircle, DollarSign, QrCode,
+  Save, Loader2, CheckCircle2, AlertCircle, DollarSign, QrCode, SlidersHorizontal,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
@@ -70,16 +70,21 @@ const ImpressaoLocalTab = dynamic(() => import("@/components/settings/ImpressaoL
   ssr: false,
   loading: TabLoader,
 });
+const InterfaceTab = dynamic(() => import("@/components/settings/InterfaceTab"), {
+  ssr: false,
+  loading: TabLoader,
+});
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: "loja",        label: "Minha Loja",      icon: Store,          group: "Identidade" },
   { id: "aparencia",   label: "Aparência",        icon: Palette,        group: "Identidade" },
-  { id: "pedidos",     label: "Pedidos",          icon: ClipboardList,  group: "Operação" },
-  { id: "pagamento",   label: "Pagamento",        icon: CreditCard,     group: "Operação" },
-  { id: "entrega",     label: "Entrega",          icon: Bike,           group: "Operação" },
-  { id: "pizza",       label: "Pizza & Cardápio", icon: Pizza,          group: "Operação" },
+  { id: "pedidos",     label: "Pedidos",          icon: ClipboardList,       group: "Operação" },
+  { id: "pagamento",   label: "Pagamento",        icon: CreditCard,          group: "Operação" },
+  { id: "entrega",     label: "Entrega",          icon: Bike,                group: "Operação" },
+  { id: "pizza",       label: "Pizza & Cardápio", icon: Pizza,               group: "Operação" },
+  { id: "interface",   label: "Interface",        icon: SlidersHorizontal,   group: "Operação" },
   { id: "impressao",        label: "Impressão",        icon: Printer,        group: "Tecnologia" },
   { id: "impressao-local",  label: "Impressão Local",  icon: Printer,        group: "Tecnologia" },
   { id: "whatsapp",    label: "WhatsApp IA",      icon: MessageCircle,  group: "Tecnologia" },
@@ -732,6 +737,7 @@ function getTabDescription(tab: TabId): string {
     financeiro:  "Split de pagamentos, conta de repasse e frequência de transferência",
     equipe:      "Usuários, funções e permissões de acesso",
     plano:       "Assinatura atual, módulos ativos e limites do plano",
+    interface:   "Personalize quais seções aparecem no painel — sem perder nenhum dado",
   };
   return map[tab] ?? "";
 }
@@ -865,6 +871,8 @@ function ConfiguracoesInner() {
             <UsuariosTab />
           ) : activeTab === "plano" ? (
             <PlanoTab />
+          ) : activeTab === "interface" ? (
+            <InterfaceTab />
           ) : (
             <PlaceholderTab tab={activeTab} />
           )}

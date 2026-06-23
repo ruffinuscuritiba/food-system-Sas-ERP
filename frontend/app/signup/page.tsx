@@ -50,8 +50,12 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.companyName || !form.name || !form.email || !form.password) {
-      toast.error("Preencha todos os campos");
+    if (!form.companyName || !form.name || !form.email || !form.whatsapp || !form.password) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+    if (form.whatsapp.replace(/\D/g, "").length < 10) {
+      toast.error("WhatsApp inválido — informe DDD + número");
       return;
     }
     if (form.password.length < 6) {
@@ -69,7 +73,7 @@ export default function SignupPage() {
         name: form.name,
         email: form.email,
         password: form.password,
-        whatsapp: form.whatsapp || undefined,
+        whatsapp: form.whatsapp,
         businessSegment: segment || "RESTAURANTE",
       });
       setAuth(data.accessToken, data.user);
@@ -142,7 +146,8 @@ export default function SignupPage() {
             </div>
 
             <h1 className="text-3xl font-bold text-white mb-2">Criar conta</h1>
-            <p className="text-slate-400 mb-7">Cadastre seu estabelecimento gratuitamente</p>
+            <p className="text-slate-400 mb-1">Cadastre seu estabelecimento gratuitamente</p>
+            <p className="text-green-400 text-sm font-semibold mb-6">✓ 3 dias de teste grátis — sem cartão de crédito</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
@@ -171,12 +176,13 @@ export default function SignupPage() {
               />
               <input
                 type="tel"
-                placeholder="WhatsApp (opcional) — ex: 41999999999"
+                placeholder="WhatsApp com DDD * — ex: 41999999999"
                 value={form.whatsapp}
                 onChange={(e) => set("whatsapp", e.target.value.replace(/\D/g, ""))}
                 className="w-full bg-slate-800 border border-slate-700 focus:border-green-500 transition text-white p-4 rounded-2xl outline-none"
                 autoComplete="tel"
                 maxLength={13}
+                required
               />
               <PasswordInput
                 value={form.password}

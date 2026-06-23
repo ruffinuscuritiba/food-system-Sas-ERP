@@ -147,7 +147,7 @@ export default function SignupPage() {
 
             <h1 className="text-3xl font-bold text-white mb-2">Criar conta</h1>
             <p className="text-slate-400 mb-1">Cadastre seu estabelecimento gratuitamente</p>
-            <p className="text-green-400 text-sm font-semibold mb-6">✓ 3 dias de teste grátis — sem cartão de crédito</p>
+            <p className="text-green-400 text-sm font-semibold mb-6">✓ 7 dias de teste grátis — sem cartão de crédito</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <input

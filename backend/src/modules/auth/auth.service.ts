@@ -94,7 +94,7 @@ export class AuthService {
 
     // New companies start as PENDING_PAYMENT — 3-day free trial, no card required.
     const trialEnds = new Date();
-    trialEnds.setDate(trialEnds.getDate() + 3);
+    trialEnds.setDate(trialEnds.getDate() + 7);
 
     const segment = dto.businessSegment ?? 'RESTAURANTE';
     const sidebarConfig = buildDefaultSidebarConfig(segment);

@@ -34,6 +34,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     companyId: string;
     role: string;
   }) {
+    // SYSTEM_SUPER_ADMIN tokens have no sub — bypass DB lookup
+    if (!payload.sub) {
+      if (payload.role === 'SYSTEM_SUPER_ADMIN') {
+        return { userId: null, email: payload.email, companyId: null, role: payload.role };
+      }
+      throw new UnauthorizedException('Token inválido');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: {
         id: payload.sub,

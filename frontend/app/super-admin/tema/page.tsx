@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, Check, Save, RotateCcw, Upload, X, Store, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { saApi } from "@/services/superAdminApi";
+import { SuperAdminTopBar } from "@/components/super-admin/SuperAdminTopBar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -476,10 +477,6 @@ function Sidebar({
 
       {/* Top bar */}
       <div className="flex items-center gap-2 px-3 py-3 border-b border-slate-800 shrink-0">
-        <Link href="/super-admin/dashboard"
-          className="text-slate-500 hover:text-slate-300 transition">
-          <ChevronLeft size={16} />
-        </Link>
         <div>
           <div className="text-xs font-bold text-slate-100">Editor de Tema PDV</div>
           <div className="text-[10px] text-slate-500">Clique num bloco → escolha a cor</div>
@@ -1036,7 +1033,9 @@ export default function ThemeEditorPage() {
   }
 
   return (
-    <div className="flex h-screen bg-[#0a0a0b] text-slate-100 font-sans overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#0a0a0b] text-slate-100 font-sans overflow-hidden">
+      <SuperAdminTopBar />
+      <div className="flex flex-1 overflow-hidden">
       <Sidebar
         theme={theme}
         activeEl={activeEl}
@@ -1104,6 +1103,7 @@ export default function ThemeEditorPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      </div>{/* /flex-1 */}
     </div>
   );
 }

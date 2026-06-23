@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { Plus, Trash2, Save, X, Settings2, Pizza, Pencil, Check } from "lucide-react";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ const emptyForm = (): { name: string; sizes: BorderSize[] } => ({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function PizzaBordersPage() {
+  useNavKeyGuard("pizza-borders");
   const [borders, setBorders]         = useState<PizzaBorder[]>([]);
   const [sizeConfigs, setSizeConfigs] = useState<SizeConfig[]>([]);
   const [showForm, setShowForm]       = useState(false);

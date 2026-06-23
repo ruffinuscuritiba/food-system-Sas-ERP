@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { Layers, TrendingUp, TrendingDown } from "lucide-react";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 const TYPE_LABELS: Record<string, string> = {
   ENTRY: "Entrada", EXIT: "Saída", LOSS: "Perda",
@@ -11,6 +12,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function StockPage() {
+  useNavKeyGuard("stock");
   const [movements, setMovements] = useState<any[]>([]);
   const [lowStock, setLowStock] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

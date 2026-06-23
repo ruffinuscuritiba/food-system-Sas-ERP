@@ -11,6 +11,7 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { api } from "@/services/api";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,7 @@ function KpiCard({ icon, label, value, growth, sub }: { icon: React.ReactNode; l
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BIPage() {
+  useNavKeyGuard("bi");
   const [tab, setTab] = useState<"dashboard" | "reports" | "ia" | "alerts">("dashboard");
   const [preset, setPreset] = useState<DatePreset>("month");
   const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()) });

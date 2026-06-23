@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { socket } from "@/services/socket";
 import { api } from "@/services/api";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
+import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // @hello-pangea/dnd is heavy and SSR-incompatible — load lazily
 const KitchenBoard = dynamic(() => import("./KitchenBoard"), {
@@ -24,6 +25,7 @@ const KitchenBoard = dynamic(() => import("./KitchenBoard"), {
 });
 
 export default function KitchenPage() {
+  useNavKeyGuard("kitchen");
 
   const [orders, setOrders] = useState<any[]>([]);
   const audioRef   = useRef<any>(null);

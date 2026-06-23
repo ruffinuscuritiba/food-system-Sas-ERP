@@ -19,10 +19,15 @@ import {
   Eye,
   EyeOff,
   X,
+  ChevronDown,
 } from "lucide-react";
 
 
-interface Category { id: string; name: string; categoryType?: string; }
+interface Category {
+  id: string; name: string; categoryType?: string;
+  parentCategoryId?: string | null;
+  children?: Category[];
+}
 interface ProductSize { size: string; price: number; }
 interface Product {
   id: string; name: string; description?: string;
@@ -243,6 +248,7 @@ export default function PDVPage() {
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -404,7 +410,15 @@ export default function PDVPage() {
 
   const filteredProducts = products.filter(p => {
     if (!p.isActive) return false;
-    const matchCat = selectedCategory === "all" || p.categoryId === selectedCategory;
+    let matchCat: boolean;
+    if (selectedCategory === "all") {
+      matchCat = true;
+    } else {
+      const selCat = categories.find(c => c.id === selectedCategory);
+      const childIdSet = new Set((selCat?.children ?? []).map(c => c.id));
+      matchCat = p.categoryId === selectedCategory ||
+        (childIdSet.size > 0 && childIdSet.has(p.categoryId ?? ""));
+    }
     if (!search) return matchCat;
     const q = search.toLowerCase();
     const matchSearch =
@@ -445,7 +459,8 @@ export default function PDVPage() {
   const activeCategoryName    = activeCategory?.name ?? (selectedCategory === "all" ? "Todos os Produtos" : "Produtos");
   const activeIsBeverage      =
     activeCategory?.categoryType === "bebidas" ||
-    activeCategory?.name?.toLowerCase().includes("bebida");
+    activeCategory?.name?.toLowerCase().includes("bebida") ||
+    (activeCategory?.children ?? []).some(c => c.categoryType === "bebidas");
   const activeCategoryIsPizza = activeCategory != null && pizzaCategories.has(activeCategory.id);
 
   // Usa apenas banner dedicado da categoria; product thumbnails causam zoom excessivo como hero
@@ -826,14 +841,19 @@ export default function PDVPage() {
             className="px-3 py-2 overflow-x-scroll scrollbar-hide touch-pan-x"
           >
             <div className="flex gap-2 min-w-max pr-8">
-              {[{ id: "all", name: "Todos", categoryType: undefined }, ...categories].map(cat => (
-                <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                  className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
-                    selectedCategory === cat.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-zinc-300"
-                  }`}>
-                  {cat.name}
-                </button>
-              ))}
+              {[{ id: "all", name: "Todos", categoryType: undefined, parentCategoryId: null, children: [] } as Category,
+                ...categories.filter(c => !c.parentCategoryId)].map(cat => {
+                const isActive = selectedCategory === cat.id ||
+                  (cat.children ?? []).some(c => c.id === selectedCategory);
+                return (
+                  <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                    className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
+                      isActive ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-zinc-300"
+                    }`}>
+                    {cat.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -841,21 +861,55 @@ export default function PDVPage() {
         {/* BODY */}
         <div className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
           <aside className="w-full border-r border-[var(--pdv-border,#161b2d)] p-5 overflow-y-auto scrollbar-hide bg-[var(--pdv-sidebar-bg,#050816)]">
-            <div className="space-y-4">
+            <div className="space-y-2">
               <button onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
                   selectedCategory === "all" ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-300"
                 }`}>Todos</button>
               {loading ? Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[var(--pdv-card-hover,#0c101d)] animate-pulse" />
-              )) : categories.map((cat) => (
-                <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                  className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
-                    selectedCategory === cat.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-300"
-                  }`}>
-                  {cat.name}
-                </button>
-              ))}
+              )) : categories.filter(c => !c.parentCategoryId).map((cat) => {
+                const hasChildren = (cat.children ?? []).length > 0;
+                const isExpanded = expandedCategories.has(cat.id);
+                const isParentActive = selectedCategory === cat.id ||
+                  (cat.children ?? []).some(c => c.id === selectedCategory);
+                return (
+                  <div key={cat.id} className="space-y-1">
+                    <button
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        if (hasChildren) {
+                          setExpandedCategories(prev => {
+                            const next = new Set(prev);
+                            next.has(cat.id) ? next.delete(cat.id) : next.add(cat.id);
+                            return next;
+                          });
+                        }
+                      }}
+                      className={`w-full min-h-[64px] rounded-3xl px-4 transition font-semibold text-sm flex items-center justify-between gap-2 ${
+                        isParentActive ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-300"
+                      }`}>
+                      <span className="flex-1 text-center">{cat.name}</span>
+                      {hasChildren && (
+                        <ChevronDown className={`shrink-0 w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                      )}
+                    </button>
+                    {hasChildren && isExpanded && (
+                      <div className="ml-3 space-y-1">
+                        {(cat.children ?? []).map(child => (
+                          <button key={child.id}
+                            onClick={() => setSelectedCategory(child.id)}
+                            className={`w-full min-h-[48px] rounded-2xl px-3 transition text-xs font-semibold text-center ${
+                              selectedCategory === child.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-400"
+                            }`}>
+                            {child.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </aside>
 
@@ -878,13 +932,23 @@ export default function PDVPage() {
               </div>
             ) : activeIsBeverage || layoutType === "GRID" ? (
               <div className={`grid gap-4 ${activeIsBeverage ? "grid-cols-3 xl:grid-cols-5" : "grid-cols-2 xl:grid-cols-4"}`}>
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product) => {
+                  const offImgSrc = product.eanCode
+                    ? `https://images.openfoodfacts.org/images/products/${product.eanCode}/front.small.jpg`
+                    : null;
+                  const imgSrc = product.imageUrl || offImgSrc;
+                  return (
                   <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-[var(--color-primary,#2563eb)] transition group"
                     onClick={() => openProductAdd(product)}>
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover" />
-                      : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>}
+                    {imgSrc
+                      ? <img src={imgSrc} alt={product.name} className="w-full aspect-square object-cover" />
+                      : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>
+                    }
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
+                      {product.eanCode && (
+                        <p className="text-zinc-500 text-[10px] mt-0.5 font-mono">{product.eanCode}</p>
+                      )}
                       <p className="text-[var(--color-primary,#2563eb)] font-black text-base mt-2 leading-tight">{productPriceLabel(product)}</p>
                       <button onClick={(e) => { e.stopPropagation(); openProductAdd(product); }} disabled={complementLoading}
                         className="mt-2 w-full py-1.5 rounded-xl bg-[var(--color-primary,#2563eb)] group-hover:opacity-90 active:scale-95 transition text-xs font-bold disabled:opacity-50">
@@ -892,7 +956,8 @@ export default function PDVPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="space-y-5">

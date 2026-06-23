@@ -382,7 +382,7 @@ export default function SuperAdminDashboard() {
 
   // ── Notifications derived from companies data ────────────────────────────────
   const notifications = (() => {
-    const list: { type: string; title: string; sub: string; color: string; bg: string }[] = []
+    const list: { type: string; title: string; sub: string; color: string; bg: string; companyId: string }[] = []
     const now = new Date()
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     const realNew = companies.filter(co =>
@@ -395,6 +395,7 @@ export default function SuperAdminDashboard() {
       sub: `${PLAN_LABELS[co.plan] ?? co.plan} · ${new Date(co.createdAt).toLocaleDateString("pt-BR")}`,
       color: "text-indigo-400",
       bg: "bg-indigo-500/10 border-indigo-500/20",
+      companyId: co.id,
     }))
     companies.filter(co => co.isBlocked).forEach(co => list.push({
       type: "blocked",
@@ -402,6 +403,7 @@ export default function SuperAdminDashboard() {
       sub: "Acesso suspenso — verificar pagamento",
       color: "text-red-400",
       bg: "bg-red-500/10 border-red-500/20",
+      companyId: co.id,
     }))
     return list
   })()
@@ -590,7 +592,20 @@ export default function SuperAdminDashboard() {
                       <p className={`text-xs ${c("text-zinc-600", "text-gray-400")}`}>Nenhuma notificação</p>
                     </div>
                   ) : notifications.map((n, i) => (
-                    <div key={i} className={`flex items-start gap-3 px-4 py-3 border-b last:border-b-0 ${c("border-[#1a1a1f] hover:bg-[#18181b]", "border-gray-50 hover:bg-gray-50")} transition-colors`}>
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setShowNotif(false)
+                        setSearch(n.title.replace(/^(Nova loja|Loja bloqueada): /, ""))
+                        setTimeout(() => {
+                          const row = document.getElementById(`company-row-${n.companyId}`)
+                          row?.scrollIntoView({ behavior: "smooth", block: "center" })
+                          row?.classList.add("ring-2", "ring-indigo-500")
+                          setTimeout(() => row?.classList.remove("ring-2", "ring-indigo-500"), 2000)
+                        }, 150)
+                      }}
+                      className={`w-full flex items-start gap-3 px-4 py-3 border-b last:border-b-0 ${c("border-[#1a1a1f] hover:bg-[#18181b]", "border-gray-50 hover:bg-gray-50")} transition-colors text-left`}
+                    >
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${n.bg}`}>
                         {n.type === "signup" ? <span className="text-sm">🏪</span> : <span className="text-sm">🚫</span>}
                       </div>
@@ -598,7 +613,7 @@ export default function SuperAdminDashboard() {
                         <p className={`text-xs font-medium truncate ${c("text-zinc-200", "text-gray-700")}`}>{n.title}</p>
                         <p className={`text-[10px] mt-0.5 ${c("text-zinc-500", "text-gray-400")}`}>{n.sub}</p>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -891,7 +906,7 @@ export default function SuperAdminDashboard() {
                 </thead>
                 <tbody className={`divide-y ${c("divide-[#1c1c24]/60", "divide-gray-50")}`}>
                   {filtered.map((co) => (
-                    <tr key={co.id} className={`transition-colors ${co.archivedAt ? "opacity-40" : c("hover:bg-[#18181b]", "hover:bg-gray-50")}`}>
+                    <tr key={co.id} id={`company-row-${co.id}`} className={`transition-colors ${co.archivedAt ? "opacity-40" : c("hover:bg-[#18181b]", "hover:bg-gray-50")}`}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${c("bg-[#27272a] text-zinc-400", "bg-gray-100 text-gray-600")}`}>

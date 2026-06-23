@@ -9,7 +9,8 @@ export type NotificationType =
   | 'SUBSCRIPTION_BLOCKED'
   | 'SUBSCRIPTION_REMINDER'
   | 'PAYMENT_CONFIRMED'
-  | 'DEMO_LEAD';
+  | 'DEMO_LEAD'
+  | 'NEW_SIGNUP';
 
 export interface NotificationPayload {
   to: string;
@@ -87,6 +88,8 @@ export class NotificationsService {
         return `💛 Sentimos sua falta, ${data?.companyName || 'restaurante'} — renove sua assinatura`;
       case 'DEMO_LEAD':
         return `🔥 Novo lead quente na demo — ${data?.restaurantName || data?.name || 'Visitante'}`;
+      case 'NEW_SIGNUP':
+        return `🚀 Novo cliente cadastrado — ${data?.companyName || 'Restaurante'}`;
       default:
         return 'Notificação FoodSaaS';
     }
@@ -105,9 +108,16 @@ export class NotificationsService {
     switch (type) {
       case 'WELCOME':
         return base(`
-          <h2>Bem-vindo, ${data?.name || 'cliente'}!</h2>
-          <p>Sua conta foi criada com sucesso. Você tem <strong>7 dias de trial gratuito</strong>.</p>
-          <p>Acesse o painel: <a href="${data?.loginUrl || '#'}" style="color:#ef4444;">Entrar agora</a></p>
+          <h2>Bem-vindo ao FoodSaaS, ${data?.name || 'cliente'}! 🎉</h2>
+          <p>Sua conta <strong>${data?.companyName || ''}</strong> foi criada com sucesso.</p>
+          <p>Você tem <strong>3 dias de trial gratuito</strong> para explorar todas as funcionalidades.</p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${data?.loginUrl || 'https://food-system-sas-erp-frontend.vercel.app/login'}"
+               style="background:#ef4444;color:#fff;padding:14px 32px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none;display:inline-block;">
+              Acessar meu painel →
+            </a>
+          </div>
+          <p style="color:#64748b;font-size:13px;">Se precisar de ajuda, fale com a gente pelo WhatsApp.</p>
         `);
       case 'NEW_ORDER':
         return base(`
@@ -167,6 +177,20 @@ export class NotificationsService {
           </table>
           <p style="margin-top:20px;background:#1e293b;border-left:3px solid #f97316;padding:12px 16px;border-radius:4px;font-size:13px;">
             Entre em contato agora — este lead está quente e testando o sistema no momento!
+          </p>
+        `);
+      case 'NEW_SIGNUP':
+        return base(`
+          <h2 style="color:#22c55e;">🚀 Novo cliente se cadastrou!</h2>
+          <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+            <tr><td style="padding:8px 0;color:#94a3b8;width:140px;">Restaurante</td><td style="padding:8px 0;font-weight:700;">${data?.companyName || '—'}</td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">Nome</td><td style="padding:8px 0;">${data?.adminName || '—'}</td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">E-mail</td><td style="padding:8px 0;"><a href="mailto:${data?.email}" style="color:#ef4444;">${data?.email || '—'}</a></td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">Segmento</td><td style="padding:8px 0;">${data?.segment || '—'}</td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">Trial até</td><td style="padding:8px 0;">${data?.trialEnds || '—'}</td></tr>
+          </table>
+          <p style="margin-top:20px;background:#1e293b;border-left:3px solid #22c55e;padding:12px 16px;border-radius:4px;font-size:13px;">
+            Entre em contato para ajudar na configuração e aumentar a conversão!
           </p>
         `);
       default:

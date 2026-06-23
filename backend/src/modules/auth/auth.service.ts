@@ -118,6 +118,45 @@ export class AuthService {
       );
     });
 
+    // Notificações — fire-and-forget, não bloqueia o cadastro
+    const loginUrl = `${this.config.get('FRONTEND_URL') ?? 'https://food-system-sas-erp-frontend.vercel.app'}/login`;
+    const adminEmail = this.config.get<string>('ADMIN_NOTIFY_EMAIL');
+    setImmediate(() => {
+      this.notifications
+        .send({
+          to: dto.email,
+          type: 'WELCOME',
+          data: {
+            name: dto.name,
+            companyName: dto.companyName,
+            loginUrl,
+          },
+        })
+        .catch((err) =>
+          this.logger.error(`[Signup] Welcome email failed: ${err?.message}`),
+        );
+
+      if (adminEmail) {
+        this.notifications
+          .send({
+            to: adminEmail,
+            type: 'NEW_SIGNUP',
+            data: {
+              companyName: dto.companyName,
+              adminName: dto.name,
+              email: dto.email,
+              segment,
+              trialEnds: trialEnds.toLocaleDateString('pt-BR'),
+            },
+          })
+          .catch((err) =>
+            this.logger.error(
+              `[Signup] Admin notification failed: ${err?.message}`,
+            ),
+          );
+      }
+    });
+
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
       email: user.email,

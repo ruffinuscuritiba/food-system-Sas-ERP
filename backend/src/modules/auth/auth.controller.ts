@@ -17,6 +17,8 @@ export class AuthController {
       name: string;
       email: string;
       password: string;
+      whatsapp?: string;
+      businessSegment?: string;
     },
   ) {
     return this.service.signup(body);

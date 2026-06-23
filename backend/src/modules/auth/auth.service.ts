@@ -87,6 +87,7 @@ export class AuthService {
     name: string;
     email: string;
     password: string;
+    whatsapp?: string;
     businessSegment?: string;
   }) {
     await this.assertEmailUnique(dto.email);
@@ -101,6 +102,7 @@ export class AuthService {
       data: {
         name: dto.companyName,
         email: dto.email,
+        whatsapp: dto.whatsapp ?? null,
         plan: 'BASIC',
         subscriptionStatus: 'PENDING_PAYMENT',
         dueDate: trialEnds,

@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CD — Deploy automático do backend para o VPS Hostinger
+#
+# Dispara após qualquer push em `main` que toque arquivos do backend.
+# Faz SSH no VPS, reconstrói a imagem Docker a partir do GitHub e reinicia
+# o container — elimina a necessidade de "Implantar" manual no Hostinger.
+#
+# Secrets obrigatórios (Settings → Secrets → Actions no GitHub):
+#   VPS_HOST      → srv1747711.hstgr.cloud
+#   VPS_USER      → root
+#   VPS_SSH_KEY   → chave privada ed25519 (ver CLAUDE.md para instruções)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Deploy Backend → VPS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+# Só um deploy por vez — cancela run anterior se já houver um em andamento
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & deploy no VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          timeout: 30s
+          command_timeout: 600s
+          script: |
+            set -e
+
+            echo "▶ Buildando imagem a partir do GitHub..."
+            docker build --no-cache \
+              -t foodsaas-backend:latest \
+              "https://github.com/ruffinuscuritiba/food-system-Sas-ERP.git#main:backend"
+
+            echo "▶ Reiniciando container..."
+            # Aceita qualquer nome que contenha "backend" (resiliente a renomeação do Compose)
+            CONTAINER=$(docker ps --filter "ancestor=foodsaas-backend:latest" --format "{{.Names}}" | head -1)
+            if [ -z "$CONTAINER" ]; then
+              CONTAINER=$(docker ps --filter "name=backend" --format "{{.Names}}" | grep -v "^$" | head -1)
+            fi
+            echo "  Container: $CONTAINER"
+            docker restart "$CONTAINER"
+
+            echo "▶ Aguardando health check..."
+            sleep 8
+            STATUS=$(curl -sf "http://localhost:3001/api/health" | grep -o '"status":"ok"' || echo "pending")
+            echo "  Health: $STATUS"
+
+            docker ps --filter "name=$CONTAINER" --format "table {{.Names}}\t{{.Status}}"
+            echo "✅ Deploy concluído!"

@@ -831,7 +831,7 @@ export default function PDVPage() {
                   className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
                     selectedCategory === cat.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-zinc-300"
                   }`}>
-                  {(cat as any).categoryType === "bebidas" ? "Bebidas" : cat.name}
+                  {cat.name}
                 </button>
               ))}
             </div>
@@ -853,7 +853,7 @@ export default function PDVPage() {
                   className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
                     selectedCategory === cat.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-300"
                   }`}>
-                  {cat.categoryType === "bebidas" ? "Bebidas" : cat.name}
+                  {cat.name}
                 </button>
               ))}
             </div>

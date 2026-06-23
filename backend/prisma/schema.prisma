@@ -1972,3 +1972,13 @@ model WalletRepasse {
   @@index([status])
   @@index([scheduledFor])
 }
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+model PageVisit {
+  id        String   @id @default(cuid())
+  page      String   @default("/demo")
+  createdAt DateTime @default(now())
+
+  @@index([page, createdAt])
+}

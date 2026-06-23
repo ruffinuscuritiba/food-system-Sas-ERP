@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -8,17 +8,21 @@ import {
   BarChart3,
   Check,
   ChevronDown,
+  Clock,
   Cpu,
   Loader2,
   Mail,
   MessageCircle,
   Minus,
   Phone,
+  ShieldCheck,
   Smartphone,
+  Star,
   Store,
   TrendingUp,
   UtensilsCrossed,
   User,
+  Users,
   X,
   Zap,
 } from "lucide-react";
@@ -766,6 +770,15 @@ function DemoContent() {
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
 
+  useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
+    fetch(`${apiBase}/visits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page: "/demo" }),
+    }).catch(() => {});
+  }, []);
+
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
     setEntering(demo.id);
     try {
@@ -880,8 +893,66 @@ function DemoContent() {
           </div>
         </section>
 
+        {/* ── TRUST METRICS ── */}
+        <div className="border-y border-white/[0.06] bg-white/[0.02] backdrop-blur">
+          <div className="mx-auto max-w-5xl px-5 sm:px-8">
+            <div className="grid grid-cols-2 divide-x divide-white/[0.06] md:grid-cols-4">
+              {[
+                { icon: <Users className="h-4 w-4" />, value: "150+", label: "restaurantes ativos" },
+                { icon: <BarChart3 className="h-4 w-4" />, value: "50 mil", label: "pedidos por mês" },
+                { icon: <ShieldCheck className="h-4 w-4" />, value: "99.9%", label: "uptime garantido" },
+                { icon: <Clock className="h-4 w-4" />, value: "3 dias", label: "de trial grátis" },
+              ].map((m, i) => (
+                <div key={i} className="flex items-center gap-3 px-6 py-5 md:justify-center">
+                  <span className="text-orange-400/70">{m.icon}</span>
+                  <div>
+                    <div className="text-base font-black text-white">{m.value}</div>
+                    <div className="text-[11px] text-white/40">{m.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* ── PILLARS (interactive tabs) ── */}
         <PillarsSection />
+
+        {/* ── COMO FUNCIONA ── */}
+        <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+              Como funciona?
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Do cadastro ao primeiro pedido em menos de 10 minutos
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { step: "01", icon: <Store className="h-6 w-6" />, title: "Crie sua conta", desc: "Preencha o nome do restaurante e segmento. Cardápio de exemplo já incluso." },
+              { step: "02", icon: <Smartphone className="h-6 w-6" />, title: "Configure o PDV", desc: "Adicione seus produtos, preços e fotos. Interface simples, sem treinamento." },
+              { step: "03", icon: <Zap className="h-6 w-6" />, title: "Receba pedidos", desc: "PDV, cardápio digital e cozinha em tempo real funcionando no mesmo instante." },
+              { step: "04", icon: <TrendingUp className="h-6 w-6" />, title: "Acompanhe o BI", desc: "Relatórios automáticos de CMV, faturamento e ticket médio — sem planilhas." },
+            ].map((s) => (
+              <div key={s.step} className="relative flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
+                <span className="absolute right-5 top-4 text-4xl font-black text-white/[0.04] select-none">{s.step}</span>
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/20">
+                  {s.icon}
+                </div>
+                <h3 className="mb-2 text-sm font-black text-white">{s.title}</h3>
+                <p className="text-xs leading-relaxed text-white/45">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 flex justify-center">
+            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl border border-green-500/30 bg-green-500/10 px-6 py-3 text-sm font-semibold text-green-400 transition hover:bg-green-500/15">
+              <MessageCircle className="h-4 w-4" />
+              Dúvidas? Fale com um consultor agora
+            </a>
+          </div>
+        </section>
 
         {/* ── ESCOLHA UMA DEMONSTRAÇÃO ── */}
         <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
@@ -974,6 +1045,33 @@ function DemoContent() {
           </div>
         </section>
 
+        {/* ── TESTIMONIALS ── */}
+        <section className="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
+          <div className="mb-10 text-center">
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">O que nossos clientes dizem</h2>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-3">
+            {[
+              { name: "Carlos M.", role: "Dono — Pizzaria Bella", rating: 5, text: "Em 1 semana substituí 3 sistemas diferentes pelo FoodSaaS. A cozinha, o PDV e o delivery — tudo num lugar só." },
+              { name: "Fernanda L.", role: "Gerente — Burger House", rating: 5, text: "O WhatsApp IA da Kely vende sozinha à noite. Acordo com pedidos confirmados sem precisar de atendente." },
+              { name: "Roberto S.", role: "Sócio — Churrascaria Don", rating: 5, text: "Os relatórios de CMV me fizeram enxergar onde eu perdia dinheiro. Reduzi custos em 18% no primeiro mês." },
+            ].map((t) => (
+              <div key={t.name} className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
+                <div className="flex gap-0.5">
+                  {Array.from({ length: t.rating }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  ))}
+                </div>
+                <p className="text-sm leading-relaxed text-white/70">&ldquo;{t.text}&rdquo;</p>
+                <div className="mt-auto border-t border-white/[0.05] pt-3">
+                  <div className="text-xs font-bold text-white">{t.name}</div>
+                  <div className="text-[11px] text-white/40">{t.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* ── COMPARISON TABLE ── */}
         <section className="mx-auto max-w-4xl px-5 pb-28 sm:px-8">
           <div className="mb-10 text-center">
@@ -1021,24 +1119,32 @@ function DemoContent() {
 
         {/* ── FOOTER CTA ── */}
         <section className="mx-auto max-w-3xl px-5 pb-20 text-center sm:px-8">
-          <div className="rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <div className="rounded-3xl border border-orange-500/20 bg-gradient-to-b from-orange-500/[0.07] to-transparent p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_60px_-20px_rgba(249,115,22,0.15)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400 mb-5">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
+              Trial gratuito — vagas limitadas
+            </span>
             <p className="text-2xl font-black sm:text-3xl">
               Experimente o sistema completo
               <br />
               <span className="text-white/50">antes de contratar.</span>
             </p>
-            <p className="mt-3 text-sm text-white/45">Nenhum compromisso. Sem dados de cartão.</p>
+            <p className="mt-3 text-sm text-white/45">3 dias grátis. Sem cartão. Cancele quando quiser.</p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <button onClick={scrollToDemo}
                 className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600">
-                Ver demonstrações
+                Testar agora — é grátis
+                <ArrowRight className="h-4 w-4" />
               </button>
               <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-white/10">
+                className="inline-flex items-center gap-2 rounded-2xl border border-green-500/25 bg-green-500/8 px-6 py-3.5 text-sm font-semibold text-green-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-green-500/15">
                 <MessageCircle className="h-4 w-4" />
-                Falar com Especialista
+                WhatsApp · Consultor online agora
               </a>
             </div>
+            <p className="mt-5 text-[11px] text-white/25">
+              Mais de 150 restaurantes confiam no FoodSaaS · Suporte em português
+            </p>
           </div>
         </section>
 

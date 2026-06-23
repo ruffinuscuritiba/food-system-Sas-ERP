@@ -77,6 +77,20 @@ export class AuthService {
     private readonly segmentSeed: SegmentSeedService,
   ) {}
 
+  private async notifyOwnerWhatsapp(text: string): Promise<void> {
+    const apiUrl      = this.config.get<string>('EVOLUTION_API_URL');
+    const apiKey      = this.config.get<string>('EVOLUTION_API_KEY');
+    const instance    = this.config.get<string>('EVOLUTION_INSTANCE_NAME');
+    const notifyPhone = this.config.get<string>('NOTIFY_WHATSAPP_NUMBER');
+    if (!apiUrl || !apiKey || !instance || !notifyPhone) return;
+    await fetch(`${apiUrl}/message/sendText/${instance}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ number: notifyPhone, text }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  }
+
   private async assertEmailUnique(email: string): Promise<void> {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new BadRequestException('Email já cadastrado');
@@ -180,6 +194,26 @@ export class AuthService {
             ),
           );
       }
+    });
+
+    // WA owner notification — fire-and-forget, sem crédito de IA
+    const segEmoji: Record<string, string> = {
+      PIZZARIA: '🍕', RESTAURANTE: '🍽️', LANCHONETE: '🥪', HAMBURGUERIA: '🍔',
+      MARMITARIA: '🥡', HOT_DOG: '🌭', PASTELARIA: '🥟', PADARIA: '🥐',
+      DOCERIA: '🍰', CONVENIENCIA: '🏪', MERCADO: '🛒', CHURRASCARIA: '🥩',
+    };
+    setImmediate(() => {
+      const waMsg =
+        `🏪 *Nova loja cadastrada!*\n\n` +
+        `*${dto.companyName}*\n` +
+        `${segEmoji[segment] ?? '🍽️'} ${segment}\n` +
+        `📧 ${dto.email}\n` +
+        `📱 ${dto.whatsapp ?? '—'}\n` +
+        `👤 ${dto.name}\n\n` +
+        `_Trial 7 dias iniciado — ${trialEnds.toLocaleDateString('pt-BR')}_`;
+      this.notifyOwnerWhatsapp(waMsg).catch((err) =>
+        this.logger.warn(`[Signup] WA notify failed: ${err?.message}`),
+      );
     });
 
     const accessToken = await this.jwtService.signAsync({
@@ -311,6 +345,21 @@ export class AuthService {
         `[DEMO LEAD] ADMIN_NOTIFY_EMAIL not set — lead data: ${JSON.stringify({ name: dto.name, restaurantName: dto.restaurantName, whatsapp: dto.whatsapp, plan: dto.plan })}`,
       );
     }
+
+    // WA owner notification — lead quente na demo
+    setImmediate(() => {
+      const planLabels: Record<string, string> = { basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise', delivery: 'Delivery' };
+      const waMsg =
+        `🔥 *Lead quente na demo!*\n\n` +
+        `*${dto.restaurantName}*\n` +
+        `👤 ${dto.name}\n` +
+        `📧 ${dto.email}\n` +
+        `📱 ${dto.whatsapp || '—'}\n` +
+        `💳 Plano ${planLabels[dto.plan] ?? dto.plan}`;
+      this.notifyOwnerWhatsapp(waMsg).catch((err) =>
+        this.logger.warn(`[Demo] WA notify failed: ${err?.message}`),
+      );
+    });
 
     // 3. Find demo user and return token
     const user = await this.prisma.user.findUnique({

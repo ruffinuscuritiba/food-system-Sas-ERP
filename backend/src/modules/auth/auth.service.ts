@@ -60,6 +60,7 @@ const DEMO_PLAN_EMAIL: Record<string, string> = {
   basic:      'demo-basic@foodsaas.demo',
   pro:        'demo-pro@foodsaas.demo',
   enterprise: 'demo-enterprise@foodsaas.demo',
+  delivery:   'demo-delivery@foodsaas.demo',
 };
 
 @Injectable()
@@ -261,7 +262,7 @@ export class AuthService {
     email: string;
     whatsapp: string;
     restaurantName: string;
-    plan: 'basic' | 'pro' | 'enterprise';
+    plan: 'basic' | 'pro' | 'enterprise' | 'delivery';
   }) {
     const demoEmail = DEMO_PLAN_EMAIL[dto.plan];
     if (!demoEmail) throw new BadRequestException('Plano de demonstração inválido');

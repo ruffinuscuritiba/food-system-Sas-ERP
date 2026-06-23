@@ -87,6 +87,25 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       "--pdv-text-muted":     "#c4b5fd",
     },
   },
+  // ── DELIVERY — Marmita Express — orange sidebar ───────────────────────────
+  "demo-delivery-001": {
+    name: "Marmita Express",
+    primaryColor: "#ea580c",
+    cssVars: {
+      "--app-sidebar":        "#0d0500",
+      "--app-sidebar-hover":  "#1a0800",
+      "--app-sidebar-active": "#ea580c",
+      "--app-sidebar-text":   "#fff7ed",
+      "--app-border-ui":      "rgba(234,88,12,0.22)",
+      "--pdv-bg":             "#0d0500",
+      "--pdv-header-bg":      "#130700",
+      "--pdv-sidebar-bg":     "#0d0500",
+      "--pdv-card":           "#1a0800",
+      "--pdv-card-hover":     "#200a00",
+      "--pdv-border":         "rgba(234,88,12,0.22)",
+      "--pdv-text-muted":     "#fdba74",
+    },
+  },
 };
 
 export const DEMO_IDS = new Set(Object.keys(DEMO_THEMES));
@@ -100,7 +119,7 @@ export const DEMO_IDS = new Set(Object.keys(DEMO_THEMES));
  */
 export interface DemoAccount {
   id: string;
-  plan: "BASIC" | "PRO" | "ENTERPRISE";
+  plan: "BASIC" | "PRO" | "ENTERPRISE" | "DELIVERY";
   label: string;
   tagline: string;
   email: string;
@@ -139,6 +158,16 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     password: "DemoEnterprise@123",
     primaryColor: "#7c3aed",
     features: ["Tudo do Pro", "Multiunidades", "Recursos avançados", "Dashboards completos", "Operação corporativa"],
+  },
+  {
+    id: "demo-delivery-001",
+    plan: "DELIVERY",
+    label: "FoodSaaS Delivery",
+    tagline: "Focado em marmitarias e dark kitchens com entrega própria.",
+    email: "demo-delivery@foodsaas.demo",
+    password: "DemoDelivery@123",
+    primaryColor: "#ea580c",
+    features: ["PDV", "Cardápio Online", "Rastreamento de Entregadores", "Zonas de Entrega", "App do Entregador"],
   },
 ];
 

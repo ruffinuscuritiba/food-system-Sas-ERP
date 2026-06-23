@@ -5,7 +5,7 @@ import { PrismaService } from '@/database/prisma.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const SAFE_DEMO_IDS = ['demo-basic-001', 'demo-pro-001', 'demo-enterprise-001'];
+const SAFE_DEMO_IDS = ['demo-basic-001', 'demo-pro-001', 'demo-enterprise-001', 'demo-delivery-001'];
 
 // Base URL served by Next.js /public — images stored at frontend/public/demo-assets/
 const DEMO_BASE = 'https://food-system-sas-erp-frontend.vercel.app/demo-assets';
@@ -52,6 +52,12 @@ const CATEGORIES_DEF = [
     sortOrder: 4,
   },
   { key: 'combos', name: 'Combos', bannerFile: 'combos.jpg', sortOrder: 5 },
+  {
+    key: 'pratos',
+    name: 'Pratos do Dia',
+    bannerFile: 'pizzas-salgadas.jpg',
+    sortOrder: 1,
+  },
 ];
 
 type ProdDef = {
@@ -303,12 +309,22 @@ const COMBOS: ProdDef[] = [
   },
 ];
 
+const PRATOS_DIA: ProdDef[] = [
+  { key: 'frango-grelhado',  name: 'Marmita Frango Grelhado',     price: 22.9, cost: 9.0,  imgId: 'pizzas/margherita.jpg',      desc: 'Frango grelhado, arroz, feijão, salada e farofa' },
+  { key: 'bife-milanesa',    name: 'Marmita Bife à Milanesa',      price: 25.9, cost: 10.5, imgId: 'pizzas/portuguesa.jpg',      desc: 'Bife empanado, purê de batata, arroz e feijão' },
+  { key: 'peixe-grelhado',   name: 'Marmita Peixe Grelhado',       price: 28.9, cost: 12.0, imgId: 'pizzas/quatro-queijos.jpg',  desc: 'Tilápia grelhada, arroz, legumes no vapor e limão' },
+  { key: 'strogonoff',       name: 'Marmita Strogonoff de Frango', price: 26.9, cost: 11.0, imgId: 'pizzas/calabresa.jpg',       desc: 'Strogonoff cremoso, arroz branco e batata palha' },
+  { key: 'macarrao-bolonha', name: 'Marmita Macarrão à Bolonhesa', price: 21.9, cost: 8.5,  imgId: 'pizzas/frango-catupiry.jpg', desc: 'Macarrão com molho bolonhesa artesanal e parmesão' },
+  { key: 'vegana',           name: 'Marmita Vegana',               price: 20.9, cost: 7.5,  imgId: 'pizzas/vegetariana.jpg',    desc: 'Grão-de-bico, legumes assados, tabule e tahine' },
+];
+
 const PRODUCTS_MAP: Record<string, ProdDef[]> = {
   salgadas: PIZZAS_SALGADAS,
   doces: PIZZAS_DOCES,
   bebidas: BEBIDAS,
   sobremesas: SOBREMESAS,
   combos: COMBOS,
+  pratos: PRATOS_DIA,
 };
 
 const CUSTOMER_NAMES = [
@@ -584,6 +600,17 @@ const TIERS: TierConfig[] = [
     customerCount: 200,
     driverCount: 5,
   },
+  {
+    companyId: 'demo-delivery-001',
+    companyName: 'Marmita Express Delivery',
+    catKeys: ['pratos', 'bebidas', 'sobremesas', 'combos'],
+    historyDays: 14,
+    historyOrders: 60,
+    todayOrders: 18,
+    todayRevTarget: 950,
+    customerCount: 35,
+    driverCount: 4,
+  },
 ];
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -633,6 +660,7 @@ export class DemoVitrineService {
       'demo-basic-001': '#16a34a',
       'demo-pro-001': '#2563eb',
       'demo-enterprise-001': '#7c3aed',
+      'demo-delivery-001': '#ea580c',
     };
 
     for (const cid of SAFE_DEMO_IDS) {

@@ -43,7 +43,7 @@ export class AuthController {
       email: string;
       whatsapp: string;
       restaurantName: string;
-      plan: 'basic' | 'pro' | 'enterprise';
+      plan: 'basic' | 'pro' | 'enterprise' | 'delivery';
     },
   ) {
     return this.service.demoAccess({

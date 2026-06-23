@@ -386,46 +386,21 @@ export class SuperAdminService {
   // ── Precificação ─────────────────────────────────────────────────────────
 
   async getPlanConfig() {
-    const configs = await this.prisma.planConfig.findMany({
-      orderBy: { plan: 'asc' },
-    });
-    if (configs.length === 0) {
-      // Seed de primeira execução
-      const defaults = [
-        {
-          plan: 'BASIC',
-          price: 149,
-          label: 'Basic',
-          tagline: 'Para começar com o essencial',
-        },
-        {
-          plan: 'PRO',
-          price: 249,
-          label: 'Pro',
-          tagline: 'Para operações em crescimento',
-        },
-        {
-          plan: 'ENTERPRISE',
-          price: 399,
-          label: 'Enterprise',
-          tagline: 'Tudo liberado, sem limites',
-        },
-      ];
-      for (const d of defaults) {
-        await this.prisma.planConfig.upsert({
-          where: { plan: d.plan },
-          update: {},
-          create: {
-            plan: d.plan,
-            price: d.price,
-            label: d.label,
-            tagline: d.tagline,
-          },
-        });
+    // Garantir que todos os planos padrão existam (incluindo DELIVERY)
+    const defaults = [
+      { plan: 'BASIC',      price: 149, label: 'Basic',      tagline: 'Para começar com o essencial'     },
+      { plan: 'PRO',        price: 249, label: 'Pro',        tagline: 'Para operações em crescimento'    },
+      { plan: 'ENTERPRISE', price: 399, label: 'Enterprise', tagline: 'Tudo liberado, sem limites'       },
+      { plan: 'DELIVERY',   price: 197, label: 'Delivery',   tagline: 'Foco em entregas e rastreamento'  },
+    ];
+    const existing = await this.prisma.planConfig.findMany({ select: { plan: true } });
+    const existingPlans = new Set(existing.map((c) => c.plan));
+    for (const d of defaults) {
+      if (!existingPlans.has(d.plan)) {
+        await this.prisma.planConfig.create({ data: d });
       }
-      return this.prisma.planConfig.findMany({ orderBy: { plan: 'asc' } });
     }
-    return configs;
+    return this.prisma.planConfig.findMany({ orderBy: { plan: 'asc' } });
   }
 
   async updatePlanConfig(

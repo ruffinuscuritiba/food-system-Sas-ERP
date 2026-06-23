@@ -107,6 +107,14 @@ const PROTECTED_EMAILS = new Set([
   "demo-basic@foodsaas.demo",
   "demo-pro@foodsaas.demo",
   "demo-enterprise@foodsaas.demo",
+  "demo-delivery@foodsaas.demo",
+])
+
+const DEMO_EMAILS = new Set([
+  "demo-basic@foodsaas.demo",
+  "demo-pro@foodsaas.demo",
+  "demo-enterprise@foodsaas.demo",
+  "demo-delivery@foodsaas.demo",
 ])
 
 function isProtected(c: Company) {
@@ -164,6 +172,7 @@ export default function SuperAdminDashboard() {
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, blocked: 0, archived: 0 })
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
+  const [showDemos,    setShowDemos]    = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState("")
   const [planFilter, setPlanFilter] = useState("ALL")
@@ -186,7 +195,8 @@ export default function SuperAdminDashboard() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null)
   const [confirmText, setConfirmText] = useState("")
-  const menuRef = useRef<HTMLDivElement>(null)
+  const menuRef  = useRef<HTMLDivElement>(null)
+  const tableRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("sa_token")
@@ -204,6 +214,7 @@ export default function SuperAdminDashboard() {
 
   useEffect(() => {
     let list = companies
+    if (!showDemos) list = list.filter(co => !DEMO_EMAILS.has(co.email?.toLowerCase() ?? ""))
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))
@@ -214,7 +225,7 @@ export default function SuperAdminDashboard() {
       if (group) list = list.filter(c => group.segments.includes(c.businessSegment ?? "RESTAURANTE"))
     }
     setFiltered(list)
-  }, [search, planFilter, segmentTab, companies])
+  }, [search, planFilter, segmentTab, companies, showDemos])
 
   async function load() {
     setLoading(true)
@@ -434,7 +445,13 @@ export default function SuperAdminDashboard() {
                   return (
                     <button
                       key={item.label}
-                      onClick={() => router.push(item.href)}
+                      onClick={() => {
+                        if (item.label === "Restaurantes") {
+                          tableRef.current?.scrollIntoView({ behavior: "smooth" })
+                        } else {
+                          router.push(item.href)
+                        }
+                      }}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-all mb-0.5 ${
                         active
                           ? c("bg-indigo-950 text-indigo-300 font-semibold border-l-2 border-indigo-500 pl-[10px]",
@@ -522,6 +539,16 @@ export default function SuperAdminDashboard() {
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-[#09090b]" />
             )}
           </div>
+
+          {/* Demos toggle */}
+          <button onClick={() => setShowDemos(v => !v)}
+            className={`hidden sm:flex text-xs px-3 py-2 rounded-xl border transition-all ${
+              showDemos
+                ? c("border-violet-600 bg-violet-950 text-violet-200", "border-violet-400 bg-violet-100 text-violet-700")
+                : c("border-[#27272a] text-zinc-600 hover:border-zinc-700 hover:text-zinc-300", "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600")
+            }`}>
+            {showDemos ? "Ocultar demos" : "Ver demos"}
+          </button>
 
           {/* Archived toggle */}
           <button onClick={() => setShowArchived(v => !v)}
@@ -707,7 +734,7 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* ── TABELA ─────────────────────────────────────────────────── */}
-          <div className={`rounded-2xl border overflow-hidden ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+          <div ref={tableRef} className={`rounded-2xl border overflow-hidden ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
 
             {/* Segment group tabs */}
             {(() => {

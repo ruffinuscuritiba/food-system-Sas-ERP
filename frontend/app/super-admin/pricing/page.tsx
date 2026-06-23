@@ -22,9 +22,11 @@ interface ModuleItem {
 }
 
 const PLAN_LABELS: Record<string, { color: string; badge: string }> = {
-  BASIC:      { color: "text-slate-300",  badge: "bg-gray-700 text-gray-300" },
-  PRO:        { color: "text-blue-300",   badge: "bg-blue-900 text-blue-300" },
-  ENTERPRISE: { color: "text-amber-300",  badge: "bg-amber-900 text-amber-300" },
+  BASIC:        { color: "text-slate-300",   badge: "bg-gray-700 text-gray-300"      },
+  PRO:          { color: "text-blue-300",    badge: "bg-blue-900 text-blue-300"      },
+  PROFESSIONAL: { color: "text-blue-300",    badge: "bg-blue-900 text-blue-300"      },
+  ENTERPRISE:   { color: "text-amber-300",   badge: "bg-amber-900 text-amber-300"    },
+  DELIVERY:     { color: "text-emerald-300", badge: "bg-emerald-900 text-emerald-300" },
 }
 
 const CAT_COLORS: Record<string, string> = {

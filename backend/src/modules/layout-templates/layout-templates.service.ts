@@ -66,6 +66,7 @@ export class LayoutTemplatesService {
     const extraData: Record<string, unknown> = {};
     if (config.layoutType) extraData.layoutType = config.layoutType;
     if (config.buttonRadius) extraData.buttonRadius = config.buttonRadius;
+    if (config.googleReviewUrl !== undefined) extraData.googleReviewUrl = config.googleReviewUrl;
 
     return this.prisma.company.update({
       where: { id: companyId },
@@ -73,7 +74,7 @@ export class LayoutTemplatesService {
         ...(extraData as any),
         layoutConfig: JSON.parse(JSON.stringify(config)),
       },
-      select: { id: true, name: true, layoutType: true, buttonRadius: true },
+      select: { id: true, name: true, layoutType: true, buttonRadius: true, googleReviewUrl: true },
     });
   }
 }

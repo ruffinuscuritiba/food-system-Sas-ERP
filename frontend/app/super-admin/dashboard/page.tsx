@@ -195,8 +195,10 @@ export default function SuperAdminDashboard() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null)
   const [confirmText, setConfirmText] = useState("")
+  const [showNotif, setShowNotif] = useState(false)
   const menuRef  = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("sa_token")
@@ -207,6 +209,7 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null)
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotif(false)
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -377,6 +380,32 @@ export default function SuperAdminDashboard() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 4)
 
+  // ── Notifications derived from companies data ────────────────────────────────
+  const notifications = (() => {
+    const list: { type: string; title: string; sub: string; color: string; bg: string }[] = []
+    const now = new Date()
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const realNew = companies.filter(co =>
+      !DEMO_EMAILS.has(co.email?.toLowerCase() ?? "") &&
+      new Date(co.createdAt) >= sevenDaysAgo
+    )
+    realNew.forEach(co => list.push({
+      type: "signup",
+      title: `Nova loja: ${co.name}`,
+      sub: `${PLAN_LABELS[co.plan] ?? co.plan} · ${new Date(co.createdAt).toLocaleDateString("pt-BR")}`,
+      color: "text-indigo-400",
+      bg: "bg-indigo-500/10 border-indigo-500/20",
+    }))
+    companies.filter(co => co.isBlocked).forEach(co => list.push({
+      type: "blocked",
+      title: `Loja bloqueada: ${co.name}`,
+      sub: "Acesso suspenso — verificar pagamento",
+      color: "text-red-400",
+      bg: "bg-red-500/10 border-red-500/20",
+    }))
+    return list
+  })()
+
   const activePct  = stats.total ? Math.round((stats.active  / stats.total) * 100) : 0
   const blockedPct = stats.total ? Math.round((stats.blocked / stats.total) * 100) : 0
 
@@ -531,12 +560,48 @@ export default function SuperAdminDashboard() {
           </button>
 
           {/* Bell */}
-          <div className="relative">
-            <button className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${c("bg-[#18181b] text-zinc-400 hover:text-white", "bg-gray-100 text-gray-500 hover:text-gray-900")}`}>
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => setShowNotif(v => !v)}
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                showNotif
+                  ? c("bg-indigo-600 text-white", "bg-indigo-100 text-indigo-600")
+                  : c("bg-[#18181b] text-zinc-400 hover:text-white hover:bg-[#27272a]", "bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200")
+              }`}
+              title="Notificações"
+            >
               <Bell className="w-3.5 h-3.5" />
             </button>
-            {stats.blocked > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border-2 border-[#09090b]" />
+            {notifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 border-2 border-[#09090b] flex items-center justify-center text-[9px] font-bold text-white px-0.5">
+                {notifications.length}
+              </span>
+            )}
+            {showNotif && (
+              <div className={`absolute right-0 top-10 w-80 rounded-2xl shadow-2xl z-50 border overflow-hidden ${c("bg-[#111113] border-[#27272a]", "bg-white border-gray-200")}`}>
+                <div className={`flex items-center justify-between px-4 py-3 border-b ${c("border-[#27272a]", "border-gray-100")}`}>
+                  <span className={`text-xs font-bold ${c("text-zinc-200", "text-gray-700")}`}>Notificações</span>
+                  <span className={`text-[10px] ${c("text-zinc-500", "text-gray-400")}`}>{notifications.length} eventos</span>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <Bell className={`w-8 h-8 ${c("text-zinc-700", "text-gray-300")}`} />
+                      <p className={`text-xs ${c("text-zinc-600", "text-gray-400")}`}>Nenhuma notificação</p>
+                    </div>
+                  ) : notifications.map((n, i) => (
+                    <div key={i} className={`flex items-start gap-3 px-4 py-3 border-b last:border-b-0 ${c("border-[#1a1a1f] hover:bg-[#18181b]", "border-gray-50 hover:bg-gray-50")} transition-colors`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${n.bg}`}>
+                        {n.type === "signup" ? <span className="text-sm">🏪</span> : <span className="text-sm">🚫</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-medium truncate ${c("text-zinc-200", "text-gray-700")}`}>{n.title}</p>
+                        <p className={`text-[10px] mt-0.5 ${c("text-zinc-500", "text-gray-400")}`}>{n.sub}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

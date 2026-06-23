@@ -14,24 +14,19 @@ export class CompanyModuleService {
   }
 
   async getCompanyModules(companyId: string) {
-    const [catalog, companyModules] = await Promise.all([
-      this.prisma.module.findMany({
-        where: { isActive: true },
-        orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }],
-      }),
-      this.prisma.companyModule.findMany({ where: { companyId } }),
-    ]);
+    const records = await this.prisma.companyModule.findMany({
+      where: { companyId },
+    });
 
-    return catalog.map((mod) => {
-      const cm = companyModules.find((cm) => cm.moduleSlug === mod.slug);
+    return records.map((cm) => {
       const isTrialExpired =
-        cm?.status === 'TRIAL' && cm.trialEndsAt && new Date() > cm.trialEndsAt;
+        cm.status === 'TRIAL' && cm.trialEndsAt && new Date() > cm.trialEndsAt;
       return {
-        ...mod,
-        companyModuleId: cm?.id ?? null,
-        status: isTrialExpired ? 'EXPIRED' : (cm?.status ?? 'INACTIVE'),
-        trialEndsAt: cm?.trialEndsAt ?? null,
-        activatedAt: cm?.activatedAt ?? null,
+        slug: cm.moduleSlug ?? cm.module?.toLowerCase() ?? '',
+        status: isTrialExpired ? 'EXPIRED' : (cm.status ?? 'INACTIVE'),
+        trialEndsAt: cm.trialEndsAt ?? null,
+        activatedAt: cm.activatedAt ?? null,
+        companyModuleId: cm.id,
       };
     });
   }

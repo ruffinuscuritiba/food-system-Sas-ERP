@@ -210,15 +210,11 @@ export default function ConstrutorPage() {
   useEffect(() => {
     if (!selectedId) return;
     setLoading(true);
-    Promise.all([
-      fetch(`${apiBase}/company/layout/public?companyId=${selectedId}`).then(r => r.json()),
-      fetch(`${apiBase}/company/settings`, {
-        headers: { Authorization: `Bearer ${saToken}` },
-      }).then(r => r.json()),
-    ])
-      .then(([layout, settings]) => {
+    fetch(`${apiBase}/company/layout/public?companyId=${selectedId}`)
+      .then(r => r.json())
+      .then((layout) => {
         const raw = layout?.layoutConfig as (LayoutConfig & { googleReviewUrl?: string }) | null;
-        setGoogleReviewUrl(layout?.googleReviewUrl ?? settings?.googleReviewUrl ?? "");
+        setGoogleReviewUrl(layout?.googleReviewUrl ?? "");
         if (raw && raw.blocks && raw.blocks.length > 0) {
           setConfig({
             layoutType: raw.layoutType ?? layout?.layoutType ?? "LIST",
@@ -279,20 +275,8 @@ export default function ConstrutorPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${saToken}`,
         },
-        body: JSON.stringify(config),
+        body: JSON.stringify({ ...config, googleReviewUrl }),
       });
-      // Also save googleReviewUrl via company settings — uses company's own token would be needed
-      // For super-admin: direct company update endpoint
-      if (googleReviewUrl !== undefined) {
-        await fetch(`${apiBase}/company/${selectedId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${saToken}`,
-          },
-          body: JSON.stringify({ googleReviewUrl }),
-        });
-      }
       setSaved(true);
       setPreviewKey(k => k + 1);
       setTimeout(() => setSaved(false), 2000);

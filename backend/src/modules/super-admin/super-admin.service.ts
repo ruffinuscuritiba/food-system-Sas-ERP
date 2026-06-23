@@ -1304,15 +1304,27 @@ export class SuperAdminService {
         isArchived:     false,
       }));
 
-    let all = [...companyRows, ...leadRows];
+    const unfiltered = [...companyRows, ...leadRows];
 
-    // 5. Filter
+    // 6. KPI summary always from UNFILTERED data so cards never zero out
+    const summary = {
+      total:     unfiltered.length,
+      active:    unfiltered.filter((r) => r.type === 'ACTIVE').length,
+      trial:     unfiltered.filter((r) => r.type === 'TRIAL').length,
+      demo:      unfiltered.filter((r) => r.type === 'DEMO').length,
+      exClient:  unfiltered.filter((r) => r.type === 'EX_CLIENT').length,
+      leads:     unfiltered.filter((r) => r.type === 'LEAD').length,
+    };
+
+    // 5. Filter items (case-insensitive type comparison)
+    let filtered = unfiltered;
     if (opts.type && opts.type !== 'ALL') {
-      all = all.filter((r) => r.type === opts.type);
+      const t = opts.type.toUpperCase();
+      filtered = filtered.filter((r) => r.type === t);
     }
     if (opts.search) {
       const q = opts.search.toLowerCase();
-      all = all.filter(
+      filtered = filtered.filter(
         (r) =>
           r.contactName.toLowerCase().includes(q) ||
           r.restaurantName.toLowerCase().includes(q) ||
@@ -1321,18 +1333,8 @@ export class SuperAdminService {
       );
     }
 
-    const total = all.length;
-    const items = all.slice((page - 1) * limit, page * limit);
-
-    // 6. KPI summary
-    const summary = {
-      total:     all.length,
-      active:    all.filter((r) => r.type === 'ACTIVE').length,
-      trial:     all.filter((r) => r.type === 'TRIAL').length,
-      demo:      all.filter((r) => r.type === 'DEMO').length,
-      exClient:  all.filter((r) => r.type === 'EX_CLIENT').length,
-      leads:     all.filter((r) => r.type === 'LEAD').length,
-    };
+    const total = filtered.length;
+    const items = filtered.slice((page - 1) * limit, page * limit);
 
     return { items, total, page, limit, summary };
   }

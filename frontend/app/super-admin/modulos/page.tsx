@@ -577,7 +577,12 @@ export default function SuperAdminModulosPage() {
 
                             {/* Card body — clicável para detalhe */}
                             <button
-                              onClick={() => router.push(`/super-admin/modulos/${mod.slug}`)}
+                              onClick={() => {
+                                const q = selectedCompany
+                                  ? `?company=${selectedCompany.id}&cname=${encodeURIComponent(selectedCompany.name)}`
+                                  : ""
+                                router.push(`/super-admin/modulos/${mod.slug}${q}`)
+                              }}
                               className="flex-1 p-5 text-left"
                             >
                               {/* Ícone */}

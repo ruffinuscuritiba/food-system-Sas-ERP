@@ -161,7 +161,7 @@ export default function MenuPage() {
     setLoadError(false);
     try {
       const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/products/public/menu/${companyId}`),
+        fetch(`${apiBaseUrl}/products/public/menu/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/pizza-size-configs/public?companyId=${companyId}`).catch(() => null),
@@ -169,8 +169,7 @@ export default function MenuPage() {
         fetch(`${apiBaseUrl}/company/layout/public?companyId=${companyId}`).catch(() => null),
       ]);
 
-      if (!menuRes.ok) {
-        // Render free tier pode demorar até 50s para acordar — tentar até 8x
+      if (!menuRes || !menuRes.ok) {
         if (attempt < 8) {
           setTimeout(() => loadMenu(attempt + 1), attempt <= 2 ? 5000 : 8000);
           return;
@@ -817,7 +816,7 @@ export default function MenuPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5 px-4 text-center">
         <p className="text-gray-700 text-lg font-semibold">Cardápio indisponível no momento</p>
-        <p className="text-gray-400 text-sm max-w-xs">O servidor pode estar iniciando. Aguarde alguns segundos.</p>
+        <p className="text-gray-400 text-sm max-w-xs">Não foi possível carregar o cardápio. Tente novamente em alguns instantes.</p>
         <button
           onClick={() => loadMenu(1)}
           className="flex items-center gap-2 bg-[var(--color-primary)] hover:opacity-90 text-white px-6 py-3 rounded-xl font-bold transition"

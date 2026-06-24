@@ -76,7 +76,7 @@ const COLOR_FIELDS: { key: keyof ColorConfig; label: string; desc: string }[] = 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const sortedBlocks = (blocks: LayoutBlock[]) => [...blocks].sort((a, b) => a.order - b.order);
-const getSaToken = () => localStorage.getItem("sa_token") ?? "";
+const getSaToken = () => (typeof window !== "undefined" ? localStorage.getItem("sa_token") ?? "" : "");
 const getApiBase = () => process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
 // ── Color Picker Field ────────────────────────────────────────────────────────

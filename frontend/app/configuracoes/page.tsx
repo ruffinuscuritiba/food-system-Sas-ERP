@@ -122,6 +122,7 @@ type BusinessHours   = Record<string, BusinessHourDay>;
 interface CompanySettings {
   id: string;
   name: string;
+  slug: string | null;
   description: string | null;
   phone: string | null;
   whatsapp: string | null;
@@ -291,6 +292,7 @@ function LojaTab() {
 
     const payload: Record<string, unknown> = {
       name:              sv(data.name),
+      slug:              sv(data.slug),
       description:       sv(data.description),
       phone:             sv(data.phone),
       whatsapp:          sv(data.whatsapp),
@@ -369,6 +371,24 @@ function LojaTab() {
               onChange={(v) => patch("name", v)}
               placeholder="Ex: Bella Napoli Pizzaria"
             />
+          </Field>
+
+          <Field label="URL do cardápio (slug)" colSpan>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 select-none pointer-events-none">
+                /menu/
+              </span>
+              <input
+                type="text"
+                className="w-full pl-[52px] pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                value={str(data.slug)}
+                onChange={(e) => patch("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                placeholder="nome-da-loja"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Use apenas letras minúsculas, números e hífens. Exemplo: <code>bella-napoli</code>
+            </p>
           </Field>
 
           <Field label="CNPJ">

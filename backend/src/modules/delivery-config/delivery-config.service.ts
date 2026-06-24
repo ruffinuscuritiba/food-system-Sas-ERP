@@ -65,7 +65,13 @@ export class DeliveryConfigService {
   }
 
   // Returns public zone list (no driverShare) — safe to expose without auth
-  findAllPublic(companyId: string) {
+  async findAllPublic(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    if (!company) return [];
+    const companyId = company.id;
     return this.prisma.deliveryZone.findMany({
       where: { companyId, isActive: true },
       orderBy: { name: 'asc' },

@@ -202,7 +202,13 @@ export class ProductsService {
     });
   }
 
-  async publicMenu(companyId: string) {
+  async publicMenu(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    if (!company) return [];
+    const companyId = company.id;
     return this.prisma.product.findMany({
       where: {
         companyId,

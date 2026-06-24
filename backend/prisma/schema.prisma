@@ -136,6 +136,8 @@ model Company {
 
   name String
 
+  slug String? @unique
+
   description String?
 
   phone String?

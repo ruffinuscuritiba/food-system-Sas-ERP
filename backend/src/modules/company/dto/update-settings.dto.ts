@@ -31,6 +31,11 @@ export class UpdateCompanySettingsDto {
 
   @IsString()
   @IsOptional()
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug deve conter apenas letras minúsculas, dígitos e hífens' })
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @IsString()

@@ -305,15 +305,15 @@ const PILLARS_DATA = [
 // ─── Hero Device Mockup (iMac monitor) ──────────────────────────────────────
 // (defined below, referenced here to avoid forward-reference issues)
 
-// ─── Mockup: PDV (unused — kept for reference) ────────────────────────────────
+// ─── Mockup: PDV ──────────────────────────────────────────────────────────────
 function PdvMockup() {
   const products = [
-    { name: "Pizza Margherita", price: "R$ 52", c: "bg-orange-500/20" },
-    { name: "Burger Classic",   price: "R$ 34", c: "bg-blue-500/20" },
-    { name: "Batata Frita P.",  price: "R$ 18", c: "bg-amber-500/20" },
-    { name: "Coca-Cola 350ml",  price: "R$ 8",  c: "bg-red-500/20" },
-    { name: "Pizza Frango",     price: "R$ 48", c: "bg-purple-500/20" },
-    { name: "Milk Shake",       price: "R$ 22", c: "bg-green-500/20" },
+    { name: "Pizza Margherita", price: "R$ 52", bg: "from-orange-600 to-red-700",    emoji: "🍕" },
+    { name: "Burger Classic",   price: "R$ 34", bg: "from-amber-500 to-orange-600",  emoji: "🍔" },
+    { name: "Batata Frita P.",  price: "R$ 18", bg: "from-yellow-500 to-amber-600",  emoji: "🍟" },
+    { name: "Coca-Cola 350ml",  price: "R$ 8",  bg: "from-red-700 to-rose-900",      emoji: "🥤" },
+    { name: "Pizza Frango",     price: "R$ 48", bg: "from-purple-600 to-indigo-700", emoji: "🍕" },
+    { name: "Milk Shake",       price: "R$ 22", bg: "from-pink-500 to-rose-600",     emoji: "🥛" },
   ];
   return (
     <div className="rounded-2xl bg-[#0a0d14] border border-white/[0.08] overflow-hidden shadow-2xl">
@@ -322,22 +322,30 @@ function PdvMockup() {
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           <span className="text-[10px] font-bold text-white/80">PDV — Balcão</span>
         </div>
-        <span className="text-[10px] text-white/30 font-mono">12:34</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-white/30 bg-white/[0.04] px-2 py-0.5 rounded-md">Pizzas</span>
+          <span className="text-[10px] text-white/30 font-mono">12:34</span>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-2 p-3">
         {products.map((p) => (
-          <div key={p.name} className={`rounded-xl ${p.c} border border-white/[0.06] p-2.5 flex flex-col gap-1 cursor-default hover:brightness-125 transition`}>
-            <p className="text-[9px] font-bold text-white/90 leading-tight">{p.name}</p>
-            <p className="text-[11px] font-black text-orange-400">{p.price}</p>
+          <div key={p.name} className="rounded-xl overflow-hidden border border-white/[0.06] flex flex-col cursor-default group">
+            <div className={`bg-gradient-to-br ${p.bg} h-12 flex items-center justify-center text-2xl select-none group-hover:scale-105 transition-transform duration-200`}>
+              {p.emoji}
+            </div>
+            <div className="p-2 bg-white/[0.03]">
+              <p className="text-[9px] font-bold text-white/90 leading-tight truncate">{p.name}</p>
+              <p className="text-[11px] font-black text-orange-400 mt-0.5">{p.price}</p>
+            </div>
           </div>
         ))}
       </div>
       <div className="border-t border-white/[0.06] px-3.5 py-2.5 flex items-center justify-between">
         <div>
-          <p className="text-[9px] text-white/40">Total do pedido</p>
+          <p className="text-[9px] text-white/40">3 itens · Pedido #0042</p>
           <p className="text-sm font-black text-white">R$ 86,00</p>
         </div>
-        <div className="rounded-lg bg-orange-500 px-3 py-1.5">
+        <div className="rounded-xl bg-orange-500 px-3 py-1.5 shadow-lg shadow-orange-500/30">
           <p className="text-[10px] font-black text-white">Fechar pedido</p>
         </div>
       </div>
@@ -347,30 +355,72 @@ function PdvMockup() {
 
 // ─── Mockup: Dashboard ────────────────────────────────────────────────────────
 function DashboardMockup() {
-  const bars = [42, 68, 55, 90, 73, 88, 61];
-  const days = ["S", "T", "Q", "Q", "S", "S", "D"];
+  const values = [42, 68, 55, 90, 73, 88, 61];
+  const days   = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const max    = Math.max(...values);
+  const highIdx = values.indexOf(max);
+
+  // SVG bezier area chart
+  const W = 240, H = 58, padL = 2, padR = 2, padT = 6, padB = 4;
+  const pts = values.map((v, i) => ({
+    x: padL + (i / (values.length - 1)) * (W - padL - padR),
+    y: padT + (1 - v / max) * (H - padT - padB),
+  }));
+  const linePath = pts.reduce((acc, pt, i) => {
+    if (i === 0) return `M${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+    const prev = pts[i - 1];
+    const cpx = ((prev.x + pt.x) / 2).toFixed(1);
+    return acc + ` C${cpx},${prev.y.toFixed(1)} ${cpx},${pt.y.toFixed(1)} ${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+  }, "");
+  const areaPath = `${linePath} L${pts[pts.length - 1].x},${H} L${pts[0].x},${H} Z`;
+
   return (
     <div className="rounded-2xl bg-[#0a0d14] border border-white/[0.08] overflow-hidden shadow-2xl">
-      <div className="px-4 pt-4 pb-2">
-        <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wider mb-3">Faturamento — 7 dias</p>
-        <div className="flex items-end gap-1.5 h-20">
-          {bars.map((h, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div className="w-full rounded-t-sm bg-orange-500/80 transition-all" style={{ height: `${h}%` }} />
-              <span className="text-[8px] text-white/25 font-mono">{days[i]}</span>
-            </div>
+      <div className="px-4 pt-4 pb-0">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <p className="text-[9px] text-white/35 font-semibold uppercase tracking-widest mb-0.5">Faturamento — 7 dias</p>
+            <p className="text-xl font-black text-white leading-none">R$ 18.240</p>
+          </div>
+          <div className="flex items-center gap-1 bg-green-500/10 border border-green-500/20 rounded-lg px-2 py-1">
+            <TrendingUp size={9} className="text-green-400" />
+            <span className="text-[9px] font-black text-green-400">+12,4%</span>
+          </div>
+        </div>
+        {/* SVG bezier area chart */}
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 58 }}>
+          <defs>
+            <linearGradient id="dash-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#f97316" stopOpacity="0.38" />
+              <stop offset="100%" stopColor="#f97316" stopOpacity="0.00" />
+            </linearGradient>
+          </defs>
+          {[0.33, 0.66].map((r) => (
+            <line key={r} x1={padL} y1={padT + r * (H - padT - padB)} x2={W - padR} y2={padT + r * (H - padT - padB)}
+              stroke="rgba(255,255,255,0.05)" strokeWidth={0.8} />
+          ))}
+          <path d={areaPath} fill="url(#dash-area)" />
+          <path d={linePath} fill="none" stroke="#f97316" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          {/* Peak highlight */}
+          <circle cx={pts[highIdx].x} cy={pts[highIdx].y} r={5} fill="#f97316" opacity={0.18} />
+          <circle cx={pts[highIdx].x} cy={pts[highIdx].y} r={3} fill="#f97316" />
+        </svg>
+        <div className="flex justify-between pb-2 mt-1">
+          {days.map((d, i) => (
+            <span key={i} className={`text-[7px] font-mono ${i === highIdx ? "text-orange-400 font-black" : "text-white/20"}`}>{d}</span>
           ))}
         </div>
       </div>
       <div className="grid grid-cols-3 gap-px bg-white/[0.04] border-t border-white/[0.06]">
         {[
-          { label: "Receita hoje", value: "R$2.847" },
-          { label: "Pedidos",      value: "47" },
-          { label: "Ticket médio", value: "R$60,57" },
+          { label: "Hoje",        value: "R$2.847", delta: "↑ 8%",  up: true  },
+          { label: "Pedidos",     value: "47",       delta: "↑ 3",   up: true  },
+          { label: "Ticket Méd.", value: "R$60,57",  delta: "↓ 2%",  up: false },
         ].map((k) => (
           <div key={k.label} className="bg-[#0a0d14] p-3">
-            <p className="text-[8px] text-white/35 font-semibold uppercase tracking-wider">{k.label}</p>
-            <p className="text-sm font-black text-white mt-0.5">{k.value}</p>
+            <p className="text-[8px] text-white/30 font-semibold uppercase tracking-wide">{k.label}</p>
+            <p className="text-[13px] font-black text-white mt-0.5 leading-tight">{k.value}</p>
+            <p className={`text-[8px] font-bold mt-0.5 ${k.up ? "text-green-400" : "text-red-400"}`}>{k.delta}</p>
           </div>
         ))}
       </div>
@@ -381,27 +431,52 @@ function DashboardMockup() {
 // ─── Mockup: Menu ─────────────────────────────────────────────────────────────
 function MenuMockup() {
   const items = [
-    { name: "Pizza Quatro Queijos", sub: "Muçarela, parmesão, catupiry, gorgonzola", price: "R$ 62,00", emoji: "🍕" },
-    { name: "Combo Família",        sub: "2 pizzas grandes + 2 refris 2L",           price: "R$ 119,00", emoji: "🎉" },
-    { name: "Esfiha de Carne",      sub: "Massa leve, recheio generoso",              price: "R$ 8,00",  emoji: "🥙" },
+    { name: "Pizza Quatro Queijos", sub: "Muçarela, parmesão, catupiry, gorgonzola", price: "R$ 62,00", emoji: "🍕", bg: "from-orange-600 to-red-700",   badge: "Mais pedido", stars: 4.9 },
+    { name: "Combo Família",        sub: "2 pizzas grandes + 2 refris 2L",           price: "R$ 119,00", emoji: "🎉", bg: "from-purple-600 to-indigo-700", badge: null,          stars: 4.7 },
+    { name: "Esfiha de Carne",      sub: "Massa leve, recheio generoso",              price: "R$ 8,00",   emoji: "🥙", bg: "from-amber-500 to-orange-600",  badge: null,          stars: 4.5 },
   ];
   return (
     <div className="rounded-2xl bg-white overflow-hidden shadow-2xl border border-black/5">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-black/5 bg-orange-500">
         <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-sm">🍕</div>
-        <p className="text-sm font-black text-white">Pizzaria Bella Napoli</p>
+        <div>
+          <p className="text-sm font-black text-white leading-tight">Pizzaria Bella Napoli</p>
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
+            <p className="text-[9px] text-white/80 font-semibold">Aberto · Entrega ~35 min</p>
+          </div>
+        </div>
+      </div>
+      {/* Category pills */}
+      <div className="flex gap-2 px-4 py-2 overflow-x-hidden border-b border-black/5 bg-orange-50">
+        {["🍕 Pizzas", "🥙 Esfihas", "🥤 Bebidas"].map((c, i) => (
+          <span key={c} className={`text-[9px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${i === 0 ? "bg-orange-500 text-white" : "bg-white text-gray-600 border border-black/[0.08]"}`}>
+            {c}
+          </span>
+        ))}
       </div>
       <div className="divide-y divide-black/5">
         {items.map((item) => (
           <div key={item.name} className="flex items-start gap-3 px-4 py-3">
-            <span className="text-2xl flex-shrink-0">{item.emoji}</span>
+            <div className={`flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br ${item.bg} flex items-center justify-center text-xl relative`}>
+              {item.emoji}
+              {item.badge && (
+                <div className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full leading-none">
+                  {item.badge}
+                </div>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-bold text-gray-900 leading-tight">{item.name}</p>
               <p className="text-[10px] text-gray-400 mt-0.5 leading-tight truncate">{item.sub}</p>
+              <div className="flex items-center gap-1 mt-1">
+                <Star size={9} fill="#f59e0b" className="text-amber-400" />
+                <span className="text-[9px] font-bold text-gray-500">{item.stars}</span>
+              </div>
             </div>
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
               <p className="text-[11px] font-black text-gray-900">{item.price}</p>
-              <div className="rounded-full bg-orange-500 w-5 h-5 flex items-center justify-center">
+              <div className="rounded-full bg-orange-500 w-5 h-5 flex items-center justify-center shadow-md shadow-orange-500/40">
                 <span className="text-[10px] font-black text-white leading-none">+</span>
               </div>
             </div>
@@ -415,34 +490,46 @@ function MenuMockup() {
 // ─── Mockup: Chat ─────────────────────────────────────────────────────────────
 function ChatMockup() {
   const messages = [
-    { from: "user", text: "Oi! Quero uma pizza grande de frango com catupiry" },
-    { from: "bot",  text: "Ótima escolha! 🍕 Pizza Grande Frango com Catupiry — R$ 62,00.\nQuer adicionar borda recheada? Temos catupiry, cheddar e cream cheese!" },
-    { from: "user", text: "Borda de catupiry, sim!" },
-    { from: "bot",  text: "Perfeito! 🎉 Pedido confirmado:\n• Pizza G. Frango + Borda Catupiry — R$ 72,00\n\nEndereço de entrega?" },
+    { from: "user", text: "Oi! Quero uma pizza grande de frango com catupiry", time: "12:31" },
+    { from: "bot",  text: "Ótima escolha! 🍕 Pizza Grande Frango com Catupiry — R$ 62,00.\nQuer adicionar borda recheada? Temos catupiry, cheddar e cream cheese!", time: "12:31" },
+    { from: "user", text: "Borda de catupiry, sim!", time: "12:32" },
+    { from: "bot",  text: "Perfeito! 🎉 Pedido confirmado:\n• Pizza G. Frango + Borda Catupiry — R$ 72,00\n\nEndereço de entrega?", time: "12:32" },
   ];
   return (
     <div className="rounded-2xl bg-[#0f1218] border border-white/[0.08] overflow-hidden shadow-2xl">
+      <style>{`@keyframes typingBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}`}</style>
       <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white/[0.03] border-b border-white/[0.06]">
         <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
           <span className="text-[10px] font-black text-white">K</span>
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-[10px] font-bold text-white/90 leading-tight">Kely · Atendente IA</p>
           <p className="text-[8px] text-green-400 font-semibold">● online agora</p>
         </div>
+        <span className="text-[8px] text-white/20 font-mono">WhatsApp</span>
       </div>
       <div className="p-3 space-y-2">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-[10px] leading-relaxed whitespace-pre-line ${
+            <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
               m.from === "user"
                 ? "bg-green-500/90 text-white rounded-br-sm"
                 : "bg-white/[0.07] text-white/85 rounded-bl-sm"
             }`}>
-              {m.text}
+              <p className="text-[10px] leading-relaxed whitespace-pre-line">{m.text}</p>
+              <p className={`text-[8px] mt-0.5 ${m.from === "user" ? "text-white/60 text-right" : "text-white/30"}`}>{m.time} ✓✓</p>
             </div>
           </div>
         ))}
+        {/* Typing indicator */}
+        <div className="flex justify-start">
+          <div className="bg-white/[0.07] rounded-2xl rounded-bl-sm px-3 py-2 flex items-center gap-1">
+            {[0, 0.15, 0.3].map((delay, i) => (
+              <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40"
+                style={{ animation: `typingBounce 1.2s ease-in-out ${delay}s infinite` }} />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -450,24 +537,48 @@ function ChatMockup() {
 
 // ─── Mockup: Loyalty ──────────────────────────────────────────────────────────
 function LoyaltyMockup() {
+  const progress = 0.62;
+  const R = 28, CX = 36, CY = 36;
+  const circ = 2 * Math.PI * R;
+  const dashOff = circ * (1 - progress);
+
   return (
     <div className="rounded-2xl bg-[#0a0d14] border border-white/[0.08] overflow-hidden shadow-2xl">
       <div className="px-4 py-4 bg-gradient-to-b from-orange-500/15 to-transparent border-b border-white/[0.06]">
-        <p className="text-[9px] text-orange-400 font-bold uppercase tracking-wider mb-1">Programa de Fidelidade</p>
-        <p className="text-base font-black text-white">1.240 pontos</p>
-        <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full bg-orange-500 transition-all" style={{ width: "62%" }} />
+        <div className="flex items-center gap-4">
+          {/* SVG ring progress */}
+          <div className="flex-shrink-0">
+            <svg width={72} height={72}>
+              <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={5} />
+              <circle cx={CX} cy={CY} r={R} fill="none" stroke="#f97316" strokeWidth={5}
+                strokeLinecap="round"
+                strokeDasharray={circ}
+                strokeDashoffset={dashOff}
+                transform={`rotate(-90 ${CX} ${CY})`}
+                style={{ filter: "drop-shadow(0 0 5px #f97316bb)" }}
+              />
+              <text x={CX} y={CY + 1} textAnchor="middle" dominantBaseline="middle"
+                fontSize={10} fontWeight="900" fill="white">62%</text>
+            </svg>
+          </div>
+          <div>
+            <p className="text-[9px] text-orange-400 font-bold uppercase tracking-wider mb-1">Programa de Fidelidade</p>
+            <p className="text-base font-black text-white">1.240 pts</p>
+            <p className="mt-1 text-[9px] text-white/40">760 pts → Borda Grátis 🎁</p>
+          </div>
         </div>
-        <p className="mt-1 text-[9px] text-white/40">760 pontos para o próximo brinde</p>
       </div>
       <div className="divide-y divide-white/[0.04]">
         {[
-          { desc: "Pizza Quatro Queijos",  pts: "+120 pts", color: "text-green-400" },
-          { desc: "Resgate — Borda grátis", pts: "-80 pts",  color: "text-red-400"  },
-          { desc: "Burger Clássico",        pts: "+60 pts",  color: "text-green-400" },
+          { desc: "Pizza Quatro Queijos",   pts: "+120 pts", color: "text-green-400", icon: "↑" },
+          { desc: "Resgate — Borda grátis", pts: "-80 pts",  color: "text-red-400",   icon: "↓" },
+          { desc: "Burger Clássico",         pts: "+60 pts",  color: "text-green-400", icon: "↑" },
         ].map((t) => (
           <div key={t.desc} className="flex items-center justify-between px-4 py-2.5">
-            <p className="text-[10px] text-white/70 font-medium">{t.desc}</p>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-black ${t.color}`}>{t.icon}</span>
+              <p className="text-[10px] text-white/70 font-medium">{t.desc}</p>
+            </div>
             <p className={`text-[10px] font-black ${t.color}`}>{t.pts}</p>
           </div>
         ))}

@@ -170,9 +170,18 @@ export default function BIPage() {
           <h1 className="text-2xl font-black text-gray-900">Central de Inteligência</h1>
           <p className="text-sm text-gray-500 mt-0.5">BI · Relatórios · IA · Alertas</p>
         </div>
-        <button onClick={loadDashboard} className="flex items-center gap-2 text-sm text-gray-500 hover:text-primary transition">
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Atualizar
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href="/bi/avancado"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all hover:scale-105"
+          >
+            <BarChart2 size={13} />
+            Análise 6D ✦
+          </a>
+          <button onClick={loadDashboard} className="flex items-center gap-2 text-sm text-gray-500 hover:text-primary transition">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Atualizar
+          </button>
+        </div>
       </div>
 
       {/* Date range controls */}

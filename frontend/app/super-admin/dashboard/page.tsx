@@ -195,6 +195,9 @@ export default function SuperAdminDashboard() {
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null)
   const [confirmText, setConfirmText] = useState("")
   const [showNotif, setShowNotif] = useState(false)
+  const [notifSeenAt, setNotifSeenAt] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem("sa_notif_seen") ?? "0", 10) } catch { return 0 }
+  })
   const menuRef  = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
@@ -381,7 +384,7 @@ export default function SuperAdminDashboard() {
 
   // ── Notifications derived from companies data ────────────────────────────────
   const notifications = (() => {
-    const list: { type: string; title: string; sub: string; color: string; bg: string; companyId: string }[] = []
+    const list: { type: string; title: string; sub: string; color: string; bg: string; companyId: string; ts: number }[] = []
     const now = new Date()
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     const realNew = companies.filter(co =>
@@ -391,21 +394,35 @@ export default function SuperAdminDashboard() {
     realNew.forEach(co => list.push({
       type: "signup",
       title: `Nova loja: ${co.name}`,
-      sub: `${PLAN_LABELS[co.plan] ?? co.plan} · ${new Date(co.createdAt).toLocaleDateString("pt-BR")}`,
+      sub: `${PLAN_LABELS[co.plan] ?? co.plan} · ${new Date(co.createdAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
       color: "text-indigo-400",
       bg: "bg-indigo-500/10 border-indigo-500/20",
       companyId: co.id,
+      ts: new Date(co.createdAt).getTime(),
     }))
     companies.filter(co => co.isBlocked).forEach(co => list.push({
       type: "blocked",
       title: `Loja bloqueada: ${co.name}`,
-      sub: "Acesso suspenso — verificar pagamento",
+      sub: `Acesso suspenso · ${new Date(co.createdAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
       color: "text-red-400",
       bg: "bg-red-500/10 border-red-500/20",
       companyId: co.id,
+      ts: new Date(co.createdAt).getTime(),
     }))
-    return list
+    return list.sort((a, b) => b.ts - a.ts)
   })()
+
+  const unreadCount = notifications.filter(n => n.ts > notifSeenAt).length
+
+  function openNotif() {
+    setShowNotif(v => !v)
+    if (!showNotif) {
+      // marca como visto ao abrir
+      const now = Date.now()
+      setNotifSeenAt(now)
+      try { localStorage.setItem("sa_notif_seen", String(now)) } catch {}
+    }
+  }
 
   const activePct  = stats.total ? Math.round((stats.active  / stats.total) * 100) : 0
   const blockedPct = stats.total ? Math.round((stats.blocked / stats.total) * 100) : 0
@@ -563,7 +580,7 @@ export default function SuperAdminDashboard() {
           {/* Bell */}
           <div className="relative" ref={notifRef}>
             <button
-              onClick={() => setShowNotif(v => !v)}
+              onClick={openNotif}
               className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
                 showNotif
                   ? c("bg-indigo-600 text-white", "bg-indigo-100 text-indigo-600")
@@ -573,9 +590,9 @@ export default function SuperAdminDashboard() {
             >
               <Bell className="w-3.5 h-3.5" />
             </button>
-            {notifications.length > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 border-2 border-[#09090b] flex items-center justify-center text-[9px] font-bold text-white px-0.5">
-                {notifications.length}
+                {unreadCount}
               </span>
             )}
             {showNotif && (
@@ -609,7 +626,12 @@ export default function SuperAdminDashboard() {
                         {n.type === "signup" ? <span className="text-sm">🏪</span> : <span className="text-sm">🚫</span>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-medium truncate ${c("text-zinc-200", "text-gray-700")}`}>{n.title}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className={`text-xs font-medium truncate ${c("text-zinc-200", "text-gray-700")}`}>{n.title}</p>
+                          {n.ts > notifSeenAt && (
+                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" title="Não lida" />
+                          )}
+                        </div>
                         <p className={`text-[10px] mt-0.5 ${c("text-zinc-500", "text-gray-400")}`}>{n.sub}</p>
                       </div>
                     </button>

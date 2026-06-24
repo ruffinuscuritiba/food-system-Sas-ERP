@@ -31,6 +31,7 @@ import toast from "react-hot-toast";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
+import { PDV_THEME_PRESETS, savePdvTheme, PDV_THEME_DEFAULT } from "@/lib/pdv-theme";
 import { SUPPORT_WHATSAPP } from "@/config/support";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
@@ -772,6 +773,7 @@ function DemoContent() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
   const [selectedNiche, setSelectedNiche] = useState<string>("Restaurantes");
+  const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
@@ -825,6 +827,9 @@ function DemoContent() {
       document.cookie = `token=${accessToken}; path=/`;
       localStorage.setItem("token", accessToken);
       localStorage.setItem("user", JSON.stringify(user));
+      // Aplica o tema escolhido pelo visitante antes de entrar no PDV
+      const chosenPreset = PDV_THEME_PRESETS[selectedThemeIdx];
+      if (chosenPreset) savePdvTheme({ ...PDV_THEME_DEFAULT, ...chosenPreset.config });
       setModalDemo(null);
       toast.success(`Bem-vindo à demo ${demo.plan}!`);
       router.push("/pdv");
@@ -1017,6 +1022,45 @@ function DemoContent() {
                 </button>
               );
             })}
+          </div>
+
+          {/* ── Theme picker ── */}
+          <div className="mb-10 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+            <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p className="text-sm font-bold text-white">Como prefere ver o sistema?</p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  Escolha o visual da demonstração — você pode personalizar as cores para a cara do seu estabelecimento depois, nas configurações.
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 px-3 py-1">
+                Pode mudar depois
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-3 mt-4">
+              {PDV_THEME_PRESETS.map((preset, i) => {
+                const isOn = selectedThemeIdx === i;
+                return (
+                  <button
+                    key={preset.name}
+                    onClick={() => setSelectedThemeIdx(i)}
+                    className={`group flex items-center gap-2.5 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all ${
+                      isOn
+                        ? "border-white/30 bg-white/10 text-white scale-105"
+                        : "border-white/[0.06] bg-white/[0.03] text-white/60 hover:border-white/15 hover:text-white/90"
+                    }`}
+                  >
+                    {/* color swatch */}
+                    <span
+                      className="w-4 h-4 rounded-full shrink-0 ring-2 ring-white/10"
+                      style={{ background: preset.config.primary as string }}
+                    />
+                    <span>{preset.emoji} {preset.name}</span>
+                    {isOn && <span className="ml-1 text-xs text-white/50">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* ── Plan cards ── */}

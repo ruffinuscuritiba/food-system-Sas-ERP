@@ -100,6 +100,91 @@ function ColorField({ label, desc, value, onChange }: { label: string; desc: str
   );
 }
 
+// ── Mini Phone for 3-Layout Showcase ─────────────────────────────────────────
+type LayoutPhoneType = "dark-list" | "grid" | "classic";
+function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
+  type: LayoutPhoneType; tilt: number; selected: boolean; label: string;
+  colors: ColorConfig; onClick: () => void;
+}) {
+  const themes: Record<LayoutPhoneType, { bg: string; header: string; primary: string; card: string; text: string }> = {
+    "dark-list": { bg: "#0f172a", header: "#1e293b", primary: "#f97316", card: "#1e293b",     text: "#94a3b8" },
+    "grid":      { bg: c.background, header: c.secondary, primary: c.primary, card: c.card,   text: c.text   },
+    "classic":   { bg: "#ffffff",  header: "#f1f5f9", primary: "#dc2626", card: "#f8fafc",    text: "#111827" },
+  };
+  const t = themes[type];
+  const isGrid = type === "grid";
+  const W = tilt !== 0 ? 86 : 108;
+  const H = tilt !== 0 ? 174 : 216;
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 group transition-all"
+      style={{ transform: tilt !== 0 ? `perspective(600px) rotateY(${tilt}deg)` : undefined, transformOrigin: "bottom center" }}
+    >
+      <div
+        className={`relative overflow-hidden transition-all ${
+          selected
+            ? "border-[3px] border-orange-500 shadow-[0_0_22px_rgba(249,115,22,0.45)]"
+            : "border-[2px] border-zinc-700 group-hover:border-zinc-500"
+        }`}
+        style={{ width: W, height: H, borderRadius: 18, background: t.bg }}
+      >
+        {/* Notch */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-7 h-1.5 rounded-full z-10 bg-black/60" />
+        {/* Header */}
+        <div className="px-2 pt-5 pb-1 text-[6px] font-bold text-white truncate" style={{ background: t.header }}>
+          🍕 Minha Loja
+        </div>
+        {/* Category pills */}
+        <div className="flex gap-1 px-1.5 py-1 overflow-hidden">
+          {["Todos","Pizza","Beb"].map((cat, i) => (
+            <div key={cat} className="text-[5px] px-1 py-0.5 rounded font-semibold shrink-0 text-white"
+              style={{ background: i === 0 ? t.primary : t.primary + "55" }}>{cat}</div>
+          ))}
+        </div>
+        {/* Products */}
+        <div className="px-1.5 mt-0.5">
+          {isGrid ? (
+            <div className="grid grid-cols-2 gap-1">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="rounded-md overflow-hidden" style={{ background: t.card, border: `1px solid ${t.primary}33` }}>
+                  <div className="h-6 w-full" style={{ background: `${t.primary}44` }} />
+                  <div className="p-0.5">
+                    <div className="h-1.5 rounded mb-0.5 w-full" style={{ background: t.text + "44" }} />
+                    <div className="h-2 rounded w-7" style={{ background: t.primary }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {[1,2,3].map(i => (
+                <div key={i} className="flex gap-1 rounded-md p-1" style={{ background: t.card, border: `1px solid ${t.primary}22` }}>
+                  <div className="w-7 h-7 rounded shrink-0" style={{ background: `${t.primary}44` }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-1.5 rounded mb-0.5 w-full" style={{ background: t.text + "44" }} />
+                    <div className="h-1 rounded w-8" style={{ background: t.text + "33" }} />
+                    <div className="h-2 rounded w-7 mt-0.5" style={{ background: t.primary }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* CTA */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[5px] font-bold text-white whitespace-nowrap"
+          style={{ background: t.primary }}>
+          Ver pedido (2)
+        </div>
+      </div>
+      <span className={`text-[10px] font-semibold transition-colors text-center leading-tight ${selected ? "text-orange-400" : "text-zinc-500 group-hover:text-zinc-300"}`}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
 // ── Phone Mockup Preview ──────────────────────────────────────────────────────
 function PhonePreview({ config, companyId, colors, onRefresh }: { config: LayoutConfig; companyId?: string; colors: ColorConfig; onRefresh: () => void }) {
   const [key, setKey] = useState(0);
@@ -294,17 +379,22 @@ export default function ConstrutorPage() {
     if (!selectedId) return;
     setSaving(true);
     try {
-      await fetch(`${apiBase}/layout-templates/company/${selectedId}`, {
+      const res = await fetch(`${apiBase}/layout-templates/company/${selectedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${saToken}` },
         body: JSON.stringify({ ...config, colors, googleReviewUrl: googleUrl }),
       });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => `HTTP ${res.status}`);
+        throw new Error(msg);
+      }
       setSaved(true);
       setPreviewRefresh(k => k + 1);
       setTimeout(() => setSaved(false), 2500);
       toast.success("Layout salvo com sucesso!");
-    } catch { toast.error("Erro ao salvar"); }
-    finally { setSaving(false); }
+    } catch (err: any) {
+      toast.error(`Erro ao salvar: ${err?.message ?? "Tente novamente"}`);
+    } finally { setSaving(false); }
   };
 
   const saveAsTpl = async () => {
@@ -436,28 +526,68 @@ export default function ConstrutorPage() {
                 </div>
               </section>
 
-              {/* Display type */}
+              {/* Display type — 3-phone showcase */}
               <section className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-5">
                   <Columns size={14} className="text-orange-400" />
                   <h2 className="text-sm font-bold text-white">Tipo de Exibição dos Produtos</h2>
+                  <span className="ml-auto text-[10px] text-zinc-500">Clique para selecionar</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                {/* 3 phones side by side */}
+                <div
+                  className="flex items-end justify-center gap-6 pb-4 mb-4"
+                  style={{
+                    backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)",
+                    backgroundSize: "22px 22px",
+                    borderRadius: 16,
+                    padding: "20px 12px 16px",
+                    border: "1px solid rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <LayoutPhone
+                    type="dark-list"
+                    tilt={11}
+                    selected={config.layoutType === "LIST"}
+                    label="Lista Dark"
+                    colors={colors}
+                    onClick={() => setConfig(c => ({ ...c, layoutType: "LIST" }))}
+                  />
+                  <LayoutPhone
+                    type="grid"
+                    tilt={0}
+                    selected={config.layoutType === "GRID"}
+                    label="Grade (suas cores)"
+                    colors={colors}
+                    onClick={() => setConfig(c => ({ ...c, layoutType: "GRID" }))}
+                  />
+                  <LayoutPhone
+                    type="classic"
+                    tilt={-11}
+                    selected={false}
+                    label="Lista Clássica"
+                    colors={colors}
+                    onClick={() => setConfig(c => ({ ...c, layoutType: "LIST" }))}
+                  />
+                </div>
+
+                {/* Quick toggle buttons */}
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { value: "GRID", label: "Grade",  Icon: LayoutGrid, desc: "Cards em colunas (2–4 cols)" },
                     { value: "LIST", label: "Lista",  Icon: LayoutList, desc: "Itens em linha horizontal" },
                   ].map(opt => (
                     <button key={opt.value}
                       onClick={() => setConfig(c => ({ ...c, layoutType: opt.value as "GRID"|"LIST" }))}
-                      className={`flex items-center gap-3 p-4 rounded-xl border transition ${saBtn} ${
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border transition ${saBtn} ${
                         config.layoutType === opt.value
                           ? "border-orange-500 bg-orange-500/10 text-white"
                           : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600"
                       }`}>
-                      <opt.Icon size={20} />
+                      <opt.Icon size={16} />
                       <div className="text-left">
-                        <p className="font-semibold text-sm">{opt.label}</p>
-                        <p className="text-[10px] opacity-60 mt-0.5">{opt.desc}</p>
+                        <p className="font-semibold text-xs">{opt.label}</p>
+                        <p className="text-[10px] opacity-60">{opt.desc}</p>
                       </div>
                     </button>
                   ))}

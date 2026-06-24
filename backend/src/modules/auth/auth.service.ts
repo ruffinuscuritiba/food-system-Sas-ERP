@@ -92,6 +92,48 @@ export class AuthService {
     });
   }
 
+  /**
+   * Fan-out canal #2 — envia uma mensagem de boas-vindas para o WhatsApp do
+   * NOVO cliente (lojista) via a instância Evolution da plataforma.
+   * Normaliza o número para o formato com DDI 55 quando vier só com DDD.
+   * Best-effort: nunca quebra o cadastro.
+   */
+  private async sendClientWelcomeWhatsapp(
+    phone: string,
+    name: string,
+    companyName: string,
+  ): Promise<void> {
+    const apiUrl   = this.config.get<string>('EVOLUTION_API_URL');
+    const apiKey   = this.config.get<string>('EVOLUTION_API_KEY');
+    const instance = this.config.get<string>('EVOLUTION_INSTANCE_NAME');
+    const digits   = (phone ?? '').replace(/\D/g, '');
+    if (!apiUrl || !apiKey || !instance || digits.length < 10) return;
+
+    // 10-11 dígitos = número local (DDD+número) → prefixa DDI 55.
+    // 12-13 dígitos = já tem DDI.
+    const number = digits.length <= 11 ? `55${digits}` : digits;
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ??
+      'https://food-system-sas-erp-frontend.vercel.app';
+
+    const text =
+      `Olá, *${name}*! 👋 Seja bem-vindo(a) ao *FoodSaaS*!\n\n` +
+      `A conta da *${companyName}* já está ativa com *7 dias de teste grátis*. 🎉\n\n` +
+      `Para começar:\n` +
+      `1️⃣ Cadastre seu cardápio\n` +
+      `2️⃣ Compartilhe seu cardápio digital\n` +
+      `3️⃣ Receba pedidos no PDV e na cozinha\n\n` +
+      `Acesse seu painel: ${frontendUrl}/login\n\n` +
+      `Qualquer dúvida, é só responder aqui. Vamos vender mais! 🚀`;
+
+    await fetch(`${apiUrl}/message/sendText/${instance}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ number, text }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  }
+
   private async assertEmailUnique(email: string): Promise<void> {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new BadRequestException('Email já cadastrado');
@@ -225,6 +267,14 @@ export class AuthService {
       this.notifyOwnerWhatsapp(waMsg).catch((err) =>
         this.logger.warn(`[Signup] WA notify failed: ${err?.message}`),
       );
+
+      // Canal #2 — WhatsApp de boas-vindas para o próprio cliente (lojista novo)
+      if (dto.whatsapp) {
+        this.sendClientWelcomeWhatsapp(dto.whatsapp, dto.name, dto.companyName).catch(
+          (err) =>
+            this.logger.warn(`[Signup] WA welcome to client failed: ${err?.message}`),
+        );
+      }
     });
 
     const accessToken = await this.jwtService.signAsync({

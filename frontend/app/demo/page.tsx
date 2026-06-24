@@ -714,6 +714,244 @@ function HeroDeviceMockup() {
   );
 }
 
+// ─── Menu Phone Showcase ─────────────────────────────────────────────────────
+function PhoneFrame({
+  children, tilt = 0, width = 160, height = 300, highlight = false,
+}: {
+  children: React.ReactNode; tilt?: number; width?: number; height?: number; highlight?: boolean;
+}) {
+  const shadow = highlight
+    ? "0_0_0_2px_rgba(249,115,22,0.35),0_32px_64px_-12px_rgba(0,0,0,0.9),0_0_80px_-20px_rgba(249,115,22,0.28)"
+    : "0_0_0_1px_rgba(255,255,255,0.07),0_24px_48px_-10px_rgba(0,0,0,0.85)";
+  return (
+    <div
+      className="relative select-none"
+      style={{
+        width,
+        transform: tilt !== 0 ? `perspective(900px) rotateY(${tilt}deg) rotate(${tilt > 0 ? -3 : 3}deg)` : undefined,
+        transformOrigin: "bottom center",
+      }}
+    >
+      <div className={`rounded-[26px] bg-[#1c1d22] p-[2.5px]`} style={{ boxShadow: shadow }}>
+        <div className="rounded-[24px] overflow-hidden" style={{ height }}>
+          {/* Notch */}
+          <div className="relative bg-[#0a0a0b] flex justify-center items-end pb-1" style={{ height: 22 }}>
+            <div className="w-10 h-[13px] rounded-full bg-[#060607] border border-white/[0.05]" />
+          </div>
+          {children}
+        </div>
+      </div>
+      {/* Home bar */}
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full bg-white/[0.18]" />
+    </div>
+  );
+}
+
+function MenuPhoneShowcase() {
+  const darkItems = [
+    { name: "Pizza Quatro Queijos", desc: "Muçarela, parmesão, catupiry", price: "R$ 62", stars: 4.9, bg: "from-orange-700 via-red-800 to-rose-900", emoji: "🍕" },
+    { name: "Frango Grelhado",      desc: "Temperado, farofa e vinagrete",  price: "R$ 44", stars: 4.7, bg: "from-amber-600 via-orange-700 to-orange-900", emoji: "🍗" },
+    { name: "Burger Premium",       desc: "200g, cheddar, bacon crocante",  price: "R$ 38", stars: 4.8, bg: "from-yellow-600 via-amber-700 to-orange-800", emoji: "🍔" },
+    { name: "Combo Família",        desc: "2 pizzas grandes + 2 refris 2L", price: "R$ 119", stars: 4.6, bg: "from-purple-700 via-indigo-800 to-blue-900", emoji: "🎉" },
+  ];
+
+  const gridItems = [
+    { name: "Margherita", price: "R$52", bg: "from-red-600 to-orange-700",   emoji: "🍕" },
+    { name: "Burger",     price: "R$34", bg: "from-amber-500 to-yellow-700", emoji: "🍔" },
+    { name: "Batata",     price: "R$18", bg: "from-yellow-400 to-amber-600", emoji: "🍟" },
+    { name: "Frango",     price: "R$48", bg: "from-purple-600 to-indigo-800",emoji: "🍗" },
+    { name: "Açaí",       price: "R$24", bg: "from-purple-800 to-violet-950",emoji: "🫐" },
+    { name: "Milk Shake", price: "R$22", bg: "from-pink-500 to-rose-700",    emoji: "🥛" },
+  ];
+
+  const classicSections = [
+    { title: "Entradas",    items: [{ name: "Caldo de Cana", price: "R$ 8", emoji: "🥤" }, { name: "Pão de Alho", price: "R$ 12", emoji: "🥖" }] },
+    { title: "Pratos",      items: [{ name: "Pizza Margherita", price: "R$ 52", emoji: "🍕" }, { name: "Frango Grelhado", price: "R$ 44", emoji: "🍗" }, { name: "Burger Premium", price: "R$ 38", emoji: "🍔" }] },
+    { title: "Sobremesas",  items: [{ name: "Pudim de Leite", price: "R$ 18", emoji: "🍮" }] },
+  ];
+
+  return (
+    <section className="relative overflow-hidden py-24">
+      {/* Dark background */}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 60%, #0f1218 0%, #060709 100%)" }} />
+      {/* Dot grid */}
+      <div className="absolute inset-0 opacity-[0.035]"
+        style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+      {/* Network SVG */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" preserveAspectRatio="xMidYMid slice">
+        {([[8,8,92,35],[92,35,55,82],[55,82,8,62],[8,62,8,8],[92,35,98,15],[55,82,75,96],[25,50,55,82],[92,35,75,96]] as number[][]).map(([x1,y1,x2,y2],i)=>(
+          <line key={i} x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`} stroke="#f97316" strokeWidth="1" />
+        ))}
+        {([[8,8],[92,35],[55,82],[8,62],[98,15],[75,96],[25,50]] as number[][]).map(([x,y],i)=>(
+          <circle key={i} cx={`${x}%`} cy={`${y}%`} r={i===0||i===1?"4":"2.5"} fill="#f97316" />
+        ))}
+      </svg>
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full bg-orange-500/[0.05] blur-3xl" />
+
+      <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400 mb-5">
+            Cardápio Digital
+          </span>
+          <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
+            3 layouts, 1 sistema.
+          </h2>
+          <p className="mt-3 text-white/40 text-base">Você escolhe como seus clientes veem o cardápio — sem reconfigurar nada.</p>
+        </div>
+
+        {/* Phones row */}
+        <div className="flex items-end justify-center gap-4 sm:gap-8 lg:gap-12">
+
+          {/* ── Phone 1: Dark List ── */}
+          <div className="flex flex-col items-center gap-3 hidden sm:flex">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/35">Lista Visual</span>
+              <span className="rounded-full bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-[8px] font-bold text-white/50">Dark Mode</span>
+            </div>
+            <PhoneFrame tilt={11} width={152} height={295}>
+              <div className="h-full bg-[#0d1117] overflow-hidden flex flex-col">
+                {/* Category pills */}
+                <div className="flex gap-1.5 px-2 py-2 border-b border-white/[0.05] flex-shrink-0">
+                  {["🍕 Pizzas", "🍔 Burgers", "🥤 Bebidas"].map((c, i) => (
+                    <span key={c} className={`text-[7px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${i===0 ? "bg-orange-500 text-white" : "bg-white/[0.06] text-white/45"}`}>{c}</span>
+                  ))}
+                </div>
+                {/* Items */}
+                <div className="flex-1 overflow-hidden p-2 space-y-1.5">
+                  {darkItems.map((item) => (
+                    <div key={item.name} className={`relative rounded-xl overflow-hidden bg-gradient-to-r ${item.bg}`} style={{ minHeight: 54 }}>
+                      <div className="absolute inset-0 bg-black/50" />
+                      <div className="relative flex items-center px-2.5 py-2 h-full gap-2">
+                        <span className="text-xl flex-shrink-0">{item.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[8px] font-black text-white leading-tight truncate">{item.name}</p>
+                          <p className="text-[7px] text-white/55 truncate mt-0.5">{item.desc}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Star size={6} fill="#f59e0b" className="text-amber-400" />
+                            <span className="text-[7px] text-white/45">{item.stars}</span>
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                          <p className="text-[9px] font-black text-orange-400">{item.price}</p>
+                          <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-black text-white leading-none">+</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PhoneFrame>
+          </div>
+
+          {/* ── Phone 2: Grid (center, taller, highlighted) ── */}
+          <div className="flex flex-col items-center gap-3" style={{ marginBottom: -20 }}>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-orange-400">Modo Grade</span>
+              <span className="rounded-full bg-orange-500/15 border border-orange-500/30 px-2 py-0.5 text-[8px] font-bold text-orange-400">Recomendado</span>
+            </div>
+            <PhoneFrame tilt={0} width={168} height={328} highlight>
+              <div className="h-full bg-[#0d1117] overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.05] flex-shrink-0">
+                  <div>
+                    <p className="text-[9px] font-black text-white leading-tight">Bella Napoli</p>
+                    <p className="text-[7px] text-white/40">🍕 Pizzaria · Campo Belo</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    <span className="text-[7px] text-green-400 font-bold">Aberto</span>
+                  </div>
+                </div>
+                {/* Category pill */}
+                <div className="flex gap-1.5 px-2 py-1.5 border-b border-white/[0.04] flex-shrink-0">
+                  {["🍕 Pizzas", "🍗 Pratos", "🥤 Bebidas"].map((c, i) => (
+                    <span key={c} className={`text-[7px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${i===0 ? "bg-orange-500 text-white" : "bg-white/[0.05] text-white/40"}`}>{c}</span>
+                  ))}
+                </div>
+                {/* 2-col image grid */}
+                <div className="flex-1 overflow-hidden p-2 grid grid-cols-2 gap-1.5 content-start">
+                  {gridItems.map((item) => (
+                    <div key={item.name} className={`relative rounded-xl overflow-hidden bg-gradient-to-br ${item.bg}`} style={{ aspectRatio: "1/1" }}>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ fontSize: 30 }}>{item.emoji}</div>
+                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5">
+                        <p className="text-[7.5px] font-bold text-white leading-tight truncate">{item.name}</p>
+                        <p className="text-[9px] font-black text-orange-400 leading-tight">{item.price}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Cart CTA */}
+                <div className="flex-shrink-0 mx-2 mb-2 rounded-xl bg-orange-500 px-3 py-2 flex items-center justify-between">
+                  <span className="text-[8px] font-black text-white">Ver pedido · 3 itens</span>
+                  <span className="text-[8px] font-black text-white">R$ 86,00 →</span>
+                </div>
+              </div>
+            </PhoneFrame>
+          </div>
+
+          {/* ── Phone 3: Classic Light ── */}
+          <div className="flex flex-col items-center gap-3 hidden sm:flex">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/35">Lista Clássica</span>
+              <span className="rounded-full bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-[8px] font-bold text-white/50">Impresso</span>
+            </div>
+            <PhoneFrame tilt={-11} width={152} height={295}>
+              <div className="h-full bg-white overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-orange-500 flex-shrink-0">
+                  <span className="text-[10px] font-black text-white leading-tight">🍕 Bella Napoli</span>
+                </div>
+                {/* Sections */}
+                <div className="flex-1 overflow-hidden">
+                  {classicSections.map((section) => (
+                    <div key={section.title}>
+                      <div className="px-3 py-1.5 bg-orange-50 border-y border-orange-100/80">
+                        <p className="text-[7px] font-black uppercase tracking-widest text-orange-600">{section.title}</p>
+                      </div>
+                      {section.items.map((item) => (
+                        <div key={item.name} className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm leading-none">{item.emoji}</span>
+                            <p className="text-[9px] font-semibold text-gray-800 leading-tight">{item.name}</p>
+                          </div>
+                          <p className="text-[9px] font-black text-gray-900 flex-shrink-0 ml-2">{item.price}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PhoneFrame>
+          </div>
+
+        </div>
+
+        {/* Bottom labels & CTA */}
+        <div className="flex justify-center gap-8 sm:gap-20 mt-10 mb-6">
+          {[
+            { label: "Lista Visual", desc: "Foto de fundo + detalhes", visible: "hidden sm:flex" },
+            { label: "Modo Grade",   desc: "Visual mosaic · padrão",   visible: "flex" },
+            { label: "Lista Clássica", desc: "Tipografia limpa",        visible: "hidden sm:flex" },
+          ].map(({ label, desc, visible }) => (
+            <div key={label} className={`flex-col items-center text-center ${visible}`}>
+              <p className="text-[10px] font-bold text-white/50">{label}</p>
+              <p className="text-[9px] text-white/25 mt-0.5">{desc}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-center">
+          <a href="/menu/demo-pro-001" target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.05] border border-white/[0.08] px-5 py-2.5 text-sm font-bold text-white/60 hover:bg-white/[0.09] hover:text-white transition-all">
+            Abrir cardápio ao vivo →
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Interactive Pillars Section ──────────────────────────────────────────────
 function PillarsSection() {
   const [active, setActive] = useState(0);
@@ -1065,6 +1303,9 @@ function DemoContent() {
 
         {/* ── PILLARS (interactive tabs) ── */}
         <PillarsSection />
+
+        {/* ── 3-PHONE MENU SHOWCASE ── */}
+        <MenuPhoneShowcase />
 
         {/* ── COMO FUNCIONA ── */}
         <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">

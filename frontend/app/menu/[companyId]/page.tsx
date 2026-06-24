@@ -150,6 +150,9 @@ export default function MenuPage() {
     name: "", phone: "", orderType: initialTableNumber ? "DINE_IN" : "DELIVERY", paymentMethod: "PIX",
     street: "", number: "", neighborhood: "", city: "", state: "", zipcode: "", complement: "",
   });
+  // Real company ID (resolved from slug by backend) — used in POST requests
+  const [realCompanyId, setRealCompanyId] = useState<string>(companyId);
+
   const [onlineOrderId, setOnlineOrderId] = useState<string | null>(null);
   const [showPixScreen, setShowPixScreen] = useState(false);
   const [pixData, setPixData]             = useState<PixData | null>(null);
@@ -215,6 +218,7 @@ export default function MenuPage() {
       if (companyRes?.ok) {
         const cd = await companyRes.json().catch(() => null);
         if (cd?.name) setCompanyName(cd.name);
+        if (cd?.id) setRealCompanyId(cd.id);
       }
 
       if (themeRes?.ok) {
@@ -308,7 +312,7 @@ export default function MenuPage() {
       const res = await fetch(`${apiBaseUrl}/coupons/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), companyId, orderTotal: cartTotal }),
+        body: JSON.stringify({ code: code.trim(), companyId: realCompanyId, orderTotal: cartTotal }),
       });
       const data = await res.json();
       if (data.valid) {
@@ -538,7 +542,7 @@ export default function MenuPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyId,
+          companyId: realCompanyId,
           customerName:  form.name,
           customerPhone: form.phone,
           orderType:     selectedOrderType,
@@ -606,7 +610,7 @@ export default function MenuPage() {
           const pixRes = await fetch(`${apiBaseUrl}/payments/online-order/${createdOrderId}/pix`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ companyId }),
+            body: JSON.stringify({ companyId: realCompanyId }),
           });
           if (!pixRes.ok) throw new Error(await pixRes.text());
           const pix = await pixRes.json();

@@ -36,8 +36,14 @@ export class PizzaSizeConfigsService {
 
   /**
    * Retorna as configs da empresa, criando os defaults se ainda não existirem.
+   * Aceita slug ou ID real.
    */
-  async findAll(companyId: string) {
+  async findAll(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    const companyId = company?.id ?? slugOrId;
     const existing = await this.prisma.pizzaSizeConfig.findMany({
       where: { companyId },
       orderBy: { sortOrder: 'asc' },

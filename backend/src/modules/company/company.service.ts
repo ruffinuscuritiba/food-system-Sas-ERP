@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
 import { PrismaService } from 'src/database/prisma.service';
 import { UpdateCompanySettingsDto } from './dto/update-settings.dto';
+import { slugify } from '@/common/utils/slugify';
 
 const VALID_PLANS = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
 type Plan = (typeof VALID_PLANS)[number];
@@ -27,9 +29,29 @@ export class CompanyService {
     });
   }
 
-  findOne(id: string) {
-    return this.prisma.company.findUnique({
-      where: { id },
+  /** Resolve slug ou ID → linha da empresa (null se não encontrada). */
+  async resolveId(slugOrId: string): Promise<string | null> {
+    const c = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    return c?.id ?? null;
+  }
+
+  /** Gera slug único a partir do nome, adicionando sufixo numérico se necessário. */
+  async generateUniqueSlug(name: string): Promise<string> {
+    const base = slugify(name) || 'empresa';
+    let slug = base;
+    let counter = 1;
+    while (await this.prisma.company.findUnique({ where: { slug } })) {
+      slug = `${base}-${++counter}`;
+    }
+    return slug;
+  }
+
+  findOne(slugOrId: string) {
+    return this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
       include: {
         modules: true,
         users: {
@@ -144,6 +166,7 @@ export class CompanyService {
       select: {
         id: true,
         name: true,
+        slug: true,
         description: true,
         phone: true,
         whatsapp: true,
@@ -196,10 +219,14 @@ export class CompanyService {
   }
 
   /** Retorna layoutConfig público (sem auth) para PDV e cardápio digital. */
-  async getPublicLayout(companyId: string) {
+  async getPublicLayout(slugOrId: string) {
+    const id = await this.resolveId(slugOrId);
+    if (!id) throw new NotFoundException('Empresa não encontrada');
     const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
+      where: { id },
       select: {
+        id: true,
+        slug: true,
         layoutConfig: true,
         layoutType: true,
         buttonRadius: true,
@@ -218,10 +245,23 @@ export class CompanyService {
     });
     if (!exists) throw new NotFoundException('Empresa não encontrada');
 
+    // Valida unicidade do slug (se fornecido)
+    if (dto.slug !== undefined) {
+      const newSlug = slugify(dto.slug);
+      if (!newSlug) throw new BadRequestException('Slug inválido');
+      const conflict = await this.prisma.company.findFirst({
+        where: { slug: newSlug, id: { not: companyId } },
+        select: { id: true },
+      });
+      if (conflict) throw new ConflictException(`Slug "${newSlug}" já está em uso`);
+      (dto as any)._resolvedSlug = newSlug;
+    }
+
     return this.prisma.company.update({
       where: { id: companyId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
+        ...((dto as any)._resolvedSlug !== undefined && { slug: (dto as any)._resolvedSlug }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
         ...(dto.whatsapp !== undefined && { whatsapp: dto.whatsapp }),

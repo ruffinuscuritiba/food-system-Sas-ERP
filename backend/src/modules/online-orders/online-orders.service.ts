@@ -73,12 +73,14 @@ export class OnlineOrdersService {
    */
   async create(dto: CreateOnlineOrderDto) {
     // ── 1. Validations ──────────────────────────────────────────────────────
-    const company = await this.prisma.company.findUnique({
-      where: { id: dto.companyId },
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: dto.companyId }, { slug: dto.companyId }] },
       select: { id: true, isBlocked: true, name: true },
     });
 
     if (!company) throw new NotFoundException('Empresa não encontrada.');
+    // Normalize to real ID (slug may have been passed)
+    dto.companyId = company.id;
     if (company.isBlocked)
       throw new BadRequestException('Empresa não está aceitando pedidos.');
     if (!dto.items?.length) throw new BadRequestException('Pedido sem itens.');

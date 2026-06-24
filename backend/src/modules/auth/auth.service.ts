@@ -14,6 +14,7 @@ import { AuditService } from '@/modules/audit/audit.service';
 import { LeadsService } from '@/modules/leads/leads.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { SegmentSeedService } from '@/modules/segment-seed/segment-seed.service';
+import { slugify } from '@/common/utils/slugify';
 
 /** Gera sidebarConfig inicial baseado no segmento de negócio.
  *  Itens com false ficam ocultos por padrão (usuário pode ligar depois em Configurações).
@@ -112,9 +113,19 @@ export class AuthService {
 
     const segment = dto.businessSegment ?? 'RESTAURANTE';
     const sidebarConfig = buildDefaultSidebarConfig(segment);
+
+    // Generate unique slug from company name
+    const baseSlug = slugify(dto.companyName) || 'empresa';
+    let slug = baseSlug;
+    let slugCounter = 1;
+    while (await this.prisma.company.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${++slugCounter}`;
+    }
+
     const company = await this.prisma.company.create({
       data: {
         name: dto.companyName,
+        slug,
         email: dto.email,
         whatsapp: dto.whatsapp ?? null,
         plan: 'BASIC',

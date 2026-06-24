@@ -6,18 +6,20 @@ import { PrismaService } from '../../database/prisma.service';
 export class ThemesService {
   constructor(private prisma: PrismaService) {}
 
-  async getTheme(companyId: string) {
+  async getTheme(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    const companyId = company?.id ?? slugOrId;
+
     let theme = await this.prisma.companyTheme.findUnique({
-      where: {
-        companyId,
-      },
+      where: { companyId },
     });
 
-    if (!theme) {
+    if (!theme && company) {
       theme = await this.prisma.companyTheme.create({
-        data: {
-          companyId,
-        },
+        data: { companyId },
       });
     }
 

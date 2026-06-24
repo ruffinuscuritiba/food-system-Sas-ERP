@@ -129,7 +129,7 @@ const NAV_ITEMS = [
   { label: "Módulos",      href: "/super-admin/modulos",    icon: Package,          section: "Produto"   },
   { label: "Construtor",   href: "/super-admin/construtor", icon: Layout,           section: "Produto"   },
   { label: "Preços",       href: "/super-admin/pricing",    icon: DollarSign,       section: "Produto"   },
-  { label: "Analytics",    href: "/super-admin/clientes",   icon: PieChart,         section: "Analytics" },
+  { label: "Visitas",      href: "/super-admin/visitas",    icon: PieChart,         section: "Analytics" },
 ]
 
 // ── Ring chart SVG ─────────────────────────────────────────────────────────────

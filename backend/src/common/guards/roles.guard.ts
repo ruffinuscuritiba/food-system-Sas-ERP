@@ -34,6 +34,9 @@ export class RolesGuard implements CanActivate {
       return ['GET', 'HEAD', 'OPTIONS'].includes(method);
     }
 
+    // SYSTEM_SUPER_ADMIN bypassa qualquer restrição de role
+    if (user.role === 'SYSTEM_SUPER_ADMIN') return true;
+
     return requiredRoles.includes(user.role);
   }
 }

@@ -101,7 +101,7 @@ interface NicheInfo {
 const NICHES_DATA: Record<string, NicheInfo> = {
   Restaurantes: {
     emoji: "🍽️",
-    image: "/demo-assets/banners/pizzas-salgadas.jpg",
+    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=280&fit=crop&q=80",
     features: {
       basic:      ["PDV rápido por mesa ou balcão", "Cardápio digital sem comissão", "Cozinha integrada em tempo real", "Controle de caixa diário"],
       pro:        ["Cupons e programa de fidelidade", "Relatórios de CMV por produto", "Ficha técnica e controle de estoque", "Relatórios de lucratividade"],
@@ -191,7 +191,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   },
   Açaí: {
     emoji: "🫐",
-    image: "https://images.unsplash.com/photo-1590080876351-41a4cfe7fffd?w=600&h=280&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?w=600&h=280&fit=crop&q=80",
     features: {
       basic:      ["Grade de complementos (granola, morango, leite condensado...)", "Tamanhos de copo (300ml/500ml/700ml)", "PDV rápido para fila de balcão", "Cardápio digital com link próprio"],
       pro:        ["Controle de ficha técnica por tamanho", "Cupons e combos de açaí + crepe", "Programa de fidelidade por copo", "Controle de estoque de frutas e complementos"],
@@ -209,7 +209,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   },
   Mercados: {
     emoji: "🛒",
-    image: "https://images.unsplash.com/photo-1534723452862-4c874986cb88?w=600&h=280&fit=crop&q=80",
+    image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=280&fit=crop&q=80",
     features: {
       basic:      ["Scanner EAN na frente de caixa", "PDV com busca rápida por código/nome", "Controle de caixa e fechamento", "Cardápio online para delivery local"],
       pro:        ["Gestão de estoque com validade e lote", "Alerta automático de ruptura de prateleira", "Programa de fidelidade por compra", "Relatório de produtos mais vendidos"],

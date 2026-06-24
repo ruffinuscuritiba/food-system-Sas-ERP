@@ -156,7 +156,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     title: "IA",
     items: [
-      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "smart_import", navKey: "smart-import" },
+      { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "smart-import" },
       { href: "/marketing",            label: "Marketing Digital",   icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing",    navKey: "marketing" },
     ],
   },

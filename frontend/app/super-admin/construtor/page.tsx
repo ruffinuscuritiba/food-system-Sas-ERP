@@ -19,7 +19,7 @@ const Draggable        = dynamic(() => import("@hello-pangea/dnd").then(m => m.D
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Company { id: string; name: string; businessSegment?: string; plan?: string }
 interface LayoutBlock { id: "banner"|"categories"|"featured"|"products"; label: string; visible: boolean; order: number; icon: string }
-interface LayoutConfig { layoutType: "GRID"|"LIST"; buttonRadius: "SM"|"MD"|"LG"|"FULL"; blocks: LayoutBlock[]; colors?: ColorConfig }
+interface LayoutConfig { layoutType: "GRID"|"LIST"|"CLASSIC"; buttonRadius: "SM"|"MD"|"LG"|"FULL"; blocks: LayoutBlock[]; colors?: ColorConfig }
 interface ColorConfig { primary: string; secondary: string; background: string; text: string; card: string }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -101,79 +101,104 @@ function ColorField({ label, desc, value, onChange }: { label: string; desc: str
 }
 
 // ── Mini Phone for 3-Layout Showcase ─────────────────────────────────────────
-// Foto-colors usados como "foto simulada" em cada card dark-list
-const HERO_COLORS = ["#b45309","#15803d","#9f1239","#1d4ed8"];
+// Gradientes simulando fotos de comida (mais fotorrealistas)
+const FOOD_PHOTOS = [
+  "radial-gradient(ellipse at 65% 35%, #fbbf24 0%, #b45309 45%, #7c2d12 100%)", // frango/petisco dourado
+  "radial-gradient(ellipse at 60% 40%, #4ade80 10%, #15803d 50%, #14532d 100%)", // salada verde
+  "radial-gradient(ellipse at 55% 30%, #f87171 0%, #b91c1c 40%, #7f1d1d 100%)",  // pizza/carne
+  "radial-gradient(ellipse at 70% 50%, #fb923c 0%, #c2410c 45%, #7c2d12 100%)",  // lanche/burguer
+];
 
 type LayoutPhoneType = "dark-list" | "grid" | "classic";
 function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   type: LayoutPhoneType; tilt: number; selected: boolean; label: string;
   colors: ColorConfig; onClick: () => void;
 }) {
-  const W = tilt !== 0 ? 86 : 108;
-  const H = tilt !== 0 ? 174 : 216;
+  const W = tilt !== 0 ? 92 : 114;
+  const H = tilt !== 0 ? 188 : 232;
 
-  // ── dark-list: categorias circulares + cards full-bleed foto+scrim ──────────
+  // ── LISTA DARK: categorias circulares + cards foto full-bleed + scrim esquerda ─
   const DarkListContent = () => (
-    <div style={{ background: "#111118", height: "100%" }}>
-      {/* Header */}
-      <div className="px-2 pt-5 pb-1.5 text-[6px] font-bold text-white" style={{ background: "#1a1a24" }}>
-        🍕 Minha Loja
+    <div style={{ background: "#0d0d0d", height: "100%", display: "flex", flexDirection: "column" }}>
+      {/* Status bar */}
+      <div style={{ height: 22, background: "#141414", display:"flex", alignItems:"center", padding:"0 8px", paddingTop: 6, justifyContent:"space-between" }}>
+        <span style={{ fontSize: 4.5, color: "#fff", fontWeight: 700 }}>Meu Restaurante</span>
+        <span style={{ fontSize: 4, color: "#666" }}>9:41</span>
       </div>
-      {/* Circular category icons (iFood style) */}
-      <div className="flex gap-2 px-2 py-1.5 overflow-hidden">
-        {[["🍟","Petisco"],["🍽️","Almoço"],["🍕","Pizza"],["🍔","Burguer"]].map(([em, lb]) => (
-          <div key={lb} className="flex flex-col items-center gap-0.5 shrink-0">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px]"
-              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>{em}</div>
-            <span className="text-[4.5px] text-white/50 leading-none">{lb}</span>
+      {/* Barra de busca */}
+      <div style={{ margin: "4px 6px 2px", background: "#1e1e1e", borderRadius: 6, height: 11, display:"flex", alignItems:"center", paddingLeft: 5 }}>
+        <span style={{ fontSize: 4, color: "#555" }}>🔍 Buscar no cardápio...</span>
+      </div>
+      {/* Categorias circulares */}
+      <div style={{ display:"flex", gap: 5, padding: "5px 6px 3px", overflowX:"hidden" }}>
+        {[["🍟","Petiscos"],["🍽️","Almoço"],["🍕","Pizza"],["🍔","Burguer"]].map(([em, lb]) => (
+          <div key={lb as string} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap: 1, flexShrink: 0 }}>
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#1f1f1f", border: "1.5px solid #2a2a2a", display:"flex", alignItems:"center", justifyContent:"center", fontSize: 9 }}>{em}</div>
+            <span style={{ fontSize: 3.5, color: "#555", lineHeight: 1 }}>{lb}</span>
           </div>
         ))}
       </div>
-      {/* Hero-image cards: foto full-bleed + scrim esquerda + texto */}
-      <div className="px-1.5 space-y-1.5 mt-0.5">
-        {HERO_COLORS.slice(0, 3).map((photoColor, i) => (
-          <div key={i} className="relative overflow-hidden" style={{ height: 34, borderRadius: 8 }}>
-            {/* Foto simulada — cobre card inteiro */}
-            <div className="absolute inset-0" style={{ background: photoColor, opacity: 0.75 }} />
-            {/* Gradiente escuro da esquerda */}
-            <div className="absolute inset-0" style={{
-              background: "linear-gradient(90deg, rgba(0,0,0,0.82) 40%, rgba(0,0,0,0.18) 100%)"
-            }} />
-            {/* Texto sobre o scrim */}
-            <div className="absolute inset-0 flex flex-col justify-center px-1.5">
-              <div className="text-[5.5px] font-bold text-white leading-tight truncate">
-                {["X Salada","Prato Feito","Pizza Marg."][i]}
-              </div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[4px] text-white/50">⏱ 30 min</span>
-                <span className="text-[4px] text-yellow-400">★ 98%</span>
+      {/* Linha separadora */}
+      <div style={{ height: 1, background: "#1a1a1a", margin: "0 6px 4px" }} />
+      {/* Cards foto full-bleed + scrim */}
+      <div style={{ display:"flex", flexDirection:"column", gap: 4, padding: "0 6px", flex: 1, overflow:"hidden" }}>
+        {FOOD_PHOTOS.slice(0, 3).map((grad, i) => (
+          <div key={i} style={{ height: 38, borderRadius: 9, overflow:"hidden", position:"relative", boxShadow:"0 2px 6px rgba(0,0,0,0.5)" }}>
+            {/* Foto */}
+            <div style={{ position:"absolute", inset: 0, background: grad }} />
+            {/* Scrim: escuro à esquerda, transparente à direita */}
+            <div style={{ position:"absolute", inset: 0, background: "linear-gradient(90deg,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.55) 45%,rgba(0,0,0,0.08) 100%)" }} />
+            {/* Texto */}
+            <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", justifyContent:"center", padding: "0 8px" }}>
+              <span style={{ fontSize: 5.5, fontWeight: 800, color: "#fff", lineHeight: 1.2, textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>
+                {["Petiscos Happy Hour","Prato Executivo","Pizza Margherita"][i]}
+              </span>
+              <div style={{ display:"flex", alignItems:"center", gap: 4, marginTop: 2 }}>
+                <span style={{ fontSize: 4, color: "rgba(255,255,255,0.55)" }}>⏱ {["20","30","40"][i]} min</span>
+                <span style={{ fontSize: 4, color: "#fbbf24" }}>★ 98%</span>
               </div>
             </div>
           </div>
         ))}
       </div>
+      {/* CTA */}
+      <div style={{ margin: "5px 6px", background: "#f97316", borderRadius: 7, height: 13, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <span style={{ fontSize: 5, fontWeight: 700, color: "#fff" }}>Ver pedido (2)</span>
+      </div>
     </div>
   );
 
-  // ── grid: cards com imagem no topo, título, preço, botão ──────────────────
+  // ── GRADE: 2 colunas com cores da empresa ──────────────────────────────────
   const GridContent = () => (
-    <div style={{ background: c.background, height: "100%" }}>
-      <div className="px-2 pt-5 pb-1 text-[6px] font-bold text-white truncate" style={{ background: c.secondary }}>
-        🍕 Minha Loja
+    <div style={{ background: c.background, height: "100%", display:"flex", flexDirection:"column" }}>
+      {/* Header */}
+      <div style={{ background: c.secondary, padding:"18px 8px 5px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <span style={{ fontSize: 5.5, fontWeight: 800, color: "#fff" }}>Meu Restaurante</span>
+        <div style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize: 8 }}>🛒</div>
       </div>
-      <div className="flex gap-1 px-1.5 py-1 overflow-hidden">
-        {["Todos","Pizza","Beb"].map((cat, i) => (
-          <div key={cat} className="text-[5px] px-1 py-0.5 rounded font-semibold shrink-0 text-white"
-            style={{ background: i === 0 ? c.primary : c.primary + "55" }}>{cat}</div>
+      {/* Pills de categoria */}
+      <div style={{ display:"flex", gap: 3, padding:"5px 6px 3px", background: c.secondary, overflow:"hidden" }}>
+        {["Todos","Pizza","Bebidas","Entradas"].map((cat, i) => (
+          <div key={cat} style={{ fontSize: 4, padding:"2px 5px", borderRadius: 10, fontWeight: 600, flexShrink: 0, color: i===0?"#fff":c.primary, background: i===0?c.primary:c.primary+"22", border: i===0?"none":`1px solid ${c.primary}44` }}>{cat}</div>
         ))}
       </div>
-      <div className="px-1.5 grid grid-cols-2 gap-1">
-        {HERO_COLORS.map((photoColor, i) => (
-          <div key={i} className="rounded-lg overflow-hidden" style={{ background: c.card, border: `1px solid ${c.primary}22` }}>
-            <div className="h-7 w-full" style={{ background: photoColor, opacity: 0.7 }} />
-            <div className="p-0.5">
-              <div className="h-1.5 rounded mb-0.5 w-full" style={{ background: c.text + "55" }} />
-              <div className="h-2 rounded w-7 mt-0.5" style={{ background: c.primary }} />
+      {/* Grid 2 cols */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap: 4, padding:"5px 6px", flex:1, overflow:"hidden" }}>
+        {FOOD_PHOTOS.map((grad, i) => (
+          <div key={i} style={{ background: c.card, borderRadius: 9, overflow:"hidden", boxShadow:`0 2px 5px rgba(0,0,0,0.12)`, border:`1px solid ${c.primary}18` }}>
+            {/* Foto */}
+            <div style={{ height: 36, background: grad, position:"relative" }}>
+              <div style={{ position:"absolute", bottom: 0, left: 0, right: 0, height: 10, background:"linear-gradient(transparent,rgba(0,0,0,0.25))" }} />
+            </div>
+            {/* Info */}
+            <div style={{ padding:"3px 4px 4px" }}>
+              <div style={{ fontSize: 4.5, fontWeight: 700, color: c.text, lineHeight: 1.2, overflow:"hidden", maxHeight: 9 }}>
+                {["X Salada","Pizza Marg.","Burguer","Suco"][i]}
+              </div>
+              <div style={{ fontSize: 4, color: c.primary, fontWeight: 600, marginTop: 1 }}>R$ {["30","45","28","12"][i]},00</div>
+              <div style={{ marginTop: 2, background: c.primary, borderRadius: 4, height: 9, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <span style={{ fontSize: 4, fontWeight: 700, color:"#fff" }}>+ Adicionar</span>
+              </div>
             </div>
           </div>
         ))}
@@ -181,54 +206,46 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
     </div>
   );
 
-  // ── classic: iFood-style — header laranja, categorias circulares,
-  //    cards com foto full-width no topo + seção branca com nome + tag + bottom nav
-  const CLASSIC_ITEMS = [
-    { name: "Petiscos Happy Hour", meta: "⏱ 20 min", tag: null,           color: "#92400e" },
-    { name: "Almoço Executivo",    meta: "⏱ 30 min", tag: "seg a sex",    color: "#14532d" },
-    { name: "Almoço Executivo",    meta: "⏱ 40 min", tag: "seg a sex",    color: "#7f1d1d" },
-  ];
+  // ── LISTA CLÁSSICA: iFood-style branco — header marca, cats circulares, cards foto+info ──
   const ClassicContent = () => (
-    <div style={{ background: "#f5f5f5", height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header laranja com logo do cliente + nome da loja + Mesa 1 */}
-      <div className="flex items-center gap-1 px-2 pt-5 pb-1.5"
-        style={{ background: "linear-gradient(135deg, #ea580c 0%, #f97316 100%)" }}>
-        <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[8px] shrink-0 overflow-hidden"
-          style={{ border: "1.5px solid rgba(255,255,255,0.5)" }}>🍽️</div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[5px] font-black text-white leading-none truncate">Meu Restaurante</div>
-          <div className="text-[4px] text-white/70 leading-none mt-0.5">Mesa 1</div>
+    <div style={{ background: "#f5f5f5", height:"100%", display:"flex", flexDirection:"column" }}>
+      {/* Header laranja com logo do cliente */}
+      <div style={{ background:"linear-gradient(135deg,#ea580c 0%,#f97316 100%)", padding:"18px 8px 6px", display:"flex", alignItems:"center", gap: 5 }}>
+        <div style={{ width: 18, height: 18, borderRadius:"50%", background:"rgba(255,255,255,0.2)", border:"1.5px solid rgba(255,255,255,0.5)", display:"flex", alignItems:"center", justifyContent:"center", fontSize: 9, flexShrink: 0 }}>🍽️</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize: 5.5, fontWeight: 900, color:"#fff", lineHeight:1 }}>Meu Restaurante</div>
+          <div style={{ fontSize: 3.5, color:"rgba(255,255,255,0.7)", marginTop: 1 }}>Mesa 1 · Aberto agora</div>
         </div>
-        <div className="text-[7px]">🇧🇷🇺🇸</div>
+        <span style={{ fontSize: 8 }}>🇧🇷</span>
       </div>
-      {/* Categorias circulares (iFood-style) */}
-      <div className="flex gap-2 px-2 py-1.5 overflow-hidden bg-white" style={{ borderBottom: "1px solid #f0f0f0" }}>
-        {[["🍟","Petiscos"],["🍽","Almoço"],["🥗","Entradas"],["🍕","Pizza"]].map(([em, lb]) => (
-          <div key={lb} className="flex flex-col items-center gap-0.5 shrink-0">
-            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[7px]"
-              style={{ background: "#fff7ed", border: "1.5px solid #fed7aa" }}>{em}</div>
-            <span className="text-[4px] font-medium leading-none" style={{ color: "#6b7280" }}>{lb}</span>
+      {/* Categorias circulares */}
+      <div style={{ background:"#fff", borderBottom:"1px solid #f0f0f0", padding:"5px 7px", display:"flex", gap: 6, overflowX:"hidden" }}>
+        {[["🍟","Petiscos"],["🍽️","Almoço"],["🥗","Entradas"],["🍕","Pizza"]].map(([em, lb]) => (
+          <div key={lb as string} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap: 1.5, flexShrink: 0 }}>
+            <div style={{ width: 22, height: 22, borderRadius:"50%", background:"#fff7ed", border:"1.5px solid #fed7aa", display:"flex", alignItems:"center", justifyContent:"center", fontSize: 10 }}>{em}</div>
+            <span style={{ fontSize: 3.5, color:"#9ca3af", fontWeight: 500, lineHeight:1 }}>{lb}</span>
           </div>
         ))}
       </div>
-      {/* Cards: foto full-width + seção branca */}
-      <div className="flex-1 overflow-hidden px-1.5 pt-1 space-y-1.5">
-        {CLASSIC_ITEMS.map((item, i) => (
-          <div key={i} className="overflow-hidden bg-white" style={{ borderRadius: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-            {/* Foto full-width simulada */}
-            <div style={{ height: 22, background: `linear-gradient(135deg, ${item.color} 0%, ${item.color}aa 100%)`, position: "relative" }}>
-              {/* brilho sutil */}
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.15) 100%)" }} />
+      {/* Cards: foto full-width no topo + seção branca */}
+      <div style={{ flex:1, overflow:"hidden", padding:"5px 6px", display:"flex", flexDirection:"column", gap: 4 }}>
+        {[
+          { name:"Petiscos Happy Hour", meta:"20 min", tag:null,       grad: FOOD_PHOTOS[0] },
+          { name:"Almoço Executivo",    meta:"30 min", tag:"seg–sex",  grad: FOOD_PHOTOS[1] },
+          { name:"Pizza Margherita",    meta:"40 min", tag:"Promoção", grad: FOOD_PHOTOS[2] },
+        ].map((item, i) => (
+          <div key={i} style={{ background:"#fff", borderRadius: 10, overflow:"hidden", boxShadow:"0 1px 5px rgba(0,0,0,0.10)" }}>
+            {/* Foto full-width */}
+            <div style={{ height: 26, background: item.grad, position:"relative" }}>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:8, background:"linear-gradient(transparent,rgba(0,0,0,0.2))" }} />
             </div>
-            {/* Seção branca */}
-            <div className="px-1.5 py-1">
-              <div className="text-[5px] font-bold leading-tight truncate" style={{ color: "#111827" }}>{item.name}</div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[4px]" style={{ color: "#9ca3af" }}>{item.meta}</span>
+            {/* Info */}
+            <div style={{ padding:"3px 6px 4px" }}>
+              <div style={{ fontSize: 5, fontWeight: 700, color:"#111827", lineHeight: 1.3 }}>{item.name}</div>
+              <div style={{ display:"flex", alignItems:"center", gap: 4, marginTop: 1.5 }}>
+                <span style={{ fontSize: 3.5, color:"#9ca3af" }}>⏱ {item.meta}</span>
                 {item.tag && (
-                  <span className="text-[3.5px] font-semibold px-0.5 rounded" style={{ background: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}>
-                    {item.tag}
-                  </span>
+                  <span style={{ fontSize: 3, fontWeight: 600, padding:"0.5px 3px", borderRadius: 3, background:"#fff7ed", color:"#ea580c", border:"0.5px solid #fed7aa" }}>{item.tag}</span>
                 )}
               </div>
             </div>
@@ -236,14 +253,11 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
         ))}
       </div>
       {/* Bottom nav */}
-      <div className="flex items-center justify-around px-2 py-1 bg-white" style={{ borderTop: "1px solid #f0f0f0", marginTop: "auto" }}>
-        {[["🛒","Pedidos"],["🏠",""],["💰","Cashback"],["👤","Conta"]].map(([ic, lb], i) => (
-          <div key={i} className="flex flex-col items-center gap-0.5">
-            {i === 1
-              ? <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] overflow-hidden" style={{ background: "#fff7ed", border: "1.5px solid #ea580c" }}>🍽️</div>
-              : <span className="text-[8px]">{ic}</span>
-            }
-            {lb && <span className="text-[3.5px]" style={{ color: i === 0 ? "#ea580c" : "#9ca3af" }}>{lb}</span>}
+      <div style={{ background:"#fff", borderTop:"1px solid #f0f0f0", padding:"4px 8px 5px", display:"flex", justifyContent:"space-around", alignItems:"center" }}>
+        {[["🛒","Pedidos","#ea580c"],["💰","Cashback","#9ca3af"],["👤","Conta","#9ca3af"]].map(([ic,lb,col]) => (
+          <div key={lb as string} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap: 0.5 }}>
+            <span style={{ fontSize: 10 }}>{ic}</span>
+            <span style={{ fontSize: 3, color: col as string, fontWeight: lb==="Pedidos"?700:400 }}>{lb}</span>
           </div>
         ))}
       </div>
@@ -253,31 +267,31 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-2 group transition-all"
-      style={{ transform: tilt !== 0 ? `perspective(600px) rotateY(${tilt}deg)` : undefined, transformOrigin: "bottom center" }}
+      className="flex flex-col items-center gap-2 group transition-all duration-200"
+      style={{ transform: tilt !== 0 ? `perspective(700px) rotateY(${tilt}deg)` : undefined, transformOrigin: "bottom center" }}
     >
+      {/* Bezel do phone */}
       <div
-        className={`relative overflow-hidden transition-all ${
-          selected
-            ? "border-[3px] border-orange-500 shadow-[0_0_22px_rgba(249,115,22,0.45)]"
-            : "border-[2px] border-zinc-700 group-hover:border-zinc-500"
-        }`}
-        style={{ width: W, height: H, borderRadius: 18 }}
+        className="transition-all duration-200"
+        style={{
+          width: W, height: H, borderRadius: 20,
+          background: "#1a1a1a",
+          padding: 3,
+          boxShadow: selected
+            ? "0 0 0 3px #f97316, 0 0 28px rgba(249,115,22,0.5), 0 8px 24px rgba(0,0,0,0.6)"
+            : "0 0 0 2px #333, 0 8px 20px rgba(0,0,0,0.5)",
+        }}
       >
-        {/* Notch */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-7 h-1.5 rounded-full z-20 bg-black/70" />
-        {type === "dark-list" && <DarkListContent />}
-        {type === "grid"      && <GridContent />}
-        {type === "classic"   && <ClassicContent />}
-        {/* CTA flutuante — apenas em dark-list e grid */}
-        {type !== "classic" && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[5px] font-bold text-white whitespace-nowrap z-10"
-            style={{ background: type === "grid" ? c.primary : "#f97316" }}>
-            Ver pedido
-          </div>
-        )}
+        {/* Tela interna */}
+        <div style={{ width:"100%", height:"100%", borderRadius: 17, overflow:"hidden", position:"relative" }}>
+          {/* Notch dinâmica */}
+          <div style={{ position:"absolute", top: 0, left:"50%", transform:"translateX(-50%)", width: 28, height: 7, background:"#1a1a1a", borderRadius:"0 0 6px 6px", zIndex: 30 }} />
+          {type === "dark-list" && <DarkListContent />}
+          {type === "grid"      && <GridContent />}
+          {type === "classic"   && <ClassicContent />}
+        </div>
       </div>
-      <span className={`text-[10px] font-semibold transition-colors text-center leading-tight ${selected ? "text-orange-400" : "text-zinc-500 group-hover:text-zinc-300"}`}>
+      <span className={`text-[11px] font-semibold transition-colors text-center leading-tight ${selected ? "text-orange-400" : "text-zinc-500 group-hover:text-zinc-300"}`}>
         {label}
       </span>
     </button>
@@ -663,31 +677,30 @@ export default function ConstrutorPage() {
                   <LayoutPhone
                     type="classic"
                     tilt={-11}
-                    selected={false}
+                    selected={config.layoutType === "CLASSIC"}
                     label="Lista Clássica"
                     colors={colors}
-                    onClick={() => setConfig(c => ({ ...c, layoutType: "LIST" }))}
+                    onClick={() => setConfig(c => ({ ...c, layoutType: "CLASSIC" }))}
                   />
                 </div>
 
-                {/* Quick toggle buttons */}
-                <div className="grid grid-cols-2 gap-2">
+                {/* Quick toggle buttons — 3 opções */}
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "GRID", label: "Grade",  Icon: LayoutGrid, desc: "Cards em colunas (2–4 cols)" },
-                    { value: "LIST", label: "Lista",  Icon: LayoutList, desc: "Itens em linha horizontal" },
+                    { value: "LIST",    label: "Lista Dark",    Icon: LayoutList, desc: "Foto + scrim" },
+                    { value: "GRID",    label: "Grade",         Icon: LayoutGrid, desc: "2–4 colunas" },
+                    { value: "CLASSIC", label: "Lista Clássica",Icon: LayoutList, desc: "Foto no topo" },
                   ].map(opt => (
                     <button key={opt.value}
-                      onClick={() => setConfig(c => ({ ...c, layoutType: opt.value as "GRID"|"LIST" }))}
-                      className={`flex items-center gap-2.5 p-3 rounded-xl border transition ${saBtn} ${
+                      onClick={() => setConfig(c => ({ ...c, layoutType: opt.value as "GRID"|"LIST"|"CLASSIC" }))}
+                      className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border transition ${saBtn} ${
                         config.layoutType === opt.value
                           ? "border-orange-500 bg-orange-500/10 text-white"
                           : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600"
                       }`}>
-                      <opt.Icon size={16} />
-                      <div className="text-left">
-                        <p className="font-semibold text-xs">{opt.label}</p>
-                        <p className="text-[10px] opacity-60">{opt.desc}</p>
-                      </div>
+                      <opt.Icon size={15} />
+                      <p className="font-semibold text-[10px] text-center leading-tight">{opt.label}</p>
+                      <p className="text-[9px] opacity-50">{opt.desc}</p>
                     </button>
                   ))}
                 </div>

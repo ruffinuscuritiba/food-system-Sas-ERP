@@ -8,6 +8,7 @@ export type NotificationType =
   | 'SUBSCRIPTION_EXPIRING'
   | 'SUBSCRIPTION_BLOCKED'
   | 'SUBSCRIPTION_REMINDER'
+  | 'TRIAL_WARNING'
   | 'PAYMENT_CONFIRMED'
   | 'DEMO_LEAD'
   | 'NEW_SIGNUP';
@@ -23,6 +24,18 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
   constructor(private readonly config: ConfigService) {}
+
+  /**
+   * Indica se o canal de e-mail está configurado (SMTP_HOST/USER/PASS presentes).
+   * Usado pelo /health para diagnóstico sem expor valores das credenciais.
+   */
+  isEmailConfigured(): boolean {
+    return !!(
+      this.config.get<string>('SMTP_HOST') &&
+      this.config.get<string>('SMTP_USER') &&
+      this.config.get<string>('SMTP_PASS')
+    );
+  }
 
   async send(payload: NotificationPayload): Promise<void> {
     const { to, type, data } = payload;
@@ -86,6 +99,10 @@ export class NotificationsService {
         return '✅ Pagamento confirmado!';
       case 'SUBSCRIPTION_REMINDER':
         return `💛 Sentimos sua falta, ${data?.companyName || 'restaurante'} — renove sua assinatura`;
+      case 'TRIAL_WARNING':
+        return Number(data?.daysLeft) <= 1
+          ? '⏰ Último dia do seu teste grátis no FoodSaaS'
+          : `⏳ Seu teste grátis termina em ${data?.daysLeft} dias`;
       case 'DEMO_LEAD':
         return `🔥 Novo lead quente na demo — ${data?.restaurantName || data?.name || 'Visitante'}`;
       case 'NEW_SIGNUP':
@@ -109,15 +126,67 @@ export class NotificationsService {
       case 'WELCOME':
         return base(`
           <h2>Bem-vindo ao FoodSaaS, ${data?.name || 'cliente'}! 🎉</h2>
-          <p>Sua conta <strong>${data?.companyName || ''}</strong> foi criada com sucesso.</p>
-          <p>Você tem <strong>7 dias de trial gratuito</strong> para explorar todas as funcionalidades.</p>
+          <p>Sua conta <strong>${data?.companyName || ''}</strong> foi criada com sucesso e seu <strong>trial de 7 dias gratuito</strong> já começou.</p>
+
+          <p style="margin-top:22px;font-weight:700;color:#fff;font-size:15px;">Comece em 3 passos rápidos 👇</p>
+          <table style="width:100%;border-collapse:collapse;margin:10px 0;">
+            <tr>
+              <td style="padding:10px 0;font-size:20px;width:40px;vertical-align:top;">1️⃣</td>
+              <td style="padding:10px 0;">
+                <strong style="color:#fff;">Cadastre seu cardápio</strong><br/>
+                <span style="color:#94a3b8;font-size:13px;">Produtos, categorias e preços — ou use o <em>Cadastro Inteligente</em> com IA para subir tudo a partir de uma foto.</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;font-size:20px;vertical-align:top;">2️⃣</td>
+              <td style="padding:10px 0;">
+                <strong style="color:#fff;">Compartilhe seu cardápio digital</strong><br/>
+                <span style="color:#94a3b8;font-size:13px;">Seus clientes pedem direto pelo celular, sem instalar app nenhum.</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;font-size:20px;vertical-align:top;">3️⃣</td>
+              <td style="padding:10px 0;">
+                <strong style="color:#fff;">Receba pedidos no PDV e na cozinha</strong><br/>
+                <span style="color:#94a3b8;font-size:13px;">Tudo em tempo real, do balcão à entrega — sem papel e sem retrabalho.</span>
+              </td>
+            </tr>
+          </table>
+
           <div style="text-align:center;margin:28px 0;">
             <a href="${data?.loginUrl || 'https://food-system-sas-erp-frontend.vercel.app/login'}"
                style="background:#ef4444;color:#fff;padding:14px 32px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none;display:inline-block;">
-              Acessar meu painel →
+              Começar agora →
             </a>
           </div>
-          <p style="color:#64748b;font-size:13px;">Se precisar de ajuda, fale com a gente pelo WhatsApp.</p>
+          <p style="color:#64748b;font-size:13px;">Precisa de ajuda para configurar? Fale com a gente pelo WhatsApp — estamos aqui para você vender mais. 🚀</p>
+        `);
+      case 'TRIAL_WARNING':
+        return base(`
+          <h2 style="color:#f59e0b;">${
+            Number(data?.daysLeft) <= 1
+              ? '⏰ Último dia do seu teste grátis!'
+              : `Seu teste grátis termina em ${data?.daysLeft} dias`
+          }</h2>
+          <p>Olá, <strong>${data?.name || 'tudo bem'}</strong>! Seu acesso ao <strong>FoodSaaS</strong> ${
+            Number(data?.daysLeft) <= 1
+              ? 'expira <strong>amanhã</strong>'
+              : `termina em <strong>${data?.daysLeft} dias</strong>`
+          }.</p>
+          <p style="margin-top:12px;">Durante o teste você teve acesso ao PDV, cardápio digital, cozinha em tempo real, controle de estoque e financeiro. Não perca tudo isso! 🚀</p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${data?.renewUrl || 'https://food-system-sas-erp-frontend.vercel.app/assinatura'}"
+               style="background:#f97316;color:#fff;padding:14px 32px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none;display:inline-block;">
+              Garantir meu plano →
+            </a>
+          </div>
+          <p style="color:#64748b;font-size:13px;text-align:center;">
+            A partir de <strong>R$ 97/mês</strong>. Dúvidas?${
+              data?.supportWA
+                ? ` Fale com a gente: <a href="https://wa.me/${String(data.supportWA).replace(/\D/g, '')}" style="color:#25D366;">WhatsApp</a>.`
+                : ' Estamos no WhatsApp.'
+            }
+          </p>
         `);
       case 'NEW_ORDER':
         return base(`

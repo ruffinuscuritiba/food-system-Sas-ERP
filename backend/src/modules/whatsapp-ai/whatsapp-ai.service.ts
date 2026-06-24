@@ -24,6 +24,7 @@ import { EvolutionProvisionService } from './services/evolution-provision.servic
 import { OrdersService } from '@/modules/orders/orders.service';
 import { ProductsService } from '@/modules/products/products.service';
 import { CategoriesService } from '@/modules/categories/categories.service';
+import { LeadsService } from '@/modules/leads/leads.service';
 import { OrderStatus } from '@prisma/client';
 import { WaConnection, WaConversation, WaSettings } from './types';
 
@@ -180,6 +181,8 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     @Optional()
     @Inject(forwardRef(() => CategoriesService))
     private categoriesService?: CategoriesService,
+    @Optional()
+    private leadsService?: LeadsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -936,6 +939,71 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     return menuCtx;
   }
 
+  /**
+   * Persiste/atualiza um Lead a partir de uma conversa de VENDAS (ambiente
+   * R_FOOD_SAAS) — o WhatsApp da plataforma vendendo o próprio FoodSaaS.
+   * O número do cliente já qualifica o lead; os demais campos vêm do JSON
+   * estruturado da IA (`dados_carrinho_ou_lead`) quando disponíveis.
+   * Best-effort e fire-and-forget: nunca quebra o fluxo de atendimento.
+   */
+  private persistSalesLead(
+    conv: WaConversation,
+    leadOrCart: Record<string, unknown>,
+    reply: string,
+  ): void {
+    if (!this.leadsService) return;
+
+    const lc = leadOrCart ?? {};
+    const pick = (...keys: string[]): string | undefined => {
+      for (const k of keys) {
+        const v = lc[k];
+        if (typeof v === 'string' && v.trim()) return v.trim();
+        if (typeof v === 'number') return String(v);
+      }
+      return undefined;
+    };
+
+    // Normaliza o plano citado pela IA para BASIC | PRO | ENTERPRISE
+    const rawPlan = pick('plano', 'plano_recomendado', 'recommendedPlan', 'plan');
+    let plan: string | undefined;
+    if (rawPlan) {
+      const u = rawPlan.toUpperCase();
+      if (u.includes('ENTERPRISE') || u.includes('AVANÇ') || u.includes('AVANC'))
+        plan = 'ENTERPRISE';
+      else if (u.includes('PRO') || u.includes('PROFISS')) plan = 'PRO';
+      else if (u.includes('BASIC') || u.includes('BÁSIC') || u.includes('BASICO'))
+        plan = 'BASIC';
+    }
+
+    const name =
+      pick('nome', 'name', 'nome_cliente', 'contato') ??
+      conv.customerName ??
+      undefined;
+    const company = pick(
+      'empresa',
+      'company',
+      'nome_loja',
+      'loja',
+      'restaurante',
+      'estabelecimento',
+    );
+
+    this.leadsService
+      .upsert({
+        sessionToken: `wa-sales-${conv.id}`,
+        name,
+        company,
+        whatsapp: conv.customerPhone,
+        recommendedPlan: plan,
+        conversationSummary: reply?.slice(0, 500),
+      })
+      .catch((err) =>
+        log.warn(
+          `[AI] persistSalesLead falhou conv=${conv.id}: ${(err as Error)?.message}`,
+        ),
+      );
+  }
+
   private async runAiResponse(
     connection: WaConnection,
     settings: WaSettings,
@@ -1118,6 +1186,13 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       const reply =
         parsed.reply ||
         'Opa! Pode me contar um pouco mais sobre o que você procura? 😊';
+
+      // Captura de lead — somente no ambiente de venda da própria plataforma
+      // (R_FOOD_SAAS). O número do cliente já qualifica o lead; demais campos
+      // vêm do JSON estruturado da IA. Best-effort, não bloqueia a resposta.
+      if (ambiente === 'R_FOOD_SAAS') {
+        this.persistSalesLead(conv, parsed.leadOrCart, reply);
+      }
 
       // Transbordo só trava a conversa se o CLIENTE pediu explicitamente
       // (evita que a IA se transfira sozinha num "oi" e bloqueie tudo).

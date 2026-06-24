@@ -127,7 +127,8 @@ function RadioCard({
 }
 
 function SectionTitle({ icon: Icon, title, subtitle }: {
-  icon: React.ElementType; title: string; subtitle?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon: React.ComponentType<any>; title: string; subtitle?: string;
 }) {
   return (
     <div className="flex items-start gap-3 mb-4">

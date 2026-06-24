@@ -51,6 +51,18 @@ const PAGES_CONFIG = [
   },
 ]
 
+// Nichos rastreados na /demo (page = "demo:<nicho>"). Mantém paridade com ALL_NICHES de app/demo/page.tsx
+const NICHES = [
+  "Restaurantes", "Pizzaria", "Hamburgueria", "Lanchonetes",
+  "Churrascaria", "Hotdogs", "Marmitarias", "Padaria",
+  "Confeitaria", "Pastelaria", "Açaí", "Conveniências", "Mercados",
+]
+const NICHE_EMOJI: Record<string, string> = {
+  Restaurantes: "🍽️", Pizzaria: "🍕", Hamburgueria: "🍔", Lanchonetes: "🥪",
+  Churrascaria: "🥩", Hotdogs: "🌭", Marmitarias: "🍱", Padaria: "🥐",
+  Confeitaria: "🍰", Pastelaria: "🥟", "Açaí": "🍧", "Conveniências": "🏪", Mercados: "🛒",
+}
+
 function KpiCard({
   label, value, sub, icon, color, glow,
 }: {
@@ -110,22 +122,39 @@ export default function VisitasPage() {
   )
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [refreshing, setRefreshing] = useState(false)
+  const [nicheStats, setNicheStats] = useState<{ niche: string; stats: VisitStats | null }[]>([])
+  const [nicheLoading, setNicheLoading] = useState(true)
 
   async function loadAll() {
     setRefreshing(true)
-    const updated = await Promise.all(
-      PAGES_CONFIG.map(async (p) => {
-        try {
-          const res = await saApi.get<VisitStats>(`/visits/stats?page=${encodeURIComponent(p.page)}`)
-          return { ...p, stats: res.data, loading: false }
-        } catch {
-          return { ...p, stats: null, loading: false }
-        }
-      })
-    )
+    setNicheLoading(true)
+    const [updated, niches] = await Promise.all([
+      Promise.all(
+        PAGES_CONFIG.map(async (p) => {
+          try {
+            const res = await saApi.get<VisitStats>(`/visits/stats?page=${encodeURIComponent(p.page)}`)
+            return { ...p, stats: res.data, loading: false }
+          } catch {
+            return { ...p, stats: null, loading: false }
+          }
+        })
+      ),
+      Promise.all(
+        NICHES.map(async (niche) => {
+          try {
+            const res = await saApi.get<VisitStats>(`/visits/stats?page=${encodeURIComponent("demo:" + niche)}`)
+            return { niche, stats: res.data }
+          } catch {
+            return { niche, stats: null }
+          }
+        })
+      ),
+    ])
     setPages(updated)
+    setNicheStats(niches)
     setLastRefresh(new Date())
     setRefreshing(false)
+    setNicheLoading(false)
   }
 
   useEffect(() => { loadAll() }, [])
@@ -271,6 +300,59 @@ export default function VisitasPage() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Interesse por nicho de negócio */}
+        <h2 className="text-xs font-bold uppercase tracking-widest text-white/20 mb-1">
+          Interesse por Nicho de Negócio
+        </h2>
+        <p className="text-xs text-white/40 mb-4">
+          Onde focar o marketing — cada vez que um visitante explora ou entra numa demo de um nicho, ele conta aqui.
+        </p>
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 mb-10">
+          {nicheLoading ? (
+            <div className="flex items-center gap-2 text-white/30 text-sm py-4">
+              <RefreshCw size={14} className="animate-spin" /> Carregando...
+            </div>
+          ) : (() => {
+            const ranked = nicheStats
+              .map(n => ({ niche: n.niche, total: n.stats?.total ?? 0, month: n.stats?.thisMonth ?? 0 }))
+              .sort((a, b) => b.total - a.total)
+            const withData = ranked.filter(r => r.total > 0)
+            const maxTotal = Math.max(...ranked.map(r => r.total), 1)
+            if (withData.length === 0) {
+              return (
+                <p className="text-sm text-white/30 py-2">
+                  Ainda sem dados por nicho. Conforme os visitantes exploram os nichos na <span className="font-mono text-white/50">/demo</span>, o ranking aparece aqui.
+                </p>
+              )
+            }
+            return (
+              <div className="space-y-3">
+                {withData.map((r, i) => (
+                  <div key={r.niche} className="flex items-center gap-3">
+                    <span className="text-lg w-7 text-center shrink-0">{NICHE_EMOJI[r.niche] ?? "🍽️"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold text-white flex items-center gap-2">
+                          {r.niche}
+                          {i === 0 && (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300">
+                              🎯 Foco
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-white/50 tabular-nums">
+                          {r.total} <span className="text-white/30">({r.month} no mês)</span>
+                        </span>
+                      </div>
+                      <MiniBar value={r.total} max={maxTotal} color={i === 0 ? "#f97316" : "#8b5cf6"} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Dica de conversão */}

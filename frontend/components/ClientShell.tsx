@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
+import { PDV_THEME_KEY } from "@/lib/pdv-theme";
 
 import {
   LayoutDashboard,
@@ -299,13 +300,42 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           applyDemoTheme(cid);
         } else {
           const color = r.data?.primaryColor;
-          if (color) document.documentElement.style.setProperty("--color-primary", color);
+          // Não sobrescreve se há um tema de PDV salvo — esse vence globalmente
+          // (mantém a cor consistente entre PDV e demais páginas).
+          if (color && !localStorage.getItem(PDV_THEME_KEY)) {
+            document.documentElement.style.setProperty("--color-primary", color);
+          }
         }
       })
       .catch(() => {});
 
     return () => { if (DEMO_IDS.has(cid)) clearDemoTheme(); };
   }, [user?.companyId]);
+
+  // Consistência de cor em TODAS as páginas: se o usuário salvou um tema no
+  // editor (PDV theme em localStorage), aplica o `primary` dele globalmente —
+  // assim o menu/sidebar de qualquer página segue a mesma cor (azul→azul,
+  // verde→verde). Atualiza ao vivo via BroadcastChannel("pdv-theme").
+  useEffect(() => {
+    const applyPdvPrimary = () => {
+      try {
+        const raw = localStorage.getItem(PDV_THEME_KEY);
+        if (!raw) return;
+        const t = JSON.parse(raw);
+        if (t?.primary) document.documentElement.style.setProperty("--color-primary", t.primary);
+      } catch { /* ignore */ }
+    };
+    applyPdvPrimary();
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("pdv-theme");
+      bc.onmessage = (e) => {
+        const t = (e as MessageEvent).data;
+        if (t?.primary) document.documentElement.style.setProperty("--color-primary", t.primary);
+      };
+    } catch { /* BroadcastChannel indisponível */ }
+    return () => { try { bc?.close(); } catch { /* ignore */ } };
+  }, []);
 
   function stopImpersonating() {
     localStorage.removeItem("token");
@@ -575,7 +605,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
             <div className="px-3 pb-2">
               <button
                 onClick={() => setQrLinksOpen(true)}
-                className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-orange-400 hover:bg-orange-900/20 hover:text-orange-300 transition font-semibold text-[12px] border border-orange-900/30 group"
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
               >
                 <QrCode size={13} />
                 QR Code e Links
@@ -600,7 +630,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
               })}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-emerald-400 hover:bg-emerald-900/20 hover:text-emerald-300 transition font-semibold text-[12px] border border-emerald-900/30 group"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
             >
               <MessageCircle size={13} />
               Suporte
@@ -724,11 +754,11 @@ function MenuItem({
   badge?: "active" | "homologation";
   onClick?: () => void;
 }) {
-  const activeCls = activeColor === "blue"
-    ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
-    : activeColor === "green"
-      ? "bg-[#16a34a] text-white shadow-md shadow-green-900/40"
-      : "bg-primary text-white shadow-md shadow-primary/30";
+  // Item ativo SEMPRE segue a cor do tema (--color-primary). O activeColor é
+  // mantido na assinatura por compat, mas não força mais verde/azul fixos —
+  // assim o menu fica consistente em todas as páginas (azul→azul, verde→verde).
+  void activeColor;
+  const activeCls = "bg-primary text-white shadow-md shadow-primary/30";
 
   return (
     <Link

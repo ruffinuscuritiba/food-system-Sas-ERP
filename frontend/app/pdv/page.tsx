@@ -8,6 +8,7 @@ import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
 import { ComplementsModal } from "@/components/shared/ComplementsModal";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
+import { loadPdvTheme, PDV_THEME_DEFAULT, type PdvThemeConfig } from "@/lib/pdv-theme";
 
 type PdvOrderDetails = OrderDetails;
 import {
@@ -263,7 +264,16 @@ export default function PDVPage() {
   });
   const [cupomSaving, setCupomSaving]           = useState(false);
   const [cupomCreated, setCupomCreated]         = useState<string | null>(null);
+  const [pdvTheme, setPdvTheme]                 = useState<PdvThemeConfig>(PDV_THEME_DEFAULT);
 
+  useEffect(() => {
+    setPdvTheme(loadPdvTheme());
+    try {
+      const bc = new BroadcastChannel("pdv-theme");
+      bc.onmessage = (e) => setPdvTheme({ ...PDV_THEME_DEFAULT, ...e.data });
+      return () => bc.close();
+    } catch {}
+  }, []);
 
   useEffect(() => {
     try {
@@ -766,7 +776,14 @@ export default function PDVPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0">
+    <div
+      className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
+      style={{
+        "--color-primary": pdvTheme.primary,
+        "--pdv-card-hover": pdvTheme.hoverBg,
+        "--pdv-border": pdvTheme.border,
+      } as React.CSSProperties}
+    >
       {/* CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 

@@ -51,7 +51,7 @@ export default function LoginPage() {
           <div className="bg-white/20 p-3 rounded-2xl">
             <UtensilsCrossed size={32} />
           </div>
-          <span className="text-3xl font-black tracking-tight">FoodSaaS ERP</span>
+          <span className="text-3xl font-black tracking-tight">R_FoodSaaS ERP</span>
         </div>
         <h2 className="text-4xl font-black leading-tight text-center mb-4">
           Gerencie seu restaurante com inteligência
@@ -76,7 +76,7 @@ export default function LoginPage() {
             <div className="bg-orange-500 p-2 rounded-xl">
               <UtensilsCrossed size={20} className="text-white" />
             </div>
-            <span className="text-xl font-black text-gray-900">FoodSaaS ERP</span>
+            <span className="text-xl font-black text-gray-900">R_FoodSaaS ERP</span>
           </div>
 
           <h1 className="text-2xl font-black text-gray-900 mb-1">Bem-vindo de volta</h1>

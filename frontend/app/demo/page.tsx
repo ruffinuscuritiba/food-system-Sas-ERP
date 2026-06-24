@@ -34,7 +34,7 @@ import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 import { SUPPORT_WHATSAPP } from "@/config/support";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
-  "Olá! Gostaria de falar com um especialista da Ruffinu's FoodSaaS ERP.",
+  "Olá! Gostaria de falar com um especialista da Ruffinu's R_FoodSaaS ERP.",
 )}`;
 
 // ─── Comparison table ─────────────────────────────────────────────────────────
@@ -499,7 +499,7 @@ function HeroDeviceMockup() {
               <div className="w-5 h-5 rounded-md bg-orange-500/20 flex items-center justify-center">
                 <UtensilsCrossed className="w-2.5 h-2.5 text-orange-400" />
               </div>
-              <span className="text-[8px] font-black text-white/90">FoodSaaS ERP</span>
+              <span className="text-[8px] font-black text-white/90">R_FoodSaaS ERP</span>
             </div>
             <div className="flex-1" />
             <div className="flex gap-1.5">
@@ -666,7 +666,7 @@ function PillarsSection() {
             <div className="w-full max-w-lg">
               <Image
                 src="/demo-assets/imac-real.png"
-                alt="FoodSaaS ERP no iMac"
+                alt="R_FoodSaaS ERP no iMac"
                 width={640}
                 height={480}
                 className="w-full h-auto object-contain drop-shadow-2xl"
@@ -866,7 +866,7 @@ function DemoContent() {
               <div className="rounded-xl bg-orange-500/15 p-2 ring-1 ring-orange-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <UtensilsCrossed className="h-4 w-4 text-orange-400" />
               </div>
-              <span className="text-base font-black tracking-tight">FoodSaaS ERP</span>
+              <span className="text-base font-black tracking-tight">R_FoodSaaS ERP</span>
             </div>
             <nav className="flex items-center gap-3">
               <button onClick={scrollToDemo}
@@ -894,7 +894,7 @@ function DemoContent() {
               </span>
 
               <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
-                FoodSaaS{" "}
+                R_FoodSaaS{" "}
                 <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
                   ERP
                 </span>
@@ -1181,7 +1181,7 @@ function DemoContent() {
         </section>
 
         <footer className="border-t border-white/[0.05] py-8 text-center text-xs text-white/25">
-          © {new Date().getFullYear()} FoodSaaS ERP — Demonstração pública
+          © {new Date().getFullYear()} R_FoodSaaS ERP — Demonstração pública
         </footer>
 
       </div>

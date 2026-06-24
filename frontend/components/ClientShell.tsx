@@ -222,7 +222,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   const { loadAuth, user } = useAuthStore();
   const { setSidebarConfig: setStoreSidebarConfig } = useCompanyStore();
-  const [companyName, setCompanyName] = useState("FoodSaaS ERP");
+  const [companyName, setCompanyName] = useState("R_FoodSaaS ERP");
   const [companyPlan, setCompanyPlan] = useState("");
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);

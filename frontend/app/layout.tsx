@@ -3,7 +3,7 @@ import ClientShell from "@/components/ClientShell";
 import { PlatformAnalytics } from "@/components/PlatformAnalytics";
 
 export const metadata = {
-  title: "FoodSaaS ERP",
+  title: "R_FoodSaaS ERP",
   description: "Sistema de gestão para restaurantes",
 };
 

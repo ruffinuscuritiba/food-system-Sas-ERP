@@ -122,8 +122,8 @@ function stripTags(text: string): {
 
 function waLink(plan?: string): string {
   const text = plan
-    ? `Olá! Tenho interesse no plano ${plan} da Ruffinu's FoodSaaS ERP. Gostaria de receber uma proposta comercial.`
-    : `Olá! Gostaria de saber mais sobre a Ruffinu's FoodSaaS ERP e entrar em contato com um consultor.`;
+    ? `Olá! Tenho interesse no plano ${plan} da Ruffinu's R_FoodSaaS ERP. Gostaria de receber uma proposta comercial.`
+    : `Olá! Gostaria de saber mais sobre a Ruffinu's R_FoodSaaS ERP e entrar em contato com um consultor.`;
   return `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }
 
@@ -133,7 +133,7 @@ export default function IaDemoPage() {
       id: ++msgId,
       role: "assistant",
       content:
-        "Olá! Sou a **Kely**, Consultora Comercial da **Ruffinu's FoodSaaS ERP**.\n\nAjudo donos de pizzarias, restaurantes e deliveries a encontrar a solução certa para o negócio.\n\nMe conta: qual é o tipo do seu estabelecimento?",
+        "Olá! Sou a **Kely**, Consultora Comercial da **Ruffinu's R_FoodSaaS ERP**.\n\nAjudo donos de pizzarias, restaurantes e deliveries a encontrar a solução certa para o negócio.\n\nMe conta: qual é o tipo do seu estabelecimento?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -365,7 +365,7 @@ export default function IaDemoPage() {
             </span>
           </div>
           <p className="text-[11px] text-white/35 truncate">
-            Ruffinu&apos;s FoodSaaS ERP — Atendimento Comercial
+            Ruffinu&apos;s R_FoodSaaS ERP — Atendimento Comercial
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -584,7 +584,7 @@ export default function IaDemoPage() {
       >
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
           <span className="text-[10px] text-white/20 hidden md:block">
-            © {new Date().getFullYear()} Ruffinu&apos;s FoodSaaS ERP
+            © {new Date().getFullYear()} Ruffinu&apos;s R_FoodSaaS ERP
           </span>
           <div className="flex items-center gap-2 w-full md:w-auto justify-center md:justify-end">
             <a
@@ -657,7 +657,7 @@ function PlanCard({ plan, onWaClick }: { plan: string; onWaClick?: () => void })
             Testar grátis
           </a>
           <a
-            href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(`Olá! Tenho interesse no plano ${data.label} da Ruffinu's FoodSaaS ERP. Gostaria de receber uma proposta comercial.`)}`}
+            href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(`Olá! Tenho interesse no plano ${data.label} da Ruffinu's R_FoodSaaS ERP. Gostaria de receber uma proposta comercial.`)}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={onWaClick}

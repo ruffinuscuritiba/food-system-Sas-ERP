@@ -275,6 +275,25 @@ export default function PDVPage() {
     } catch {}
   }, []);
 
+  // Captura os valores originais do tema da empresa na montagem e restaura ao sair do PDV
+  useEffect(() => {
+    const root = document.documentElement;
+    const origPrimary = root.style.getPropertyValue("--color-primary");
+    const origSidebar = root.style.getPropertyValue("--app-sidebar");
+    return () => {
+      if (origPrimary) root.style.setProperty("--color-primary", origPrimary);
+      else root.style.removeProperty("--color-primary");
+      if (origSidebar) root.style.setProperty("--app-sidebar", origSidebar);
+      else root.style.removeProperty("--app-sidebar");
+    };
+  }, []);
+
+  // Propaga o tema PDV ao root do documento para que a sidebar admin fique consistente
+  useEffect(() => {
+    document.documentElement.style.setProperty("--color-primary", pdvTheme.primary);
+    document.documentElement.style.setProperty("--app-sidebar", pdvTheme.sidebarBg);
+  }, [pdvTheme.primary, pdvTheme.sidebarBg]);
+
   useEffect(() => {
     try {
       const tok = localStorage.getItem("token") || "";
@@ -779,9 +798,12 @@ export default function PDVPage() {
     <div
       className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
       style={{
-        "--color-primary": pdvTheme.primary,
+        "--color-primary":  pdvTheme.primary,
+        "--pdv-sidebar-bg": pdvTheme.sidebarBg,
+        "--pdv-bg":         pdvTheme.productsBg,
+        "--pdv-card":       pdvTheme.cardBg,
         "--pdv-card-hover": pdvTheme.hoverBg,
-        "--pdv-border": pdvTheme.border,
+        "--pdv-border":     pdvTheme.border,
       } as React.CSSProperties}
     >
       {/* CONTENT */}
@@ -932,7 +954,8 @@ export default function PDVPage() {
 
           <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[var(--pdv-bg,#030712)]">
             <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
-              <img src={bannerImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="hero" />
+              <img src={bannerImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="hero"
+                style={{ transform: `scale(${((activeCategory as any)?.bannerImageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
               <div className="absolute inset-0 bg-black/60" />
               <div className="relative z-10 p-10">
                 <h1 className="text-3xl xl:text-5xl font-black mb-2 leading-tight break-words max-w-[700px]">{activeCategoryName}</h1>
@@ -1025,10 +1048,11 @@ export default function PDVPage() {
           <div className="relative h-[220px] w-full overflow-hidden shrink-0">
             {bannerImageUrl && (
               <img
-  src={bannerImageUrl}
-  className="absolute inset-0 w-full h-full object-cover"
-  alt={activeCategoryName}
-/>
+                src={bannerImageUrl}
+                className="absolute inset-0 w-full h-full object-cover"
+                alt={activeCategoryName}
+                style={{ transform: `scale(${((activeCategory as any)?.bannerImageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
+              />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">

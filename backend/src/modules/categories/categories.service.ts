@@ -21,6 +21,7 @@ export class CategoriesService {
         displayColumns: data.displayColumns ?? 4,
         sortOrder: nextSort,
         ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+        ...(data.bannerImageZoom !== undefined && { bannerImageZoom: data.bannerImageZoom }),
         ...(data.parentCategoryId !== undefined && data.parentCategoryId !== null && {
           parent: { connect: { id: data.parentCategoryId } },
         }),
@@ -39,6 +40,7 @@ export class CategoriesService {
         displayColumns: true,
         allowMultipleFlavors: true,
         bannerImage: true,
+        bannerImageZoom: true,
         sortOrder: true,
         companyId: true,
         parentCategoryId: true,
@@ -50,6 +52,7 @@ export class CategoriesService {
             displayColumns: true,
             allowMultipleFlavors: true,
             bannerImage: true,
+            bannerImageZoom: true,
             sortOrder: true,
             companyId: true,
             parentCategoryId: true,
@@ -70,6 +73,7 @@ export class CategoriesService {
       categoryType?: string;
       displayColumns?: number;
       bannerImage?: string | null;
+      bannerImageZoom?: number;
       parentCategoryId?: string | null;
     },
   ) {
@@ -81,6 +85,7 @@ export class CategoriesService {
         ...(data.categoryType !== undefined && { categoryType: data.categoryType }),
         ...(data.displayColumns !== undefined && { displayColumns: data.displayColumns }),
         ...(data.bannerImage !== undefined && { bannerImage: data.bannerImage }),
+        ...(data.bannerImageZoom !== undefined && { bannerImageZoom: data.bannerImageZoom }),
         ...(data.parentCategoryId !== undefined && {
           parentCategoryId: data.parentCategoryId,
         }),

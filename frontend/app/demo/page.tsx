@@ -777,12 +777,32 @@ function DemoContent() {
   const demoSectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    // Registra visita no backend
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
     fetch(`${apiBase}/visits`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ page: "/demo" }),
     }).catch(() => {});
+
+    // Evento de audiência: visitante da página de demonstração
+    // Permite criar público personalizado "interessados em demo" no Meta Ads e GA4
+    try {
+      const w = window as any;
+      if (w.fbq) {
+        w.fbq("track", "ViewContent", {
+          content_name: "Página de Demonstrações FoodSaaS",
+          content_category: "demo",
+          content_type: "product",
+        });
+      }
+      if (w.gtag) {
+        w.gtag("event", "page_view_demo", {
+          event_category: "engajamento",
+          event_label: "demo_page",
+        });
+      }
+    } catch {}
   }, []);
 
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {

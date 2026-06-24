@@ -7,7 +7,7 @@ import toast, { Toaster } from "react-hot-toast";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
-  MapPin, Clock, Phone, Search, Copy, Timer, Eye,
+  MapPin, Clock, Phone, Search, Copy, Timer, Eye, Sparkles,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { ChatWidget } from "@/components/chat/ChatWidget";
@@ -843,6 +843,18 @@ export default function MenuPage() {
     return b?.order ?? 99;
   };
   const featuredProducts = products.filter(p => (p as any).isFeatured === true).slice(0, 6);
+  // Order bump (upsell no checkout): produtos em destaque fora do carrinho;
+  // fallback para bebidas/sobremesas. Máx 4. Reaproveita publicMenu — zero backend.
+  const orderBumpProducts = (() => {
+    if (cart.length === 0) return [];
+    const inCart = new Set(cart.map(i => i.product.id));
+    const isUpsellCat = (p: Product) =>
+      p.category?.categoryType === "bebidas" ||
+      /bebida|sobremesa|doce|drink|refri|suco|adicional/i.test(p.category?.name || "");
+    const featured = products.filter(p => p.isActive && !inCart.has(p.id) && (p as any).isFeatured === true);
+    const extra = products.filter(p => p.isActive && !inCart.has(p.id) && !featured.some(f => f.id === p.id) && isUpsellCat(p));
+    return [...featured, ...extra].slice(0, 4);
+  })();
   const showFeatured = blockVisible("featured") && featuredProducts.length > 0;
   const featuredBeforeCategories = blockOrder("featured") < blockOrder("categories");
 
@@ -1231,6 +1243,39 @@ export default function MenuPage() {
                   </div>
                 </div>
               ))}
+
+              {/* ─── Order bump (upsell antes de finalizar) ─── */}
+              {cart.length > 0 && orderBumpProducts.length > 0 && (
+                <div className="pt-3 mt-1 border-t border-dashed border-gray-200">
+                  <p className="text-sm font-black text-gray-900 mb-2.5 flex items-center gap-1.5">
+                    <Sparkles size={15} className="text-orange-500" /> Que tal adicionar?
+                  </p>
+                  <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
+                    {orderBumpProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => addToCart(p)}
+                        className="shrink-0 w-32 text-left bg-white border border-gray-200 rounded-2xl p-2.5 hover:border-orange-400 hover:shadow-md active:scale-95 transition"
+                      >
+                        <div className="w-full aspect-square rounded-xl bg-gray-100 overflow-hidden mb-2 flex items-center justify-center">
+                          {p.imageUrl ? (
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-2xl">🍽️</span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-gray-900 leading-tight line-clamp-2 mb-1 min-h-[2rem]">{p.name}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-orange-500 font-black text-xs">R$ {productMinPrice(p).toFixed(2)}</span>
+                          <span className="bg-[var(--color-primary)] text-white rounded-full w-6 h-6 flex items-center justify-center shrink-0">
+                            <Plus size={14} />
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="px-6 py-5 border-t border-gray-100">
               <div className="flex justify-between text-lg font-black text-gray-900 mb-4">

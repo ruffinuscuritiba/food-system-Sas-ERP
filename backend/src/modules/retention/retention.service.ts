@@ -213,17 +213,18 @@ export class RetentionService {
         subscriptionStatus: 'PENDING_PAYMENT',
         dueDate: { not: null },
         isBlocked: false,
-        whatsapp: { not: null },
+        // Sem filtro de whatsapp: lojas sem WA recebem o aviso por e-mail.
       },
       include: {
         users: { where: { role: 'ADMIN' }, take: 1 },
       },
     });
 
-    let sent = 0;
+    let sentWa = 0;
+    let sentEmail = 0;
 
     for (const company of trialCompanies) {
-      if (!company.dueDate || !company.whatsapp) continue;
+      if (!company.dueDate) continue;
       if (isMatrixCompany(company.id)) continue;
 
       const adminEmail = company.users[0]?.email ?? '';
@@ -265,21 +266,59 @@ export class RetentionService {
 
       if (!msg) continue;
 
+      const ownerName = company.users[0]?.name ?? company.name;
+
+      // Canal primário: WhatsApp (se a loja informou um número no cadastro).
+      if (company.whatsapp) {
+        try {
+          // Remove non-digit chars to normalize the phone number
+          const phone = company.whatsapp.replace(/\D/g, '');
+          await this.sendEvolutionWA(phone, msg);
+          sentWa++;
+          this.logger.log(
+            `[Retention] Trial warning (day -${daysLeft}) sent via WA to ${company.name} (${phone})`,
+          );
+          continue;
+        } catch (e) {
+          this.logger.error(
+            `[Retention] Trial WA failed for ${company.name}, caindo para e-mail: ${(e as Error)?.message}`,
+          );
+          // Não dá continue — segue para o backup por e-mail.
+        }
+      }
+
+      // Backup (ou canal único quando não há WhatsApp): e-mail para o admin.
+      if (!adminEmail) {
+        this.logger.warn(
+          `[Retention] Trial company ${company.name} sem WhatsApp e sem e-mail de admin — aviso (day -${daysLeft}) não enviado`,
+        );
+        continue;
+      }
+
       try {
-        // Remove non-digit chars to normalize the phone number
-        const phone = company.whatsapp.replace(/\D/g, '');
-        await this.sendEvolutionWA(phone, msg);
-        sent++;
+        await this.notifications.send({
+          to: adminEmail,
+          type: 'TRIAL_WARNING',
+          data: {
+            name: ownerName,
+            daysLeft,
+            renewUrl: `${frontendUrl}/assinatura`,
+            supportWA,
+          },
+        });
+        sentEmail++;
         this.logger.log(
-          `[Retention] Trial warning (day -${daysLeft}) sent to ${company.name} (${phone})`,
+          `[Retention] Trial warning (day -${daysLeft}) sent via e-mail to ${adminEmail} (${company.name})`,
         );
       } catch (e) {
         this.logger.error(
-          `[Retention] Trial WA failed for ${company.name}: ${(e as Error)?.message}`,
+          `[Retention] Trial e-mail failed for ${adminEmail}: ${(e as Error)?.message}`,
         );
       }
     }
 
-    this.logger.log(`[Retention] Trial warnings complete — ${sent} WA messages sent`);
+    this.logger.log(
+      `[Retention] Trial warnings complete — ${sentWa} via WhatsApp, ${sentEmail} via e-mail`,
+    );
   }
 }

@@ -1126,6 +1126,21 @@ function DemoContent() {
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
+  const recordedNiches = useRef<Set<string>>(new Set());
+
+  // Marketing: registra interesse por nicho (qual categoria atacar no anúncio).
+  // Dedupe por sessão; keepalive garante o envio mesmo ao navegar pro /pdv.
+  function recordNicheVisit(niche: string) {
+    if (!niche || recordedNiches.current.has(niche)) return;
+    recordedNiches.current.add(niche);
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "";
+    fetch(`${apiBase}/visits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page: `demo:${niche}` }),
+      keepalive: true,
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     // Registra visita no backend
@@ -1158,6 +1173,7 @@ function DemoContent() {
 
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
     setEntering(demo.id);
+    recordNicheVisit(selectedNiche); // marketing: nicho no momento da conversão
     // Dispara evento Lead no Meta Pixel e GA4 para remarketing
     try {
       const w = window as any;
@@ -1362,7 +1378,7 @@ function DemoContent() {
               return (
                 <button
                   key={niche}
-                  onClick={() => setSelectedNiche(niche)}
+                  onClick={() => { setSelectedNiche(niche); recordNicheVisit(niche); }}
                   className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                     isActive
                       ? "bg-white text-black shadow-lg scale-105"

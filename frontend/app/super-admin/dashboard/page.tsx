@@ -127,7 +127,6 @@ const NAV_ITEMS = [
   { label: "Clientes",     href: "/super-admin/clientes",   icon: UserCheck,        section: "Principal" },
   { label: "Leads",        href: "/super-admin/leads",      icon: TrendingUp,       section: "Principal" },
   { label: "Módulos",      href: "/super-admin/modulos",    icon: Package,          section: "Produto"   },
-  { label: "Editor Tema",  href: "/super-admin/tema",       icon: Layers,           section: "Produto"   },
   { label: "Construtor",   href: "/super-admin/construtor", icon: Layout,           section: "Produto"   },
   { label: "Preços",       href: "/super-admin/pricing",    icon: DollarSign,       section: "Produto"   },
   { label: "Analytics",    href: "/super-admin/clientes",   icon: PieChart,         section: "Analytics" },

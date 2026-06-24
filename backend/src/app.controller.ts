@@ -1,41 +1,24 @@
 import { Controller, Get } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-  constructor(
-    private readonly appService: AppService,
-    private readonly config: ConfigService,
-  ) {}
+  constructor(private readonly appService: AppService) {}
 
   @Get()
   getHello(): string {
     return this.appService.getHello();
   }
 
+  // NOTE: /api/health é interceptado pelo middleware em main.ts (antes do
+  // roteador Nest) — este handler não é alcançado. O diagnóstico de canais
+  // (email/whatsapp) fica no main.ts. Mantido por compatibilidade.
   @Get('health')
   getHealth() {
-    // Diagnóstico de canais — apenas booleanos (nunca expõe valores/segredos).
-    const emailConfigured = !!(
-      this.config.get<string>('SMTP_HOST') &&
-      this.config.get<string>('SMTP_USER') &&
-      this.config.get<string>('SMTP_PASS')
-    );
-    const waConfigured = !!(
-      this.config.get<string>('EVOLUTION_API_URL') &&
-      this.config.get<string>('EVOLUTION_API_KEY') &&
-      this.config.get<string>('EVOLUTION_INSTANCE_NAME')
-    );
-
     return {
       status: 'ok',
       service: 'food-system-backend',
       timestamp: new Date().toISOString(),
-      channels: {
-        email: emailConfigured,
-        whatsapp: waConfigured,
-      },
     };
   }
 

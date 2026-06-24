@@ -22,7 +22,7 @@ export class LayoutTemplatesController {
   /** POST /layout-templates — cria template customizado (super admin / admin). */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SYSTEM_SUPER_ADMIN')
   create(@Body() dto: CreateTemplateDto) {
     return this.service.create(dto);
   }
@@ -30,7 +30,7 @@ export class LayoutTemplatesController {
   /** DELETE /layout-templates/:id */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SYSTEM_SUPER_ADMIN')
   delete(@Param('id') id: string) {
     return this.service.delete(id);
   }
@@ -38,7 +38,7 @@ export class LayoutTemplatesController {
   /** POST /layout-templates/:id/apply — aplica template a uma empresa. */
   @Post(':id/apply')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SYSTEM_SUPER_ADMIN')
   apply(@Param('id') id: string, @Body() dto: ApplyTemplateDto) {
     return this.service.applyToCompany(id, dto.companyId);
   }
@@ -46,7 +46,7 @@ export class LayoutTemplatesController {
   /** PATCH /layout-templates/company/:companyId — salva layout customizado direto. */
   @Patch('company/:companyId')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'SYSTEM_SUPER_ADMIN')
   saveCompanyLayout(
     @Param('companyId') companyId: string,
     @Body() config: Record<string, unknown>,

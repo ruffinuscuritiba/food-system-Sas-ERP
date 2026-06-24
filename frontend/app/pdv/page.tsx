@@ -301,12 +301,14 @@ export default function PDVPage() {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       if (user.companyId) {
         setCompanyId(user.companyId);
-        fetch(`/api/pizza-size-configs/public?companyId=${user.companyId}`)
-          .then(r => r.ok ? r.json() : [])
-          .then((configs: any[]) => {
+        // Usa o axios `api` (baseURL do backend) — antes era um fetch relativo
+        // `/api/...` que batia no domínio do frontend e dava 404 no console.
+        api.get(`/pizza-size-configs/public?companyId=${user.companyId}`)
+          .then(r => {
+            const configs = r.data;
             const map: Record<string, { maxFlavors: number }> = {};
             if (Array.isArray(configs)) {
-              configs.forEach(c => { map[c.size] = { maxFlavors: c.maxFlavors ?? 2 }; });
+              configs.forEach((c: any) => { map[c.size] = { maxFlavors: c.maxFlavors ?? 2 }; });
             }
             setPizzaSizeConfigs(map);
           })

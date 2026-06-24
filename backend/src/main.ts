@@ -80,10 +80,22 @@ async function bootstrap() {
       req.path === '/api/health' &&
       (req.method === 'GET' || req.method === 'HEAD')
     ) {
+      // Diagnóstico de canais — apenas booleanos (nunca expõe valores/segredos).
+      const emailConfigured = !!(
+        configService.get<string>('SMTP_HOST') &&
+        configService.get<string>('SMTP_USER') &&
+        configService.get<string>('SMTP_PASS')
+      );
+      const waConfigured = !!(
+        configService.get<string>('EVOLUTION_API_URL') &&
+        configService.get<string>('EVOLUTION_API_KEY') &&
+        configService.get<string>('EVOLUTION_INSTANCE_NAME')
+      );
       return res.status(prismaService.isReady ? 200 : 503).json({
         status: prismaService.isReady ? 'ok' : 'starting',
         ready: prismaService.isReady,
         timestamp: new Date().toISOString(),
+        channels: { email: emailConfigured, whatsapp: waConfigured },
       });
     }
     return next();

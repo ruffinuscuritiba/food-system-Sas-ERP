@@ -155,6 +155,27 @@ export const PDV_THEME_PRESETS: PdvPreset[] = [
       darkProducts: false,
     },
   },
+  {
+    name:        "Tradicional Branco",
+    description: "Interface clara e limpa — máxima legibilidade para o dia a dia",
+    emoji:       "☀️",
+    config: {
+      sidebarBg:    "#FFFFFF",
+      categoriesBg: "#F1F5F9",
+      productsBg:   "#F8FAFC",
+      cartBg:       "#FFFFFF",
+      headerBg:     "#FFFFFF",
+      cardBg:       "#FFFFFF",
+      primary:      "#DC2626",
+      accent:       "#F97316",
+      border:       "rgba(0,0,0,0.08)",
+      hoverBg:      "rgba(0,0,0,0.04)",
+      shadows:      true,
+      animations:   true,
+      glassmorphism: false,
+      darkProducts: false,
+    },
+  },
 ];
 
 export function loadPdvTheme(): PdvThemeConfig {

@@ -132,18 +132,34 @@ const NAV_ITEMS = [
   { label: "Visitas",      href: "/super-admin/visitas",    icon: PieChart,         section: "Analytics" },
 ]
 
-// ── Ring chart SVG ─────────────────────────────────────────────────────────────
+// ── Ring chart SVG (animated) ──────────────────────────────────────────────────
 function RingChart({ pct, color, trackColor }: { pct: number; color: string; trackColor: string }) {
   const r = 18; const circ = 2 * Math.PI * r
   const dash = circ * Math.min(pct, 100) / 100
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" className="shrink-0">
-      <circle cx="24" cy="24" r={r} fill="none" stroke={trackColor} strokeWidth="5" />
-      <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="5"
+    <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0 drop-shadow-sm">
+      <circle cx="26" cy="26" r={r} fill="none" stroke={trackColor} strokeWidth="5" />
+      <circle cx="26" cy="26" r={r} fill="none" stroke={color} strokeWidth="5"
         strokeDasharray={`${dash} ${circ - dash}`}
-        strokeLinecap="round" transform="rotate(-90 24 24)" />
+        strokeLinecap="round" transform="rotate(-90 26 26)"
+        style={{ transition: "stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1)", filter: `drop-shadow(0 0 4px ${color}88)` }} />
+      <text x="26" y="30" textAnchor="middle" fontSize="9" fontWeight="700" fill={color}>
+        {Math.round(pct)}%
+      </text>
     </svg>
   )
+}
+
+// ── Deterministic avatar color from name ───────────────────────────────────────
+function avatarGradient(name: string): [string, string] {
+  const palettes: [string, string][] = [
+    ["#6366f1","#1e1b4b"], ["#8b5cf6","#2e1065"], ["#ec4899","#500724"],
+    ["#f97316","#431407"], ["#10b981","#052e16"], ["#3b82f6","#1e3a5f"],
+    ["#f59e0b","#451a03"], ["#14b8a6","#042f2e"],
+  ]
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return palettes[h % palettes.length]
 }
 
 export default function SuperAdminDashboard() {
@@ -734,14 +750,19 @@ export default function SuperAdminDashboard() {
                 <p className={`text-[9px] font-bold uppercase tracking-widest mb-3 ${c("text-zinc-600", "text-gray-400")}`}>{s.label}</p>
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className={`text-3xl font-black tabular-nums leading-none ${c("text-white", "text-gray-900")}`}>{s.value}</p>
+                    <p
+                      className={`text-4xl font-black tabular-nums leading-none ${c("text-white", "text-gray-900")}`}
+                      style={{ textShadow: `0 0 24px ${s.color}55` }}
+                    >{s.value}</p>
                     <p className={`text-[10px] mt-1 ${c("text-zinc-600", "text-gray-400")}`}>{s.sub}</p>
-                    <p className={`text-[10px] mt-1 font-semibold ${
+                    <p className={`text-[10px] mt-1.5 font-semibold flex items-center gap-1 ${
                       s.trendUp === true ? "text-emerald-400" :
                       s.trendUp === false && s.value > 0 ? "text-rose-400" :
                       c("text-zinc-600", "text-gray-400")
                     }`}>
-                      {s.trendUp === true && "▲ "}{s.trendUp === false && s.value > 0 && "▲ "}{s.trend}
+                      {s.trendUp === true && <span className="text-[8px]">▲</span>}
+                      {s.trendUp === false && s.value > 0 && <span className="text-[8px]">▲</span>}
+                      {s.trend}
                     </p>
                   </div>
                   <RingChart pct={s.pct} color={s.color} trackColor={isDark ? s.trackDark : s.trackLight} />
@@ -764,13 +785,21 @@ export default function SuperAdminDashboard() {
                 const pct   = stats.total ? Math.round((count / stats.total) * 100) : 0
                 const color = PLAN_COLORS[plan]
                 return (
-                  <div key={plan} className="flex items-center gap-3 mb-3 last:mb-0">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <span className={`text-xs flex-1 ${c("text-zinc-400", "text-gray-600")}`}>{PLAN_LABELS[plan]}</span>
-                    <div className={`w-20 h-1.5 rounded-full overflow-hidden ${c("bg-[#27272a]", "bg-gray-100")}`}>
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                  <div key={plan} className="mb-3.5 last:mb-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}88` }} />
+                        <span className={`text-xs font-medium ${c("text-zinc-400", "text-gray-600")}`}>{PLAN_LABELS[plan]}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{pct}%</span>
+                        <span className={`text-xs font-black tabular-nums ${c("text-white", "text-gray-900")}`}>{count}</span>
+                      </div>
                     </div>
-                    <span className={`text-xs font-bold w-5 text-right tabular-nums ${c("text-white", "text-gray-900")}`}>{count}</span>
+                    <div className={`h-2 rounded-full overflow-hidden ${c("bg-[#27272a]", "bg-gray-100")}`}>
+                      <div className="h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})` }} />
+                    </div>
                   </div>
                 )
               })}
@@ -788,14 +817,21 @@ export default function SuperAdminDashboard() {
                 const maxCount = topSegments[0][1]
                 const pct = Math.round((count / maxCount) * 100)
                 const colors = ["#f97316", "#f59e0b", "#10b981", "#3b82f6"]
+                const col = colors[i]
                 return (
-                  <div key={seg} className="flex items-center gap-3 mb-3 last:mb-0">
-                    <span className="text-sm">{SEGMENT_EMOJI[seg] ?? "🏪"}</span>
-                    <span className={`text-xs flex-1 truncate ${c("text-zinc-400", "text-gray-600")}`}>{SEGMENT_LABELS[seg] ?? seg}</span>
-                    <div className={`w-20 h-1.5 rounded-full overflow-hidden ${c("bg-[#27272a]", "bg-gray-100")}`}>
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: colors[i] }} />
+                  <div key={seg} className="mb-3.5 last:mb-0">
+                    <div className="flex items-center gap-2.5 mb-1.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0"
+                        style={{ background: `${col}22`, border: `1px solid ${col}44` }}>
+                        {SEGMENT_EMOJI[seg] ?? "🏪"}
+                      </div>
+                      <span className={`text-xs font-medium flex-1 truncate ${c("text-zinc-300", "text-gray-700")}`}>{SEGMENT_LABELS[seg] ?? seg}</span>
+                      <span className={`text-[10px] font-black tabular-nums`} style={{ color: col }}>{count}</span>
                     </div>
-                    <span className={`text-xs font-bold w-5 text-right tabular-nums ${c("text-white", "text-gray-900")}`}>{count}</span>
+                    <div className={`ml-9 h-1.5 rounded-full overflow-hidden ${c("bg-[#27272a]", "bg-gray-100")}`}>
+                      <div className="h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${col}66, ${col})` }} />
+                    </div>
                   </div>
                 )
               })}
@@ -809,9 +845,12 @@ export default function SuperAdminDashboard() {
               </div>
               {recentCompanies.length === 0 ? (
                 <p className={`text-xs ${c("text-zinc-600", "text-gray-400")}`}>Nenhum cadastro ainda</p>
-              ) : recentCompanies.map((co) => (
+              ) : recentCompanies.map((co) => {
+                const [fgColor, bgColor] = avatarGradient(co.name)
+                return (
                 <div key={co.id} className={`flex items-center gap-3 py-2 border-b last:border-b-0 ${c("border-[#1c1c24]", "border-gray-50")}`}>
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${c("bg-[#27272a] text-zinc-300", "bg-gray-100 text-gray-600")}`}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0"
+                    style={{ backgroundColor: bgColor, color: fgColor, boxShadow: `0 0 8px ${fgColor}44` }}>
                     {co.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -825,7 +864,8 @@ export default function SuperAdminDashboard() {
                     Entrar →
                   </button>
                 </div>
-              ))}
+              )
+              })}
             </div>
           </div>
 
@@ -926,11 +966,14 @@ export default function SuperAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className={`divide-y ${c("divide-[#1c1c24]/60", "divide-gray-50")}`}>
-                  {filtered.map((co) => (
+                  {filtered.map((co) => {
+                    const [fgColor, bgColor] = avatarGradient(co.name)
+                    return (
                     <tr key={co.id} id={`company-row-${co.id}`} className={`transition-colors ${co.archivedAt ? "opacity-40" : c("hover:bg-[#18181b]", "hover:bg-gray-50")}`}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${c("bg-[#27272a] text-zinc-400", "bg-gray-100 text-gray-600")}`}>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0"
+                            style={{ backgroundColor: bgColor, color: fgColor, boxShadow: `0 0 6px ${fgColor}44` }}>
                             {co.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
@@ -1035,7 +1078,7 @@ export default function SuperAdminDashboard() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                   {filtered.length === 0 && (
                     <tr>
                       <td colSpan={7} className={`px-6 py-16 text-center text-sm ${c("text-zinc-700", "text-gray-400")}`}>

@@ -2,239 +2,194 @@
 
 import { useRef, useMemo, useState, useCallback } from "react";
 import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Grid, Float, Text, Billboard } from "@react-three/drei";
+import { OrbitControls, Grid, Text, Billboard } from "@react-three/drei";
 import * as THREE from "three";
-import type { DataPoint6D, Scene6DData } from "./use6DData";
+import type { DataPoint6D, Scene6DData, DataLayer } from "./use6DData";
+import { LAYER_META } from "./use6DData";
 
-// ── Mapeamento D6 (saúde da margem) → cor espectral ──────────────────────────
-function healthToColor(health: number): THREE.Color {
-  // 0 = vermelho (#ef4444), 0.5 = amarelo (#f59e0b), 1 = verde (#22c55e)
-  const r = new THREE.Color("#ef4444");
-  const y = new THREE.Color("#f59e0b");
-  const g = new THREE.Color("#22c55e");
+// ── D6: saúde → cor base da camada modulada pela margem ──────────────────────
+function resolveColor(point: DataPoint6D): THREE.Color {
+  const base  = new THREE.Color(LAYER_META[point.layer].color);
+  const red   = new THREE.Color("#ef4444");
+  const amber = new THREE.Color("#f59e0b");
   const color = new THREE.Color();
-  if (health < 0.5) color.lerpColors(r, y, health * 2);
-  else               color.lerpColors(y, g, (health - 0.5) * 2);
+
+  // health 0=vermelho, 0.5=cor da camada escurecida, 1=cor da camada pura
+  if (point.health < 0.4) {
+    color.lerpColors(red, amber, point.health / 0.4);
+  } else {
+    color.lerpColors(amber, base, (point.health - 0.4) / 0.6);
+  }
   return color;
 }
 
-// ── Esfera individual (D1–D6) ────────────────────────────────────────────────
+// ── Esfera individual ─────────────────────────────────────────────────────────
 function Sphere6D({
-  point,
-  timeFilter,
-  selected,
-  onSelect,
+  point, timeFilter, selected, onSelect,
 }: {
-  point:      DataPoint6D;
-  timeFilter: number;   // 0–1, filtra D4 (slider temporal)
-  selected:   string | null;
-  onSelect:   (id: string | null) => void;
+  point: DataPoint6D; timeFilter: number;
+  selected: string | null; onSelect: (id: string | null) => void;
 }) {
   const meshRef = useRef<THREE.Mesh>(null!);
-  const color   = useMemo(() => healthToColor(point.health), [point.health]);
-  const isSelected = selected === point.id;
+  const color   = useMemo(() => resolveColor(point), [point]);
+  const isSel   = selected === point.id;
 
-  // D4: opacidade baseada na distância temporal do slider
-  const timeDist = Math.abs(point.t - timeFilter);
-  const opacity  = timeDist < 0.15 ? 1.0 : Math.max(0.08, 1.0 - timeDist * 3);
+  // D4: fade por distância temporal ao slider
+  const fade    = Math.abs(point.t - timeFilter);
+  const opacity = fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3);
+  const radius  = point.weight * 0.32;
 
-  // D1 (X): hora * 0.6   D2 (Y): receita * 4   D3 (Z): tipo de pedido * 1.5
-  const px = (point.x - 12) * 0.5;   // centraliza em 0
-  const py = point.y * 4 - 1;
+  // D1/D2/D3 → posição XYZ
+  const px = (point.x - 12) * 0.45;
+  const py = point.y * 4.5 - 1.2;
   const pz = point.z;
 
-  // D5: raio da esfera = peso
-  const radius = point.weight * 0.35;
-
-  useFrame((_, delta) => {
-    if (!meshRef.current) return;
-    if (isSelected) {
-      meshRef.current.rotation.y += delta * 1.2;
-    }
+  useFrame((_, dt) => {
+    if (meshRef.current && isSel) meshRef.current.rotation.y += dt * 1.4;
   });
 
-  const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+  const click = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    onSelect(isSelected ? null : point.id);
-  }, [isSelected, point.id, onSelect]);
+    onSelect(isSel ? null : point.id);
+  }, [isSel, point.id, onSelect]);
 
   return (
-    <mesh
-      ref={meshRef}
-      position={[px, py, pz]}
-      onClick={handleClick}
-      castShadow
-    >
-      <sphereGeometry args={[radius, 20, 20]} />
+    <mesh ref={meshRef} position={[px, py, pz]} onClick={click} castShadow>
+      <sphereGeometry args={[radius, 18, 18]} />
       <meshStandardMaterial
         color={color}
         emissive={color}
-        emissiveIntensity={isSelected ? 0.8 : 0.25}
+        emissiveIntensity={isSel ? 0.9 : 0.22}
         transparent
         opacity={opacity}
-        roughness={0.3}
-        metalness={0.4}
+        roughness={0.25}
+        metalness={0.45}
       />
-      {/* Glow halo no selecionado */}
-      {isSelected && (
+      {isSel && (
         <mesh>
-          <sphereGeometry args={[radius * 1.6, 16, 16]} />
+          <sphereGeometry args={[radius * 1.7, 14, 14]} />
           <meshStandardMaterial
-            color={color}
-            transparent
-            opacity={0.12}
-            side={THREE.BackSide}
-          />
+            color={color} transparent opacity={0.1} side={THREE.BackSide} />
         </mesh>
       )}
     </mesh>
   );
 }
 
-// ── Tooltip 3D flutuante ─────────────────────────────────────────────────────
+// ── Tooltip 3D ────────────────────────────────────────────────────────────────
 function Tooltip3D({ point }: { point: DataPoint6D }) {
-  const px = (point.x - 12) * 0.5;
-  const py = point.y * 4 - 1 + point.weight * 0.35 + 0.4;
+  const px = (point.x - 12) * 0.45;
+  const py = point.y * 4.5 - 1.2 + point.weight * 0.32 + 0.45;
   const pz = point.z;
-  const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmt = (n: number) =>
+    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <Billboard position={[px, py, pz]}>
       <Text
-        fontSize={0.13}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="bottom"
-        outlineWidth={0.008}
-        outlineColor="#000000"
-        maxWidth={2.5}
+        fontSize={0.11} color="#ffffff" anchorX="center" anchorY="bottom"
+        outlineWidth={0.007} outlineColor="#000000" maxWidth={2.8}
       >
-        {`${point.label}\n💰 ${fmt(point.revenue)}  📦 ${point.orders} pedidos\n📊 Margem ${(point.margin * 100).toFixed(1)}%`}
+        {`[${LAYER_META[point.layer].label}] ${point.label}\n${point.detail}\n💰 ${fmt(point.value)}`}
       </Text>
     </Billboard>
   );
 }
 
-// ── Eixos anotados ───────────────────────────────────────────────────────────
-function Axes() {
+// ── Etiquetas das camadas no eixo Z ──────────────────────────────────────────
+function LayerLabels() {
   return (
-    <group>
-      {/* Eixo X — Tempo do dia */}
-      {[0, 6, 12, 18, 23].map(h => (
-        <Billboard key={h} position={[(h - 12) * 0.5, -1.3, 0]}>
-          <Text fontSize={0.09} color="#ffffff55" anchorX="center">{h}h</Text>
+    <>
+      {(Object.entries(LAYER_META) as [DataLayer, typeof LAYER_META[DataLayer]][]).map(([key, meta]) => (
+        <Billboard key={key} position={[7.5, -1.6, meta.zOffset]}>
+          <Text fontSize={0.09} color={meta.color + "bb"} anchorX="right">
+            {meta.label}
+          </Text>
         </Billboard>
       ))}
-      {/* Label D1 */}
-      <Billboard position={[0, -1.65, 0]}>
-        <Text fontSize={0.1} color="#f97316aa" anchorX="center">← D1: Hora do dia →</Text>
-      </Billboard>
-
-      {/* Label D2 */}
-      <Billboard position={[-6.5, 1.5, 0]}>
-        <Text fontSize={0.1} color="#3b82f6aa" anchorX="center">D2: Receita ↑</Text>
-      </Billboard>
-
-      {/* Label D3 */}
-      <Billboard position={[0, -1.65, -2]}>
-        <Text fontSize={0.09} color="#8b5cf6aa" anchorX="center">D3: Delivery</Text>
-      </Billboard>
-      <Billboard position={[0, -1.65, 2]}>
-        <Text fontSize={0.09} color="#06b6d4aa" anchorX="center">D3: Balcão</Text>
-      </Billboard>
-    </group>
+    </>
   );
 }
 
-// ── Cena principal ───────────────────────────────────────────────────────────
+// ── Eixo X — horas ───────────────────────────────────────────────────────────
+function TimeAxis() {
+  return (
+    <>
+      {[0, 6, 12, 18, 23].map(h => (
+        <Billboard key={h} position={[(h - 12) * 0.45, -1.7, 0]}>
+          <Text fontSize={0.085} color="#ffffff44" anchorX="center">{h}h</Text>
+        </Billboard>
+      ))}
+      <Billboard position={[0, -2.0, 0]}>
+        <Text fontSize={0.09} color="#f97316aa" anchorX="center">← hora do dia →</Text>
+      </Billboard>
+    </>
+  );
+}
+
+// ── Conteúdo da cena ──────────────────────────────────────────────────────────
 function SceneContent({
-  sceneData,
-  timeFilter,
-  selected,
-  onSelect,
+  sceneData, timeFilter, selected, onSelect,
 }: {
-  sceneData:  Scene6DData;
-  timeFilter: number;
-  selected:   string | null;
-  onSelect:   (id: string | null) => void;
+  sceneData: Scene6DData; timeFilter: number;
+  selected: string | null; onSelect: (id: string | null) => void;
 }) {
-  const selectedPoint = sceneData.points.find(p => p.id === selected) ?? null;
+  const selPoint = sceneData.points.find(p => p.id === selected) ?? null;
 
   return (
     <>
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 8, 5]} intensity={1.2} castShadow />
-      <pointLight position={[-4, 4, -4]} intensity={0.6} color="#8b5cf6" />
-      <pointLight position={[4, 2, 4]}  intensity={0.4} color="#f97316" />
+      <ambientLight intensity={0.35} />
+      <directionalLight position={[6, 10, 6]} intensity={1.1} castShadow />
+      <pointLight position={[-5, 5, -5]} intensity={0.5} color="#8b5cf6" />
+      <pointLight position={[5, 3,  5]} intensity={0.4} color="#f97316" />
+      <pointLight position={[0, 8,  0]} intensity={0.3} color="#06b6d4" />
 
       <Grid
-        args={[20, 20]}
-        cellSize={0.5}
-        cellThickness={0.4}
-        cellColor="#ffffff08"
-        sectionSize={2}
-        sectionThickness={0.8}
-        sectionColor="#ffffff14"
-        fadeDistance={18}
-        fadeStrength={1}
-        followCamera={false}
-        infiniteGrid
-        position={[0, -1.5, 0]}
+        args={[22, 22]} cellSize={0.5} cellThickness={0.3}
+        cellColor="#ffffff07" sectionSize={2} sectionThickness={0.7}
+        sectionColor="#ffffff12" fadeDistance={20} fadeStrength={1}
+        followCamera={false} infiniteGrid position={[0, -1.8, 0]}
       />
 
-      <Axes />
+      <TimeAxis />
+      <LayerLabels />
 
-      {sceneData.points.map(point => (
+      {sceneData.points.map(p => (
         <Sphere6D
-          key={point.id}
-          point={point}
-          timeFilter={timeFilter}
-          selected={selected}
-          onSelect={onSelect}
+          key={p.id} point={p} timeFilter={timeFilter}
+          selected={selected} onSelect={onSelect}
         />
       ))}
 
-      {selectedPoint && <Tooltip3D point={selectedPoint} />}
+      {selPoint && <Tooltip3D point={selPoint} />}
 
       <OrbitControls
-        enablePan
-        enableZoom
-        enableRotate
-        minDistance={3}
-        maxDistance={22}
-        dampingFactor={0.08}
-        enableDamping
+        enablePan enableZoom enableRotate
+        minDistance={3} maxDistance={24}
+        dampingFactor={0.07} enableDamping
       />
     </>
   );
 }
 
-// ── Componente exportado (envolve o Canvas) ──────────────────────────────────
+// ── Export ────────────────────────────────────────────────────────────────────
 export default function Scene6D({
-  sceneData,
-  timeFilter,
+  sceneData, timeFilter,
 }: {
-  sceneData:  Scene6DData;
-  timeFilter: number;
+  sceneData: Scene6DData; timeFilter: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
     <Canvas
       shadows
-      camera={{ position: [0, 3, 10], fov: 55 }}
+      camera={{ position: [0, 4, 12], fov: 52 }}
       gl={{ antialias: true, alpha: true }}
       style={{ background: "transparent" }}
-      onClick={(e) => {
-        // clique no fundo limpa seleção
-        if ((e.target as HTMLElement).tagName === "CANVAS") setSelected(null);
-      }}
     >
       <SceneContent
-        sceneData={sceneData}
-        timeFilter={timeFilter}
-        selected={selected}
-        onSelect={setSelected}
+        sceneData={sceneData} timeFilter={timeFilter}
+        selected={selected} onSelect={setSelected}
       />
     </Canvas>
   );

@@ -32,6 +32,8 @@ export default function CategoriesPage() {
   // Fase 5 White Label — banner por categoria
   const [newBannerImage, setNewBannerImage]       = useState<string | null>(null);
   const [editBannerImage, setEditBannerImage]     = useState<string | null>(null);
+  const [newBannerZoom, setNewBannerZoom]         = useState(100);
+  const [editBannerZoom, setEditBannerZoom]       = useState(100);
   // Modal de biblioteca de banners prontos — abre com target ("new" | "edit")
   const [bannerPickerFor, setBannerPickerFor]     = useState<"new" | "edit" | null>(null);
 
@@ -63,12 +65,14 @@ export default function CategoriesPage() {
         allowMultipleFlavors: newAllowMulti,
         categoryType: newCategoryType,
         bannerImage: newBannerImage,
+        bannerImageZoom: newBannerZoom,
       });
       toast.success("Categoria criada");
       setName("");
       setNewAllowMulti(false);
       setNewCategoryType("normal");
       setNewBannerImage(null);
+      setNewBannerZoom(100);
       fetchCategories();
     } catch {
       toast.error("Erro ao criar categoria");
@@ -83,6 +87,7 @@ export default function CategoriesPage() {
     setEditAllowMulti(category.allowMultipleFlavors ?? false);
     setEditCategoryType(category.categoryType ?? "normal");
     setEditBannerImage(category.bannerImage ?? null);
+    setEditBannerZoom(category.bannerImageZoom ?? 100);
   }
 
   async function saveEdit(id: string) {
@@ -93,6 +98,7 @@ export default function CategoriesPage() {
         allowMultipleFlavors: editAllowMulti,
         categoryType: editCategoryType,
         bannerImage: editBannerImage,  // pode ser null (remoção)
+        bannerImageZoom: editBannerZoom,
       });
       toast.success("Categoria atualizada");
       setEditingId(null);
@@ -344,13 +350,34 @@ export default function CategoriesPage() {
                         maxFileSizeMB={2}
                       />
                       {editBannerImage && (
-                        <button
-                          type="button"
-                          onClick={() => setEditBannerImage(null)}
-                          className="mt-2 text-[11px] text-red-500 hover:text-red-600 underline flex items-center gap-1"
-                        >
-                          <Trash2 size={11} /> Remover banner
-                        </button>
+                        <>
+                          {/* Slider de zoom do banner */}
+                          <div className="mt-3 space-y-1">
+                            <div className="flex items-center justify-between text-[11px] text-gray-500">
+                              <span>Zoom da imagem</span>
+                              <span className="font-semibold text-gray-700">{editBannerZoom}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min={30}
+                              max={150}
+                              step={5}
+                              value={editBannerZoom}
+                              onChange={(e) => setEditBannerZoom(Number(e.target.value))}
+                              className="w-full accent-orange-500"
+                            />
+                            <div className="flex justify-between text-[10px] text-gray-400">
+                              <span>Menor</span><span>Normal</span><span>Zoom +</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditBannerImage(null)}
+                            className="mt-2 text-[11px] text-red-500 hover:text-red-600 underline flex items-center gap-1"
+                          >
+                            <Trash2 size={11} /> Remover banner
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

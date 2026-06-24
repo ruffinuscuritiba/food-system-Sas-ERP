@@ -390,7 +390,8 @@ model Category {
   sortOrder Int @default(0)
 
   // White Label — banner exibido no topo do PDV ao selecionar esta categoria (Fase 5)
-  bannerImage String?
+  bannerImage     String?
+  bannerImageZoom Int     @default(100) // 30–150, 100 = fill container (cover)
 
   // Hierarquia: categoria pai (opcional) — subcategorias ficam aninhadas no PDV
   parentCategoryId String?

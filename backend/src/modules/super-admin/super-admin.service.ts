@@ -1245,6 +1245,14 @@ export class SuperAdminService {
 
     // 1. Fetch all companies (with admin user for contact info)
     const companies = await this.prisma.company.findMany({
+      where: {
+        // Exclui demos e empresa matriz — apenas lojas reais
+        NOT: [
+          { email: { endsWith: '@foodsaas.demo' } },
+          { id: { startsWith: 'demo-' } },
+          { email: 'platform@foodsaas.internal' },
+        ],
+      },
       select: {
         id: true, name: true, email: true,
         subscriptionStatus: true, wasEverActive: true, dueDate: true,

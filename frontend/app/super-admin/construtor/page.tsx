@@ -101,20 +101,153 @@ function ColorField({ label, desc, value, onChange }: { label: string; desc: str
 }
 
 // ── Mini Phone for 3-Layout Showcase ─────────────────────────────────────────
+// Foto-colors usados como "foto simulada" em cada card dark-list
+const HERO_COLORS = ["#b45309","#15803d","#9f1239","#1d4ed8"];
+
 type LayoutPhoneType = "dark-list" | "grid" | "classic";
 function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   type: LayoutPhoneType; tilt: number; selected: boolean; label: string;
   colors: ColorConfig; onClick: () => void;
 }) {
-  const themes: Record<LayoutPhoneType, { bg: string; header: string; primary: string; card: string; text: string }> = {
-    "dark-list": { bg: "#0f172a", header: "#1e293b", primary: "#f97316", card: "#1e293b",     text: "#94a3b8" },
-    "grid":      { bg: c.background, header: c.secondary, primary: c.primary, card: c.card,   text: c.text   },
-    "classic":   { bg: "#ffffff",  header: "#f1f5f9", primary: "#dc2626", card: "#f8fafc",    text: "#111827" },
-  };
-  const t = themes[type];
-  const isGrid = type === "grid";
   const W = tilt !== 0 ? 86 : 108;
   const H = tilt !== 0 ? 174 : 216;
+
+  // ── dark-list: categorias circulares + cards full-bleed foto+scrim ──────────
+  const DarkListContent = () => (
+    <div style={{ background: "#111118", height: "100%" }}>
+      {/* Header */}
+      <div className="px-2 pt-5 pb-1.5 text-[6px] font-bold text-white" style={{ background: "#1a1a24" }}>
+        🍕 Minha Loja
+      </div>
+      {/* Circular category icons (iFood style) */}
+      <div className="flex gap-2 px-2 py-1.5 overflow-hidden">
+        {[["🍟","Petisco"],["🍽️","Almoço"],["🍕","Pizza"],["🍔","Burguer"]].map(([em, lb]) => (
+          <div key={lb} className="flex flex-col items-center gap-0.5 shrink-0">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[8px]"
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>{em}</div>
+            <span className="text-[4.5px] text-white/50 leading-none">{lb}</span>
+          </div>
+        ))}
+      </div>
+      {/* Hero-image cards: foto full-bleed + scrim esquerda + texto */}
+      <div className="px-1.5 space-y-1.5 mt-0.5">
+        {HERO_COLORS.slice(0, 3).map((photoColor, i) => (
+          <div key={i} className="relative overflow-hidden" style={{ height: 34, borderRadius: 8 }}>
+            {/* Foto simulada — cobre card inteiro */}
+            <div className="absolute inset-0" style={{ background: photoColor, opacity: 0.75 }} />
+            {/* Gradiente escuro da esquerda */}
+            <div className="absolute inset-0" style={{
+              background: "linear-gradient(90deg, rgba(0,0,0,0.82) 40%, rgba(0,0,0,0.18) 100%)"
+            }} />
+            {/* Texto sobre o scrim */}
+            <div className="absolute inset-0 flex flex-col justify-center px-1.5">
+              <div className="text-[5.5px] font-bold text-white leading-tight truncate">
+                {["X Salada","Prato Feito","Pizza Marg."][i]}
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[4px] text-white/50">⏱ 30 min</span>
+                <span className="text-[4px] text-yellow-400">★ 98%</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ── grid: cards com imagem no topo, título, preço, botão ──────────────────
+  const GridContent = () => (
+    <div style={{ background: c.background, height: "100%" }}>
+      <div className="px-2 pt-5 pb-1 text-[6px] font-bold text-white truncate" style={{ background: c.secondary }}>
+        🍕 Minha Loja
+      </div>
+      <div className="flex gap-1 px-1.5 py-1 overflow-hidden">
+        {["Todos","Pizza","Beb"].map((cat, i) => (
+          <div key={cat} className="text-[5px] px-1 py-0.5 rounded font-semibold shrink-0 text-white"
+            style={{ background: i === 0 ? c.primary : c.primary + "55" }}>{cat}</div>
+        ))}
+      </div>
+      <div className="px-1.5 grid grid-cols-2 gap-1">
+        {HERO_COLORS.map((photoColor, i) => (
+          <div key={i} className="rounded-lg overflow-hidden" style={{ background: c.card, border: `1px solid ${c.primary}22` }}>
+            <div className="h-7 w-full" style={{ background: photoColor, opacity: 0.7 }} />
+            <div className="p-0.5">
+              <div className="h-1.5 rounded mb-0.5 w-full" style={{ background: c.text + "55" }} />
+              <div className="h-2 rounded w-7 mt-0.5" style={{ background: c.primary }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ── classic: iFood-style — header laranja, categorias circulares,
+  //    cards com foto full-width no topo + seção branca com nome + tag + bottom nav
+  const CLASSIC_ITEMS = [
+    { name: "Petiscos Happy Hour", meta: "⏱ 20 min", tag: null,           color: "#92400e" },
+    { name: "Almoço Executivo",    meta: "⏱ 30 min", tag: "seg a sex",    color: "#14532d" },
+    { name: "Almoço Executivo",    meta: "⏱ 40 min", tag: "seg a sex",    color: "#7f1d1d" },
+  ];
+  const ClassicContent = () => (
+    <div style={{ background: "#f5f5f5", height: "100%", display: "flex", flexDirection: "column" }}>
+      {/* Header laranja com logo + título + Mesa 1 */}
+      <div className="flex items-center gap-1 px-2 pt-5 pb-1.5"
+        style={{ background: "linear-gradient(135deg, #ea580c 0%, #f97316 100%)" }}>
+        <div className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center text-[6px] font-black text-white shrink-0">R</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[5px] font-black text-white leading-none truncate">FoodSaaS ERP</div>
+          <div className="text-[4px] text-white/70 leading-none mt-0.5">Mesa 1</div>
+        </div>
+        <div className="text-[7px]">🇧🇷🇺🇸</div>
+      </div>
+      {/* Categorias circulares (iFood-style) */}
+      <div className="flex gap-2 px-2 py-1.5 overflow-hidden bg-white" style={{ borderBottom: "1px solid #f0f0f0" }}>
+        {[["🍟","Petiscos"],["🍽","Almoço"],["🥗","Entradas"],["🍕","Pizza"]].map(([em, lb]) => (
+          <div key={lb} className="flex flex-col items-center gap-0.5 shrink-0">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[7px]"
+              style={{ background: "#fff7ed", border: "1.5px solid #fed7aa" }}>{em}</div>
+            <span className="text-[4px] font-medium leading-none" style={{ color: "#6b7280" }}>{lb}</span>
+          </div>
+        ))}
+      </div>
+      {/* Cards: foto full-width + seção branca */}
+      <div className="flex-1 overflow-hidden px-1.5 pt-1 space-y-1.5">
+        {CLASSIC_ITEMS.map((item, i) => (
+          <div key={i} className="overflow-hidden bg-white" style={{ borderRadius: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+            {/* Foto full-width simulada */}
+            <div style={{ height: 22, background: `linear-gradient(135deg, ${item.color} 0%, ${item.color}aa 100%)`, position: "relative" }}>
+              {/* brilho sutil */}
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.15) 100%)" }} />
+            </div>
+            {/* Seção branca */}
+            <div className="px-1.5 py-1">
+              <div className="text-[5px] font-bold leading-tight truncate" style={{ color: "#111827" }}>{item.name}</div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[4px]" style={{ color: "#9ca3af" }}>{item.meta}</span>
+                {item.tag && (
+                  <span className="text-[3.5px] font-semibold px-0.5 rounded" style={{ background: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}>
+                    {item.tag}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Bottom nav */}
+      <div className="flex items-center justify-around px-2 py-1 bg-white" style={{ borderTop: "1px solid #f0f0f0", marginTop: "auto" }}>
+        {[["🛒","Pedidos"],["🏠",""],["💰","Cashback"],["👤","Conta"]].map(([ic, lb], i) => (
+          <div key={i} className="flex flex-col items-center gap-0.5">
+            {i === 1
+              ? <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white" style={{ background: "#ea580c" }}>R</div>
+              : <span className="text-[8px]">{ic}</span>
+            }
+            {lb && <span className="text-[3.5px]" style={{ color: i === 0 ? "#ea580c" : "#9ca3af" }}>{lb}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <button
@@ -128,55 +261,20 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
             ? "border-[3px] border-orange-500 shadow-[0_0_22px_rgba(249,115,22,0.45)]"
             : "border-[2px] border-zinc-700 group-hover:border-zinc-500"
         }`}
-        style={{ width: W, height: H, borderRadius: 18, background: t.bg }}
+        style={{ width: W, height: H, borderRadius: 18 }}
       >
         {/* Notch */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-7 h-1.5 rounded-full z-10 bg-black/60" />
-        {/* Header */}
-        <div className="px-2 pt-5 pb-1 text-[6px] font-bold text-white truncate" style={{ background: t.header }}>
-          🍕 Minha Loja
-        </div>
-        {/* Category pills */}
-        <div className="flex gap-1 px-1.5 py-1 overflow-hidden">
-          {["Todos","Pizza","Beb"].map((cat, i) => (
-            <div key={cat} className="text-[5px] px-1 py-0.5 rounded font-semibold shrink-0 text-white"
-              style={{ background: i === 0 ? t.primary : t.primary + "55" }}>{cat}</div>
-          ))}
-        </div>
-        {/* Products */}
-        <div className="px-1.5 mt-0.5">
-          {isGrid ? (
-            <div className="grid grid-cols-2 gap-1">
-              {[1,2,3,4].map(i => (
-                <div key={i} className="rounded-md overflow-hidden" style={{ background: t.card, border: `1px solid ${t.primary}33` }}>
-                  <div className="h-6 w-full" style={{ background: `${t.primary}44` }} />
-                  <div className="p-0.5">
-                    <div className="h-1.5 rounded mb-0.5 w-full" style={{ background: t.text + "44" }} />
-                    <div className="h-2 rounded w-7" style={{ background: t.primary }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {[1,2,3].map(i => (
-                <div key={i} className="flex gap-1 rounded-md p-1" style={{ background: t.card, border: `1px solid ${t.primary}22` }}>
-                  <div className="w-7 h-7 rounded shrink-0" style={{ background: `${t.primary}44` }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="h-1.5 rounded mb-0.5 w-full" style={{ background: t.text + "44" }} />
-                    <div className="h-1 rounded w-8" style={{ background: t.text + "33" }} />
-                    <div className="h-2 rounded w-7 mt-0.5" style={{ background: t.primary }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* CTA */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[5px] font-bold text-white whitespace-nowrap"
-          style={{ background: t.primary }}>
-          Ver pedido (2)
-        </div>
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 w-7 h-1.5 rounded-full z-20 bg-black/70" />
+        {type === "dark-list" && <DarkListContent />}
+        {type === "grid"      && <GridContent />}
+        {type === "classic"   && <ClassicContent />}
+        {/* CTA flutuante — apenas em dark-list e grid */}
+        {type !== "classic" && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[5px] font-bold text-white whitespace-nowrap z-10"
+            style={{ background: type === "grid" ? c.primary : "#f97316" }}>
+            Ver pedido
+          </div>
+        )}
       </div>
       <span className={`text-[10px] font-semibold transition-colors text-center leading-tight ${selected ? "text-orange-400" : "text-zinc-500 group-hover:text-zinc-300"}`}>
         {label}

@@ -30,7 +30,7 @@ export function AiTrialLock({ variant = "trial" }: AiTrialLockProps) {
         </h2>
         <p className="mx-auto max-w-md text-base text-gray-500 leading-relaxed">
           {isExpired
-            ? "Seu teste gratuito de 3 dias expirou. Ative seu plano para retomar o acesso completo ao sistema."
+            ? "Seu teste gratuito de 7 dias expirou. Ative seu plano para retomar o acesso completo ao sistema."
             : "A Inteligência Artificial está disponível apenas nos planos ativos. Durante o período de teste você pode explorar todas as outras funções livremente."}
         </p>
       </div>

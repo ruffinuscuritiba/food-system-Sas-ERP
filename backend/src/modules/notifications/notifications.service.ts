@@ -110,7 +110,7 @@ export class NotificationsService {
         return base(`
           <h2>Bem-vindo ao FoodSaaS, ${data?.name || 'cliente'}! 🎉</h2>
           <p>Sua conta <strong>${data?.companyName || ''}</strong> foi criada com sucesso.</p>
-          <p>Você tem <strong>3 dias de trial gratuito</strong> para explorar todas as funcionalidades.</p>
+          <p>Você tem <strong>7 dias de trial gratuito</strong> para explorar todas as funcionalidades.</p>
           <div style="text-align:center;margin:28px 0;">
             <a href="${data?.loginUrl || 'https://food-system-sas-erp-frontend.vercel.app/login'}"
                style="background:#ef4444;color:#fff;padding:14px 32px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none;display:inline-block;">

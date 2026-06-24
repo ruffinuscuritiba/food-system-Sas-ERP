@@ -907,7 +907,7 @@ function DemoContent() {
                 { icon: <Users className="h-4 w-4" />, value: "150+", label: "restaurantes ativos" },
                 { icon: <BarChart3 className="h-4 w-4" />, value: "50 mil", label: "pedidos por mês" },
                 { icon: <ShieldCheck className="h-4 w-4" />, value: "99.9%", label: "uptime garantido" },
-                { icon: <Clock className="h-4 w-4" />, value: "3 dias", label: "de trial grátis" },
+                { icon: <Clock className="h-4 w-4" />, value: "7 dias", label: "de trial grátis" },
               ].map((m, i) => (
                 <div key={i} className="flex items-center gap-3 px-6 py-5 md:justify-center">
                   <span className="text-orange-400/70">{m.icon}</span>
@@ -1135,7 +1135,7 @@ function DemoContent() {
               <br />
               <span className="text-white/50">antes de contratar.</span>
             </p>
-            <p className="mt-3 text-sm text-white/45">3 dias grátis. Sem cartão. Cancele quando quiser.</p>
+            <p className="mt-3 text-sm text-white/45">7 dias grátis. Sem cartão. Cancele quando quiser.</p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <button onClick={scrollToDemo}
                 className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600">

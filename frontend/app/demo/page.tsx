@@ -787,6 +787,12 @@ function DemoContent() {
 
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
     setEntering(demo.id);
+    // Dispara evento Lead no Meta Pixel e GA4 para remarketing
+    try {
+      const w = window as any;
+      if (w.fbq) w.fbq("track", "Lead", { content_name: `Demo ${demo.plan}`, currency: "BRL" });
+      if (w.gtag) w.gtag("event", "generate_lead", { event_category: "demo", event_label: demo.plan });
+    } catch {}
     try {
       const { data } = await api.post("auth/demo-access", {
         name: form.name, email: form.email, whatsapp: form.whatsapp,

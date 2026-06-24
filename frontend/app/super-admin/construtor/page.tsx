@@ -190,12 +190,13 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   ];
   const ClassicContent = () => (
     <div style={{ background: "#f5f5f5", height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header laranja com logo + título + Mesa 1 */}
+      {/* Header laranja com logo do cliente + nome da loja + Mesa 1 */}
       <div className="flex items-center gap-1 px-2 pt-5 pb-1.5"
         style={{ background: "linear-gradient(135deg, #ea580c 0%, #f97316 100%)" }}>
-        <div className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center text-[6px] font-black text-white shrink-0">R</div>
+        <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[8px] shrink-0 overflow-hidden"
+          style={{ border: "1.5px solid rgba(255,255,255,0.5)" }}>🍽️</div>
         <div className="flex-1 min-w-0">
-          <div className="text-[5px] font-black text-white leading-none truncate">FoodSaaS ERP</div>
+          <div className="text-[5px] font-black text-white leading-none truncate">Meu Restaurante</div>
           <div className="text-[4px] text-white/70 leading-none mt-0.5">Mesa 1</div>
         </div>
         <div className="text-[7px]">🇧🇷🇺🇸</div>
@@ -239,7 +240,7 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
         {[["🛒","Pedidos"],["🏠",""],["💰","Cashback"],["👤","Conta"]].map(([ic, lb], i) => (
           <div key={i} className="flex flex-col items-center gap-0.5">
             {i === 1
-              ? <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black text-white" style={{ background: "#ea580c" }}>R</div>
+              ? <div className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] overflow-hidden" style={{ background: "#fff7ed", border: "1.5px solid #ea580c" }}>🍽️</div>
               : <span className="text-[8px]">{ic}</span>
             }
             {lb && <span className="text-[3.5px]" style={{ color: i === 0 ? "#ea580c" : "#9ca3af" }}>{lb}</span>}

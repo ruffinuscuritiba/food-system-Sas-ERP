@@ -86,7 +86,7 @@ export default function ModuloDetailPage() {
 
   if (!mod) {
     return (
-      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-white">
+      <div className="min-h-screen bg-[var(--surface-0)] flex items-center justify-center text-white">
         <div className="text-center">
           <p className="text-4xl mb-4">❓</p>
           <p className="text-zinc-400 mb-4">Módulo <code className="text-violet-400">"{slug}"</code> não encontrado.</p>
@@ -102,7 +102,7 @@ export default function ModuloDetailPage() {
   const catColor = CAT_COLORS[mod.category] ?? "from-zinc-600 to-zinc-700"
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col">
+    <div className="min-h-screen bg-[var(--surface-0)] text-white flex flex-col">
       <SuperAdminTopBar backHref="/super-admin/modulos" backLabel="Módulos" />
 
       <div className="max-w-4xl mx-auto w-full px-6 py-8 space-y-6">

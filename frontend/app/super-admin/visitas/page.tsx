@@ -167,7 +167,7 @@ export default function VisitasPage() {
   const maxMonth = Math.max(...pages.map(p => p.stats?.thisMonth ?? 0), 1)
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#0a0a0b", color: "#f1f5f9" }}>
+    <div className="min-h-screen flex" style={{ background: "var(--surface-0)", color: "#f1f5f9" }}>
 
       {/* ── Sidebar nav ── */}
       <aside className="hidden lg:flex flex-col w-52 shrink-0 border-r border-white/[0.05] px-3 py-6 gap-1">

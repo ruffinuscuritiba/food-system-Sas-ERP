@@ -425,7 +425,7 @@ export default function SuperAdminModulosPage() {
   const activeCount = companyModules.filter(m => m.status === "ACTIVE" || m.status === "TRIAL").length
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col">
+    <div className="min-h-screen bg-[var(--surface-0)] text-white flex flex-col">
       <SuperAdminTopBar />
       <div className="flex flex-1">
 

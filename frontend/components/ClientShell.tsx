@@ -458,7 +458,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[var(--pdv-bg,#030712)]" : "bg-[#F5F3EF]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : "md:pt-0 pt-14"}`}>
+      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[var(--pdv-bg,#030712)]" : "bg-[var(--app-page-bg,#F5F3EF)]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : "md:pt-0 pt-14"}`}>
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside
@@ -631,7 +631,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         </aside>
 
         {/* ─── Content ──────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto min-w-0 h-full">
+        <main className="admin-page flex-1 overflow-y-auto min-w-0 h-full">
           {children}
         </main>
       </div>

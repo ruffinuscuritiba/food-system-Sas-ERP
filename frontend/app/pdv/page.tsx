@@ -772,18 +772,7 @@ export default function PDVPage() {
 
   return (
     <div
-      className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
-      style={{
-        // MODELO ORIGINAL: fundos PRETOS/grafite NEUTROS (não tingidos). A cor da
-        // loja entra SÓ no accent (botões, ativos, preços) via --color-primary
-        // (CompanyTheme, global pelo ClientShell). Mesmo UI preto pra todas as
-        // lojas; só o accent muda de cor.
-        "--pdv-sidebar-bg": "#0e0e12",
-        "--pdv-bg":         "#0a0a0c",
-        "--pdv-card":       "#17171c",
-        "--pdv-card-hover": "#222228",
-        "--pdv-border":     "rgba(255,255,255,0.08)",
-      } as React.CSSProperties}
+      className="pdv-root h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
     >
       {/* CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">

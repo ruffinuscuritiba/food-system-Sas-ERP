@@ -5,11 +5,48 @@
   --color-primary: #f97316;
 }
 
-/* Sidebar admin: preto/grafite NEUTRO (modelo original). A cor da loja entra só
- * no accent (item ativo, botões) via --color-primary. */
+/* ── Modo ESCURO (padrão) ──────────────────────────────────────────────────
+ * Fundos pretos/grafite neutros. A cor da loja entra só no accent
+ * (item ativo, botões, preços) via --color-primary. */
 :root {
-  --app-sidebar: #0e0e12;
+  --app-sidebar:      #0e0e12;
+  --app-border-ui:    rgba(255,255,255,0.08);
+  --pdv-sidebar-bg:   #0e0e12;
+  --pdv-bg:           #0a0a0c;
+  --pdv-card:         #17171c;
+  --pdv-card-hover:   #222228;
+  --pdv-border:       rgba(255,255,255,0.08);
 }
+
+/* ── Modo CLARO (tema branco por loja) ─────────────────────────────────────
+ * Aplicado quando o CompanyTheme.darkMode === false (classe theme-light no
+ * <html>, setada pelo ClientShell). Fundos brancos + texto escuro; o accent
+ * (cor da loja) continua igual. */
+:root.theme-light {
+  --app-sidebar:      #ffffff;
+  --app-border-ui:    #e5e7eb;
+  --pdv-sidebar-bg:   #ffffff;
+  --pdv-bg:           #f3f4f6;
+  --pdv-card:         #ffffff;
+  --pdv-card-hover:   #eef1f5;
+  --pdv-border:       rgba(0,0,0,0.10);
+}
+
+/* No modo claro, vira texto escuro no PDV e na sidebar admin.
+ * Botões/itens com a cor da loja (accent) mantêm texto branco. */
+:root.theme-light .pdv-root,
+:root.theme-light .app-sidebar-nav { color: #111827; }
+:root.theme-light .pdv-root .text-white,
+:root.theme-light .app-sidebar-nav .text-white { color: #111827; }
+:root.theme-light .pdv-root .text-zinc-300,
+:root.theme-light .app-sidebar-nav .text-slate-300 { color: #374151; }
+:root.theme-light .pdv-root .text-zinc-400 { color: #4b5563; }
+:root.theme-light .pdv-root .text-zinc-500,
+:root.theme-light .pdv-root .text-zinc-600,
+:root.theme-light .app-sidebar-nav .text-slate-500 { color: #6b7280; }
+/* accent: qualquer elemento com a cor da loja como fundo mantém texto branco */
+:root.theme-light .pdv-root [class*="bg-[var(--color-primary"],
+:root.theme-light .app-sidebar-nav .bg-primary { color: #ffffff !important; }
 
 html,
 body {

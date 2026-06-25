@@ -8,7 +8,6 @@ import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
 import { ComplementsModal } from "@/components/shared/ComplementsModal";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
-import { loadPdvTheme, PDV_THEME_DEFAULT, type PdvThemeConfig } from "@/lib/pdv-theme";
 
 type PdvOrderDetails = OrderDetails;
 import {
@@ -264,21 +263,10 @@ export default function PDVPage() {
   });
   const [cupomSaving, setCupomSaving]           = useState(false);
   const [cupomCreated, setCupomCreated]         = useState<string | null>(null);
-  const [pdvTheme, setPdvTheme]                 = useState<PdvThemeConfig>(PDV_THEME_DEFAULT);
-
-  useEffect(() => {
-    setPdvTheme(loadPdvTheme());
-    try {
-      const bc = new BroadcastChannel("pdv-theme");
-      bc.onmessage = (e) => setPdvTheme({ ...PDV_THEME_DEFAULT, ...e.data });
-      return () => bc.close();
-    } catch {}
-  }, []);
-
-  // O PDV NÃO sobrescreve mais o --color-primary global: a cor primária vem do
-  // CompanyTheme DA LOJA (aplicado pelo ClientShell). Assim cada loja usa seu
-  // próprio tema e PDV + sidebar + demais páginas ficam consistentes. O tema do
-  // PDV (pdvTheme) continua controlando apenas os fundos/escuros via --pdv-*.
+  // Tema do PDV: a cor primária vem do CompanyTheme DA LOJA (--color-primary,
+  // global via ClientShell) e os fundos são derivados dela via color-mix (no
+  // style do container). Não há mais tema de cor por navegador — cada loja fica
+  // monocromática na própria cor, consistente com as demais páginas.
 
   useEffect(() => {
     try {
@@ -786,13 +774,15 @@ export default function PDVPage() {
     <div
       className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
       style={{
-        // --color-primary NÃO é mais definido aqui: vem do CompanyTheme da loja
-        // (global, via ClientShell), para a cor seguir o tema de cada loja.
-        "--pdv-sidebar-bg": pdvTheme.sidebarBg,
-        "--pdv-bg":         pdvTheme.productsBg,
-        "--pdv-card":       pdvTheme.cardBg,
-        "--pdv-card-hover": pdvTheme.hoverBg,
-        "--pdv-border":     pdvTheme.border,
+        // PDV MONOCROMÁTICO: --color-primary vem do CompanyTheme da loja (global,
+        // via ClientShell). Os fundos/bordas são derivados dele via color-mix —
+        // tons escuros da MESMA família de cor. Cada loja fica monocromática na
+        // própria cor; nada mais de verdes/azuis de preset competindo.
+        "--pdv-sidebar-bg": "color-mix(in srgb, var(--color-primary) 12%, #05070d)",
+        "--pdv-bg":         "color-mix(in srgb, var(--color-primary) 6%, #04060a)",
+        "--pdv-card":       "color-mix(in srgb, var(--color-primary) 9%, #080b12)",
+        "--pdv-card-hover": "color-mix(in srgb, var(--color-primary) 15%, #0a0e16)",
+        "--pdv-border":     "color-mix(in srgb, var(--color-primary) 30%, transparent)",
       } as React.CSSProperties}
     >
       {/* CONTENT */}

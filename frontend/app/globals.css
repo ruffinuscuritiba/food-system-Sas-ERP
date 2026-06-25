@@ -5,6 +5,12 @@
   --color-primary: #f97316;
 }
 
+/* Sidebar admin monocromática: tom escuro derivado da cor da loja (--color-primary,
+ * sobrescrito por empresa via ClientShell). Mantém o app na mesma família de cor. */
+:root {
+  --app-sidebar: color-mix(in srgb, var(--color-primary) 9%, #060a12);
+}
+
 html,
 body {
   margin: 0;

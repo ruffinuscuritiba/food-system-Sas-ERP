@@ -113,7 +113,7 @@ export default function SuperAdminLeadsPage() {
   const thisMonth = leadsThisMonth(leads);
 
   return (
-    <div className="min-h-screen bg-[#0a0a14] text-white">
+    <div className="min-h-screen bg-[var(--surface-0)] text-white">
       <SuperAdminTopBar />
       <div className="p-4 md:p-6">
       {/* Header */}

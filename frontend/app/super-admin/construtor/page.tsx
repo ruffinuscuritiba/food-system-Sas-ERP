@@ -574,7 +574,7 @@ export default function ConstrutorPage() {
   const sorted = sortedBlocks(config.blocks);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white flex flex-col">
+    <div className="min-h-screen bg-[var(--surface-0)] text-white flex flex-col">
       <SuperAdminTopBar />
 
       {/* ── Top bar ── */}

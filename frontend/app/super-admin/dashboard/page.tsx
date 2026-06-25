@@ -464,7 +464,7 @@ export default function SuperAdminDashboard() {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${c("bg-[#09090b]", "bg-gray-50")}`}>
+      <div className={`min-h-screen flex items-center justify-center ${c("bg-[var(--surface-0)]", "bg-gray-50")}`}>
         <div className="flex flex-col items-center gap-4">
           <div className={`w-9 h-9 border-2 rounded-full animate-spin ${c("border-zinc-800 border-t-indigo-500", "border-gray-200 border-t-indigo-500")}`} />
           <p className={`text-sm ${c("text-zinc-500", "text-gray-400")}`}>Carregando painel...</p>
@@ -475,7 +475,7 @@ export default function SuperAdminDashboard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={`min-h-screen flex text-sm ${c("bg-[#09090b] text-white", "bg-gray-50 text-gray-900")}`}>
+    <div className={`min-h-screen flex text-sm ${c("bg-[var(--surface-0)] text-white", "bg-gray-50 text-gray-900")}`}>
 
       {/* ══════════════════════════════════════════════════════════════════════
           SIDEBAR

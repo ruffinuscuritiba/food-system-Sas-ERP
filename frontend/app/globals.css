@@ -5,10 +5,10 @@
   --color-primary: #f97316;
 }
 
-/* Sidebar admin monocromática: tom escuro derivado da cor da loja (--color-primary,
- * sobrescrito por empresa via ClientShell). Mantém o app na mesma família de cor. */
+/* Sidebar admin: preto/grafite NEUTRO (modelo original). A cor da loja entra só
+ * no accent (item ativo, botões) via --color-primary. */
 :root {
-  --app-sidebar: color-mix(in srgb, var(--color-primary) 9%, #060a12);
+  --app-sidebar: #0e0e12;
 }
 
 html,

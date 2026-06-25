@@ -774,15 +774,15 @@ export default function PDVPage() {
     <div
       className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
       style={{
-        // PDV MONOCROMÁTICO: --color-primary vem do CompanyTheme da loja (global,
-        // via ClientShell). Os fundos/bordas são derivados dele via color-mix —
-        // tons escuros da MESMA família de cor. Cada loja fica monocromática na
-        // própria cor; nada mais de verdes/azuis de preset competindo.
-        "--pdv-sidebar-bg": "color-mix(in srgb, var(--color-primary) 12%, #05070d)",
-        "--pdv-bg":         "color-mix(in srgb, var(--color-primary) 6%, #04060a)",
-        "--pdv-card":       "color-mix(in srgb, var(--color-primary) 9%, #080b12)",
-        "--pdv-card-hover": "color-mix(in srgb, var(--color-primary) 15%, #0a0e16)",
-        "--pdv-border":     "color-mix(in srgb, var(--color-primary) 30%, transparent)",
+        // MODELO ORIGINAL: fundos PRETOS/grafite NEUTROS (não tingidos). A cor da
+        // loja entra SÓ no accent (botões, ativos, preços) via --color-primary
+        // (CompanyTheme, global pelo ClientShell). Mesmo UI preto pra todas as
+        // lojas; só o accent muda de cor.
+        "--pdv-sidebar-bg": "#0e0e12",
+        "--pdv-bg":         "#0a0a0c",
+        "--pdv-card":       "#17171c",
+        "--pdv-card-hover": "#222228",
+        "--pdv-border":     "rgba(255,255,255,0.08)",
       } as React.CSSProperties}
     >
       {/* CONTENT */}

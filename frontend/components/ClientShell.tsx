@@ -301,10 +301,19 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           const color = r.data?.primaryColor;
           if (color) document.documentElement.style.setProperty("--color-primary", color);
         }
+        // Modo claro/escuro POR LOJA (CompanyTheme.darkMode). false = tema claro
+        // (fundos brancos); qualquer outro valor mantém o escuro padrão.
+        const isLight = r.data?.darkMode === false;
+        const root = document.documentElement;
+        root.classList.toggle("theme-light", isLight);
+        root.classList.toggle("theme-dark", !isLight);
       })
       .catch(() => {});
 
-    return () => { if (DEMO_IDS.has(cid)) clearDemoTheme(); };
+    return () => {
+      if (DEMO_IDS.has(cid)) clearDemoTheme();
+      document.documentElement.classList.remove("theme-light", "theme-dark");
+    };
   }, [user?.companyId]);
 
   function stopImpersonating() {
@@ -449,11 +458,12 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         <div className="md:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[#030712]" : "bg-[#F5F3EF]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : "md:pt-0 pt-14"}`}>
+      <div className={`flex h-screen overflow-hidden ${isPdv ? "bg-[var(--pdv-bg,#030712)]" : "bg-[#F5F3EF]"} ${isDemoUser ? "md:pt-8 pt-[5.5rem]" : "md:pt-0 pt-14"}`}>
 
         {/* ─── Sidebar ──────────────────────────────────────────────── */}
         <aside
           className={`
+            app-sidebar-nav
             fixed inset-y-0 left-0 z-50 w-60 border-r flex flex-col shrink-0
             transition-transform duration-300 ease-in-out
             md:relative md:translate-x-0 md:z-auto md:h-screen

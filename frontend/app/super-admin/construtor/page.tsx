@@ -101,17 +101,6 @@ function ColorField({ label, desc, value, onChange }: { label: string; desc: str
 }
 
 // ── Fotos de comida fotorrealistas via gradiente radial ───────────────────────
-// Simula iluminação, textura e profundidade de foto real de prato
-const FP = {
-  frango:    "radial-gradient(ellipse at 42% 32%, #fef08a 0%,#fbbf24 18%,#d97706 38%,#b45309 58%,#7c2d12 82%,#3b0a00 100%)",
-  salada:    "radial-gradient(ellipse at 48% 38%, #d9f99d 0%,#86efac 15%,#22c55e 35%,#16a34a 55%,#14532d 78%,#052e16 100%)",
-  pizza:     "radial-gradient(ellipse at 50% 40%, #fef9c3 0%,#fde68a 12%,#f59e0b 30%,#d97706 48%,#c2410c 68%,#7c2d12 88%,#3b0a00 100%)",
-  carne:     "radial-gradient(ellipse at 45% 35%, #fca5a5 0%,#f87171 15%,#dc2626 35%,#b91c1c 55%,#7f1d1d 75%,#450a0a 100%)",
-  burguer:   "radial-gradient(ellipse at 44% 30%, #fef3c7 0%,#fde68a 12%,#f59e0b 28%,#ca8a04 46%,#92400e 65%,#451a03 100%)",
-  sobremesa: "radial-gradient(ellipse at 48% 38%, #fdf2f8 0%,#fbcfe8 15%,#f472b6 35%,#db2777 55%,#9d174d 78%,#500724 100%)",
-  bebida:    "radial-gradient(ellipse at 50% 25%, #e0f2fe 0%,#7dd3fc 18%,#0284c7 40%,#0369a1 60%,#075985 80%,#082f49 100%)",
-};
-
 type LayoutPhoneType = "dark-list" | "grid" | "classic";
 function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   type: LayoutPhoneType; tilt: number; selected: boolean; label: string;
@@ -126,10 +115,10 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   // ══════════════════════════════════════════════════════════════════════════════
   const DarkListContent = () => {
     const items = [
-      { name:"Picanha Grelhada", desc:"Acompanha arroz, feijão e vinagrete.", price:"R$ 57,90", grad: FP.carne },
-      { name:"Burger Artesanal", desc:"Blend 160g, queijo especial, bacon.", price:"R$ 38,90", grad: FP.burguer },
-      { name:"Drink Tropical",   desc:"Rum, abacaxi, hortelã e limão.",      price:"R$ 29,90", grad: FP.bebida },
-      { name:"Sobremesa Brownie",desc:"Brownie com sorvete de chocolate.",    price:"R$ 24,90", grad: FP.sobremesa },
+      { name:"Pizza Pepperoni", desc:"Pepperoni importado e muçarela.",      price:"R$ 49,90", img:"/demo-assets/pizzas/pepperoni.jpg" },
+      { name:"Pizza Calabresa", desc:"Calabresa fatiada, cebola e orégano.", price:"R$ 44,90", img:"/demo-assets/pizzas/calabresa.jpg" },
+      { name:"Suco de Laranja", desc:"Laranja natural espremida na hora.",   price:"R$ 12,90", img:"/demo-assets/bebidas/suco-laranja.jpg" },
+      { name:"Brownie",         desc:"Brownie com sorvete de chocolate.",     price:"R$ 24,90", img:"/demo-assets/sobremesas/brownie.jpg" },
     ];
     return (
       <div style={{ background:"#111111", height:"100%", display:"flex", flexDirection:"column" }}>
@@ -162,9 +151,9 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
                 <div style={{ fontSize:3.5, color:"#555", lineHeight:1.3, marginTop:1.5, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{item.desc}</div>
                 <div style={{ fontSize:5, fontWeight:700, color:"#f97316", marginTop:3 }}>{item.price}</div>
               </div>
-              {/* Foto direita — thumbnail quadrado */}
-              <div style={{ width:32, height:32, borderRadius:7, flexShrink:0, background:item.grad, boxShadow:"0 2px 6px rgba(0,0,0,0.5)", position:"relative", overflow:"hidden" }}>
-                <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.08) 0%,transparent 50%)" }} />
+              {/* Foto direita — imagem real do produto */}
+              <div style={{ width:32, height:32, borderRadius:7, flexShrink:0, backgroundImage:`url(${item.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.12) contrast(1.04)", boxShadow:"0 2px 6px rgba(0,0,0,0.5)", position:"relative", overflow:"hidden" }}>
+                <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.12) 0%,transparent 55%)" }} />
               </div>
             </div>
           ))}
@@ -177,10 +166,10 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   // GRADE — cards 2 colunas com cores customizadas da empresa
   // ══════════════════════════════════════════════════════════════════════════════
   const gridItems = [
-    { name:"X Salada", price:"R$ 30,00", grad: FP.burguer },
-    { name:"Pizza Marg.", price:"R$ 45,00", grad: FP.pizza },
-    { name:"Prato Exec.", price:"R$ 38,00", grad: FP.frango },
-    { name:"Suco Tropical", price:"R$ 12,00", grad: FP.bebida },
+    { name:"Quatro Queijos",     price:"R$ 49,00", img:"/demo-assets/pizzas/quatro-queijos.jpg" },
+    { name:"Pizza Portuguesa",   price:"R$ 52,00", img:"/demo-assets/pizzas/portuguesa.jpg" },
+    { name:"Frango c/ Catupiry", price:"R$ 47,00", img:"/demo-assets/pizzas/frango-catupiry.jpg" },
+    { name:"Coca-Cola",          price:"R$ 8,00",  img:"/demo-assets/bebidas/coca.jpg" },
   ];
   const GridContent = () => (
     <div style={{ background: c.background, height:"100%", display:"flex", flexDirection:"column" }}>
@@ -202,8 +191,8 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, padding:"5px 6px", flex:1, overflow:"hidden" }}>
         {gridItems.map((item,i) => (
           <div key={i} style={{ background: c.card, borderRadius:9, overflow:"hidden", boxShadow:`0 2px 8px rgba(0,0,0,0.15)`, border:`1px solid ${c.primary}18` }}>
-            <div style={{ height:38, background: item.grad, position:"relative" }}>
-              <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 60%)" }} />
+            <div style={{ height:38, backgroundImage:`url(${item.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.1) contrast(1.04)", position:"relative" }}>
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.10) 0%,transparent 60%)" }} />
               <div style={{ position:"absolute", bottom:0, left:0, right:0, height:10, background:"linear-gradient(transparent,rgba(0,0,0,0.3))" }} />
             </div>
             <div style={{ padding:"4px 5px 5px" }}>
@@ -224,17 +213,17 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   // cards foto full-width + seção branca + tag + bottom nav
   // ══════════════════════════════════════════════════════════════════════════════
   const catCircles = [
-    { label:"Petiscos", grad: FP.frango },
-    { label:"Almoço",   grad: FP.carne  },
-    { label:"Entradas", grad: FP.salada },
-    { label:"Pizza",    grad: FP.pizza  },
-    { label:"Burguer",  grad: FP.burguer},
+    { label:"Pizzas",   img:"/demo-assets/pizzas/pepperoni.jpg" },
+    { label:"Combos",   img:"/demo-assets/combos/familia.jpg" },
+    { label:"Bebidas",  img:"/demo-assets/bebidas/cerveja.jpg" },
+    { label:"Doces",    img:"/demo-assets/sobremesas/pudim.jpg" },
+    { label:"Salgadas", img:"/demo-assets/pizzas/portuguesa.jpg" },
   ];
   const classicCards = [
-    { name:"Petiscos Happy Hour", meta:"20 min", tag:null,        grad: FP.frango },
-    { name:"Almoço Executivo",    meta:"30 min", tag:"seg a sex", grad: FP.carne  },
-    { name:"Almoço Executivo",    meta:"40 min", tag:"seg a sex", grad: FP.salada },
-    { name:"Promoção do dia",     meta:"25 min", tag:"Oferta",    grad: FP.pizza  },
+    { name:"Pizza Bacon Especial", meta:"25 min", tag:"Oferta", img:"/demo-assets/pizzas/bacon-especial.jpg" },
+    { name:"Combo Família",        meta:"30 min", tag:null,     img:"/demo-assets/combos/familia.jpg" },
+    { name:"Pizza Brigadeiro",     meta:"20 min", tag:"Doce",   img:"/demo-assets/pizzas/brigadeiro.jpg" },
+    { name:"Pudim Caseiro",        meta:"15 min", tag:null,     img:"/demo-assets/sobremesas/pudim.jpg" },
   ];
   const ClassicContent = () => (
     <div style={{ background:"#f2f2f2", height:"100%", display:"flex", flexDirection:"column" }}>
@@ -253,8 +242,8 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
       <div style={{ background:"#fff", borderBottom:"1px solid #e5e5e5", padding:"6px 7px 5px", display:"flex", gap:5, overflowX:"hidden" }}>
         {catCircles.map(cat => (
           <div key={cat.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
-            <div style={{ width:24, height:24, borderRadius:"50%", background: cat.grad, border:"2px solid #fed7aa", position:"relative", overflow:"hidden", boxShadow:"0 2px 4px rgba(0,0,0,0.15)" }}>
-              <div style={{ position:"absolute", inset:0, background:"radial-gradient(circle at 35% 30%, rgba(255,255,255,0.25) 0%, transparent 60%)" }} />
+            <div style={{ width:24, height:24, borderRadius:"50%", backgroundImage:`url(${cat.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.12) contrast(1.04)", border:"2px solid #fed7aa", position:"relative", overflow:"hidden", boxShadow:"0 2px 4px rgba(0,0,0,0.15)" }}>
+              <div style={{ position:"absolute", inset:0, background:"radial-gradient(circle at 35% 30%, rgba(255,255,255,0.30) 0%, transparent 60%)" }} />
             </div>
             <span style={{ fontSize:3.5, color:"#6b7280", fontWeight:500, lineHeight:1, textAlign:"center" }}>{cat.label}</span>
           </div>
@@ -264,9 +253,9 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
       <div style={{ flex:1, overflow:"hidden", padding:"5px 6px 3px", display:"flex", flexDirection:"column", gap:4 }}>
         {classicCards.map((card,i) => (
           <div key={i} style={{ background:"#fff", borderRadius:11, overflow:"hidden", boxShadow:"0 1px 6px rgba(0,0,0,0.10)", flexShrink:0 }}>
-            {/* Foto full-width */}
-            <div style={{ height:28, background: card.grad, position:"relative" }}>
-              <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.07) 0%,transparent 50%)" }} />
+            {/* Foto full-width — imagem real do produto */}
+            <div style={{ height:28, backgroundImage:`url(${card.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.1) contrast(1.04)", position:"relative" }}>
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.10) 0%,transparent 50%)" }} />
               <div style={{ position:"absolute", bottom:0, left:0, right:0, height:10, background:"linear-gradient(transparent,rgba(0,0,0,0.22))" }} />
             </div>
             {/* Seção branca */}

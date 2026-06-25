@@ -343,12 +343,25 @@ function PhonePreview({ config, companyId, colors, onRefresh }: { config: Layout
     <div className="flex flex-col items-center gap-4">
       {/* Phone */}
       <div className="relative select-none" style={{ width: 220 }}>
-        {/* Camera notch */}
-        <div className="absolute top-3.5 left-1/2 -translate-x-1/2 w-14 h-3.5 bg-[#0a0a0b] rounded-full z-20 flex items-center justify-center">
-          <div className="w-2 h-2 rounded-full bg-zinc-800 border border-zinc-700" />
-        </div>
-        {/* Shell */}
-        <div className="rounded-[2.5rem] border-[5px] border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden" style={{ height: 440 }}>
+        {/* Frame titânio metálico (iPhone realista) */}
+        <div
+          className="relative rounded-[2.75rem] p-[3px]"
+          style={{
+            background:
+              "linear-gradient(150deg,#4a4d54 0%,#16181d 28%,#2c2f37 55%,#101116 80%,#3a3d44 100%)",
+            boxShadow:
+              "0 30px 60px -18px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.05), inset 0 1px 1px rgba(255,255,255,.18)",
+          }}
+        >
+          {/* Tela */}
+          <div className="relative rounded-[2.45rem] overflow-hidden bg-[var(--surface-0,#0A0B0E)]" style={{ height: 446 }}>
+            {/* Dynamic Island */}
+            <div
+              className="absolute top-2 left-1/2 -translate-x-1/2 z-30 h-[1.5rem] w-[5rem] rounded-full bg-black flex items-center justify-end pr-2.5"
+              style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,.07), 0 1px 2px rgba(0,0,0,.6)" }}
+            >
+              <div className="w-[7px] h-[7px] rounded-full" style={{ background: "radial-gradient(circle at 30% 30%,#33466b,#070a12)", boxShadow: "inset 0 0 1px rgba(120,160,255,.6)" }} />
+            </div>
           {companyId ? (
             <iframe
               key={`${companyId}-${key}`}
@@ -412,9 +425,19 @@ function PhonePreview({ config, companyId, colors, onRefresh }: { config: Layout
               </div>
             </div>
           )}
+            {/* Sheen de vidro */}
+            <div
+              className="pointer-events-none absolute inset-0 z-20"
+              style={{ background: "linear-gradient(125deg,rgba(255,255,255,.10) 0%,rgba(255,255,255,0) 22%,rgba(255,255,255,0) 88%,rgba(255,255,255,.06) 100%)" }}
+            />
+          </div>
         </div>
+        {/* Botões laterais (titânio) */}
+        <div className="absolute -left-[3px] top-[5.5rem] w-[3px] h-7  rounded-l-sm bg-zinc-700/70" />
+        <div className="absolute -left-[3px] top-[8.4rem] w-[3px] h-11 rounded-l-sm bg-zinc-700/70" />
+        <div className="absolute -right-[3px] top-[7rem]  w-[3px] h-14 rounded-r-sm bg-zinc-700/70" />
         {/* Home bar */}
-        <div className="mt-2 mx-auto w-14 h-1 bg-zinc-700 rounded-full" />
+        <div className="mt-3 mx-auto w-16 h-1 rounded-full bg-zinc-600/60" />
       </div>
 
       {/* Actions */}

@@ -9,13 +9,23 @@
  * Fundos pretos/grafite neutros. A cor da loja entra só no accent
  * (item ativo, botões, preços) via --color-primary. */
 :root {
-  --app-sidebar:      #0e0e12;
-  --app-border-ui:    rgba(255,255,255,0.08);
-  --pdv-sidebar-bg:   #0e0e12;
-  --pdv-bg:           #0a0a0c;
-  --pdv-card:         #17171c;
-  --pdv-card-hover:   #222228;
-  --pdv-border:       rgba(255,255,255,0.08);
+  /* Design System — superfícies (cinza-azul profundo; NUNCA preto puro) */
+  --surface-0:        #0A0B0E;   /* fundo geral */
+  --surface-1:        #0E1017;   /* sidebar / barras elevadas */
+  --surface-2:        #12141C;   /* cards */
+  --surface-3:        #1A1D28;   /* hover / elevação */
+  --border-ui:        rgba(255,255,255,0.07);
+  --radius-card:      16px;
+  --accent:           var(--color-primary);
+
+  /* Tokens legados (admin + PDV) herdam o Design System — fonte única */
+  --app-sidebar:      var(--surface-1);
+  --app-border-ui:    var(--border-ui);
+  --pdv-sidebar-bg:   var(--surface-1);
+  --pdv-bg:           var(--surface-0);
+  --pdv-card:         var(--surface-2);
+  --pdv-card-hover:   var(--surface-3);
+  --pdv-border:       var(--border-ui);
 }
 
 /* ── Modo CLARO (tema branco por loja) ─────────────────────────────────────
@@ -23,13 +33,19 @@
  * <html>, setada pelo ClientShell). Fundos brancos + texto escuro; o accent
  * (cor da loja) continua igual. */
 :root.theme-light {
-  --app-sidebar:      #ffffff;
-  --app-border-ui:    #e5e7eb;
-  --pdv-sidebar-bg:   #ffffff;
-  --pdv-bg:           #f3f4f6;
-  --pdv-card:         #ffffff;
-  --pdv-card-hover:   #eef1f5;
-  --pdv-border:       rgba(0,0,0,0.10);
+  --surface-0:        #f3f4f6;
+  --surface-1:        #ffffff;
+  --surface-2:        #ffffff;
+  --surface-3:        #eef1f5;
+  --border-ui:        #e5e7eb;
+
+  --app-sidebar:      var(--surface-1);
+  --app-border-ui:    var(--border-ui);
+  --pdv-sidebar-bg:   var(--surface-1);
+  --pdv-bg:           var(--surface-0);
+  --pdv-card:         var(--surface-2);
+  --pdv-card-hover:   var(--surface-3);
+  --pdv-border:       var(--border-ui);
 }
 
 /* No modo claro, vira texto escuro no PDV e na sidebar admin.

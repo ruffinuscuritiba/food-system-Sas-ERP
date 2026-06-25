@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
-import { PDV_THEME_KEY } from "@/lib/pdv-theme";
 
 import {
   LayoutDashboard,
@@ -300,42 +299,13 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           applyDemoTheme(cid);
         } else {
           const color = r.data?.primaryColor;
-          // Não sobrescreve se há um tema de PDV salvo — esse vence globalmente
-          // (mantém a cor consistente entre PDV e demais páginas).
-          if (color && !localStorage.getItem(PDV_THEME_KEY)) {
-            document.documentElement.style.setProperty("--color-primary", color);
-          }
+          if (color) document.documentElement.style.setProperty("--color-primary", color);
         }
       })
       .catch(() => {});
 
     return () => { if (DEMO_IDS.has(cid)) clearDemoTheme(); };
   }, [user?.companyId]);
-
-  // Consistência de cor em TODAS as páginas: se o usuário salvou um tema no
-  // editor (PDV theme em localStorage), aplica o `primary` dele globalmente —
-  // assim o menu/sidebar de qualquer página segue a mesma cor (azul→azul,
-  // verde→verde). Atualiza ao vivo via BroadcastChannel("pdv-theme").
-  useEffect(() => {
-    const applyPdvPrimary = () => {
-      try {
-        const raw = localStorage.getItem(PDV_THEME_KEY);
-        if (!raw) return;
-        const t = JSON.parse(raw);
-        if (t?.primary) document.documentElement.style.setProperty("--color-primary", t.primary);
-      } catch { /* ignore */ }
-    };
-    applyPdvPrimary();
-    let bc: BroadcastChannel | null = null;
-    try {
-      bc = new BroadcastChannel("pdv-theme");
-      bc.onmessage = (e) => {
-        const t = (e as MessageEvent).data;
-        if (t?.primary) document.documentElement.style.setProperty("--color-primary", t.primary);
-      };
-    } catch { /* BroadcastChannel indisponível */ }
-    return () => { try { bc?.close(); } catch { /* ignore */ } };
-  }, []);
 
   function stopImpersonating() {
     localStorage.removeItem("token");

@@ -275,24 +275,10 @@ export default function PDVPage() {
     } catch {}
   }, []);
 
-  // Captura os valores originais do tema da empresa na montagem e restaura ao sair do PDV
-  useEffect(() => {
-    const root = document.documentElement;
-    const origPrimary = root.style.getPropertyValue("--color-primary");
-    const origSidebar = root.style.getPropertyValue("--app-sidebar");
-    return () => {
-      if (origPrimary) root.style.setProperty("--color-primary", origPrimary);
-      else root.style.removeProperty("--color-primary");
-      if (origSidebar) root.style.setProperty("--app-sidebar", origSidebar);
-      else root.style.removeProperty("--app-sidebar");
-    };
-  }, []);
-
-  // Propaga o tema PDV ao root do documento para que a sidebar admin fique consistente
-  useEffect(() => {
-    document.documentElement.style.setProperty("--color-primary", pdvTheme.primary);
-    document.documentElement.style.setProperty("--app-sidebar", pdvTheme.sidebarBg);
-  }, [pdvTheme.primary, pdvTheme.sidebarBg]);
+  // O PDV NÃO sobrescreve mais o --color-primary global: a cor primária vem do
+  // CompanyTheme DA LOJA (aplicado pelo ClientShell). Assim cada loja usa seu
+  // próprio tema e PDV + sidebar + demais páginas ficam consistentes. O tema do
+  // PDV (pdvTheme) continua controlando apenas os fundos/escuros via --pdv-*.
 
   useEffect(() => {
     try {
@@ -800,7 +786,8 @@ export default function PDVPage() {
     <div
       className="h-[calc(100dvh-3.5rem)] md:h-screen bg-[var(--pdv-bg,#030712)] text-white flex overflow-hidden w-full min-w-0"
       style={{
-        "--color-primary":  pdvTheme.primary,
+        // --color-primary NÃO é mais definido aqui: vem do CompanyTheme da loja
+        // (global, via ClientShell), para a cor seguir o tema de cada loja.
         "--pdv-sidebar-bg": pdvTheme.sidebarBg,
         "--pdv-bg":         pdvTheme.productsBg,
         "--pdv-card":       pdvTheme.cardBg,

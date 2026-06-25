@@ -17,6 +17,7 @@
   --border-ui:        rgba(255,255,255,0.07);
   --radius-card:      16px;
   --accent:           var(--color-primary);
+  --app-page-bg:      var(--surface-0);   /* fundo das páginas admin */
 
   /* Tokens legados (admin + PDV) herdam o Design System — fonte única */
   --app-sidebar:      var(--surface-1);
@@ -38,6 +39,7 @@
   --surface-2:        #ffffff;
   --surface-3:        #eef1f5;
   --border-ui:        #e5e7eb;
+  --app-page-bg:      #F5F3EF;            /* páginas admin claras */
 
   --app-sidebar:      var(--surface-1);
   --app-border-ui:    var(--border-ui);
@@ -63,6 +65,45 @@
 /* accent: qualquer elemento com a cor da loja como fundo mantém texto branco */
 :root.theme-light .pdv-root [class*="bg-[var(--color-primary"],
 :root.theme-light .app-sidebar-nav .bg-primary { color: #ffffff !important; }
+
+/* ── Páginas admin no modo ESCURO ─────────────────────────────────────────
+ * Quando NÃO está em modo claro, as páginas admin (construídas light-first)
+ * têm cards/fundos/texto/inputs invertidos para o Design System escuro.
+ * Escopo .admin-page (no <main> do ClientShell). Accent mantém texto branco. */
+:root:not(.theme-light) .admin-page { color: #e5e7eb; }
+:root:not(.theme-light) .admin-page .bg-white { background-color: var(--surface-2) !important; }
+:root:not(.theme-light) .admin-page .bg-gray-50,
+:root:not(.theme-light) .admin-page .bg-gray-100,
+:root:not(.theme-light) .admin-page .bg-slate-50,
+:root:not(.theme-light) .admin-page .bg-slate-100 { background-color: var(--surface-1) !important; }
+:root:not(.theme-light) .admin-page .text-black,
+:root:not(.theme-light) .admin-page .text-gray-900,
+:root:not(.theme-light) .admin-page .text-gray-800,
+:root:not(.theme-light) .admin-page .text-slate-900,
+:root:not(.theme-light) .admin-page .text-slate-800 { color: #f1f5f9 !important; }
+:root:not(.theme-light) .admin-page .text-gray-700,
+:root:not(.theme-light) .admin-page .text-gray-600,
+:root:not(.theme-light) .admin-page .text-gray-500,
+:root:not(.theme-light) .admin-page .text-gray-400,
+:root:not(.theme-light) .admin-page .text-slate-600,
+:root:not(.theme-light) .admin-page .text-slate-500 { color: #9aa6b8 !important; }
+:root:not(.theme-light) .admin-page .border-gray-100,
+:root:not(.theme-light) .admin-page .border-gray-200,
+:root:not(.theme-light) .admin-page .border-gray-300,
+:root:not(.theme-light) .admin-page .border-slate-200,
+:root:not(.theme-light) .admin-page .divide-gray-200 > * { border-color: var(--border-ui) !important; }
+/* inputs legíveis no escuro (sobrepõe o reset global de input claro) */
+:root:not(.theme-light) .admin-page input:not([type="color"]):not([type="range"]),
+:root:not(.theme-light) .admin-page textarea,
+:root:not(.theme-light) .admin-page select {
+  background-color: var(--surface-1);
+  color: #f1f5f9;
+  -webkit-text-fill-color: #f1f5f9;
+  border-color: var(--border-ui);
+}
+/* accent (cor da loja) como fundo mantém texto branco */
+:root:not(.theme-light) .admin-page [class*="bg-[var(--color-primary"],
+:root:not(.theme-light) .admin-page .bg-primary { color: #ffffff !important; }
 
 html,
 body {

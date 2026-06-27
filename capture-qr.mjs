@@ -3,10 +3,17 @@
 import { WebSocket } from 'ws';
 import { writeFileSync } from 'fs';
 
-const EVOLUTION_URL = 'https://evolution-api-kely.onrender.com';
-const WS_URL = 'wss://evolution-api-kely.onrender.com';
-const API_KEY = 'kely-evolution-2024-secret';
-const INSTANCE = 'kely';
+// Configuração via variáveis de ambiente — NUNCA commitar segredo no código.
+// Ex: EVOLUTION_API_URL=https://... EVOLUTION_API_KEY=xxx EVOLUTION_INSTANCE=kely node capture-qr.mjs
+const EVOLUTION_URL = process.env.EVOLUTION_API_URL || 'https://evolution-api-j9ur.srv1747711.hstgr.cloud';
+const WS_URL = EVOLUTION_URL.replace(/^http/, 'ws');
+const API_KEY = process.env.EVOLUTION_API_KEY || '';
+const INSTANCE = process.env.EVOLUTION_INSTANCE || 'kely';
+
+if (!API_KEY) {
+  console.error('❌ Defina EVOLUTION_API_KEY no ambiente. Ex: EVOLUTION_API_KEY=xxx node capture-qr.mjs');
+  process.exit(1);
+}
 
 console.log('🔌 Connecting to Evolution API WebSocket...');
 console.log('   URL:', WS_URL);

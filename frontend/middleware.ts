@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   '/demo',
   '/ia-demo',
   '/tracking',
+  '/order-status',
 ]
 
 export function middleware(request: NextRequest) {

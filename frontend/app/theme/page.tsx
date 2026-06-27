@@ -44,6 +44,18 @@ const SIDEBAR_ITEMS: { navKey: string; label: string; emoji: string; section: st
   { navKey: "tema",              label: "Tema / Visual",       emoji: "🎨", section: "Marketplace" },
 ];
 
+/** Converte qualquer cor (hex/rgb/rgba) para #rrggbb — exigido por <input type="color">. */
+function toHexColor(c?: string): string {
+  if (!c) return "#000000";
+  if (c.startsWith("#")) return c.slice(0, 7);
+  const m = c.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (m) {
+    const h = (n: string) => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, "0");
+    return `#${h(m[1])}${h(m[2])}${h(m[3])}`;
+  }
+  return "#000000";
+}
+
 export default function ThemePage() {
   const { user } = useAuthStore();
   const companyId = user?.companyId;
@@ -101,24 +113,61 @@ export default function ThemePage() {
     }
   }
 
+  // Aplica claro/escuro no <html> (mesma classe que o ClientShell usa).
+  function applyMode(isDark?: boolean) {
+    const dark = isDark !== false; // default escuro
+    const root = document.documentElement;
+    root.classList.toggle("theme-light", !dark);
+    root.classList.toggle("theme-dark", dark);
+  }
+
+  function applyLive(t: any) {
+    if (t?.primaryColor) {
+      document.documentElement.style.setProperty("--color-primary", t.primaryColor);
+    }
+    applyMode(t?.darkMode);
+  }
+
+  async function persistTheme(obj: any) {
+    if (!companyId) return false;
+    const res = await fetch(`${apiBaseUrl}/themes/${companyId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(obj),
+    });
+    return res.ok;
+  }
+
   async function saveTheme() {
     if (!companyId) return;
     setSaving(true);
     try {
-      await fetch(`${apiBaseUrl}/themes/${companyId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(theme),
-      });
-      if (theme.primaryColor) {
-        document.documentElement.style.setProperty("--color-primary", theme.primaryColor);
-      }
+      await persistTheme(theme);
+      applyLive(theme);
       toast.success("Tema atualizado com sucesso!");
     } catch {
       toast.error("Erro ao salvar tema.");
     } finally {
       setSaving(false);
     }
+  }
+
+  // Aplica uma cor de accent na hora + salva (usado pelos presets e atalhos).
+  async function applyPrimary(primary: string) {
+    const updated = { ...theme, primaryColor: primary };
+    setTheme(updated);
+    document.documentElement.style.setProperty("--color-primary", primary);
+    try { await persistTheme(updated); toast.success("Cor aplicada!"); }
+    catch { toast.error("Erro ao aplicar cor."); }
+  }
+
+  // Alterna claro/escuro da loja + salva.
+  async function toggleDarkMode(next: boolean) {
+    const updated = { ...theme, darkMode: next };
+    setTheme(updated);
+    applyMode(next);
+    try { await persistTheme(updated); toast.success(next ? "Modo escuro ativado" : "Modo claro ativado"); }
+    catch { toast.error("Erro ao trocar o modo."); }
   }
 
   if (!theme) {
@@ -161,7 +210,7 @@ export default function ThemePage() {
                     <div className="flex items-center gap-2">
                       <input
                         type="color"
-                        value={theme[key] || "#000000"}
+                        value={toHexColor(theme[key]) || "#000000"}
                         onChange={(e) => setTheme({ ...theme, [key]: e.target.value })}
                         className="h-9 w-16 rounded-lg cursor-pointer border-0"
                       />
@@ -169,6 +218,34 @@ export default function ThemePage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Modo claro / escuro da loja */}
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: `${theme.primaryColor}33` }}>
+                <label className="block mb-2 text-xs font-semibold opacity-70">Modo do tema</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleDarkMode(true)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition"
+                    style={theme.darkMode !== false
+                      ? { background: "#0A0B0E", color: "#fff", borderColor: theme.primaryColor }
+                      : { background: "transparent", color: "inherit", borderColor: "rgba(127,127,127,0.4)", opacity: 0.6 }}
+                  >
+                    🌙 Escuro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleDarkMode(false)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold border-2 transition"
+                    style={theme.darkMode === false
+                      ? { background: "#ffffff", color: "#111827", borderColor: theme.primaryColor }
+                      : { background: "transparent", color: "inherit", borderColor: "rgba(127,127,127,0.4)", opacity: 0.6 }}
+                  >
+                    ☀️ Claro
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] opacity-50">Aplica em todas as páginas desta loja (PDV, admin e cardápio).</p>
               </div>
             </section>
 
@@ -347,13 +424,10 @@ export default function ThemePage() {
               <div className="divide-y divide-gray-100">
                 {PDV_THEME_PRESETS.map((p) => {
                   const cfg = { ...PDV_THEME_DEFAULT, ...p.config };
-                  const isActive =
-                    pdvTheme.primary === cfg.primary &&
-                    pdvTheme.sidebarBg === cfg.sidebarBg &&
-                    pdvTheme.productsBg === cfg.productsBg;
+                  const isActive = (theme.primaryColor || "").toLowerCase() === cfg.primary.toLowerCase();
                   return (
                     <button key={p.name}
-                      onClick={() => updatePdvTheme({ ...PDV_THEME_DEFAULT, ...p.config })}
+                      onClick={() => applyPrimary(cfg.primary)}
                       className={`w-full flex items-center gap-4 px-5 py-4 text-left transition ${isActive ? "bg-blue-50" : "hover:bg-gray-50"}`}>
                       {/* Color swatch preview */}
                       <div className="flex shrink-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ width: 88, height: 48 }}>
@@ -397,7 +471,7 @@ export default function ThemePage() {
                     className={`rounded-xl p-2 -m-2 transition-all ${activeKey === key ? "ring-2 ring-blue-400 bg-blue-50" : ""}`}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
                     <div className="flex items-center gap-2">
-                      <input type="color" value={pdvTheme[key] as string}
+                      <input type="color" value={toHexColor(pdvTheme[key] as string)}
                         onChange={(e) => updatePdvTheme({ [key]: e.target.value })}
                         onFocus={() => setActiveKey(key)}
                         onBlur={() => setActiveKey(null)}
@@ -423,7 +497,7 @@ export default function ThemePage() {
                     className={`rounded-xl p-2 -m-2 transition-all ${activeKey === key ? "ring-2 ring-blue-400 bg-blue-50" : ""}`}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
                     <div className="flex items-center gap-2">
-                      <input type="color" value={pdvTheme[key] as string}
+                      <input type="color" value={toHexColor(pdvTheme[key] as string)}
                         onChange={(e) => updatePdvTheme({ [key]: e.target.value })}
                         onFocus={() => setActiveKey(key)}
                         onBlur={() => setActiveKey(null)}

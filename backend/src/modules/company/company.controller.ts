@@ -34,7 +34,7 @@ export class CompanyController {
   /** GET /company/settings — retorna dados de configuração da empresa logada */
   @Get('settings')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEMO')
   getSettings(@CompanyId() companyId: string) {
     return this.service.getSettings(companyId);
   }

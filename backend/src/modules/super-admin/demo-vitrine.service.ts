@@ -656,21 +656,28 @@ export class DemoVitrineService {
       'WHATSAPP',
     ];
 
-    const DEMO_COLORS: Record<string, string> = {
-      'demo-basic-001': '#16a34a',
-      'demo-pro-001': '#2563eb',
-      'demo-enterprise-001': '#7c3aed',
-      'demo-delivery-001': '#ea580c',
+    // Marble-inspired theme: light mode, warm off-white base, sophisticated accents
+    const DEMO_THEMES: Record<string, { primaryColor: string; secondaryColor: string }> = {
+      'demo-basic-001':      { primaryColor: '#1F5C38', secondaryColor: '#4A8F65' }, // forest green
+      'demo-pro-001':        { primaryColor: '#1A3A6B', secondaryColor: '#4A72B0' }, // deep navy
+      'demo-enterprise-001': { primaryColor: '#3D1A70', secondaryColor: '#7B52B0' }, // deep violet
+      'demo-delivery-001':   { primaryColor: '#7C3D12', secondaryColor: '#B5713A' }, // terracotta
+    };
+
+    const MARBLE_BASE = {
+      backgroundColor: '#F7F6F3', // off-white warm marble
+      textColor: '#1A1A1A',       // near-black charcoal
+      darkMode: false,
     };
 
     for (const cid of SAFE_DEMO_IDS) {
-      const primaryColor = DEMO_COLORS[cid];
+      const { primaryColor, secondaryColor } = DEMO_THEMES[cid];
 
-      // Ensure CompanyTheme exists with correct brand color
+      // Ensure CompanyTheme exists with marble base + tier accent
       await this.prisma.companyTheme.upsert({
         where: { companyId: cid },
-        update: { primaryColor },
-        create: { companyId: cid, primaryColor, darkMode: false },
+        update: { primaryColor, secondaryColor, ...MARBLE_BASE },
+        create: { companyId: cid, primaryColor, secondaryColor, ...MARBLE_BASE },
       });
 
       // Ensure all modules are active (additive — never deactivates)

@@ -323,6 +323,17 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     };
   }, [user?.companyId]);
 
+  // Páginas /super-admin são dark-only (hardcoded text-white) e não passam
+  // pelo fluxo de tema da empresa (são PUBLIC_ROUTES, sem user.companyId).
+  // Força .theme-dark aqui para não herdar o mármore claro (padrão global).
+  useEffect(() => {
+    if (!pathname?.startsWith("/super-admin")) return;
+    document.documentElement.classList.add("theme-dark");
+    return () => {
+      document.documentElement.classList.remove("theme-dark");
+    };
+  }, [pathname]);
+
   function stopImpersonating() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");

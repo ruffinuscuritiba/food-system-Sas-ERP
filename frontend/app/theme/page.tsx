@@ -330,7 +330,7 @@ export default function ThemePage() {
           <div className="space-y-4">
 
             {/* Preview do Tema */}
-            <div className="rounded-2xl overflow-hidden border sticky top-6 self-start" style={{ borderColor: theme.primaryColor }}>
+            <div className="rounded-2xl overflow-hidden border md:sticky md:top-6 md:self-start" style={{ borderColor: theme.primaryColor }}>
               <div className="relative h-48">
                 <img
                   src={theme.bannerUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591"}

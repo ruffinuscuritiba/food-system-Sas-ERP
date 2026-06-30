@@ -310,12 +310,12 @@ const COMBOS: ProdDef[] = [
 ];
 
 const PRATOS_DIA: ProdDef[] = [
-  { key: 'frango-grelhado',  name: 'Marmita Frango Grelhado',     price: 22.9, cost: 9.0,  imgId: 'pizzas/margherita.jpg',      desc: 'Frango grelhado, arroz, feijão, salada e farofa' },
+  { key: 'frango-grelhado',  name: 'Marmita Frango Grelhado',     price: 22.9, cost: 9.0,  imgId: 'pizzas/frango-catupiry.jpg', desc: 'Frango grelhado, arroz, feijão, salada e farofa' },
   { key: 'bife-milanesa',    name: 'Marmita Bife à Milanesa',      price: 25.9, cost: 10.5, imgId: 'pizzas/portuguesa.jpg',      desc: 'Bife empanado, purê de batata, arroz e feijão' },
   { key: 'peixe-grelhado',   name: 'Marmita Peixe Grelhado',       price: 28.9, cost: 12.0, imgId: 'pizzas/quatro-queijos.jpg',  desc: 'Tilápia grelhada, arroz, legumes no vapor e limão' },
   { key: 'strogonoff',       name: 'Marmita Strogonoff de Frango', price: 26.9, cost: 11.0, imgId: 'pizzas/calabresa.jpg',       desc: 'Strogonoff cremoso, arroz branco e batata palha' },
-  { key: 'macarrao-bolonha', name: 'Marmita Macarrão à Bolonhesa', price: 21.9, cost: 8.5,  imgId: 'pizzas/frango-catupiry.jpg', desc: 'Macarrão com molho bolonhesa artesanal e parmesão' },
-  { key: 'vegana',           name: 'Marmita Vegana',               price: 20.9, cost: 7.5,  imgId: 'pizzas/vegetariana.jpg',    desc: 'Grão-de-bico, legumes assados, tabule e tahine' },
+  { key: 'macarrao-bolonha', name: 'Marmita Macarrão à Bolonhesa', price: 21.9, cost: 8.5,  imgId: 'pizzas/bacon-especial.jpg',  desc: 'Macarrão com molho bolonhesa artesanal e parmesão' },
+  { key: 'vegana',           name: 'Marmita Vegana',               price: 20.9, cost: 7.5,  imgId: 'pizzas/pepperoni.jpg',       desc: 'Grão-de-bico, legumes assados, tabule e tahine' },
 ];
 
 const PRODUCTS_MAP: Record<string, ProdDef[]> = {

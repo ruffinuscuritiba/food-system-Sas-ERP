@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -78,14 +79,60 @@ export function extractRealIp(req: any): string {
 @Injectable()
 export class QrCampaignsService {
   private readonly frontendUrl: string;
+  private readonly logger = new Logger(QrCampaignsService.name);
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
     this.frontendUrl =
+      this.config.get('FRONTEND_URL') ??
       this.config.get('NEXT_PUBLIC_API_URL')?.replace('/api', '') ??
       'https://food-system-sas-erp-frontend.vercel.app';
+  }
+
+  // ── WhatsApp de boas-vindas ao usar o cupom QR ────────────────────────────
+  private async sendWelcomeWhatsapp(params: {
+    companyId: string;
+    customerPhone: string;
+    customerName: string;
+    campaignName: string;
+    discountLine: string;
+    cardapioUrl: string;
+  }) {
+    const apiUrl      = this.config.get('EVOLUTION_API_URL');
+    const apiKey      = this.config.get('EVOLUTION_API_KEY');
+    const instanceName = this.config.get('EVOLUTION_INSTANCE_NAME');
+    if (!apiUrl || !apiKey || !instanceName) return; // sem Evolution configurado
+
+    // Busca a conexão ativa da empresa
+    const conn = await this.prisma.whatsappConnection.findFirst({
+      where: { companyId: params.companyId, isActive: true },
+    }).catch(() => null);
+    const instance = conn?.instanceName || instanceName;
+
+    const phone = params.customerPhone.replace(/\D/g, '');
+    const firstName = params.customerName.split(' ')[0];
+
+    const text =
+      `Oi ${firstName}! 🎉\n\n` +
+      `Seu cupom foi aplicado com sucesso!\n` +
+      `*${params.discountLine}* no seu próximo pedido pelo nosso cardápio 🛵\n\n` +
+      `Peça diretamente por aqui e aproveite o desconto:\n` +
+      `👉 ${params.cardapioUrl}\n\n` +
+      `Qualquer dúvida é só chamar! 😊`;
+
+    try {
+      await fetch(`${apiUrl}/message/sendText/${instance}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: apiKey },
+        body: JSON.stringify({ number: phone, text }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      this.logger.log(`[QR-WA] boas-vindas enviado para ${phone}`);
+    } catch (e: any) {
+      this.logger.warn(`[QR-WA] falha ao enviar WA para ${phone}: ${e?.message}`);
+    }
   }
 
   // ── CRUD de campanhas ──────────────────────────────────────────────────────
@@ -347,10 +394,15 @@ export class QrCampaignsService {
       }
       discount = Math.round(discount * 100) / 100;
 
-      // Marcar QR como usado
+      // Marcar QR como usado (grava phone/nome para o WhatsApp de boas-vindas)
       await tx.qrCode.update({
         where: { id: qr.id },
-        data:  { used: true, usedAt: new Date() },
+        data: {
+          used: true,
+          usedAt: new Date(),
+          ...(dto.customerPhone && { usedByPhone: dto.customerPhone }),
+          ...(dto.customerName  && { usedByCustomer: dto.customerName }),
+        },
       });
 
       // Gravar redemption
@@ -367,7 +419,27 @@ export class QrCampaignsService {
         },
       });
 
-      return { success: true, discount };
+      return { success: true, discount, campaignName: qr.campaign.name, discountValue: Number(qr.campaign.discountValue), discountType: qr.campaign.discountType as string };
+    }).then(result => {
+      // Fire-and-forget: WhatsApp de boas-vindas
+      if (dto.customerPhone) {
+        const discountLine = result.discountType === 'PERCENTUAL'
+          ? `${result.discountValue}% de desconto`
+          : `R$ ${result.discountValue.toFixed(2).replace('.', ',')} de desconto`;
+        this.prisma.company.findUnique({ where: { id: companyId }, select: { slug: true } })
+          .then(co => {
+            const cardapioUrl = `${this.frontendUrl}/menu/${co?.slug ?? companyId}`;
+            this.sendWelcomeWhatsapp({
+              companyId,
+              customerPhone: dto.customerPhone!,
+              customerName:  dto.customerName ?? 'Cliente',
+              campaignName:  result.campaignName,
+              discountLine,
+              cardapioUrl,
+            }).catch(() => {});
+          }).catch(() => {});
+      }
+      return { success: result.success, discount: result.discount };
     });
   }
 

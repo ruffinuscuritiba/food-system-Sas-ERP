@@ -29,6 +29,15 @@ export type PrintableItem = {
   selectedComplements?: PrintableComplement[];
 };
 
+export type QrPrintBlock = {
+  title: string;
+  customerName: string;
+  discountLine: string;
+  url: string;
+  couponCode: string;
+  validUntil: string;
+};
+
 export type PrintableOrder = {
   id: string;
   /** Número sequencial por tenant — exibição humana (ex: #42) */
@@ -51,6 +60,8 @@ export type PrintableOrder = {
   createdAt?: string;
   confirmedAt?: string;
   customer?: { name?: string; phone?: string };
+  /** QR Recovery — rodapé do ticket com desconto no próximo pedido */
+  printBlock?: QrPrintBlock | null;
 };
 
 // ── Shared CSS ────────────────────────────────────────────────────────────────
@@ -128,6 +139,28 @@ export const TYPE_LABELS: Record<string, string> = {
   PICKUP:   "🏠 Retirada",
   DINE_IN:  "🍽️ Balcão",
 };
+
+/**
+ * Gera o HTML do rodapé de recuperação de cliente.
+ * Usa api.qrserver.com para renderizar o QR Code inline (PNG via URL, sem deps JS).
+ */
+export function buildQrFooterHtml(block: QrPrintBlock): string {
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(block.url)}`;
+  return `
+    <hr/>
+    <div style="text-align:center;padding:6px 0;">
+      <div style="font-size:14px;font-weight:900;letter-spacing:1px;">🎁 ${block.title}</div>
+      <div style="font-size:13px;margin:3px 0;">${block.discountLine}</div>
+      <div style="font-size:11px;color:#555;">no seu próximo pedido no nosso cardápio</div>
+      <img src="${qrUrl}" width="110" height="110" style="display:block;margin:8px auto;" alt="QR"/>
+      <div style="font-family:monospace;font-size:16px;font-weight:900;letter-spacing:3px;">${block.couponCode}</div>
+      <div style="font-size:10px;color:#888;margin-top:3px;">válido até ${block.validUntil}</div>
+      <div style="font-size:9px;color:#aaa;margin-top:2px;">${block.url}</div>
+    </div>
+    <hr/>
+    <div style="text-align:center;font-size:11px;color:#777;padding-bottom:4px;">✂ recorte e guarde este cupom</div>
+  `;
+}
 
 export function fmtBrl(v?: number | null): string {
   return `R$ ${Number(v ?? 0).toFixed(2)}`;

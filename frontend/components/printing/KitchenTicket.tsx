@@ -19,6 +19,7 @@ import {
   PAY_LABELS,
   fmtBrl,
   fmtTime,
+  buildQrFooterHtml,
 } from "./printTicket";
 
 /** Kitchen-specific CSS overrides on top of THERMAL_CSS */
@@ -94,6 +95,8 @@ export function buildKitchenTicket(order: PrintableOrder): string {
       <hr/>
 
       <div class="center bold" style="font-size:15px;">${order.status || order.orderStatus || ""}</div>
+
+      ${order.printBlock ? buildQrFooterHtml(order.printBlock) : ""}
 
     </body>
     </html>

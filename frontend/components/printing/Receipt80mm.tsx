@@ -20,6 +20,7 @@ import {
   fmtTime,
   fmtDate,
   buildItemsHtml,
+  buildQrFooterHtml,
 } from "./printTicket";
 
 export type Receipt80mmOptions = {
@@ -90,6 +91,8 @@ export function buildReceipt80mm(
 
       <hr/>
       <div class="center small">Obrigado pela preferência!</div>
+
+      ${order.printBlock ? buildQrFooterHtml(order.printBlock) : ""}
 
     </body>
     </html>

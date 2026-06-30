@@ -40,47 +40,47 @@ const MARBLE: Record<string, string> = {
 };
 
 export const DEMO_THEMES: Record<string, DemoTheme> = {
-  // ── BASIC — Pizzaria Bella Napoli — verde floresta sóbrio ─────────────────
+  // ── BASIC — Pizzaria Bella Napoli — verde-esmeralda médio ─────────────────
   "demo-basic-001": {
     name: "Bella Napoli",
-    primaryColor: "#1F5C38",
+    primaryColor: "#1A6B45",
     cssVars: {
       ...MARBLE,
-      "--color-primary":      "#1F5C38",
-      "--app-sidebar-active": "#1F5C38",
+      "--color-primary":      "#1A6B45",
+      "--app-sidebar-active": "#1A6B45",
     },
   },
 
-  // ── PRO — Pizzaria Don Corleone — azul naval sóbrio ──────────────────────
+  // ── PRO — Pizzaria Don Corleone — azul-safira médio ──────────────────────
   "demo-pro-001": {
     name: "Don Corleone",
-    primaryColor: "#1A3A6B",
+    primaryColor: "#1A4FA8",
     cssVars: {
       ...MARBLE,
-      "--color-primary":      "#1A3A6B",
-      "--app-sidebar-active": "#1A3A6B",
+      "--color-primary":      "#1A4FA8",
+      "--app-sidebar-active": "#1A4FA8",
     },
   },
 
-  // ── ENTERPRISE — Grupo Milano — roxo profundo sóbrio ─────────────────────
+  // ── ENTERPRISE — Grupo Milano — índigo sóbrio ────────────────────────────
   "demo-enterprise-001": {
     name: "Milano",
-    primaryColor: "#3D1A70",
+    primaryColor: "#4C2D9C",
     cssVars: {
       ...MARBLE,
-      "--color-primary":      "#3D1A70",
-      "--app-sidebar-active": "#3D1A70",
+      "--color-primary":      "#4C2D9C",
+      "--app-sidebar-active": "#4C2D9C",
     },
   },
 
-  // ── DELIVERY — Marmita Express — terracota sóbrio ────────────────────────
+  // ── DELIVERY — Marmita Express — verde-teal fresco ───────────────────────
   "demo-delivery-001": {
     name: "Marmita Express",
-    primaryColor: "#7C3D12",
+    primaryColor: "#0F7A62",
     cssVars: {
       ...MARBLE,
-      "--color-primary":      "#7C3D12",
-      "--app-sidebar-active": "#7C3D12",
+      "--color-primary":      "#0F7A62",
+      "--app-sidebar-active": "#0F7A62",
     },
   },
 };
@@ -113,7 +113,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Ideal para pizzarias e restaurantes pequenos.",
     email: "demo-basic@foodsaas.demo",
     password: "DemoBasic@123",
-    primaryColor: "#1F5C38",
+    primaryColor: "#1A6B45",
     features: ["PDV", "Pedidos", "Cozinha", "Mesas", "Cardápio Online"],
   },
   {
@@ -123,7 +123,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Ideal para operações em crescimento.",
     email: "demo-pro@foodsaas.demo",
     password: "DemoPro@123",
-    primaryColor: "#1A3A6B",
+    primaryColor: "#1A4FA8",
     features: ["Tudo do Basic", "Cupons", "Relatórios", "Controle avançado", "Gestão ampliada"],
   },
   {
@@ -133,7 +133,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Solução premium para grandes operações.",
     email: "demo-enterprise@foodsaas.demo",
     password: "DemoEnterprise@123",
-    primaryColor: "#3D1A70",
+    primaryColor: "#4C2D9C",
     features: ["Tudo do Pro", "Multiunidades", "Recursos avançados", "Dashboards completos", "Operação corporativa"],
   },
   {
@@ -143,7 +143,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Focado em marmitarias e dark kitchens com entrega própria.",
     email: "demo-delivery@foodsaas.demo",
     password: "DemoDelivery@123",
-    primaryColor: "#7C3D12",
+    primaryColor: "#0F7A62",
     features: ["PDV", "Cardápio Online", "Rastreamento de Entregadores", "Zonas de Entrega", "App do Entregador"],
   },
 ];

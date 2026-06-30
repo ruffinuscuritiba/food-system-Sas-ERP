@@ -1004,6 +1004,9 @@ model CompanyTheme {
 
   pizzaPricingMode String @default("MAX")
 
+  // Imagem de fundo textura (ex: mármore) — exibida com 25% de opacidade sobre o fundo
+  backgroundImageUrl String?
+
   darkMode Boolean @default(true)
 
   createdAt DateTime @default(now())

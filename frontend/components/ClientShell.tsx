@@ -306,6 +306,14 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         const isDark = r.data?.darkMode === true;
         const root = document.documentElement;
         root.classList.toggle("theme-dark", isDark);
+
+        // Imagem de fundo textura (ex: mármore) — aplicada via CSS variable
+        const bgImg = r.data?.backgroundImageUrl;
+        if (bgImg) {
+          root.style.setProperty("--bg-texture-url", `url('${bgImg}')`);
+        } else {
+          root.style.removeProperty("--bg-texture-url");
+        }
       })
       .catch(() => {});
 

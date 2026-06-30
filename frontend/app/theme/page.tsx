@@ -214,7 +214,63 @@ export default function ThemePage() {
                         className="h-9 w-16 rounded-lg cursor-pointer border-0"
                       />
                       <span className="font-mono text-xs opacity-60">{theme[key]}</span>
+                      {/* Imagem de textura de fundo — só no campo Fundo */}
+                      {key === "backgroundColor" && (
+                        <label
+                          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border border-dashed transition hover:border-solid"
+                          style={{ borderColor: `${theme.primaryColor}66`, color: theme.primaryColor }}
+                          title="Imagem de fundo (aparecerá com 25% de opacidade)"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {theme.backgroundImageUrl ? "Trocar textura" : "+ Textura"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              try {
+                                const res = await fetch(`${apiBaseUrl}/upload`, { method: "POST", body: formData });
+                                const data = await res.json();
+                                const url = data.url || data.imageUrl || data.secure_url;
+                                if (url) {
+                                  setTheme((t: any) => ({ ...t, backgroundImageUrl: url }));
+                                  document.documentElement.style.setProperty("--bg-texture-url", `url('${url}')`);
+                                  toast.success("Textura carregada!");
+                                }
+                              } catch {
+                                toast.error("Erro ao enviar imagem.");
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
                     </div>
+                    {/* Mini preview da textura selecionada */}
+                    {key === "backgroundColor" && theme.backgroundImageUrl && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div
+                          className="w-12 h-8 rounded-lg border bg-center bg-cover"
+                          style={{ backgroundImage: `url('${theme.backgroundImageUrl}')` }}
+                        />
+                        <span className="text-[11px] opacity-50">Textura selecionada — 25% opacidade</span>
+                        <button
+                          type="button"
+                          className="text-[11px] text-red-400 hover:text-red-600 ml-auto"
+                          onClick={() => {
+                            setTheme((t: any) => ({ ...t, backgroundImageUrl: null }));
+                            document.documentElement.style.removeProperty("--bg-texture-url");
+                          }}
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

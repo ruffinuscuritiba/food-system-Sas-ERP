@@ -42,6 +42,60 @@
 .pdv-root [class*="bg-[var(--color-primary"],
 .app-sidebar-nav .bg-primary { color: #ffffff !important; }
 
+/* ── Mármore: textura de veios no fundo (modo claro) ───────────────────────
+ * Camadas sobrepostas de gradientes diagonais simulam os veios do mármore
+ * Carrara — brancos acinzentados com traços suaves. Não afeta modo escuro. */
+:root:not(.theme-dark) body,
+:root:not(.theme-dark) .pdv-root,
+:root:not(.theme-dark) .admin-page {
+  background-image:
+    linear-gradient(128deg, rgba(180,183,200,0.13) 0%,  transparent 28%),
+    linear-gradient(232deg, rgba(172,176,198,0.10) 12%, transparent 38%),
+    linear-gradient(165deg, transparent 32%, rgba(185,188,208,0.08) 52%, transparent 68%),
+    linear-gradient( 52deg, transparent 44%, rgba(178,182,202,0.09) 61%, transparent 76%),
+    radial-gradient(ellipse 70% 50% at 75% 25%, rgba(190,193,215,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 70% at 20% 80%, rgba(182,186,206,0.07) 0%, transparent 50%);
+}
+
+/* ── PDV light — sobrescreve overlay escuro do banner de categoria ──────────
+ * O banner usa bg-black/60 (rgba 0 0 0 / 0.6) — muito pesado no tema claro.
+ * Reduzimos para overlay leve que ainda permite ler o texto da categoria. */
+:root:not(.theme-dark) .pdv-root [class*="bg-black\/"] {
+  background-color: rgba(0,0,0,0.22) !important;
+}
+
+/* ── PDV light — botões de categoria com efeito 3D elevado ─────────────────
+ * Sombra dupla: difusa + brilho inset no topo → aparência de botão físico. */
+:root:not(.theme-dark) .pdv-root aside button,
+:root:not(.theme-dark) .pdv-root section button:not([class*="bg-[var(--color-primary"]) {
+  box-shadow:
+    0 3px 8px  rgba(0,0,0,0.10),
+    0 1px 3px  rgba(0,0,0,0.07),
+    inset 0 1px 0 rgba(255,255,255,0.92);
+  transition: box-shadow 140ms ease, transform 120ms ease;
+}
+:root:not(.theme-dark) .pdv-root aside button:hover,
+:root:not(.theme-dark) .pdv-root section button:not([class*="bg-[var(--color-primary"]):hover {
+  box-shadow:
+    0 5px 14px rgba(0,0,0,0.13),
+    0 2px 5px  rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.95);
+  transform: translateY(-2px);
+}
+:root:not(.theme-dark) .pdv-root aside button:active,
+:root:not(.theme-dark) .pdv-root section button:not([class*="bg-[var(--color-primary"]):active {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), inset 0 2px 4px rgba(0,0,0,0.06);
+  transform: translateY(0);
+}
+/* Botão ativo (cor primária) também fica 3D mas com sombra colorida */
+:root:not(.theme-dark) .pdv-root [class*="bg-[var(--color-primary"] {
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.18),
+    0 1px 4px  rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.25);
+  color: #ffffff !important;
+}
+
 /* ── Modo ESCURO — opt-in (CompanyTheme.darkMode = true) ───────────────────
  * Cinza-azul profundo. NUNCA preto puro #000. */
 :root.theme-dark {

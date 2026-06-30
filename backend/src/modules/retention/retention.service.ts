@@ -205,7 +205,7 @@ export class RetentionService {
 
     // Support contact shown in the message
     const supportWA =
-      this.config.get<string>('SUPPORT_WHATSAPP') || '5567991753455';
+      this.config.get<string>('SUPPORT_WHATSAPP') || '5541988729370';
 
     const trialCompanies = await this.prisma.company.findMany({
       where: {

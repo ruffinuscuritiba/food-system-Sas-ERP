@@ -12,6 +12,7 @@ import { SocketModule } from '../../socket/socket.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { WhatsappAiModule } from '../whatsapp-ai/whatsapp-ai.module';
 import { DeliveryConfigModule } from '../delivery-config/delivery-config.module';
+import { QrCampaignsModule } from '../qr-campaigns/qr-campaigns.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { DeliveryConfigModule } from '../delivery-config/delivery-config.module'
     LoyaltyModule,
     forwardRef(() => WhatsappAiModule),
     DeliveryConfigModule,
+    QrCampaignsModule,
   ],
 
   controllers: [OrdersController],

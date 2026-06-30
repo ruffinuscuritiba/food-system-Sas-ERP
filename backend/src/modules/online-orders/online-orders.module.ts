@@ -3,6 +3,7 @@ import { PrismaModule } from '@/database/prisma.module';
 import { SocketModule } from '@/socket/socket.module';
 import { NotificationsModule } from '@/modules/notifications/notifications.module';
 import { DeliveryConfigModule } from '@/modules/delivery-config/delivery-config.module';
+import { QrCampaignsModule } from '@/modules/qr-campaigns/qr-campaigns.module';
 import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 
@@ -12,6 +13,7 @@ import { OnlineOrdersController } from './online-orders.controller';
     SocketModule,
     NotificationsModule,
     DeliveryConfigModule,
+    QrCampaignsModule,
   ],
   controllers: [OnlineOrdersController],
   providers: [OnlineOrdersService],

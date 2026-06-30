@@ -114,11 +114,10 @@ export default function ThemePage() {
   }
 
   // Aplica claro/escuro no <html> (mesma classe que o ClientShell usa).
+  // Padrão = claro (mármore). .theme-dark só quando explicitamente escuro.
   function applyMode(isDark?: boolean) {
-    const dark = isDark !== false; // default escuro
-    const root = document.documentElement;
-    root.classList.toggle("theme-light", !dark);
-    root.classList.toggle("theme-dark", dark);
+    const dark = isDark === true;
+    document.documentElement.classList.toggle("theme-dark", dark);
   }
 
   function applyLive(t: any) {

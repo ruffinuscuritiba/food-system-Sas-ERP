@@ -5,42 +5,18 @@
   --color-primary: #f97316;
 }
 
-/* ── Modo ESCURO (padrão) ──────────────────────────────────────────────────
- * Fundos pretos/grafite neutros. A cor da loja entra só no accent
- * (item ativo, botões, preços) via --color-primary. */
+/* ── PADRÃO: mármore branco — limpo, premium, sem dark ─────────────────────
+ * Padrão absoluto de TODOS os sistemas. Dark e temas coloridos são opt-in,
+ * escolhidos pelo usuário via CompanyTheme.darkMode = true (.theme-dark). */
 :root {
-  /* Design System — superfícies (cinza-azul profundo; NUNCA preto puro) */
-  --surface-0:        #0A0B0E;   /* fundo geral */
-  --surface-1:        #0E1017;   /* sidebar / barras elevadas */
-  --surface-2:        #12141C;   /* cards */
-  --surface-3:        #1A1D28;   /* hover / elevação */
-  --border-ui:        rgba(255,255,255,0.07);
-  --radius-card:      16px;
-  --accent:           var(--color-primary);
-  --app-page-bg:      var(--surface-0);   /* fundo das páginas admin */
-
-  /* Tokens legados (admin + PDV) herdam o Design System — fonte única */
-  --app-sidebar:      var(--surface-1);
-  --app-border-ui:    var(--border-ui);
-  --pdv-sidebar-bg:   var(--surface-1);
-  --pdv-bg:           var(--surface-0);
-  --pdv-card:         var(--surface-2);
-  --pdv-card-hover:   var(--surface-3);
-  --pdv-border:       var(--border-ui);
-}
-
-/* ── Modo CLARO (tema branco por loja) ─────────────────────────────────────
- * Aplicado quando o CompanyTheme.darkMode === false (classe theme-light no
- * <html>, setada pelo ClientShell). Fundos brancos + texto escuro; o accent
- * (cor da loja) continua igual. */
-:root.theme-light {
-  /* Mármore: base quente off-white, sem cinza frio */
   --surface-0:        #F7F6F3;   /* fundo geral — off-white mármore */
   --surface-1:        #FFFFFF;   /* sidebar / painéis */
   --surface-2:        #FAFAF8;   /* cards */
   --surface-3:        #EEECEA;   /* hover / elevação */
   --border-ui:        #E2E0DC;   /* bordas suaves */
-  --app-page-bg:      #F7F6F3;   /* páginas admin */
+  --radius-card:      16px;
+  --accent:           var(--color-primary);
+  --app-page-bg:      #F7F6F3;
 
   --app-sidebar:      var(--surface-1);
   --app-border-ui:    var(--border-ui);
@@ -51,60 +27,85 @@
   --pdv-border:       var(--border-ui);
 }
 
-/* No modo claro, vira texto escuro no PDV e na sidebar admin.
- * Botões/itens com a cor da loja (accent) mantêm texto branco. */
-:root.theme-light .pdv-root,
-:root.theme-light .app-sidebar-nav { color: #111827; }
-:root.theme-light .pdv-root .text-white,
-:root.theme-light .app-sidebar-nav .text-white { color: #111827; }
-:root.theme-light .pdv-root .text-zinc-300,
-:root.theme-light .app-sidebar-nav .text-slate-300 { color: #374151; }
-:root.theme-light .pdv-root .text-zinc-400 { color: #4b5563; }
-:root.theme-light .pdv-root .text-zinc-500,
-:root.theme-light .pdv-root .text-zinc-600,
-:root.theme-light .app-sidebar-nav .text-slate-500 { color: #6b7280; }
-/* accent: qualquer elemento com a cor da loja como fundo mantém texto branco */
-:root.theme-light .pdv-root [class*="bg-[var(--color-primary"],
-:root.theme-light .app-sidebar-nav .bg-primary { color: #ffffff !important; }
+/* No modo padrão (claro), PDV e sidebar têm texto escuro */
+.pdv-root,
+.app-sidebar-nav { color: #111827; }
+.pdv-root .text-white,
+.app-sidebar-nav .text-white { color: #111827; }
+.pdv-root .text-zinc-300,
+.app-sidebar-nav .text-slate-300 { color: #374151; }
+.pdv-root .text-zinc-400 { color: #4b5563; }
+.pdv-root .text-zinc-500,
+.pdv-root .text-zinc-600,
+.app-sidebar-nav .text-slate-500 { color: #6b7280; }
+/* accent como fundo sempre texto branco */
+.pdv-root [class*="bg-[var(--color-primary"],
+.app-sidebar-nav .bg-primary { color: #ffffff !important; }
 
-/* ── Páginas admin no modo ESCURO ─────────────────────────────────────────
- * Quando NÃO está em modo claro, as páginas admin (construídas light-first)
- * têm cards/fundos/texto/inputs invertidos para o Design System escuro.
- * Escopo .admin-page (no <main> do ClientShell). Accent mantém texto branco. */
-:root:not(.theme-light) .admin-page { color: #e5e7eb; }
-:root:not(.theme-light) .admin-page .bg-white { background-color: var(--surface-2) !important; }
-:root:not(.theme-light) .admin-page .bg-gray-50,
-:root:not(.theme-light) .admin-page .bg-gray-100,
-:root:not(.theme-light) .admin-page .bg-slate-50,
-:root:not(.theme-light) .admin-page .bg-slate-100 { background-color: var(--surface-1) !important; }
-:root:not(.theme-light) .admin-page .text-black,
-:root:not(.theme-light) .admin-page .text-gray-900,
-:root:not(.theme-light) .admin-page .text-gray-800,
-:root:not(.theme-light) .admin-page .text-slate-900,
-:root:not(.theme-light) .admin-page .text-slate-800 { color: #f1f5f9 !important; }
-:root:not(.theme-light) .admin-page .text-gray-700,
-:root:not(.theme-light) .admin-page .text-gray-600,
-:root:not(.theme-light) .admin-page .text-gray-500,
-:root:not(.theme-light) .admin-page .text-gray-400,
-:root:not(.theme-light) .admin-page .text-slate-600,
-:root:not(.theme-light) .admin-page .text-slate-500 { color: #9aa6b8 !important; }
-:root:not(.theme-light) .admin-page .border-gray-100,
-:root:not(.theme-light) .admin-page .border-gray-200,
-:root:not(.theme-light) .admin-page .border-gray-300,
-:root:not(.theme-light) .admin-page .border-slate-200,
-:root:not(.theme-light) .admin-page .divide-gray-200 > * { border-color: var(--border-ui) !important; }
-/* inputs legíveis no escuro (sobrepõe o reset global de input claro) */
-:root:not(.theme-light) .admin-page input:not([type="color"]):not([type="range"]),
-:root:not(.theme-light) .admin-page textarea,
-:root:not(.theme-light) .admin-page select {
+/* ── Modo ESCURO — opt-in (CompanyTheme.darkMode = true) ───────────────────
+ * Cinza-azul profundo. NUNCA preto puro #000. */
+:root.theme-dark {
+  --surface-0:        #0A0B0E;
+  --surface-1:        #0E1017;
+  --surface-2:        #12141C;
+  --surface-3:        #1A1D28;
+  --border-ui:        rgba(255,255,255,0.07);
+  --app-page-bg:      #0A0B0E;
+
+  --app-sidebar:      var(--surface-1);
+  --app-border-ui:    var(--border-ui);
+  --pdv-sidebar-bg:   var(--surface-1);
+  --pdv-bg:           var(--surface-0);
+  --pdv-card:         var(--surface-2);
+  --pdv-card-hover:   var(--surface-3);
+  --pdv-border:       var(--border-ui);
+}
+
+/* No modo escuro, PDV e sidebar voltam a texto claro */
+:root.theme-dark .pdv-root,
+:root.theme-dark .app-sidebar-nav { color: #e5e7eb; }
+:root.theme-dark .pdv-root .text-white,
+:root.theme-dark .app-sidebar-nav .text-white { color: #ffffff; }
+:root.theme-dark .pdv-root .text-zinc-300,
+:root.theme-dark .app-sidebar-nav .text-slate-300 { color: #d1d5db; }
+:root.theme-dark .pdv-root .text-zinc-400 { color: #9ca3af; }
+:root.theme-dark .pdv-root .text-zinc-500,
+:root.theme-dark .pdv-root .text-zinc-600,
+:root.theme-dark .app-sidebar-nav .text-slate-500 { color: #6b7280; }
+
+/* Páginas admin no modo escuro: inverte cards/fundos/texto */
+:root.theme-dark .admin-page { color: #e5e7eb; }
+:root.theme-dark .admin-page .bg-white { background-color: var(--surface-2) !important; }
+:root.theme-dark .admin-page .bg-gray-50,
+:root.theme-dark .admin-page .bg-gray-100,
+:root.theme-dark .admin-page .bg-slate-50,
+:root.theme-dark .admin-page .bg-slate-100 { background-color: var(--surface-1) !important; }
+:root.theme-dark .admin-page .text-black,
+:root.theme-dark .admin-page .text-gray-900,
+:root.theme-dark .admin-page .text-gray-800,
+:root.theme-dark .admin-page .text-slate-900,
+:root.theme-dark .admin-page .text-slate-800 { color: #f1f5f9 !important; }
+:root.theme-dark .admin-page .text-gray-700,
+:root.theme-dark .admin-page .text-gray-600,
+:root.theme-dark .admin-page .text-gray-500,
+:root.theme-dark .admin-page .text-gray-400,
+:root.theme-dark .admin-page .text-slate-600,
+:root.theme-dark .admin-page .text-slate-500 { color: #9aa6b8 !important; }
+:root.theme-dark .admin-page .border-gray-100,
+:root.theme-dark .admin-page .border-gray-200,
+:root.theme-dark .admin-page .border-gray-300,
+:root.theme-dark .admin-page .border-slate-200,
+:root.theme-dark .admin-page .divide-gray-200 > * { border-color: var(--border-ui) !important; }
+:root.theme-dark .admin-page input:not([type="color"]):not([type="range"]),
+:root.theme-dark .admin-page textarea,
+:root.theme-dark .admin-page select {
   background-color: var(--surface-1);
   color: #f1f5f9;
   -webkit-text-fill-color: #f1f5f9;
   border-color: var(--border-ui);
 }
-/* accent (cor da loja) como fundo mantém texto branco */
-:root:not(.theme-light) .admin-page [class*="bg-[var(--color-primary"],
-:root:not(.theme-light) .admin-page .bg-primary { color: #ffffff !important; }
+:root.theme-dark .admin-page [class*="bg-[var(--color-primary"],
+:root.theme-dark .admin-page .bg-primary { color: #ffffff !important; }
 
 html,
 body {
@@ -115,9 +116,15 @@ body {
 }
 
 body {
-  background: #020617;
-  color: #ffffff;
+  background: var(--surface-0, #F7F6F3);
+  color: #1A1A1A;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Modo escuro: inverte as cores do body */
+:root.theme-dark body {
+  background: var(--surface-0, #0A0B0E);
+  color: #e5e7eb;
 }
 
 * {
@@ -126,9 +133,8 @@ body {
 
 /*
  * Reset global de cor para inputs/textarea/select.
- * O body usa color:#fff (tema escuro do admin) mas formulários
- * em fundos brancos herdariam texto branco — invisível.
- * Este reset garante texto escuro por padrão em todos os campos.
+ * Padrão = tema claro (mármore). Texto escuro em todos os campos.
+ * No .theme-dark, a seção .admin-page sobrepõe para texto claro.
  */
 input:not([type="color"]),
 input:not([type="range"]),

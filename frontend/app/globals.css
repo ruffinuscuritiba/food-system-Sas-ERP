@@ -34,12 +34,13 @@
  * <html>, setada pelo ClientShell). Fundos brancos + texto escuro; o accent
  * (cor da loja) continua igual. */
 :root.theme-light {
-  --surface-0:        #f3f4f6;
-  --surface-1:        #ffffff;
-  --surface-2:        #ffffff;
-  --surface-3:        #eef1f5;
-  --border-ui:        #e5e7eb;
-  --app-page-bg:      #F5F3EF;            /* páginas admin claras */
+  /* Mármore: base quente off-white, sem cinza frio */
+  --surface-0:        #F7F6F3;   /* fundo geral — off-white mármore */
+  --surface-1:        #FFFFFF;   /* sidebar / painéis */
+  --surface-2:        #FAFAF8;   /* cards */
+  --surface-3:        #EEECEA;   /* hover / elevação */
+  --border-ui:        #E2E0DC;   /* bordas suaves */
+  --app-page-bg:      #F7F6F3;   /* páginas admin */
 
   --app-sidebar:      var(--surface-1);
   --app-border-ui:    var(--border-ui);

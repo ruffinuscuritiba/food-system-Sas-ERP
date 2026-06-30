@@ -135,7 +135,9 @@ export default function ThemePage() {
   async function persistTheme(obj: any) {
     if (!companyId) return false;
     if (isDemo) { demoBlock(); return false; }
-    const res = await api.patch(`/themes/${companyId}`, obj);
+    // Remove campos read-only que o Prisma rejeita no update
+    const { id, companyId: _cid, createdAt, updatedAt, company, ...payload } = obj;
+    const res = await api.patch(`/themes/${companyId}`, payload);
     return res.status >= 200 && res.status < 300;
   }
 

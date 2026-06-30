@@ -59,6 +59,7 @@ function toHexColor(c?: string): string {
 export default function ThemePage() {
   const { user } = useAuthStore();
   const companyId = user?.companyId;
+  const isDemo = user?.role === "DEMO";
 
   const [theme, setTheme] = useState<any>(null);
   const [pdvTheme, setPdvTheme] = useState<PdvThemeConfig>(PDV_THEME_DEFAULT);
@@ -85,6 +86,7 @@ export default function ThemePage() {
   }
 
   async function saveSidebarConfig() {
+    if (isDemo) { demoBlock(); return; }
     setSavingSidebar(true);
     try {
       await api.patch("/company/settings", { sidebarConfig });
@@ -127,8 +129,13 @@ export default function ThemePage() {
     applyMode(t?.darkMode);
   }
 
+  function demoBlock() {
+    toast("Modo demonstração — alterações não são salvas.\nEscolha um plano para personalizar seu tema.", { icon: "🔒" });
+  }
+
   async function persistTheme(obj: any) {
     if (!companyId) return false;
+    if (isDemo) { demoBlock(); return false; }
     const res = await fetch(`${apiBaseUrl}/themes/${companyId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -139,6 +146,7 @@ export default function ThemePage() {
 
   async function saveTheme() {
     if (!companyId) return;
+    if (isDemo) { demoBlock(); return; }
     setSaving(true);
     try {
       await persistTheme(theme);
@@ -156,6 +164,7 @@ export default function ThemePage() {
     const updated = { ...theme, primaryColor: primary };
     setTheme(updated);
     document.documentElement.style.setProperty("--color-primary", primary);
+    if (isDemo) { demoBlock(); return; }
     try { await persistTheme(updated); toast.success("Cor aplicada!"); }
     catch { toast.error("Erro ao aplicar cor."); }
   }
@@ -165,6 +174,7 @@ export default function ThemePage() {
     const updated = { ...theme, darkMode: next };
     setTheme(updated);
     applyMode(next);
+    if (isDemo) { demoBlock(); return; }
     try { await persistTheme(updated); toast.success(next ? "Modo escuro ativado" : "Modo claro ativado"); }
     catch { toast.error("Erro ao trocar o modo."); }
   }

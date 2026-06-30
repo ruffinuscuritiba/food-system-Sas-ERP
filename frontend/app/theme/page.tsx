@@ -107,9 +107,8 @@ export default function ThemePage() {
 
   async function loadTheme() {
     try {
-      const response = await fetch(`${apiBaseUrl}/themes/${companyId}`);
-      const data = await response.json();
-      setTheme(data);
+      const res = await api.get(`/themes/${companyId}`);
+      setTheme(res.data);
     } catch {
       toast.error("Erro ao carregar tema.");
     }
@@ -136,12 +135,8 @@ export default function ThemePage() {
   async function persistTheme(obj: any) {
     if (!companyId) return false;
     if (isDemo) { demoBlock(); return false; }
-    const res = await fetch(`${apiBaseUrl}/themes/${companyId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(obj),
-    });
-    return res.ok;
+    const res = await api.patch(`/themes/${companyId}`, obj);
+    return res.status >= 200 && res.status < 300;
   }
 
   async function saveTheme() {

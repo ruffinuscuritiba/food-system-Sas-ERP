@@ -59,6 +59,9 @@ export default function KitchenPage() {
     loadOrders();
     socket.connect();
 
+    // Recarrega após reconexão automática do socket (rede voltou / servidor reiniciou)
+    socket.on("connect", () => { loadOrders(); });
+
     socket.on("orderCreated", (newOrder) => {
       loadOrders();
       if (!printedOrders.current.includes(newOrder.id)) {
@@ -71,6 +74,7 @@ export default function KitchenPage() {
     socket.on("kitchenUpdate", () => { loadOrders(); });
 
     return () => {
+      socket.off("connect");
       socket.off("orderCreated");
       socket.off("kitchenUpdate");
       socket.disconnect();

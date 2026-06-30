@@ -129,6 +129,14 @@ export default function MenuPage() {
   const [couponMsg, setCouponMsg] = useState<{ text: string; valid: boolean } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
 
+  // QR Recovery promo (cookie qr_promo set by /r/:token redirect)
+  const [qrPromo, setQrPromo] = useState<{
+    token: string; discountType: "PERCENTUAL" | "FIXO"; discountValue: number;
+    campaignName: string; minimumOrder: number;
+  } | null>(null);
+  const [qrPromoMsg, setQrPromoMsg] = useState<string | null>(null);
+  const [qrPromoApplied, setQrPromoApplied] = useState(false);
+
   const [search, setSearch] = useState("");
   const [videoProduct, setVideoProduct] = useState<Product | null>(null);
   const [menuLayoutConfig, setMenuLayoutConfig] = useState<{
@@ -255,6 +263,32 @@ export default function MenuPage() {
   }
 
   useEffect(() => { loadMenu(); }, [companyId]);
+
+  /* ── QR Recovery promo — lê cookie qr_promo após menu carregar ── */
+  useEffect(() => {
+    if (!realCompanyId || realCompanyId === companyId) return; // aguarda resolve do slug
+    const raw = document.cookie.split(";").map(c => c.trim()).find(c => c.startsWith("qr_promo="));
+    if (!raw) return;
+    try {
+      const payload = JSON.parse(atob(raw.split("=").slice(1).join("=")));
+      if (!payload?.token) return;
+      // Valida no backend (verifica se não foi usado, não expirou, etc.)
+      fetch(`${apiBaseUrl}/qr-campaigns/checkout/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: payload.token, subtotal: 0 }),
+      }).then(r => r.ok ? r.json() : null).then(data => {
+        if (!data?.valid) { setQrPromoMsg("Cupom QR inválido ou já utilizado."); return; }
+        setQrPromo({
+          token: payload.token,
+          discountType: data.discountType ?? "FIXO",
+          discountValue: Number(data.discountValue ?? 0),
+          campaignName: data.campaignName ?? "Cupom de desconto",
+          minimumOrder: Number(data.minimumOrder ?? 0),
+        });
+      }).catch(() => {});
+    } catch { /* cookie malformado — ignora */ }
+  }, [realCompanyId]);
 
   /* ── PIX countdown ────────────────────────────────────────────── */
   useEffect(() => {
@@ -495,7 +529,13 @@ export default function MenuPage() {
     const compExtra = (i.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
     return acc + (Number(i.product.salePrice) + compExtra) * i.quantity;
   }, 0);
-  const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount;
+  const qrPromoDiscount = (() => {
+    if (!qrPromo || !qrPromoApplied) return 0;
+    if (cartTotal < qrPromo.minimumOrder) return 0;
+    if (qrPromo.discountType === "PERCENTUAL") return Math.min(cartTotal, cartTotal * qrPromo.discountValue / 100);
+    return Math.min(cartTotal, qrPromo.discountValue);
+  })();
+  const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount;
   const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const filtered = products.filter((p) => {
@@ -571,7 +611,7 @@ export default function MenuPage() {
             };
           }),
           subtotal:      cartTotal,
-          discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount,
+          discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount,
           deliveryFee:   selectedZone?.clientFee ?? 0,
           deliveryZoneId: selectedZone?.id ?? undefined,
           total:         capturedFinalTotal + (selectedZone?.clientFee ?? 0),
@@ -591,6 +631,21 @@ export default function MenuPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ couponId }),
+        }).catch(() => {});
+      }
+
+      // Step 2b — redeem QR promo (fire-and-forget)
+      if (qrPromo && qrPromoApplied) {
+        fetch(`${apiBaseUrl}/qr-campaigns/checkout/redeem`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: qrPromo.token, orderId: createdOrderId, orderTotal: capturedFinalTotal }),
+          keepalive: true,
+        }).then(() => {
+          // limpa o cookie para não re-aplicar
+          document.cookie = "qr_promo=; path=/; max-age=0";
+          setQrPromo(null);
+          setQrPromoApplied(false);
         }).catch(() => {});
       }
 
@@ -1422,6 +1477,57 @@ export default function MenuPage() {
               </label>
             )}
 
+            {/* QR Recovery promo banner */}
+            {qrPromo && (
+              <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🎁</span>
+                    <div>
+                      <div className="font-bold text-green-800 text-sm">{qrPromo.campaignName}</div>
+                      <div className="text-green-700 text-xs">
+                        {qrPromo.discountType === "PERCENTUAL"
+                          ? `${qrPromo.discountValue}% de desconto`
+                          : `R$ ${qrPromo.discountValue.toFixed(2).replace(".", ",")} de desconto`}
+                        {qrPromo.minimumOrder > 0 && ` • pedido mín. R$ ${qrPromo.minimumOrder.toFixed(2).replace(".", ",")}`}
+                      </div>
+                    </div>
+                  </div>
+                  {!qrPromoApplied ? (
+                    <button
+                      onClick={() => {
+                        if (cartTotal < qrPromo.minimumOrder) {
+                          toast.error(`Pedido mínimo de R$ ${qrPromo.minimumOrder.toFixed(2)} para usar este cupom`);
+                          return;
+                        }
+                        setQrPromoApplied(true);
+                        toast.success("Desconto QR aplicado!");
+                      }}
+                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition flex-shrink-0"
+                    >
+                      Aplicar
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={16} className="text-green-600" />
+                      <span className="text-green-700 text-xs font-bold">Aplicado</span>
+                      <button onClick={() => setQrPromoApplied(false)} className="text-gray-400 hover:text-gray-600 ml-1"><X size={14} /></button>
+                    </div>
+                  )}
+                </div>
+                {qrPromoApplied && qrPromoDiscount > 0 && (
+                  <div className="mt-2 text-green-700 text-xs font-medium">
+                    Economia: <span className="font-bold">R$ {qrPromoDiscount.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {qrPromoMsg && !qrPromo && (
+              <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm bg-red-50 border border-red-200 text-red-600">
+                <X size={14} /> {qrPromoMsg}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1600,6 +1706,12 @@ export default function MenuPage() {
                 <div className="flex justify-between text-sm text-green-600">
                   <span className="flex items-center gap-1"><Tag size={11} /> Cupom</span>
                   <span>- R$ {couponDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {qrPromoApplied && qrPromoDiscount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span className="flex items-center gap-1">🎁 {qrPromo?.campaignName ?? "Cupom QR"}</span>
+                  <span>- R$ {qrPromoDiscount.toFixed(2).replace(".", ",")}</span>
                 </div>
               )}
               {form.orderType === "DELIVERY" && (

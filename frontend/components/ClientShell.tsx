@@ -301,18 +301,17 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           const color = r.data?.primaryColor;
           if (color) document.documentElement.style.setProperty("--color-primary", color);
         }
-        // Modo claro/escuro POR LOJA (CompanyTheme.darkMode). false = tema claro
-        // (fundos brancos); qualquer outro valor mantém o escuro padrão.
-        const isLight = r.data?.darkMode === false;
+        // Padrão = claro (mármore). Só adiciona .theme-dark quando a loja
+        // escolheu explicitamente o modo escuro (CompanyTheme.darkMode = true).
+        const isDark = r.data?.darkMode === true;
         const root = document.documentElement;
-        root.classList.toggle("theme-light", isLight);
-        root.classList.toggle("theme-dark", !isLight);
+        root.classList.toggle("theme-dark", isDark);
       })
       .catch(() => {});
 
     return () => {
       if (DEMO_IDS.has(cid)) clearDemoTheme();
-      document.documentElement.classList.remove("theme-light", "theme-dark");
+      document.documentElement.classList.remove("theme-dark");
     };
   }, [user?.companyId]);
 

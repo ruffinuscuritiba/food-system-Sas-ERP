@@ -20,7 +20,12 @@ import {
   EyeOff,
   X,
   ChevronDown,
+  QrCode,
+  Printer,
 } from "lucide-react";
+import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
+import { printTicket } from "@/components/printing/printTicket";
+import type { QrPrintBlock } from "@/components/printing/printTicket";
 
 
 interface Category {
@@ -222,6 +227,9 @@ export default function PDVPage() {
   const [showCart, setShowCart]                 = useState(false);
   const [discountAmount, setDiscountAmount]     = useState(0);
   const [showPayment, setShowPayment]           = useState(false);
+  const [lastOrder, setLastOrder] = useState<{
+    id: string; number?: number; total: number; customerName: string; printBlock?: QrPrintBlock | null;
+  } | null>(null);
   const [pizzaProduct, setPizzaProduct]         = useState<Product | null>(null);
   const [complementProduct, setComplementProduct] = useState<Product | null>(null);
   const [loadedComplements, setLoadedComplements] = useState<ComplementGroup[]>([]);
@@ -567,6 +575,17 @@ export default function PDVPage() {
       }
 
       toast.success(`Pedido fechado — ${serviceLabel}`, { duration: 3000 });
+
+      // Salva último pedido + busca printBlock em background para botão de reimprimir
+      const lastOrderId = orderRes.data?.id;
+      if (lastOrderId) {
+        setLastOrder({ id: lastOrderId, number: orderRes.data?.number, total: orderTotal, customerName: details.customerName || serviceLabel });
+        setTimeout(() => {
+          api.get(`/qr-campaigns/order/${lastOrderId}/print-block`).then(r => {
+            if (r.data?.printBlock) setLastOrder(prev => prev ? { ...prev, printBlock: r.data.printBlock } : prev);
+          }).catch(() => {});
+        }, 1500); // aguarda o setImmediate do backend gerar o QR
+      }
 
       // Impressão automática: monta ticket a partir do carrinho local (sem novo GET)
       try {
@@ -1118,9 +1137,64 @@ export default function PDVPage() {
             {/* Área scrollável: itens + formulário */}
             <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide p-4 space-y-3">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-zinc-600 py-20">
-                  <ShoppingBag size={48} className="mb-4 opacity-30" />
+                <div className="flex flex-col items-center justify-center h-full text-zinc-600 py-8 gap-4">
+                  <ShoppingBag size={48} className="opacity-30" />
                   <p className="text-sm font-medium">Carrinho vazio</p>
+                  {lastOrder && (
+                    <div className="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-left mt-2">
+                      <p className="text-xs text-zinc-400 mb-1">Último pedido</p>
+                      <p className="text-sm font-semibold text-white">
+                        {lastOrder.number ? `#${lastOrder.number} — ` : ""}{lastOrder.customerName}
+                      </p>
+                      <p className="text-xs text-zinc-400 mb-3">
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(lastOrder.total)}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const order = {
+                              id: lastOrder.id,
+                              number: lastOrder.number,
+                              customerName: lastOrder.customerName,
+                              total: lastOrder.total,
+                              items: [],
+                              printBlock: lastOrder.printBlock,
+                            };
+                            import("@/components/printing/KitchenTicket").then(({ buildKitchenTicket }) =>
+                              import("@/components/printing/printTicket").then(({ printTicket }) =>
+                                printTicket(buildKitchenTicket(order as any))
+                              )
+                            );
+                          }}
+                          className="flex items-center gap-1 text-xs bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-2 rounded-lg"
+                        >
+                          <Printer size={14} /> Reimprimir
+                        </button>
+                        {lastOrder.printBlock && (
+                          <button
+                            onClick={() => {
+                              const order = {
+                                id: lastOrder.id,
+                                number: lastOrder.number,
+                                customerName: lastOrder.customerName,
+                                total: lastOrder.total,
+                                items: [],
+                                printBlock: lastOrder.printBlock,
+                              };
+                              import("@/components/printing/Receipt80mm").then(({ buildReceipt80mm }) =>
+                                import("@/components/printing/printTicket").then(({ printTicket }) =>
+                                  printTicket(buildReceipt80mm(order as any))
+                                )
+                              );
+                            }}
+                            className="flex items-center gap-1 text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg"
+                          >
+                            <QrCode size={14} /> QR Code
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>

@@ -489,7 +489,7 @@ export default function ThemePage() {
                   const isActive = (theme.primaryColor || "").toLowerCase() === cfg.primary.toLowerCase();
                   return (
                     <button key={p.name}
-                      onClick={() => applyPrimary(cfg.primary)}
+                      onClick={() => { applyPrimary(cfg.primary); updatePdvTheme(p.config); }}
                       className={`w-full flex items-center gap-4 px-5 py-4 text-left transition ${isActive ? "bg-blue-50" : "hover:bg-gray-50"}`}>
                       {/* Color swatch preview */}
                       <div className="flex shrink-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ width: 88, height: 48 }}>
@@ -664,8 +664,17 @@ export default function ThemePage() {
                 }[activeKey] ?? activeKey}
               </div>
             )}
-            <div className="rounded-3xl overflow-hidden border border-gray-200 shadow-xl"
-              style={{ background: pdvTheme.productsBg, fontFamily: `'${pdvTheme.font}', sans-serif` }}>
+            <div className="rounded-3xl overflow-hidden shadow-xl relative"
+              style={{
+                background: pdvTheme.productsBg,
+                fontFamily: `'${pdvTheme.font}', sans-serif`,
+                border: pdvTheme.glassmorphism
+                  ? "1px solid rgba(255,255,255,0.15)"
+                  : "1px solid #e5e7eb",
+                boxShadow: pdvTheme.glassmorphism
+                  ? `0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)`
+                  : "0 4px 24px rgba(0,0,0,0.08)",
+              }}>
               {/* Mini header */}
               <div className="h-10 flex items-center px-3 gap-2 transition-all"
                 style={{ background: pdvTheme.headerBg, boxShadow: activeKey === "headerBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
@@ -691,7 +700,15 @@ export default function ThemePage() {
                 </div>
                 {/* categories */}
                 <div className="w-16 border-r flex flex-col transition-all"
-                  style={{ background: pdvTheme.categoriesBg, borderColor: pdvTheme.border, boxShadow: activeKey === "categoriesBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
+                  style={{
+                    background: pdvTheme.glassmorphism
+                      ? "rgba(255,255,255,0.04)"
+                      : pdvTheme.categoriesBg,
+                    backdropFilter: pdvTheme.glassmorphism ? "blur(12px)" : undefined,
+                    WebkitBackdropFilter: pdvTheme.glassmorphism ? "blur(12px)" : undefined,
+                    borderColor: pdvTheme.border,
+                    boxShadow: activeKey === "categoriesBg" ? "inset 0 0 0 3px #60a5fa" : "none",
+                  }}>
                   {["Todos","Pizza","Bebidas","Outros","Sobrem"].map((c, i) => (
                     <div key={c} className="flex-1 flex items-center justify-center text-[7px] font-bold border-b transition-all"
                       style={{
@@ -735,7 +752,15 @@ export default function ThemePage() {
                 </div>
                 {/* cart */}
                 <div className="w-20 border-l flex flex-col transition-all"
-                  style={{ background: pdvTheme.cartBg, borderColor: pdvTheme.border, boxShadow: activeKey === "cartBg" ? "inset 0 0 0 3px #60a5fa" : "none" }}>
+                  style={{
+                    background: pdvTheme.glassmorphism
+                      ? "rgba(255,255,255,0.05)"
+                      : pdvTheme.cartBg,
+                    backdropFilter: pdvTheme.glassmorphism ? "blur(16px)" : undefined,
+                    WebkitBackdropFilter: pdvTheme.glassmorphism ? "blur(16px)" : undefined,
+                    borderColor: pdvTheme.border,
+                    boxShadow: activeKey === "cartBg" ? "inset 0 0 0 3px #60a5fa" : "none",
+                  }}>
                   <div className="p-1.5 border-b text-[7px] font-black text-white" style={{ borderColor: pdvTheme.border }}>Pedido</div>
                   <div className="flex-1 p-1.5 space-y-1">
                     {[1,2].map((i) => (

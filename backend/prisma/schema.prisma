@@ -2046,11 +2046,13 @@ model QrCode {
   customerId  String?     // telefone ou identificador externo
   orderId     String?     // orderId ou integrationOrderId de origem
   orderSource String      @default("PROPRIO") // PROPRIO | IFOOD | 99FOOD | RAPPI | MOCK
-  token       String      @unique
-  qrUrl       String      @db.Text
-  used        Boolean     @default(false)
-  usedAt      DateTime?
-  expiresAt   DateTime
+  token         String      @unique
+  qrUrl         String      @db.Text
+  used          Boolean     @default(false)
+  usedAt        DateTime?
+  usedByPhone   String?     // telefone do cliente que resgatou
+  usedByCustomer String?    // nome do cliente que resgatou
+  expiresAt     DateTime
   redemptions CouponRedemption[]
   createdAt   DateTime    @default(now())
 

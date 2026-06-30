@@ -639,7 +639,7 @@ export default function MenuPage() {
         fetch(`${apiBaseUrl}/qr-campaigns/checkout/redeem`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: qrPromo.token, orderId: createdOrderId, orderTotal: capturedFinalTotal }),
+          body: JSON.stringify({ token: qrPromo.token, orderId: createdOrderId, orderTotal: capturedFinalTotal, customerPhone: form.phone, customerName: form.name }),
           keepalive: true,
         }).then(() => {
           // limpa o cookie para não re-aplicar

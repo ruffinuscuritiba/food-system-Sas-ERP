@@ -1,4 +1,4 @@
-import { IsString, IsNumber, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class RedeemTokenDto {
@@ -13,4 +13,14 @@ export class RedeemTokenDto {
   @Min(0)
   @Type(() => Number)
   orderTotal!: number;
+
+  /** Telefone do cliente — para enviar WhatsApp de boas-vindas */
+  @IsString()
+  @IsOptional()
+  customerPhone?: string;
+
+  /** Nome do cliente */
+  @IsString()
+  @IsOptional()
+  customerName?: string;
 }

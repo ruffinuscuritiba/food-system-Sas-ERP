@@ -1352,7 +1352,7 @@ function PlanCard({
             </button>
           )}
           <a
-            href="https://wa.me/554188888888?text=Olá, preciso de suporte com meu plano FoodSaaS"
+            href="https://wa.me/5541988729370?text=Olá, preciso de suporte com meu plano FoodSaaS"
             target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/20 text-white text-xs font-semibold hover:bg-white/30 transition-colors border border-white/30"
           >
@@ -1399,7 +1399,7 @@ function UpgradeModal({ currentPlan, onClose }: { currentPlan: string; onClose: 
                 </div>
                 <p className="text-white/70 text-[11px] mb-3">{p.tagline}</p>
                 <a
-                  href={`https://wa.me/554188888888?text=Quero fazer upgrade para o plano ${p.label} FoodSaaS`}
+                  href={`https://wa.me/5541988729370?text=Quero fazer upgrade para o plano ${p.label} FoodSaaS`}
                   target="_blank" rel="noopener noreferrer"
                   className="block text-center py-1.5 rounded-lg bg-white text-gray-900 text-[11px] font-bold hover:bg-white/90 transition-colors"
                   onClick={onClose}

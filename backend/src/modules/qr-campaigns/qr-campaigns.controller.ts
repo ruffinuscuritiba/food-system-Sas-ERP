@@ -46,6 +46,17 @@ export class QrCampaignsController {
     return this.svc.toggleCampaign(id, companyId, status);
   }
 
+  // PrintBlock para reimpressão no PDV
+  @Get('order/:orderId/print-block')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  getPrintBlock(
+    @CompanyId() companyId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.svc.getPrintBlockForOrder(orderId, companyId);
+  }
+
   // Deletar
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)

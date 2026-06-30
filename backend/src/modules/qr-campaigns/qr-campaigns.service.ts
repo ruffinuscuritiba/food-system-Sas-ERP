@@ -506,6 +506,16 @@ export class QrCampaignsService {
 
   // ── Histórico de QR codes ─────────────────────────────────────────────────
 
+  /** Retorna o printBlock do QrCode gerado para um pedido (PDV reprint) */
+  async getPrintBlockForOrder(orderId: string, companyId: string) {
+    const redemption = await (this.prisma as any).couponRedemption.findFirst({
+      where: { orderId, companyId },
+      include: { qrCode: true },
+    });
+    if (!redemption?.qrCode?.printBlock) return { printBlock: null };
+    return { printBlock: redemption.qrCode.printBlock };
+  }
+
   async listQrCodes(companyId: string, page = 1, limit = 50) {
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([

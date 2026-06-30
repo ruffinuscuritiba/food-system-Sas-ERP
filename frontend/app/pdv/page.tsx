@@ -925,9 +925,9 @@ export default function PDVPage() {
               <img src={bannerImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="hero"
                 style={{ transform: `scale(${((activeCategory as any)?.bannerImageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
               <div className="absolute inset-0 bg-black/60" />
-              <div className="relative z-10 p-10">
-                <h1 className="text-3xl xl:text-5xl font-black mb-2 leading-tight break-words max-w-[700px]">{activeCategoryName}</h1>
-                <p className="text-base text-zinc-300">{filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}</p>
+              <div className="relative z-10 p-10 text-white">
+                <h1 className="text-3xl xl:text-5xl font-black mb-2 leading-tight break-words max-w-[700px] drop-shadow-lg">{activeCategoryName}</h1>
+                <p className="text-base text-white/80">{filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} disponível{filteredProducts.length !== 1 ? "is" : ""}</p>
               </div>
             </div>
 

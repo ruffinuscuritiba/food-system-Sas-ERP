@@ -24,86 +24,63 @@ export interface DemoTheme {
   cssVars: Record<string, string>;
 }
 
+// Mármore base — compartilhado por todos os demos (padrão claro, sem dark)
+const MARBLE: Record<string, string> = {
+  "--app-sidebar":        "#FFFFFF",
+  "--app-sidebar-hover":  "#F0EEE9",
+  "--app-border-ui":      "#E2E0DC",
+  "--app-sidebar-text":   "#374151",
+  "--pdv-bg":             "#F7F6F3",
+  "--pdv-header-bg":      "#FFFFFF",
+  "--pdv-sidebar-bg":     "#FFFFFF",
+  "--pdv-card":           "#FAFAF8",
+  "--pdv-card-hover":     "#EEECEA",
+  "--pdv-border":         "#E2E0DC",
+  "--pdv-text-muted":     "#6B7280",
+};
+
 export const DEMO_THEMES: Record<string, DemoTheme> = {
-  // ── BASIC — Pizzaria Bella Napoli — green sidebar ─────────────────────────
+  // ── BASIC — Pizzaria Bella Napoli — verde floresta sóbrio ─────────────────
   "demo-basic-001": {
     name: "Bella Napoli",
-    primaryColor: "#16a34a",
+    primaryColor: "#1F5C38",
     cssVars: {
-      "--app-sidebar":        "#020d07",
-      "--app-sidebar-hover":  "#051609",
-      "--app-sidebar-active": "#10b981",
-      "--app-sidebar-text":   "#ecfdf5",
-      "--app-border-ui":      "rgba(22,163,74,0.22)",
-      // PDV dark theme — green-tinted dark environment
-      "--pdv-bg":             "#020d07",
-      "--pdv-header-bg":      "#031008",
-      "--pdv-sidebar-bg":     "#020d07",
-      "--pdv-card":           "#051609",
-      "--pdv-card-hover":     "#071c0c",
-      "--pdv-border":         "rgba(22,163,74,0.22)",
-      "--pdv-text-muted":     "#86efac",
+      ...MARBLE,
+      "--color-primary":      "#1F5C38",
+      "--app-sidebar-active": "#1F5C38",
     },
   },
 
-  // ── PRO — Pizzaria Don Corleone — blue sidebar ────────────────────────────
+  // ── PRO — Pizzaria Don Corleone — azul naval sóbrio ──────────────────────
   "demo-pro-001": {
     name: "Don Corleone",
-    primaryColor: "#2563eb",
+    primaryColor: "#1A3A6B",
     cssVars: {
-      "--app-sidebar":        "#020614",
-      "--app-sidebar-hover":  "#050d22",
-      "--app-sidebar-active": "#3b82f6",
-      "--app-sidebar-text":   "#eff6ff",
-      "--app-border-ui":      "rgba(37,99,235,0.22)",
-      // PDV dark theme — blue-tinted dark environment
-      "--pdv-bg":             "#020614",
-      "--pdv-header-bg":      "#030a1c",
-      "--pdv-sidebar-bg":     "#020614",
-      "--pdv-card":           "#050d22",
-      "--pdv-card-hover":     "#07112b",
-      "--pdv-border":         "rgba(37,99,235,0.22)",
-      "--pdv-text-muted":     "#93c5fd",
+      ...MARBLE,
+      "--color-primary":      "#1A3A6B",
+      "--app-sidebar-active": "#1A3A6B",
     },
   },
 
-  // ── ENTERPRISE — Grupo Milano — black sidebar ─────────────────────────────
+  // ── ENTERPRISE — Grupo Milano — roxo profundo sóbrio ─────────────────────
   "demo-enterprise-001": {
     name: "Milano",
-    primaryColor: "#7c3aed",
+    primaryColor: "#3D1A70",
     cssVars: {
-      "--app-sidebar":        "#030712",
-      "--app-sidebar-hover":  "#070d18",
-      "--app-sidebar-active": "#7c3aed",
-      "--app-sidebar-text":   "#f3f4f6",
-      "--app-border-ui":      "rgba(124,58,237,0.22)",
-      // PDV dark theme — neutral bg, plan-coloured accents (borders/highlights)
-      "--pdv-bg":             "#030712",
-      "--pdv-header-bg":      "#050a14",
-      "--pdv-sidebar-bg":     "#030712",
-      "--pdv-card":           "#070d18",
-      "--pdv-card-hover":     "#09111d",
-      "--pdv-border":         "rgba(124,58,237,0.22)",
-      "--pdv-text-muted":     "#c4b5fd",
+      ...MARBLE,
+      "--color-primary":      "#3D1A70",
+      "--app-sidebar-active": "#3D1A70",
     },
   },
-  // ── DELIVERY — Marmita Express — orange sidebar ───────────────────────────
+
+  // ── DELIVERY — Marmita Express — terracota sóbrio ────────────────────────
   "demo-delivery-001": {
     name: "Marmita Express",
-    primaryColor: "#ea580c",
+    primaryColor: "#7C3D12",
     cssVars: {
-      "--app-sidebar":        "#0d0500",
-      "--app-sidebar-hover":  "#1a0800",
-      "--app-sidebar-active": "#ea580c",
-      "--app-sidebar-text":   "#fff7ed",
-      "--app-border-ui":      "rgba(234,88,12,0.22)",
-      "--pdv-bg":             "#0d0500",
-      "--pdv-header-bg":      "#130700",
-      "--pdv-sidebar-bg":     "#0d0500",
-      "--pdv-card":           "#1a0800",
-      "--pdv-card-hover":     "#200a00",
-      "--pdv-border":         "rgba(234,88,12,0.22)",
-      "--pdv-text-muted":     "#fdba74",
+      ...MARBLE,
+      "--color-primary":      "#7C3D12",
+      "--app-sidebar-active": "#7C3D12",
     },
   },
 };
@@ -136,7 +113,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Ideal para pizzarias e restaurantes pequenos.",
     email: "demo-basic@foodsaas.demo",
     password: "DemoBasic@123",
-    primaryColor: "#16a34a",
+    primaryColor: "#1F5C38",
     features: ["PDV", "Pedidos", "Cozinha", "Mesas", "Cardápio Online"],
   },
   {
@@ -146,7 +123,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Ideal para operações em crescimento.",
     email: "demo-pro@foodsaas.demo",
     password: "DemoPro@123",
-    primaryColor: "#2563eb",
+    primaryColor: "#1A3A6B",
     features: ["Tudo do Basic", "Cupons", "Relatórios", "Controle avançado", "Gestão ampliada"],
   },
   {
@@ -156,7 +133,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Solução premium para grandes operações.",
     email: "demo-enterprise@foodsaas.demo",
     password: "DemoEnterprise@123",
-    primaryColor: "#7c3aed",
+    primaryColor: "#3D1A70",
     features: ["Tudo do Pro", "Multiunidades", "Recursos avançados", "Dashboards completos", "Operação corporativa"],
   },
   {
@@ -166,7 +143,7 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     tagline: "Focado em marmitarias e dark kitchens com entrega própria.",
     email: "demo-delivery@foodsaas.demo",
     password: "DemoDelivery@123",
-    primaryColor: "#ea580c",
+    primaryColor: "#7C3D12",
     features: ["PDV", "Cardápio Online", "Rastreamento de Entregadores", "Zonas de Entrega", "App do Entregador"],
   },
 ];

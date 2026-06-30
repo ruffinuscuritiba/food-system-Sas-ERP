@@ -63,6 +63,7 @@ const PUBLIC_ROUTES = [
   "/demo",
   "/ia-demo",
   "/tracking",
+  "/r",        // QR redirect de recuperação de clientes
 ];
 
 type NavItem = {
@@ -158,6 +159,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     items: [
       { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "smart-import" },
       { href: "/marketing",            label: "Marketing Digital",   icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing",    navKey: "marketing" },
+      { href: "/campanhas",            label: "QR Recuperação",      icon: <QrCode size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "campanhas" },
     ],
   },
   {

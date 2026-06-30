@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional, Logger } from '@nestjs/common';
+import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 
 import { OrderStatus, Prisma } from '@prisma/client';
 
@@ -35,6 +36,9 @@ export class OrdersService {
 
     @Optional()
     private deliveryConfigService?: DeliveryConfigService,
+
+    @Optional()
+    private qrCampaigns?: QrCampaignsService,
   ) {}
 
   async create(data: any) {
@@ -285,6 +289,30 @@ export class OrdersService {
     const dashboard = await this.dashboard(data.companyId);
 
     this.socketGateway.emitDashboardUpdate(data.companyId, dashboard);
+
+    // ── QR Recovery — gerar cupom de recuperação (fire-and-forget) ──────────
+    // Detecta canal: integrationOrders têm channel != 'PDV'
+    setImmediate(async () => {
+      try {
+        if (!this.qrCampaigns) return;
+        const orderSource = (data as any).channel ?? 'PROPRIO';
+        const phone = order.customer?.phone ?? (data as any).customerPhone;
+        const isFirstOrder = phone
+          ? (await this.prisma.order.count({ where: { companyId: data.companyId, customer: { phone } } })) <= 1
+          : false;
+        const qr = await this.qrCampaigns.generateForOrder({
+          companyId:    data.companyId,
+          orderId:      order.id,
+          orderSource,
+          customerName: order.customer?.name ?? `Pedido #${order.number}`,
+          customerPhone: phone,
+          isFirstOrder,
+        });
+        if (qr) console.log(`[QR] token=${qr.token} gerado para order=${order.id} source=${orderSource}`);
+      } catch (e: any) {
+        console.warn(`[QR] falha ao gerar cupom para order=${order.id}: ${e?.message}`);
+      }
+    });
 
     return order;
   }

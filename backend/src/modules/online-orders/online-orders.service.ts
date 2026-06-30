@@ -3,11 +3,13 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
+import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
@@ -59,6 +61,7 @@ export class OnlineOrdersService {
     private readonly socketGateway: SocketGateway,
     private readonly notifications: NotificationsService,
     private readonly deliveryConfigService: DeliveryConfigService,
+    @Optional() private readonly qrCampaigns?: QrCampaignsService,
   ) {}
 
   /**
@@ -213,6 +216,32 @@ export class OnlineOrdersService {
           `[OnlineOrder] id=${order.id} company=${dto.companyId} ` +
             `total=${total} type=${orderType} — socket events emitted`,
         );
+
+        // ── QR Recovery: gerar cupom para pedidos do cardápio próprio ──────
+        if (this.qrCampaigns) {
+          const qrSvc = this.qrCampaigns;
+          const prisma = this.prisma;
+          const logger = this.logger;
+          void (async () => {
+            try {
+              const count = await prisma.onlineOrder.count({
+                where: { companyId: dto.companyId, customerPhone: dto.customerPhone },
+              });
+              const isFirstOrder = count <= 1;
+              const qr = await qrSvc.generateForOrder({
+                companyId:     dto.companyId,
+                orderId:       order.id,
+                orderSource:   'PROPRIO',
+                customerName:  dto.customerName,
+                customerPhone: dto.customerPhone,
+                isFirstOrder,
+              });
+              if (qr) logger.log(`[QR] token=${qr.token} gerado para onlineOrder=${order.id}`);
+            } catch (e: any) {
+              logger.warn(`[QR] falha ao gerar cupom: ${e?.message}`);
+            }
+          })();
+        }
 
         // → New order confirmation email (fire-and-forget — never blocks the order)
         if (order.customerEmail) {

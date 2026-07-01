@@ -300,8 +300,20 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         if (DEMO_IDS.has(cid)) {
           applyDemoTheme(cid);
         } else {
+          const root = document.documentElement;
           const color = r.data?.primaryColor;
-          if (color) document.documentElement.style.setProperty("--color-primary", color);
+          if (color) root.style.setProperty("--color-primary", color);
+          // Aplica cores de fundo/sidebar salvas pelo seletor de preset
+          const bg = r.data?.backgroundColor;
+          const sidebar = r.data?.secondaryColor;
+          if (bg && bg !== "#020617") {
+            root.style.setProperty("--surface-0",   bg);
+            root.style.setProperty("--app-page-bg", bg);
+          }
+          if (sidebar && sidebar !== "#0f172a") {
+            root.style.setProperty("--surface-1",  sidebar);
+            root.style.setProperty("--app-sidebar", sidebar);
+          }
         }
         // Padrão = claro (mármore). Só adiciona .theme-dark quando a loja
         // escolheu explicitamente o modo escuro (CompanyTheme.darkMode = true).

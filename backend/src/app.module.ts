@@ -49,6 +49,7 @@ import { LayoutTemplatesModule } from './modules/layout-templates/layout-templat
 import { WalletModule } from './modules/wallet/wallet.module';
 import { VisitsModule } from './modules/visits/visits.module';
 import { QrCampaignsModule } from './modules/qr-campaigns/qr-campaigns.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch:
 // - ChatModule, AlertsModule
@@ -100,6 +101,7 @@ import { QrCampaignsModule } from './modules/qr-campaigns/qr-campaigns.module';
     WalletModule,
     VisitsModule,
     QrCampaignsModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [

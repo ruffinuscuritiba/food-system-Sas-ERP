@@ -211,5 +211,6 @@ export function applyPdvVars(t: PdvThemeConfig): void {
   root.style.setProperty("--pdv-card",        t.cardBg);
   root.style.setProperty("--pdv-card-hover",  t.hoverBg || t.cardBg);
   root.style.setProperty("--pdv-border",      t.border);
+  root.style.setProperty("--pdv-header",      t.headerBg || t.sidebarBg);
   if (t.primary) root.style.setProperty("--color-primary", t.primary);
 }

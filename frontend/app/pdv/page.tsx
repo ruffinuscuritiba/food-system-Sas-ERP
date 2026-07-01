@@ -873,7 +873,7 @@ export default function PDVPage() {
         </header>
 
         {/* Mobile categories */}
-        <div className="md:hidden shrink-0 bg-[var(--pdv-sidebar-bg,#050816)] border-b border-[var(--pdv-border,#161b2d)]">
+        <div className="md:hidden shrink-0 bg-[var(--pdv-categories-bg,#050816)] border-b border-[var(--pdv-border,#161b2d)]">
           <div
             className="px-3 py-2 overflow-x-scroll scrollbar-hide touch-pan-x"
           >
@@ -897,7 +897,7 @@ export default function PDVPage() {
 
         {/* BODY */}
         <div className="flex-1 hidden md:grid grid-cols-[220px_1fr] overflow-hidden">
-          <aside className="w-full border-r border-[var(--pdv-border,#161b2d)] p-5 overflow-y-auto scrollbar-hide bg-[var(--pdv-sidebar-bg,#050816)]">
+          <aside className="w-full border-r border-[var(--pdv-border,#161b2d)] p-5 overflow-y-auto scrollbar-hide bg-[var(--pdv-categories-bg,#050816)]">
             <div className="space-y-2">
               <button onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${

@@ -121,7 +121,7 @@ export const PDV_THEME_PRESETS: PdvPreset[] = [
     config: {
       sidebarBg:    "#052e16",
       categoriesBg: "#064e3b",
-      productsBg:   "#030712",
+      productsBg:   "#03170d",
       cartBg:       "#052e16",
       headerBg:     "#022c22",
       cardBg:       "rgba(22,163,74,0.09)",

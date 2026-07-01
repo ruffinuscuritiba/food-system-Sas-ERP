@@ -44,26 +44,42 @@
 .pdv-root > div > div:first-child .text-white { color: #1A1A1A; }
 
 /* ── Imagem de fundo textura configurável (25% opacidade = 75% suavidade) ──
- * Quando a loja define backgroundImageUrl no tema, --bg-texture-url é injetada
- * pelo ClientShell. Pseudo-elemento fixo atrás de tudo. */
-:root:not(.theme-dark) body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: var(--bg-texture-url, none);
+ * Quando a loja define backgroundImageUrl, --bg-texture-url é injetada e a
+ * classe .has-bg-texture é aplicada no <html> (ClientShell / editor de tema).
+ * Aplicada como camada real de background-image em body/.pdv-root/.admin-page
+ * — essas superfícies pintam background-color OPACO por cima, então um
+ * pseudo-elemento em z-index:-1 (abordagem antiga) nunca conseguia aparecer
+ * por trás delas. O "wash" (gradient semi-transparente) simula os 25% de
+ * opacidade da imagem, já que background-image não aceita opacity isolado.
+ * Funciona em claro E escuro (antes só existia para :not(.theme-dark)). */
+:root.has-bg-texture:not(.theme-dark) body,
+:root.has-bg-texture:not(.theme-dark) .pdv-root,
+:root.has-bg-texture:not(.theme-dark) .admin-page {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.75), rgba(255,255,255,0.75)),
+    var(--bg-texture-url, none);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.25;
-  z-index: -1;
-  pointer-events: none;
+  background-attachment: fixed;
+}
+:root.has-bg-texture.theme-dark body,
+:root.has-bg-texture.theme-dark .pdv-root,
+:root.has-bg-texture.theme-dark .admin-page {
+  background-image:
+    linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)),
+    var(--bg-texture-url, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
-/* ── Mármore: textura de veios (modo claro) ─────────────────────────────────
+/* ── Mármore: textura de veios (modo claro, sem textura customizada) ───────
  * Gradientes diagonais simulando veios Carrara. Não afeta modo escuro. */
-:root:not(.theme-dark) body,
-:root:not(.theme-dark) .pdv-root,
-:root:not(.theme-dark) .admin-page {
+:root:not(.has-bg-texture):not(.theme-dark) body,
+:root:not(.has-bg-texture):not(.theme-dark) .pdv-root,
+:root:not(.has-bg-texture):not(.theme-dark) .admin-page {
   background-image:
     linear-gradient(128deg, rgba(180,183,200,0.13) 0%,  transparent 28%),
     linear-gradient(232deg, rgba(172,176,198,0.10) 12%, transparent 38%),

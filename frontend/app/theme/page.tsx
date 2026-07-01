@@ -318,7 +318,8 @@ export default function ThemePage() {
                                 if (url) {
                                   setTheme((t: any) => ({ ...t, backgroundImageUrl: url }));
                                   document.documentElement.style.setProperty("--bg-texture-url", `url('${url}')`);
-                                  toast.success("Textura carregada!");
+                                  document.documentElement.classList.add("has-bg-texture");
+                                  toast.success("Textura carregada! Clique em Salvar Tema para aplicar.");
                                 }
                               } catch {
                                 toast.error("Erro ao enviar imagem.");
@@ -342,6 +343,7 @@ export default function ThemePage() {
                           onClick={() => {
                             setTheme((t: any) => ({ ...t, backgroundImageUrl: null }));
                             document.documentElement.style.removeProperty("--bg-texture-url");
+                            document.documentElement.classList.remove("has-bg-texture");
                           }}
                         >
                           Remover

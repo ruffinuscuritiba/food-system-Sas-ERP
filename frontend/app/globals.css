@@ -181,6 +181,7 @@
   background-color: var(--surface-1);
   color: #f1f5f9;
   -webkit-text-fill-color: #f1f5f9;
+  caret-color: #f1f5f9;
   border-color: var(--border-ui);
 }
 :root.theme-dark .admin-page [class*="bg-[var(--color-primary"],

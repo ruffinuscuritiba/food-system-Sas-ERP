@@ -1209,7 +1209,7 @@ export default function MenuPage() {
                         <p className="text-white text-xs mt-0.5 line-clamp-1" style={{ textShadow: "0 1px 2px rgba(0,0,0,1), 0 1px 4px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)", WebkitTextStroke: "0.4px rgba(0,0,0,0.7)" }}>{product.description}</p>
                       )}
                       <div className="flex items-center justify-between mt-2 gap-2">
-                        <span className="text-white font-black text-lg shrink-0" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)" }}>{productPriceLabel(product)}</span>
+                        <span className="font-black text-lg shrink-0" style={{ color: "#facc15", textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)", WebkitTextStroke: "0.4px rgba(0,0,0,0.6)" }}>{productPriceLabel(product)}</span>
                         <div className="flex gap-1.5 flex-wrap justify-end">
                           {product.videoUrl && (
                             <button

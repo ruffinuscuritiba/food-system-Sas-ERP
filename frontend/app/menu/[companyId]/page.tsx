@@ -921,6 +921,10 @@ export default function MenuPage() {
   })();
   const showFeatured = blockVisible("featured") && featuredProducts.length > 0;
   const featuredBeforeCategories = blockOrder("featured") < blockOrder("categories");
+  // Estilo "App" — categorias em avatar circular + cards de produto full-bleed
+  // (foto de fundo + gradiente). Ativado quando a loja escolhe layoutType=LIST
+  // no Construtor (valor padrão do banco — passa a ter efeito visual real).
+  const isAppStyle = (menuLayoutConfig?.layoutType ?? "LIST") === "LIST";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1020,6 +1024,35 @@ export default function MenuPage() {
       {/* ─── Categorias + Busca ─────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm mt-4">
         <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto touch-pan-x scroll-smooth">
+          {isAppStyle ? (
+            <div className="flex gap-4 min-w-max">
+              {categories.map((cat) => {
+                const catObj = categoryObjects.find((c) => c.name?.trim() === cat);
+                const firstProductImg = products.find((p) => p.category?.name?.trim() === cat && p.imageUrl)?.imageUrl;
+                const avatarUrl = catObj?.bannerImage || firstProductImg || (cat === "Todos" ? theme.logoUrl : undefined);
+                const isActive = activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    className="flex flex-col items-center gap-1.5 shrink-0"
+                  >
+                    <div
+                      className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-2xl transition"
+                      style={{ boxShadow: isActive ? `0 0 0 3px ${theme.primaryColor}` : "0 0 0 1px #e5e7eb" }}
+                    >
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={cat} className="w-full h-full object-cover" />
+                      ) : "🍽️"}
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">
+                      {cat.replace(/^[^\p{L}\p{N}]+/u, '')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
           <div className="flex gap-2 min-w-max">
             {categories.map((cat) => (
               <button
@@ -1034,6 +1067,7 @@ export default function MenuPage() {
               </button>
             ))}
           </div>
+          )}
         </div>
         <div className="px-4 pb-3 max-w-2xl mx-auto">
           <div className="relative">
@@ -1136,6 +1170,73 @@ export default function MenuPage() {
                       >
                         <Plus size={13} /> Adicionar
                       </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
+          // Estilo App — cards full-bleed (foto de fundo + gradiente escuro)
+          if (isAppStyle) {
+            return (
+              <div className="space-y-3">
+                {filtered.map((product) => (
+                  <div
+                    key={product.id}
+                    onClick={() => addToCart(product)}
+                    className="relative rounded-3xl overflow-hidden cursor-pointer active:scale-[0.98] transition"
+                    style={{ minHeight: 128, backgroundColor: "#1f2937" }}
+                  >
+                    {product.imageUrl && (
+                      <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+                    )}
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.05) 60%)" }} />
+                    {!product.imageUrl && (
+                      <div className="absolute inset-0 flex items-center justify-center text-4xl">🍽️</div>
+                    )}
+                    <div className="relative z-10 flex flex-col justify-end h-full min-h-[128px] p-4">
+                      {(product as any).isFeatured && (
+                        <span
+                          className="self-start mb-1.5 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full text-white"
+                          style={{ backgroundColor: theme.primaryColor }}
+                        >
+                          Destaque
+                        </span>
+                      )}
+                      <h3 className="text-white font-black text-base leading-tight line-clamp-1">{product.name}</h3>
+                      {product.description && (
+                        <p className="text-white/70 text-xs mt-0.5 line-clamp-1">{product.description}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-2 gap-2">
+                        <span className="text-white font-black text-lg shrink-0">{productPriceLabel(product)}</span>
+                        <div className="flex gap-1.5 flex-wrap justify-end">
+                          {product.videoUrl && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setVideoProduct(product); }}
+                              className="bg-white/15 text-white p-2 rounded-xl transition"
+                              title="Ver vídeo do produto"
+                            >
+                              <Eye size={14} />
+                            </button>
+                          )}
+                          {isPizzaCat && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openFlavorModal(product); }}
+                              className="bg-white/15 text-white px-3 py-2 rounded-xl font-bold text-xs transition"
+                            >
+                              🍕 Meio a meio
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                            className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
+                            style={{ backgroundColor: theme.primaryColor }}
+                          >
+                            <Plus size={14} /> Adicionar
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}

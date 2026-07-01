@@ -1,12 +1,12 @@
 "use client";
 import { apiBaseUrl } from "@/services/env";
 import ImageUpload from "@/components/ImageUpload";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
 import {
   type PdvThemeConfig, PDV_THEME_DEFAULT, PDV_THEME_PRESETS,
-  loadPdvTheme, savePdvTheme, broadcastPdvTheme,
+  loadPdvTheme, savePdvTheme, broadcastPdvTheme, applyPdvVars,
 } from "@/lib/pdv-theme";
 import { api } from "@/services/api";
 
@@ -67,6 +67,9 @@ export default function ThemePage() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [sidebarConfig, setSidebarConfig] = useState<Record<string, boolean>>({});
   const [savingSidebar, setSavingSidebar] = useState(false);
+  const pdvThemeSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const themeRef = useRef<any>(null);
+  useEffect(() => { themeRef.current = theme; }, [theme]);
 
   useEffect(() => {
     if (companyId) loadTheme();
@@ -103,12 +106,26 @@ export default function ThemePage() {
     setPdvTheme(updated);
     savePdvTheme(updated);
     broadcastPdvTheme(updated);
+    applyPdvVars(updated);
+    if (isDemo) return;
+    // Debounce: evita PATCH a cada drag de color picker
+    if (pdvThemeSaveTimer.current) clearTimeout(pdvThemeSaveTimer.current);
+    pdvThemeSaveTimer.current = setTimeout(() => {
+      persistTheme({ ...themeRef.current, pdvThemeConfig: updated }).catch(() => {});
+    }, 600);
   }
 
   async function loadTheme() {
     try {
       const res = await api.get(`/themes/${companyId}`);
       setTheme(res.data);
+      // Sincroniza pdvTheme salvo no banco (cross-device) por cima do localStorage
+      if (res.data?.pdvThemeConfig) {
+        const merged = { ...PDV_THEME_DEFAULT, ...res.data.pdvThemeConfig };
+        setPdvTheme(merged);
+        savePdvTheme(merged);
+        applyPdvVars(merged);
+      }
     } catch {
       toast.error("Erro ao carregar tema.");
     }

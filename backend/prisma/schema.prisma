@@ -1014,6 +1014,10 @@ model CompanyTheme {
 
   darkMode Boolean @default(true)
 
+  // Cores do preset PDV (sidebarBg, categoriesBg, productsBg, cardBg, hoverBg,
+  // border, glassmorphism etc.) — persistidas para sincronizar entre dispositivos
+  pdvThemeConfig Json?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt

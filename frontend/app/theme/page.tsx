@@ -156,14 +156,32 @@ export default function ThemePage() {
     }
   }
 
-  // Aplica uma cor de accent na hora + salva (usado pelos presets e atalhos).
-  async function applyPrimary(primary: string) {
-    const updated = { ...theme, primaryColor: primary };
+  // Aplica preset completo: primary + bg + secondary no CompanyTheme e CSS vars.
+  async function applyPrimary(primary: string, presetConfig?: Partial<PdvThemeConfig>) {
+    // Mapeia campos do preset para CompanyTheme
+    const bgColor = presetConfig?.productsBg ?? theme?.backgroundColor ?? "#0A0B0E";
+    const sidebarColor = presetConfig?.sidebarBg ?? theme?.secondaryColor ?? "#12141C";
+    const updated = {
+      ...theme,
+      primaryColor: primary,
+      backgroundColor: bgColor,
+      secondaryColor: sidebarColor,
+      darkMode: presetConfig ? (presetConfig.darkProducts ?? true) : theme?.darkMode,
+    };
     setTheme(updated);
-    document.documentElement.style.setProperty("--color-primary", primary);
+    // Aplica imediatamente no DOM — sistema inteiro reage
+    const root = document.documentElement;
+    root.style.setProperty("--color-primary", primary);
+    root.style.setProperty("--surface-0",     bgColor);
+    root.style.setProperty("--surface-1",     sidebarColor);
+    root.style.setProperty("--app-page-bg",   bgColor);
+    root.style.setProperty("--app-sidebar",   sidebarColor);
+    if (presetConfig?.darkProducts !== undefined) {
+      root.classList.toggle("theme-dark", presetConfig.darkProducts);
+    }
     if (isDemo) { demoBlock(); return; }
-    try { await persistTheme(updated); toast.success("Cor aplicada!"); }
-    catch { toast.error("Erro ao aplicar cor."); }
+    try { await persistTheme(updated); toast.success("Tema aplicado!"); }
+    catch { toast.error("Erro ao aplicar tema."); }
   }
 
   // Alterna claro/escuro da loja + salva.
@@ -489,7 +507,7 @@ export default function ThemePage() {
                   const isActive = (theme.primaryColor || "").toLowerCase() === cfg.primary.toLowerCase();
                   return (
                     <button key={p.name}
-                      onClick={() => { applyPrimary(cfg.primary); updatePdvTheme(p.config); }}
+                      onClick={() => { applyPrimary(cfg.primary, p.config); updatePdvTheme(p.config); }}
                       className={`w-full flex items-center gap-4 px-5 py-4 text-left transition ${isActive ? "bg-blue-50" : "hover:bg-gray-50"}`}>
                       {/* Color swatch preview */}
                       <div className="flex shrink-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ width: 88, height: 48 }}>

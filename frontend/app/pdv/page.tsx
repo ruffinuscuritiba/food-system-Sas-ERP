@@ -984,7 +984,7 @@ export default function PDVPage() {
                     : null;
                   const imgSrc = product.imageUrl || offImgSrc;
                   return (
-                  <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-[var(--color-primary,#2563eb)] transition group"
+                  <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:bg-[var(--pdv-card-hover,#151c2d)] hover:border-[var(--color-primary,#2563eb)] shadow-[var(--pdv-shadow,none)] hover:shadow-[var(--pdv-shadow-hover,none)] hover:-translate-y-0.5 transition group"
                     onClick={() => openProductAdd(product)}>
                     <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl relative">
                       <span>{activeIsBeverage ? "🥤" : "🍽️"}</span>
@@ -1014,7 +1014,7 @@ export default function PDVPage() {
             ) : (
               <div className="space-y-5">
                 {dedupedPizzaProducts.map((product) => (
-                  <div key={product.id} className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] flex items-center px-6">
+                  <div key={product.id} className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] shadow-[var(--pdv-shadow,none)] flex items-center px-6">
                     <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center shrink-0 text-4xl relative overflow-hidden">
                       <span>🍽️</span>
                       {product.imageUrl && (
@@ -1081,7 +1081,7 @@ export default function PDVPage() {
             /* Grade 2-col para bebidas e modo GRID */
             <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
               {filteredProducts.map(product => (
-                <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col active:opacity-80 transition"
+                <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col shadow-[var(--pdv-shadow,none)] active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[var(--pdv-card,#161b2d)] p-2" />
@@ -1105,7 +1105,7 @@ export default function PDVPage() {
               {dedupedPizzaProducts.map(product => (
                 <div key={product.id}
                   onClick={() => { if (!complementLoading) openProductAdd(product); }}
-                  className="w-full flex items-center gap-2.5 bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl p-2.5 active:opacity-80 transition overflow-hidden cursor-pointer">
+                  className="w-full flex items-center gap-2.5 bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl p-2.5 shadow-[var(--pdv-shadow,none)] active:opacity-80 transition overflow-hidden cursor-pointer">
                   {/* Imagem */}
                   {product.imageUrl
                     ? <img src={product.imageUrl} alt={product.name} className="w-14 h-14 object-cover rounded-xl shrink-0" />

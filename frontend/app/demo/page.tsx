@@ -1117,6 +1117,83 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
   );
 }
 
+// ─── Exit-Intent Popup ─────────────────────────────────────────────────────────
+interface ExitIntentForm { name: string; whatsapp: string; }
+
+function ExitIntentModal({ onClose, onConfirm, loading }: {
+  onClose: () => void;
+  onConfirm: (form: ExitIntentForm) => Promise<void>;
+  loading: boolean;
+}) {
+  const [form, setForm] = useState<ExitIntentForm>({ name: "", whatsapp: "" });
+
+  function formatPhone(raw: string) {
+    const d = raw.replace(/\D/g, "").slice(0, 11);
+    if (d.length <= 2) return d;
+    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { toast.error("Informe seu nome."); return; }
+    if (form.whatsapp.replace(/\D/g, "").length < 10) { toast.error("Informe um WhatsApp válido."); return; }
+    await onConfirm(form);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+      <div className="relative w-full max-w-md rounded-3xl border border-orange-500/20 bg-[#0d1117] shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-25"
+          style={{ background: "radial-gradient(ellipse at 50% 0%, #f97316, transparent 70%)" }} aria-hidden />
+        <div className="relative flex items-start justify-between px-7 pt-7 pb-0">
+          <div>
+            <span className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest mb-3 text-orange-400 bg-orange-500/10 border border-orange-500/30">
+              Antes de sair
+            </span>
+            <h2 className="text-xl font-black text-white leading-tight">Ganhe uma análise grátis do seu cardápio no iFood</h2>
+            <p className="mt-1.5 text-sm text-white/50">Fale agora com um especialista e descubra o que está travando suas vendas — sem compromisso.</p>
+          </div>
+          <button onClick={onClose} className="shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20 hover:text-white transition">
+            <X size={14} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="relative px-7 py-6 space-y-4">
+          {[
+            { label: "Seu nome", type: "text", Icon: User, key: "name" as const, placeholder: "João Silva" },
+            { label: "WhatsApp", type: "tel", Icon: Phone, key: "whatsapp" as const, placeholder: "(11) 99999-9999" },
+          ].map(({ label, type, Icon, key, placeholder }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-white/60 mb-1.5">{label}</label>
+              <div className="relative">
+                <Icon size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                <input
+                  type={type}
+                  value={form[key]}
+                  onChange={(e) => {
+                    const v = key === "whatsapp" ? formatPhone(e.target.value) : e.target.value;
+                    setForm((f) => ({ ...f, [key]: v }));
+                  }}
+                  placeholder={placeholder}
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-orange-500/40 transition"
+                  autoFocus={key === "name"}
+                />
+              </div>
+            </div>
+          ))}
+          <button type="submit" disabled={loading}
+            className="mt-2 w-full inline-flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed bg-orange-600"
+            style={{ boxShadow: "0 8px 24px -8px #f97316cc, inset 0 1px 0 rgba(255,255,255,0.15)" }}>
+            {loading ? (<><Loader2 className="h-4 w-4 animate-spin" />Enviando…</>) : (<><MessageCircle className="h-4 w-4" />Falar no WhatsApp agora</>)}
+          </button>
+          <p className="text-center text-[11px] text-white/25 pt-1">Sem custo. Sem compromisso. Resposta em minutos.</p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 function DemoContent() {
   const router = useRouter();
@@ -1125,8 +1202,12 @@ function DemoContent() {
   const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
+  const [showExitIntent, setShowExitIntent] = useState(false);
+  const [exitIntentSending, setExitIntentSending] = useState(false);
   const demoSectionRef = useRef<HTMLElement>(null);
   const recordedNiches = useRef<Set<string>>(new Set());
+  const exitIntentTriggeredRef = useRef(false);
+  const leadCapturedRef = useRef(false);
 
   // Marketing: registra interesse por nicho (qual categoria atacar no anúncio).
   // Dedupe por sessão; keepalive garante o envio mesmo ao navegar pro /pdv.
@@ -1171,8 +1252,65 @@ function DemoContent() {
     } catch {}
   }, []);
 
+  // Exit-intent: captura visitantes que estão saindo sem converter.
+  // Desktop — dispara quando o mouse sai pela borda superior da viewport
+  // (comportamento clássico de "vai fechar a aba"). Mobile não tem mouse,
+  // então usamos um fallback por tempo de permanência (45s sem converter).
+  useEffect(() => {
+    const alreadyShown = sessionStorage.getItem("exit_intent_shown");
+    if (alreadyShown) return;
+
+    function trigger() {
+      if (exitIntentTriggeredRef.current || leadCapturedRef.current || modalDemo) return;
+      exitIntentTriggeredRef.current = true;
+      sessionStorage.setItem("exit_intent_shown", "1");
+      setShowExitIntent(true);
+    }
+
+    function onMouseOut(e: MouseEvent) {
+      if (e.clientY <= 0 && !e.relatedTarget) trigger();
+    }
+
+    document.addEventListener("mouseout", onMouseOut);
+    const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    const mobileTimer = isTouchDevice ? setTimeout(trigger, 45_000) : null;
+
+    return () => {
+      document.removeEventListener("mouseout", onMouseOut);
+      if (mobileTimer) clearTimeout(mobileTimer);
+    };
+  }, [modalDemo]);
+
+  async function handleExitIntentConfirm(form: ExitIntentForm) {
+    setExitIntentSending(true);
+    leadCapturedRef.current = true;
+    try {
+      const w = window as any;
+      if (w.fbq) w.fbq("track", "Lead", { content_name: "Exit Intent Popup", currency: "BRL" });
+      if (w.gtag) w.gtag("event", "generate_lead", { event_category: "exit_intent", event_label: "demo_page" });
+    } catch {}
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ""}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionToken: `exit-intent-${crypto.randomUUID()}`,
+          name: form.name,
+          whatsapp: form.whatsapp,
+          conversationSummary: "Capturado via pop-up de saída (exit-intent) na /demo",
+          waClicked: true,
+        }),
+        keepalive: true,
+      });
+    } catch {}
+    setShowExitIntent(false);
+    setExitIntentSending(false);
+    window.open(SPECIALIST_WA_URL, "_blank", "noopener,noreferrer");
+  }
+
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
     setEntering(demo.id);
+    leadCapturedRef.current = true; // já converteu — não mostrar exit-intent
     recordNicheVisit(selectedNiche); // marketing: nicho no momento da conversão
     // Dispara evento Lead no Meta Pixel e GA4 para remarketing
     try {
@@ -1217,6 +1355,14 @@ function DemoContent() {
           loading={entering === modalDemo.id}
           onClose={() => { if (!entering) setModalDemo(null); }}
           onConfirm={(form) => enterDemoWithLead(modalDemo, form)}
+        />
+      )}
+
+      {showExitIntent && (
+        <ExitIntentModal
+          loading={exitIntentSending}
+          onClose={() => setShowExitIntent(false)}
+          onConfirm={handleExitIntentConfirm}
         />
       )}
 

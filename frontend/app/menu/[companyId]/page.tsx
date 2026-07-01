@@ -10,7 +10,7 @@ import {
   MapPin, Clock, Phone, Search, Copy, Timer, Eye, Sparkles,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
-import { ChatWidget } from "@/components/chat/ChatWidget";
+import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
 import { ComplementsModal, ComplementGroup, SelectedComplement } from "@/components/shared/ComplementsModal";
 
@@ -104,6 +104,7 @@ export default function MenuPage() {
   const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [companyName, setCompanyName] = useState("Cardápio");
+  const [companyWhatsapp, setCompanyWhatsapp] = useState<string | undefined>(undefined);
   const [orderSent, setOrderSent] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -227,6 +228,7 @@ export default function MenuPage() {
         const cd = await companyRes.json().catch(() => null);
         if (cd?.name) setCompanyName(cd.name);
         if (cd?.id) setRealCompanyId(cd.id);
+        if (cd?.whatsapp || cd?.phone) setCompanyWhatsapp(cd.whatsapp || cd.phone);
       }
 
       if (themeRes?.ok) {
@@ -919,7 +921,7 @@ export default function MenuPage() {
 
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
       {gaId && <GoogleAnalytics gaId={gaId} />}
-      <ChatWidget companyId={companyId} companyName={companyName} />
+      <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} />
 
       {/* ─── Header ────────────────────────────────────────────────────────────── */}
       {blockVisible("banner") && (

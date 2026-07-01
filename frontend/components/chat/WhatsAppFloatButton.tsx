@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 interface WhatsAppFloatButtonProps {
   phone?: string;
   companyName: string;
+  /** Nome do atendente configurado pela loja em /whatsapp-ia (fallback "Atendente"). */
+  assistantName?: string;
 }
 
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -14,8 +16,8 @@ function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Botão flutuante que abre uma conversa real no WhatsApp (Kely) em nova aba. */
-export function WhatsAppFloatButton({ phone, companyName }: WhatsAppFloatButtonProps) {
+/** Botão flutuante que abre uma conversa real no WhatsApp em nova aba. */
+export function WhatsAppFloatButton({ phone, companyName, assistantName = "Atendente" }: WhatsAppFloatButtonProps) {
   const [showGreeting, setShowGreeting] = useState(false);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export function WhatsAppFloatButton({ phone, companyName }: WhatsAppFloatButtonP
       {showGreeting && (
         <div className="hidden sm:flex items-center gap-2 bg-white rounded-2xl shadow-xl px-4 py-3 max-w-[220px]">
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900">Kely</p>
+            <p className="text-sm font-bold text-gray-900">{assistantName}</p>
             <p className="text-xs text-gray-500">Fala comigo no WhatsApp! 👋</p>
           </div>
           <button
@@ -52,7 +54,7 @@ export function WhatsAppFloatButton({ phone, companyName }: WhatsAppFloatButtonP
         target="_blank"
         rel="noopener noreferrer"
         className="bg-[#25D366] hover:bg-[#20BD5A] text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110"
-        aria-label="Falar com Kely no WhatsApp"
+        aria-label={`Falar com ${assistantName} no WhatsApp`}
       >
         <WhatsAppIcon className="w-7 h-7" />
       </a>

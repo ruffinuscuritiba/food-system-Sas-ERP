@@ -366,6 +366,16 @@ export class WhatsappAiService implements OnApplicationBootstrap {
 
   // ── SETTINGS ───────────────────────────────────────────────────────────────
 
+  /** Público (sem auth) — só o nome do atendente, para exibir no cardápio digital. */
+  async getPublicAssistantName(companyId: string): Promise<{ name: string }> {
+    const settings = await this.prisma.whatsappAiSettings.findFirst({
+      where: { companyId, isActive: true },
+      select: { attendantName: true },
+      orderBy: { id: 'asc' },
+    });
+    return { name: settings?.attendantName || 'Atendente' };
+  }
+
   async getSettings(connectionId: string, companyId: string) {
     await this.assertConnectionOwnership(connectionId, companyId);
     return this.prisma.whatsappAiSettings.findUnique({

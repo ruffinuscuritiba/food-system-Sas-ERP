@@ -1204,12 +1204,12 @@ export default function MenuPage() {
                           Destaque
                         </span>
                       )}
-                      <h3 className="text-white font-black text-base leading-tight line-clamp-1">{product.name}</h3>
+                      <h3 className="text-white font-black text-base leading-tight line-clamp-1" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)" }}>{product.name}</h3>
                       {product.description && (
-                        <p className="text-white/70 text-xs mt-0.5 line-clamp-1">{product.description}</p>
+                        <p className="text-white/70 text-xs mt-0.5 line-clamp-1" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)" }}>{product.description}</p>
                       )}
                       <div className="flex items-center justify-between mt-2 gap-2">
-                        <span className="text-white font-black text-lg shrink-0">{productPriceLabel(product)}</span>
+                        <span className="text-white font-black text-lg shrink-0" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)" }}>{productPriceLabel(product)}</span>
                         <div className="flex gap-1.5 flex-wrap justify-end">
                           {product.videoUrl && (
                             <button

@@ -200,3 +200,16 @@ export function broadcastPdvTheme(t: PdvThemeConfig): void {
     bc.close();
   } catch {}
 }
+
+/** Injeta as cores do tema PDV como CSS variables no <html> (lidas pelo /pdv). */
+export function applyPdvVars(t: PdvThemeConfig): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.style.setProperty("--pdv-bg",          t.productsBg);
+  root.style.setProperty("--pdv-sidebar-bg",  t.sidebarBg);
+  root.style.setProperty("--pdv-categories-bg", t.categoriesBg);
+  root.style.setProperty("--pdv-card",        t.cardBg);
+  root.style.setProperty("--pdv-card-hover",  t.hoverBg || t.cardBg);
+  root.style.setProperty("--pdv-border",      t.border);
+  if (t.primary) root.style.setProperty("--color-primary", t.primary);
+}

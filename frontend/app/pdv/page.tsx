@@ -26,6 +26,7 @@ import {
 import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
 import { printTicket } from "@/components/printing/printTicket";
 import type { QrPrintBlock } from "@/components/printing/printTicket";
+import { applyPdvVars, loadPdvTheme, type PdvThemeConfig } from "@/lib/pdv-theme";
 
 
 interface Category {
@@ -299,6 +300,16 @@ export default function PDVPage() {
     } catch {}
     const tick = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(tick);
+  }, []);
+
+  // Tema PDV: aplica cores do preset como CSS vars (--pdv-*) no mount e ouve
+  // trocas em tempo real vindas da tela de Aparência (BroadcastChannel).
+  useEffect(() => {
+    applyPdvVars(loadPdvTheme());
+    if (typeof BroadcastChannel === "undefined") return;
+    const bc = new BroadcastChannel("pdv-theme");
+    bc.onmessage = (e) => { if (e.data) applyPdvVars(e.data as PdvThemeConfig); };
+    return () => bc.close();
   }, []);
 
   useEffect(() => {

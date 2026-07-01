@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
+import { PDV_THEME_DEFAULT, savePdvTheme, applyPdvVars } from "@/lib/pdv-theme";
 
 import {
   LayoutDashboard,
@@ -313,6 +314,13 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           if (sidebar && sidebar !== "#0f172a") {
             root.style.setProperty("--surface-1",  sidebar);
             root.style.setProperty("--app-sidebar", sidebar);
+          }
+          // Sincroniza o preset PDV salvo no banco (cross-device) para o
+          // localStorage local + CSS vars --pdv-* antes de o /pdv montar.
+          if (r.data?.pdvThemeConfig && typeof r.data.pdvThemeConfig === "object") {
+            const merged = { ...PDV_THEME_DEFAULT, ...r.data.pdvThemeConfig };
+            savePdvTheme(merged);
+            applyPdvVars(merged);
           }
         }
         // Padrão = claro (mármore). Só adiciona .theme-dark quando a loja

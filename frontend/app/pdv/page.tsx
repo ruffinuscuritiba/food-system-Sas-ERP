@@ -816,7 +816,7 @@ export default function PDVPage() {
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 
         {/* HEADER */}
-        <header className="shrink-0 border-b border-[var(--pdv-border,#161b2d)] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
+        <header className="shrink-0 border-b border-[var(--pdv-border,#161b2d)] bg-[var(--pdv-header,transparent)] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
           {/* Search */}
           <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
             <Search size={15} className="text-zinc-200 shrink-0" />

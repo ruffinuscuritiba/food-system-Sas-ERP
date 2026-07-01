@@ -958,7 +958,7 @@ export default function PDVPage() {
             </div>
           </aside>
 
-          <section className="flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[var(--pdv-bg,#030712)]">
+          <section className="pdv-products-area flex-1 min-w-0 overflow-y-auto scrollbar-hide p-6 bg-[var(--pdv-bg,#030712)]">
             <div className="relative h-[220px] w-full rounded-[32px] overflow-hidden mb-6">
               <img src={bannerImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="hero"
                 style={{ transform: `scale(${((activeCategory as any)?.bannerImageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
@@ -1048,7 +1048,7 @@ export default function PDVPage() {
         </div>
 
         {/* PRODUCTS mobile */}
-        <div className="md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[var(--pdv-bg,#030712)]">
+        <div className="pdv-products-area md:hidden flex-1 overflow-y-auto scrollbar-hide bg-[var(--pdv-bg,#030712)]">
 
           {/* Banner mobile — imagem da categoria + nome */}
           <div className="relative h-[220px] w-full overflow-hidden shrink-0">

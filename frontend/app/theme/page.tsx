@@ -201,6 +201,41 @@ export default function ThemePage() {
     catch { toast.error("Erro ao aplicar tema."); }
   }
 
+  // Aplica um preset completo (CompanyTheme + pdvThemeConfig) numa ÚNICA
+  // gravação atômica. Antes, o clique disparava applyPrimary() + updatePdvTheme()
+  // como 2 PATCHs assíncronos separados (um imediato, outro debounced 600ms) —
+  // se o usuário clicasse em mais de um preset rapidamente, as 2 gravações
+  // podiam intercalar e persistir uma mistura de presets diferentes.
+  async function applyPreset(cfg: PdvThemeConfig) {
+    if (pdvThemeSaveTimer.current) clearTimeout(pdvThemeSaveTimer.current);
+
+    const updated = {
+      ...theme,
+      primaryColor:     cfg.primary,
+      backgroundColor:  cfg.productsBg,
+      secondaryColor:   cfg.sidebarBg,
+      darkMode:         cfg.darkProducts ?? true,
+      pdvThemeConfig:   cfg,
+    };
+    setTheme(updated);
+    setPdvTheme(cfg);
+    savePdvTheme(cfg);
+    broadcastPdvTheme(cfg);
+    applyPdvVars(cfg);
+
+    const root = document.documentElement;
+    root.style.setProperty("--color-primary", cfg.primary);
+    root.style.setProperty("--surface-0",      cfg.productsBg);
+    root.style.setProperty("--surface-1",      cfg.sidebarBg);
+    root.style.setProperty("--app-page-bg",    cfg.productsBg);
+    root.style.setProperty("--app-sidebar",    cfg.sidebarBg);
+    root.classList.toggle("theme-dark", cfg.darkProducts ?? true);
+
+    if (isDemo) { demoBlock(); return; }
+    try { await persistTheme(updated); toast.success("Tema aplicado!"); }
+    catch { toast.error("Erro ao aplicar tema."); }
+  }
+
   // Alterna claro/escuro da loja + salva.
   async function toggleDarkMode(next: boolean) {
     const updated = { ...theme, darkMode: next };
@@ -524,7 +559,7 @@ export default function ThemePage() {
                   const isActive = (theme.primaryColor || "").toLowerCase() === cfg.primary.toLowerCase();
                   return (
                     <button key={p.name}
-                      onClick={() => { applyPrimary(cfg.primary, p.config); updatePdvTheme(p.config); }}
+                      onClick={() => applyPreset(cfg)}
                       className={`w-full flex items-center gap-4 px-5 py-4 text-left transition ${isActive ? "bg-blue-50" : "hover:bg-gray-50"}`}>
                       {/* Color swatch preview */}
                       <div className="flex shrink-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm" style={{ width: 88, height: 48 }}>

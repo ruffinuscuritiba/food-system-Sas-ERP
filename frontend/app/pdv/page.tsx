@@ -816,7 +816,7 @@ export default function PDVPage() {
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 
         {/* HEADER */}
-        <header className="shrink-0 border-b border-[var(--pdv-border,#161b2d)] bg-[var(--pdv-header,transparent)] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
+        <header className="shrink-0 border-b border-[var(--pdv-border,#161b2d)] bg-[var(--pdv-header,transparent)] shadow-[0_2px_4px_rgba(0,0,0,0.1)] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
           {/* Search */}
           <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
             <Search size={15} className="text-zinc-200 shrink-0" />
@@ -1148,7 +1148,7 @@ export default function PDVPage() {
       {showCart && (
         <div className="fixed inset-0 z-50 flex">
           <div className="flex-1 bg-black/60 hidden md:block" onClick={() => setShowCart(false)} />
-          <aside className="w-full md:w-[380px] bg-[var(--pdv-sidebar-bg,#050816)] border-l border-[var(--pdv-border,#161b2d)] flex flex-col h-[100dvh] md:h-full">
+          <aside className="w-full md:w-[380px] bg-[var(--pdv-sidebar-bg,#050816)] border-l border-[var(--pdv-border,#161b2d)] shadow-[var(--pdv-shadow,none)] flex flex-col h-[100dvh] md:h-full">
             <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--pdv-border,#161b2d)]">
               <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingBag size={20} className="text-blue-400" /> Carrinho</h2>
               <button onClick={() => setShowCart(false)} className="text-zinc-400 hover:text-white"><X size={20} /></button>
@@ -1433,7 +1433,7 @@ export default function PDVPage() {
         orderDetails={pdvOrderDetails} onConfirm={(method, _received, splits, details) => closePaidOrder(method, splits, details)} />
 
       {pizzaProduct && (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-[var(--pdv-sidebar-bg,#050816)] border border-[var(--pdv-border,#1d2336)] rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--pdv-border,#161b2d)]">
               <h2 className="font-black text-lg">🍕 Monte sua Pizza — {pizzaProduct.name}</h2>

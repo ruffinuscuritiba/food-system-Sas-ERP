@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { PaymentModal } from "@/components/pdv/PaymentModal";
@@ -452,6 +452,14 @@ export default function PDVPage() {
       (p.sku      && p.sku.toLowerCase().includes(q));
     return matchCat && matchSearch;
   });
+
+  // Deduplicação de sabores de pizza — chamada em 2 pontos do render (grid
+  // desktop e lista mobile); memoizado para não reprocessar parseProductName
+  // em todo o array a cada digitação de busca/troca de categoria.
+  const dedupedPizzaProducts = useMemo(
+    () => buildDedupedPizzaProducts(filteredProducts),
+    [filteredProducts]
+  );
 
   // Chamado pelo leitor de código de barras ao pressionar Enter após bipagem
   const handleBarcodeSubmit = useCallback((code: string) => {
@@ -1005,7 +1013,7 @@ export default function PDVPage() {
               </div>
             ) : (
               <div className="space-y-5">
-                {buildDedupedPizzaProducts(filteredProducts).map((product) => (
+                {dedupedPizzaProducts.map((product) => (
                   <div key={product.id} className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] flex items-center px-6">
                     <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center shrink-0 text-4xl relative overflow-hidden">
                       <span>🍽️</span>
@@ -1094,7 +1102,7 @@ export default function PDVPage() {
           ) : (
             /* Lista compacta para produtos normais / pizza */
             <div className="space-y-2.5">
-              {buildDedupedPizzaProducts(filteredProducts).map(product => (
+              {dedupedPizzaProducts.map(product => (
                 <div key={product.id}
                   onClick={() => { if (!complementLoading) openProductAdd(product); }}
                   className="w-full flex items-center gap-2.5 bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl p-2.5 active:opacity-80 transition overflow-hidden cursor-pointer">

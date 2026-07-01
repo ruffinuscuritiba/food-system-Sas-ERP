@@ -54,6 +54,7 @@
  * Funciona em claro E escuro (antes só existia para :not(.theme-dark)). */
 :root.has-bg-texture:not(.theme-dark) body,
 :root.has-bg-texture:not(.theme-dark) .pdv-root,
+:root.has-bg-texture:not(.theme-dark) .pdv-products-area,
 :root.has-bg-texture:not(.theme-dark) .admin-page {
   background-image:
     linear-gradient(rgba(255,255,255,0.75), rgba(255,255,255,0.75)),
@@ -65,6 +66,7 @@
 }
 :root.has-bg-texture.theme-dark body,
 :root.has-bg-texture.theme-dark .pdv-root,
+:root.has-bg-texture.theme-dark .pdv-products-area,
 :root.has-bg-texture.theme-dark .admin-page {
   background-image:
     linear-gradient(rgba(0,0,0,0.75), rgba(0,0,0,0.75)),

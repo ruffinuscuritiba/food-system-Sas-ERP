@@ -1152,8 +1152,8 @@ function ExitIntentModal({ onClose, onConfirm, loading }: {
             <span className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest mb-3 text-orange-400 bg-orange-500/10 border border-orange-500/30">
               Antes de sair
             </span>
-            <h2 className="text-xl font-black text-white leading-tight">Ganhe uma análise grátis do seu cardápio no iFood</h2>
-            <p className="mt-1.5 text-sm text-white/50">Fale agora com um especialista e descubra o que está travando suas vendas — sem compromisso.</p>
+            <h2 className="text-xl font-black text-white leading-tight">Ganhe um diagnóstico grátis do seu restaurante</h2>
+            <p className="mt-1.5 text-sm text-white/50">Fale agora com um especialista e descubra o que a FoodSaaS pode automatizar no seu negócio — sem compromisso.</p>
           </div>
           <button onClick={onClose} className="shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20 hover:text-white transition">
             <X size={14} />

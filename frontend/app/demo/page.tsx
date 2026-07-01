@@ -804,39 +804,33 @@ function MenuPhoneShowcase() {
         {/* Phones row */}
         <div className="flex items-end justify-center gap-4 sm:gap-8 lg:gap-12">
 
-          {/* ── Phone 1: Dark List ── */}
+          {/* ── Phone 1: Estilo App ── */}
           <div className="flex flex-col items-center gap-3 hidden sm:flex">
             <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black uppercase tracking-widest text-white/35">Lista Visual</span>
-              <span className="rounded-full bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-[8px] font-bold text-white/50">Dark Mode</span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/35">Estilo App</span>
+              <span className="rounded-full bg-white/[0.06] border border-white/[0.08] px-2 py-0.5 text-[8px] font-bold text-white/50">Categorias + fotos</span>
             </div>
             <PhoneFrame tilt={11} width={152} height={295}>
-              <div className="h-full bg-[#0d1117] overflow-hidden flex flex-col">
-                {/* Category pills */}
-                <div className="flex gap-1.5 px-2 py-2 border-b border-white/[0.05] flex-shrink-0">
-                  {["🍕 Pizzas", "🍔 Burgers", "🥤 Bebidas"].map((c, i) => (
-                    <span key={c} className={`text-[7px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${i===0 ? "bg-orange-500 text-white" : "bg-white/[0.06] text-white/45"}`}>{c}</span>
+              <div className="h-full bg-white overflow-hidden flex flex-col">
+                {/* Categorias em avatar circular */}
+                <div className="flex gap-2.5 px-2.5 py-2.5 border-b border-gray-100 flex-shrink-0">
+                  {darkItems.slice(0, 4).map((item, i) => (
+                    <div key={item.name} className="flex flex-col items-center gap-1 flex-shrink-0">
+                      <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${item.bg} flex items-center justify-center text-xs ${i===0 ? "ring-2 ring-orange-500" : ""}`}>
+                        {item.emoji}
+                      </div>
+                    </div>
                   ))}
                 </div>
-                {/* Items */}
+                {/* Cards full-bleed: foto de fundo inteira + gradiente + texto branco */}
                 <div className="flex-1 overflow-hidden p-2 space-y-1.5">
                   {darkItems.map((item) => (
-                    <div key={item.name} className={`relative rounded-xl overflow-hidden bg-gradient-to-r ${item.bg}`} style={{ minHeight: 54 }}>
-                      <div className="absolute inset-0 bg-black/50" />
-                      <div className="relative flex items-center px-2.5 py-2 h-full gap-2">
-                        <span className="text-xl flex-shrink-0">{item.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[8px] font-black text-white leading-tight truncate">{item.name}</p>
-                          <p className="text-[7px] text-white/55 truncate mt-0.5">{item.desc}</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Star size={6} fill="#f59e0b" className="text-amber-400" />
-                            <span className="text-[7px] text-white/45">{item.stars}</span>
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                          <p className="text-[9px] font-black text-orange-400">{item.price}</p>
-                          <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-black text-white leading-none">+</div>
-                        </div>
+                    <div key={item.name} className={`relative rounded-xl overflow-hidden bg-gradient-to-br ${item.bg}`} style={{ minHeight: 54 }}>
+                      <div className="absolute inset-0 flex items-center justify-center text-3xl opacity-40">{item.emoji}</div>
+                      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.05) 60%)" }} />
+                      <div className="absolute bottom-1.5 left-2.5 right-2.5">
+                        <p className="text-[8px] font-black text-white leading-tight truncate">{item.name}</p>
+                        <p className="text-[9px] font-black text-orange-400 mt-0.5">{item.price}</p>
                       </div>
                     </div>
                   ))}
@@ -931,7 +925,7 @@ function MenuPhoneShowcase() {
         {/* Bottom labels & CTA */}
         <div className="flex justify-center gap-8 sm:gap-20 mt-10 mb-6">
           {[
-            { label: "Lista Visual", desc: "Foto de fundo + detalhes", visible: "hidden sm:flex" },
+            { label: "Estilo App", desc: "Categorias + fotos", visible: "hidden sm:flex" },
             { label: "Modo Grade",   desc: "Visual mosaic · padrão",   visible: "flex" },
             { label: "Lista Clássica", desc: "Tipografia limpa",        visible: "hidden sm:flex" },
           ].map(({ label, desc, visible }) => (

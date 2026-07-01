@@ -110,50 +110,48 @@ function LayoutPhone({ type, tilt, selected, label, colors: c, onClick }: {
   const H = tilt !== 0 ? 200 : 248;
 
   // ══════════════════════════════════════════════════════════════════════════════
-  // LISTA DARK — baseado na ref "meu garçom": fundo escuro, pills laranja,
-  // cada item tem THUMBNAIL à DIREITA + texto+preço à esquerda
+  // ESTILO APP — categorias em avatar circular + cards full-bleed (foto de
+  // fundo + gradiente escuro + texto branco). Substitui a antiga "Lista Dark".
   // ══════════════════════════════════════════════════════════════════════════════
+  const appCircles = [
+    { label:"Pizzas",  img:"/demo-assets/pizzas/pepperoni.jpg" },
+    { label:"Combos",  img:"/demo-assets/combos/familia.jpg" },
+    { label:"Bebidas", img:"/demo-assets/bebidas/cerveja.jpg" },
+    { label:"Doces",   img:"/demo-assets/sobremesas/pudim.jpg" },
+  ];
+  const appCards = [
+    { name:"Pizza Pepperoni", desc:"Pepperoni importado e muçarela.",      price:"R$ 49,90", img:"/demo-assets/pizzas/pepperoni.jpg" },
+    { name:"Pizza Calabresa", desc:"Calabresa fatiada, cebola e orégano.", price:"R$ 44,90", img:"/demo-assets/pizzas/calabresa.jpg" },
+    { name:"Suco de Laranja", desc:"Laranja natural espremida na hora.",   price:"R$ 12,90", img:"/demo-assets/bebidas/suco-laranja.jpg" },
+  ];
   const DarkListContent = () => {
-    const items = [
-      { name:"Pizza Pepperoni", desc:"Pepperoni importado e muçarela.",      price:"R$ 49,90", img:"/demo-assets/pizzas/pepperoni.jpg" },
-      { name:"Pizza Calabresa", desc:"Calabresa fatiada, cebola e orégano.", price:"R$ 44,90", img:"/demo-assets/pizzas/calabresa.jpg" },
-      { name:"Suco de Laranja", desc:"Laranja natural espremida na hora.",   price:"R$ 12,90", img:"/demo-assets/bebidas/suco-laranja.jpg" },
-      { name:"Brownie",         desc:"Brownie com sorvete de chocolate.",     price:"R$ 24,90", img:"/demo-assets/sobremesas/brownie.jpg" },
-    ];
     return (
-      <div style={{ background:"#111111", height:"100%", display:"flex", flexDirection:"column" }}>
-        {/* Header dark com logo e nome */}
-        <div style={{ background:"linear-gradient(180deg,#1a1a1a 0%,#111 100%)", padding:"20px 8px 6px", display:"flex", alignItems:"center", gap:5 }}>
+      <div style={{ background:"#fff", height:"100%", display:"flex", flexDirection:"column" }}>
+        {/* Header claro com logo e nome */}
+        <div style={{ background:"linear-gradient(180deg,#fafafa 0%,#f2f2f2 100%)", padding:"20px 8px 6px", display:"flex", alignItems:"center", gap:5, borderBottom:"1px solid #eee" }}>
           <div style={{ width:16, height:16, borderRadius:"50%", background:"#f97316", display:"flex", alignItems:"center", justifyContent:"center", fontSize:7, fontWeight:900, color:"#fff", flexShrink:0 }}>R</div>
           <div style={{ flex:1 }}>
-            <div style={{ fontSize:6, fontWeight:900, color:"#fff", lineHeight:1 }}>Meu Restaurante</div>
-            <div style={{ fontSize:3.5, color:"#555", marginTop:1 }}>CARDÁPIO DIGITAL</div>
-          </div>
-          <div style={{ display:"flex", gap:3 }}>
-            {["PEDIDOS","MESAS"].map(t => (
-              <div key={t} style={{ fontSize:3, padding:"1.5px 3px", borderRadius:3, background:"#1f1f1f", color:"#666", border:"0.5px solid #333" }}>{t}</div>
-            ))}
+            <div style={{ fontSize:6, fontWeight:900, color:"#111", lineHeight:1 }}>Meu Restaurante</div>
+            <div style={{ fontSize:3.5, color:"#999", marginTop:1 }}>CARDÁPIO DIGITAL</div>
           </div>
         </div>
-        {/* Pills de categoria */}
-        <div style={{ display:"flex", gap:3, padding:"4px 7px", background:"#111", borderBottom:"1px solid #1e1e1e", overflow:"hidden" }}>
-          {["CATEGORIAS","ENTRADAS","BEBIDAS","SOBREMESAS"].map((cat,i) => (
-            <div key={cat} style={{ fontSize:3.5, padding:"2.5px 6px", borderRadius:10, fontWeight:700, flexShrink:0, color:i===0?"#111":"#f97316", background:i===0?"#f97316":"transparent", border:`1px solid ${i===0?"#f97316":"#333"}` }}>{cat}</div>
+        {/* Categorias em avatar circular */}
+        <div style={{ display:"flex", gap:5, padding:"6px 7px 5px", background:"#fff", borderBottom:"1px solid #f0f0f0", overflow:"hidden" }}>
+          {appCircles.map(cat => (
+            <div key={cat.label} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
+              <div style={{ width:24, height:24, borderRadius:"50%", backgroundImage:`url(${cat.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.12) contrast(1.04)", boxShadow:"0 0 0 1px #eee" }} />
+              <span style={{ fontSize:3.5, color:"#444", fontWeight:600, lineHeight:1 }}>{cat.label}</span>
+            </div>
           ))}
         </div>
-        {/* Lista de itens: texto esquerda + foto direita */}
-        <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
-          {items.map((item, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", padding:"6px 7px", borderBottom:"1px solid #1a1a1a", gap:5 }}>
-              {/* Texto esquerda */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:5.5, fontWeight:800, color:"#fff", lineHeight:1.2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.name}</div>
-                <div style={{ fontSize:3.5, color:"#555", lineHeight:1.3, marginTop:1.5, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{item.desc}</div>
-                <div style={{ fontSize:5, fontWeight:700, color:"#f97316", marginTop:3 }}>{item.price}</div>
-              </div>
-              {/* Foto direita — imagem real do produto */}
-              <div style={{ width:32, height:32, borderRadius:7, flexShrink:0, backgroundImage:`url(${item.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.12) contrast(1.04)", boxShadow:"0 2px 6px rgba(0,0,0,0.5)", position:"relative", overflow:"hidden" }}>
-                <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(255,255,255,0.12) 0%,transparent 55%)" }} />
+        {/* Cards full-bleed: foto de fundo inteira + gradiente + texto branco */}
+        <div style={{ flex:1, overflow:"hidden", padding:"5px 6px", display:"flex", flexDirection:"column", gap:4 }}>
+          {appCards.map((item, i) => (
+            <div key={i} style={{ position:"relative", borderRadius:11, overflow:"hidden", flexShrink:0, height:34, backgroundImage:`url(${item.img})`, backgroundSize:"cover", backgroundPosition:"center", filter:"saturate(1.1) contrast(1.04)" }}>
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.05) 60%)" }} />
+              <div style={{ position:"absolute", bottom:2.5, left:5, right:5 }}>
+                <div style={{ fontSize:5, fontWeight:800, color:"#fff", lineHeight:1.2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.name}</div>
+                <div style={{ fontSize:4.5, fontWeight:700, color:"#f97316", marginTop:1 }}>{item.price}</div>
               </div>
             </div>
           ))}
@@ -708,7 +706,7 @@ export default function ConstrutorPage() {
                     type="dark-list"
                     tilt={11}
                     selected={config.layoutType === "LIST"}
-                    label="Lista Dark"
+                    label="Estilo App"
                     colors={colors}
                     onClick={() => setConfig(c => ({ ...c, layoutType: "LIST" }))}
                   />
@@ -733,7 +731,7 @@ export default function ConstrutorPage() {
                 {/* Quick toggle buttons — 3 opções */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: "LIST",    label: "Lista Dark",    Icon: LayoutList, desc: "Foto + scrim" },
+                    { value: "LIST",    label: "Estilo App",    Icon: LayoutList, desc: "Categorias + fotos" },
                     { value: "GRID",    label: "Grade",         Icon: LayoutGrid, desc: "2–4 colunas" },
                     { value: "CLASSIC", label: "Lista Clássica",Icon: LayoutList, desc: "Foto no topo" },
                   ].map(opt => (

@@ -331,6 +331,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
         // Imagem de fundo textura (ex: mármore) — aplicada via CSS variable
         const bgImg = r.data?.backgroundImageUrl;
+        root.classList.toggle("has-bg-texture", !!bgImg);
         if (bgImg) {
           root.style.setProperty("--bg-texture-url", `url('${bgImg}')`);
         } else {

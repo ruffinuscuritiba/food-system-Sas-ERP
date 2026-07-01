@@ -105,6 +105,7 @@ export default function MenuPage() {
   const [submitting, setSubmitting] = useState(false);
   const [companyName, setCompanyName] = useState("Cardápio");
   const [companyWhatsapp, setCompanyWhatsapp] = useState<string | undefined>(undefined);
+  const [assistantName, setAssistantName] = useState<string | undefined>(undefined);
   const [orderSent, setOrderSent] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -229,6 +230,12 @@ export default function MenuPage() {
         if (cd?.name) setCompanyName(cd.name);
         if (cd?.id) setRealCompanyId(cd.id);
         if (cd?.whatsapp || cd?.phone) setCompanyWhatsapp(cd.whatsapp || cd.phone);
+        if (cd?.id) {
+          fetch(`${apiBaseUrl}/whatsapp-ai/settings/public/assistant-name?companyId=${cd.id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => { if (d?.name) setAssistantName(d.name); })
+            .catch(() => {});
+        }
       }
 
       if (themeRes?.ok) {
@@ -921,7 +928,7 @@ export default function MenuPage() {
 
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
       {gaId && <GoogleAnalytics gaId={gaId} />}
-      <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} />
+      <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} assistantName={assistantName} />
 
       {/* ─── Header ────────────────────────────────────────────────────────────── */}
       {blockVisible("banner") && (

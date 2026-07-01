@@ -170,6 +170,17 @@ export class WhatsappAiController {
 
   // ── SETTINGS ──────────────────────────────────────────────────────────────
 
+  /**
+   * GET /api/whatsapp-ai/settings/public/assistant-name?companyId=X
+   * Sem auth — usado pelo cardápio digital para exibir o nome real do
+   * atendente configurado pela loja (fallback "Atendente").
+   */
+  @Get('settings/public/assistant-name')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  getPublicAssistantName(@Query('companyId') companyId: string) {
+    return this.service.getPublicAssistantName(companyId);
+  }
+
   @Get('settings/:connectionId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')

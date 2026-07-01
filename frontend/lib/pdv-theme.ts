@@ -212,5 +212,15 @@ export function applyPdvVars(t: PdvThemeConfig): void {
   root.style.setProperty("--pdv-card-hover",  t.hoverBg || t.cardBg);
   root.style.setProperty("--pdv-border",      t.border);
   root.style.setProperty("--pdv-header",      t.headerBg || t.sidebarBg);
+  // Profundidade opcional (flat design, sem skeuomorfismo): quando o preset
+  // liga `shadows`, cards ganham elevação sutil; caso contrário, plano.
+  root.style.setProperty(
+    "--pdv-shadow",
+    t.shadows ? "0 2px 10px rgba(0,0,0,0.25)" : "none"
+  );
+  root.style.setProperty(
+    "--pdv-shadow-hover",
+    t.shadows ? "0 10px 28px rgba(0,0,0,0.4)" : "none"
+  );
   if (t.primary) root.style.setProperty("--color-primary", t.primary);
 }

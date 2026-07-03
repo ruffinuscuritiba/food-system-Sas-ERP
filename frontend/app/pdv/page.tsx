@@ -997,7 +997,7 @@ export default function PDVPage() {
                       )}
                     </div>
                     <div className="p-3 flex flex-col flex-1">
-                      <p className="font-bold text-sm leading-tight line-clamp-2 flex-1">{product.name}</p>
+                      <p className="font-bold text-sm leading-tight line-clamp-2 flex-1 text-[var(--pdv-text,#ffffff)]">{product.name}</p>
                       {product.eanCode && (
                         <p className="text-zinc-500 text-[10px] mt-0.5 font-mono">{product.eanCode}</p>
                       )}
@@ -1026,12 +1026,12 @@ export default function PDVPage() {
                       )}
                     </div>
                     <div className="flex-1 px-5 xl:px-8 min-w-0 overflow-hidden">
-                      <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full">{product.name}</h2>
+                      <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full text-[var(--pdv-text,#ffffff)]">{product.name}</h2>
                       {product.description && <p className="text-zinc-400 text-sm xl:text-base leading-relaxed break-words max-w-full line-clamp-2">{product.description}</p>}
                       <div className="flex gap-3 mt-4"><VideoEyeBtn product={product} onOpen={setVideoProduct} /></div>
                     </div>
                     <div className="w-[160px] xl:w-[200px] shrink-0 flex flex-col items-end pl-4">
-                      <span className={`font-black whitespace-nowrap text-right leading-tight ${product.sizes && product.sizes.length > 1 ? "text-lg xl:text-xl" : "text-2xl xl:text-3xl"}`}>
+                      <span className={`font-black whitespace-nowrap text-right leading-tight text-[var(--pdv-text,#ffffff)] ${product.sizes && product.sizes.length > 1 ? "text-lg xl:text-xl" : "text-2xl xl:text-3xl"}`}>
                         {productPriceLabel(product)}
                       </span>
                       {product.costPrice != null && <span className="text-zinc-600 text-xs mt-1">Custo: {fmt(product.costPrice)}</span>}
@@ -1087,7 +1087,7 @@ export default function PDVPage() {
                     ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[var(--pdv-card,#161b2d)] p-2" />
                     : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-3xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>}
                   <div className="p-2.5 flex flex-col flex-1 min-w-0">
-                    <p className="font-bold text-xs leading-tight line-clamp-2 min-w-0 mb-1.5">{product.name}</p>
+                    <p className="font-bold text-xs leading-tight line-clamp-2 min-w-0 mb-1.5 text-[var(--pdv-text,#ffffff)]">{product.name}</p>
                     <p className="font-black text-xs leading-tight mt-auto mb-2" style={{ color: "var(--color-primary,#2563eb)" }}>{productPriceLabel(product)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); openProductAdd(product); }}
@@ -1112,7 +1112,7 @@ export default function PDVPage() {
                     : <div className="w-14 h-14 rounded-xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-2xl shrink-0">🍽️</div>}
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm leading-tight truncate">{product.name}</p>
+                    <p className="font-bold text-sm leading-tight truncate text-[var(--pdv-text,#ffffff)]">{product.name}</p>
                     {product.description && (
                       <p className="text-zinc-500 text-xs mt-0.5 truncate">{product.description}</p>
                     )}
@@ -1227,7 +1227,7 @@ export default function PDVPage() {
                           ? <img src={product.imageUrl} className="w-14 h-14 rounded-xl object-cover shrink-0 mt-0.5" />
                           : <div className="w-14 h-14 rounded-xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-2xl shrink-0 mt-0.5">🍽️</div>}
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">{product.name}</p>
+                          <p className="font-semibold text-sm truncate text-[var(--pdv-text,#ffffff)]">{product.name}</p>
                           <p className="text-zinc-400 text-xs mt-0.5">{fmt(basePrice)} × {qty}</p>
                           {complements && complements.length > 0 && (
                             <div className="mt-1 space-y-0.5">

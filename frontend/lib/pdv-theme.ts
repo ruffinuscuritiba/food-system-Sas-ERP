@@ -203,4 +203,8 @@ export function applyPdvVars(t: PdvThemeConfig): void {
     t.shadows ? "0 10px 28px rgba(0,0,0,0.4)" : "none"
   );
   if (t.primary) root.style.setProperty("--color-primary", t.primary);
+  // Texto de nome/preço nos cards de produto: adapta ao tema (dark = branco,
+  // light/branco = preto vibrante). Antes herdava sempre branco do .pdv-root,
+  // ficando invisível em presets claros como "Tradicional Branco".
+  root.style.setProperty("--pdv-text", t.darkProducts ? "#ffffff" : "#111827");
 }

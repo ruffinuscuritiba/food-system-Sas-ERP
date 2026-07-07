@@ -758,19 +758,25 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     name: string,
     text: string,
   ) {
-    // Block AI processing for companies in trial (PENDING_PAYMENT) — cost control.
     const company = await this.prisma.company.findUnique({
       where: { id: connection.companyId },
-      select: { subscriptionStatus: true },
+      select: { subscriptionStatus: true, email: true },
     });
-    if (company && company.subscriptionStatus !== 'ACTIVE') {
+
+    // Ambiente de VENDAS (plataforma R_FoodSaaS / lojas demo) não passa pelos
+    // gates de trial nem de horário — a Kely vendedora responde leads 24/7.
+    const ambiente = this.detectAmbiente(company?.email, connection.companyId);
+    const isSalesMode = ambiente !== 'CLIENTE_REAL';
+
+    // Block AI processing for companies in trial (PENDING_PAYMENT) — cost control.
+    if (!isSalesMode && company && company.subscriptionStatus !== 'ACTIVE') {
       log.warn(
         `[AI] company=${connection.companyId} subscriptionStatus=${company.subscriptionStatus} — IA bloqueada durante trial`,
       );
       return;
     }
 
-    const settings = connection.settings as WaSettings | null | undefined;
+    let settings = connection.settings as WaSettings | null | undefined;
 
     log.warn(
       `[DIAG][_processIncoming] conn=${connection.id} ` +
@@ -823,10 +829,20 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     }
 
     if (!settings) {
+      // Reprovisionar a conexão cria uma WhatsappConnection nova e o cascade
+      // apaga as settings antigas — sem self-healing a IA fica muda em silêncio.
       log.warn(
-        `[AI] connection=${connection.id} sem WhatsappAiSettings — AI não configurada para esta conexão`,
+        `[AI] connection=${connection.id} sem WhatsappAiSettings — criando defaults automaticamente`,
       );
-      return;
+      settings = (await this.prisma.whatsappAiSettings.upsert({
+        where: { connectionId: connection.id },
+        update: {},
+        create: {
+          connectionId: connection.id,
+          companyId: connection.companyId,
+          aiModel: 'gemini-2.0-flash',
+        },
+      })) as unknown as WaSettings;
     }
     if (!settings.isActive) {
       log.warn(
@@ -851,9 +867,10 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       | null
       | undefined;
 
-    const _inBusinessHours = isBusinessHours(settings, companyHours);
+    const _inBusinessHours =
+      isSalesMode || isBusinessHours(settings, companyHours);
     log.warn(
-      `[DIAG][businessHours] conn=${connection.id} inHours=${_inBusinessHours} source=${companyHours ? 'Company' : 'WhatsappAiSettings'} start=${settings?.businessHoursStart} end=${settings?.businessHoursEnd} days=${settings?.businessDays}`,
+      `[DIAG][businessHours] conn=${connection.id} inHours=${_inBusinessHours} ambiente=${ambiente} source=${companyHours ? 'Company' : 'WhatsappAiSettings'} start=${settings?.businessHoursStart} end=${settings?.businessHoursEnd} days=${settings?.businessDays}`,
     );
     if (!_inBusinessHours) {
       const msg =

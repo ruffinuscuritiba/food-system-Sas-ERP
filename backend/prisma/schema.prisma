@@ -1760,6 +1760,17 @@ model WhatsappMessage {
   @@index([companyId])
 }
 
+// ── Aviso de atualização do sistema (1 por build; máx 1 envio/dia) ───────────
+
+model SystemUpdateNotice {
+  id         String   @id @default(cuid())
+  buildId    String   @unique
+  sentAt     DateTime @default(now())
+  skipped    Boolean  @default(false) // true = build registrado sem envio (limite diário)
+  recipients Int      @default(0)
+  summary    Json?
+}
+
 // ── Leads capturados pela Kely (IA Demo pública) ──────────────────────────────
 
 model Lead {

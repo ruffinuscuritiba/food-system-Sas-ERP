@@ -44,6 +44,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DemoGuard } from './common/guards/demo.guard';
 import { RetentionModule } from './modules/retention/retention.module';
+import { UpdateNoticesModule } from './modules/update-notices/update-notices.module';
 import { SegmentSeedModule } from './modules/segment-seed/segment-seed.module';
 import { LayoutTemplatesModule } from './modules/layout-templates/layout-templates.module';
 import { WalletModule } from './modules/wallet/wallet.module';
@@ -96,6 +97,7 @@ import { UploadModule } from './modules/upload/upload.module';
     IntegrationsModule,
     PrintersModule,
     RetentionModule,
+    UpdateNoticesModule,
     SegmentSeedModule,
     LayoutTemplatesModule,
     WalletModule,

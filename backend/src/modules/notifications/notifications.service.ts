@@ -11,7 +11,8 @@ export type NotificationType =
   | 'TRIAL_WARNING'
   | 'PAYMENT_CONFIRMED'
   | 'DEMO_LEAD'
-  | 'NEW_SIGNUP';
+  | 'NEW_SIGNUP'
+  | 'SYSTEM_UPDATE';
 
 export interface NotificationPayload {
   to: string;
@@ -107,6 +108,8 @@ export class NotificationsService {
         return `🔥 Novo lead quente na demo — ${data?.restaurantName || data?.name || 'Visitante'}`;
       case 'NEW_SIGNUP':
         return `🚀 Novo cliente cadastrado — ${data?.companyName || 'Restaurante'}`;
+      case 'SYSTEM_UPDATE':
+        return '🚀 Seu FoodSaaS foi atualizado — melhorias já disponíveis';
       default:
         return 'Notificação FoodSaaS';
     }
@@ -247,6 +250,17 @@ export class NotificationsService {
           <p style="margin-top:20px;background:#1e293b;border-left:3px solid #f97316;padding:12px 16px;border-radius:4px;font-size:13px;">
             Entre em contato agora — este lead está quente e testando o sistema no momento!
           </p>
+        `);
+      case 'SYSTEM_UPDATE':
+        return base(`
+          <h2 style="color:#f97316;">🚀 Atualização no seu FoodSaaS!</h2>
+          <p style="margin-top:16px;">Olá, <strong>${data?.name || 'parceiro(a)'}</strong>!</p>
+          <p>Acabamos de lançar <strong>melhorias e correções importantes</strong> no sistema.</p>
+          <p style="margin-top:12px;">✅ <strong>Seu sistema já está atualizado automaticamente</strong> — você não precisa fazer nada.</p>
+          <p style="margin-top:16px;">
+            <a href="${data?.frontendUrl || '#'}" style="display:inline-block;background:#f97316;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;">Acessar o sistema</a>
+          </p>
+          <p style="margin-top:16px;color:#94a3b8;font-size:13px;">Dúvidas? É só responder este e-mail ou chamar no WhatsApp.</p>
         `);
       case 'NEW_SIGNUP':
         return base(`

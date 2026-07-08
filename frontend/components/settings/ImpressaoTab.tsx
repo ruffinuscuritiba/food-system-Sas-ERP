@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Save, Loader2, Printer, Zap, CheckCircle2,
   AlignLeft, Tag, FileText, Layers, Pizza as PizzaIcon,
-  Wifi, AlertCircle,
+  Wifi, AlertCircle, Receipt, Banknote, CreditCard,
 } from "lucide-react";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -21,6 +21,11 @@ interface PrintingSettings {
   showDescription:  boolean;
   pizzaItemFormat:  "compact" | "perFlavor";
   addonGrouping:    boolean;
+  // Regra de impressão do cupom do cliente (comprovante) por forma de pagamento.
+  // "ALL" preserva o comportamento atual (sempre imprime). "SELECTED" só
+  // imprime pras formas marcadas em printPaymentTypes.
+  printMode:         "ALL" | "SELECTED";
+  printPaymentTypes: string[];
 }
 
 const DEFAULT_SETTINGS: PrintingSettings = {
@@ -32,7 +37,17 @@ const DEFAULT_SETTINGS: PrintingSettings = {
   showDescription: false,
   pizzaItemFormat: "compact",
   addonGrouping:   true,
+  printMode:         "ALL",
+  printPaymentTypes: ["PIX", "CREDIT_CARD", "DEBIT_CARD", "TRANSFER"],
 };
+
+export const PAYMENT_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "CASH",        label: "Dinheiro" },
+  { value: "PIX",         label: "PIX" },
+  { value: "CREDIT_CARD", label: "Cartão de Crédito" },
+  { value: "DEBIT_CARD",  label: "Cartão de Débito" },
+  { value: "TRANSFER",    label: "Transferência" },
+];
 
 // ── Toggle reutilizável ───────────────────────────────────────────────────────
 
@@ -357,6 +372,81 @@ export default function ImpressaoTab() {
                     Gerenciar Impressoras
                   </a>
                   .
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Regra do Cupom do Cliente por forma de pagamento */}
+        <section className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Receipt size={14} className="text-orange-500" />
+              Cupom do Cliente
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Escolha para quais formas de pagamento o comprovante do cliente é impresso automaticamente
+            </p>
+          </div>
+
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => patch("printMode", "ALL")}
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition ${
+                  settings.printMode === "ALL"
+                    ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30 text-orange-600"
+                    : "border-gray-200 dark:border-gray-700 text-gray-500"
+                }`}
+              >
+                Sempre imprimir
+              </button>
+              <button
+                type="button"
+                onClick={() => patch("printMode", "SELECTED")}
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold border-2 transition ${
+                  settings.printMode === "SELECTED"
+                    ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30 text-orange-600"
+                    : "border-gray-200 dark:border-gray-700 text-gray-500"
+                }`}
+              >
+                Só formas selecionadas
+              </button>
+            </div>
+
+            {settings.printMode === "SELECTED" && (
+              <div className="space-y-1.5 pt-1">
+                {PAYMENT_TYPE_OPTIONS.map((opt) => {
+                  const active = settings.printPaymentTypes.includes(opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition ${
+                        active
+                          ? "border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20"
+                          : "border-gray-100 dark:border-gray-800"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...settings.printPaymentTypes, opt.value]
+                            : settings.printPaymentTypes.filter((v) => v !== opt.value);
+                          patch("printPaymentTypes", next);
+                        }}
+                        className="accent-orange-500"
+                      />
+                      {opt.value === "CASH" ? <Banknote size={13} className="text-gray-400" /> : <CreditCard size={13} className="text-gray-400" />}
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{opt.label}</span>
+                    </label>
+                  );
+                })}
+                <p className="text-[11px] text-gray-400 pt-1">
+                  Ex: desmarque "Dinheiro" pra não gastar papel com pedidos pagos em espécie — a cozinha continua imprimindo normalmente.
                 </p>
               </div>
             )}

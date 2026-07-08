@@ -1194,6 +1194,7 @@ function DemoContent() {
   const { setAuth } = useAuthStore();
   const [selectedNiche, setSelectedNiche] = useState<string>("Restaurantes");
   const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const [showExitIntent, setShowExitIntent] = useState(false);
@@ -1457,61 +1458,22 @@ function DemoContent() {
           </div>
         </div>
 
-        {/* ── PILLARS (interactive tabs) ── */}
-        <PillarsSection />
-
-        {/* ── 3-PHONE MENU SHOWCASE ── */}
-        <MenuPhoneShowcase />
-
-        {/* ── COMO FUNCIONA ── */}
-        <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
-              Como funciona?
+        {/* ── ESCOLHA UMA DEMONSTRAÇÃO (logo após a hero — é a ação principal da página) ── */}
+        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pt-16 pb-20 sm:px-8">
+          <div className="mb-2 text-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
+              Passo 1 de 2
+            </span>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+              Qual é o seu segmento?
             </h2>
             <p className="mt-3 text-sm text-white/50">
-              Do cadastro ao primeiro pedido em menos de 10 minutos
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { step: "01", icon: <Store className="h-6 w-6" />, title: "Crie sua conta", desc: "Preencha o nome do restaurante e segmento. Cardápio de exemplo já incluso." },
-              { step: "02", icon: <Smartphone className="h-6 w-6" />, title: "Configure o PDV", desc: "Adicione seus produtos, preços e fotos. Interface simples, sem treinamento." },
-              { step: "03", icon: <Zap className="h-6 w-6" />, title: "Receba pedidos", desc: "PDV, cardápio digital e cozinha em tempo real funcionando no mesmo instante." },
-              { step: "04", icon: <TrendingUp className="h-6 w-6" />, title: "Acompanhe o BI", desc: "Relatórios automáticos de CMV, faturamento e ticket médio — sem planilhas." },
-            ].map((s) => (
-              <div key={s.step} className="relative flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
-                <span className="absolute right-5 top-4 text-4xl font-black text-white/[0.04] select-none">{s.step}</span>
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/20">
-                  {s.icon}
-                </div>
-                <h3 className="mb-2 text-sm font-black text-white">{s.title}</h3>
-                <p className="text-xs leading-relaxed text-white/45">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-10 flex justify-center">
-            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-2xl border border-green-500/30 bg-green-500/10 px-6 py-3 text-sm font-semibold text-green-400 transition hover:bg-green-500/15">
-              <MessageCircle className="h-4 w-4" />
-              Dúvidas? Fale com um consultor agora
-            </a>
-          </div>
-        </section>
-
-        {/* ── ESCOLHA UMA DEMONSTRAÇÃO ── */}
-        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-          <div className="mb-8 text-center">
-            <h2 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
-              Escolha uma demonstração
-            </h2>
-            <p className="mt-3 text-sm text-white/50">
-              Selecione seu segmento — os 3 planos se atualizam automaticamente
+              Selecione seu negócio — os planos abaixo se ajustam automaticamente
             </p>
           </div>
 
           {/* ── Unified niche selector ── */}
-          <div className="mb-8 flex flex-wrap justify-center gap-2">
+          <div className="mb-6 flex flex-wrap justify-center gap-2">
             {ALL_NICHES.map((niche) => {
               const info = NICHES_DATA[niche];
               const isActive = selectedNiche === niche;
@@ -1532,43 +1494,58 @@ function DemoContent() {
             })}
           </div>
 
-          {/* ── Theme picker ── */}
-          <div className="mb-10 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-            <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <p className="text-sm font-bold text-white">Como prefere ver o sistema?</p>
-                <p className="text-xs text-white/40 mt-0.5">
-                  Escolha o visual da demonstração — você pode personalizar as cores para a cara do seu estabelecimento depois, nas configurações.
-                </p>
-              </div>
-              <span className="text-[10px] font-semibold rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-400 px-3 py-1">
-                Pode mudar depois
-              </span>
+          {/* ── Personalização de cor (opcional, colapsado por padrão) ── */}
+          <div className="mb-10 flex justify-center">
+            <div className="w-full max-w-2xl rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+              <button
+                onClick={() => setShowThemePicker((v) => !v)}
+                className="flex w-full items-center justify-between gap-2 px-5 py-3 text-left"
+              >
+                <span className="text-xs font-semibold text-white/60">
+                  🎨 Personalizar a cor da demonstração <span className="text-white/30 font-normal">(opcional)</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 text-white/40 transition-transform ${showThemePicker ? "rotate-180" : ""}`} />
+              </button>
+              {showThemePicker && (
+                <div className="px-5 pb-5">
+                  <p className="text-xs text-white/40 mb-3">
+                    Você pode personalizar as cores pra cara do seu estabelecimento depois, nas configurações.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    {PDV_THEME_PRESETS.map((preset, i) => {
+                      const isOn = selectedThemeIdx === i;
+                      return (
+                        <button
+                          key={preset.name}
+                          onClick={() => setSelectedThemeIdx(i)}
+                          className={`group flex items-center gap-2.5 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all ${
+                            isOn
+                              ? "border-white/30 bg-white/10 text-white scale-105"
+                              : "border-white/[0.06] bg-white/[0.03] text-white/60 hover:border-white/15 hover:text-white/90"
+                          }`}
+                        >
+                          <span
+                            className="w-4 h-4 rounded-full shrink-0 ring-2 ring-white/10"
+                            style={{ background: preset.config.primary as string }}
+                          />
+                          <span>{preset.emoji} {preset.name}</span>
+                          {isOn && <span className="ml-1 text-xs text-white/50">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="flex flex-wrap gap-3 mt-4">
-              {PDV_THEME_PRESETS.map((preset, i) => {
-                const isOn = selectedThemeIdx === i;
-                return (
-                  <button
-                    key={preset.name}
-                    onClick={() => setSelectedThemeIdx(i)}
-                    className={`group flex items-center gap-2.5 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition-all ${
-                      isOn
-                        ? "border-white/30 bg-white/10 text-white scale-105"
-                        : "border-white/[0.06] bg-white/[0.03] text-white/60 hover:border-white/15 hover:text-white/90"
-                    }`}
-                  >
-                    {/* color swatch */}
-                    <span
-                      className="w-4 h-4 rounded-full shrink-0 ring-2 ring-white/10"
-                      style={{ background: preset.config.primary as string }}
-                    />
-                    <span>{preset.emoji} {preset.name}</span>
-                    {isOn && <span className="ml-1 text-xs text-white/50">✓</span>}
-                  </button>
-                );
-              })}
-            </div>
+          </div>
+
+          <div className="mb-8 text-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
+              Passo 2 de 2
+            </span>
+            <h2 className="mt-4 text-2xl font-black tracking-tight text-white sm:text-3xl">
+              Escolha um plano pra testar
+            </h2>
           </div>
 
           {/* ── Plan cards ── */}
@@ -1626,6 +1603,50 @@ function DemoContent() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* ── Conteúdo de apoio (pra quem quer entender melhor antes de decidir) ── */}
+
+        {/* ── PILLARS (interactive tabs) ── */}
+        <PillarsSection />
+
+        {/* ── 3-PHONE MENU SHOWCASE ── */}
+        <MenuPhoneShowcase />
+
+        {/* ── COMO FUNCIONA ── */}
+        <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+              Como funciona?
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Do cadastro ao primeiro pedido em menos de 10 minutos
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { step: "01", icon: <Store className="h-6 w-6" />, title: "Crie sua conta", desc: "Preencha o nome do restaurante e segmento. Cardápio de exemplo já incluso." },
+              { step: "02", icon: <Smartphone className="h-6 w-6" />, title: "Configure o PDV", desc: "Adicione seus produtos, preços e fotos. Interface simples, sem treinamento." },
+              { step: "03", icon: <Zap className="h-6 w-6" />, title: "Receba pedidos", desc: "PDV, cardápio digital e cozinha em tempo real funcionando no mesmo instante." },
+              { step: "04", icon: <TrendingUp className="h-6 w-6" />, title: "Acompanhe o BI", desc: "Relatórios automáticos de CMV, faturamento e ticket médio — sem planilhas." },
+            ].map((s) => (
+              <div key={s.step} className="relative flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
+                <span className="absolute right-5 top-4 text-4xl font-black text-white/[0.04] select-none">{s.step}</span>
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/20">
+                  {s.icon}
+                </div>
+                <h3 className="mb-2 text-sm font-black text-white">{s.title}</h3>
+                <p className="text-xs leading-relaxed text-white/45">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-10 flex justify-center">
+            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl border border-green-500/30 bg-green-500/10 px-6 py-3 text-sm font-semibold text-green-400 transition hover:bg-green-500/15">
+              <MessageCircle className="h-4 w-4" />
+              Dúvidas? Fale com um consultor agora
+            </a>
           </div>
         </section>
 

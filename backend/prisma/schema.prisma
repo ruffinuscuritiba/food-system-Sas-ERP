@@ -186,6 +186,8 @@ model Company {
 
   cashes Cash[]
 
+  fiscalConfig CompanyFiscalConfig?
+
   auditLogs AuditLog[]
 
   loyaltyAccounts LoyaltyAccount[]
@@ -627,6 +629,13 @@ model Order {
 
   table Table? @relation(fields: [tableId], references: [id])
 
+  // Sessão de caixa aberta no momento da criação do pedido (auditoria — de
+  // qual fechamento aquele valor faz parte). Null se nenhum caixa estava
+  // aberto na hora (não bloqueia a venda, só fica sem vínculo).
+  cashId String?
+
+  cash Cash? @relation(fields: [cashId], references: [id])
+
   // Canal de origem do pedido (PDV, ONLINE, WHATSAPP, IFOOD, RAPPI, MOCK)
   channel         String  @default("PDV")
 
@@ -1036,6 +1045,18 @@ model Cash {
 
   isOpen Boolean @default(true)
 
+  declaredValue Decimal? @db.Decimal(10, 2)
+
+  systemValue Decimal? @db.Decimal(10, 2)
+
+  difference Decimal? @db.Decimal(10, 2)
+
+  closedByUserId String?
+
+  closedByName String?
+
+  closedAt DateTime?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -1044,7 +1065,41 @@ model Cash {
 
   updatedAt DateTime @updatedAt
 
+  orders Order[]
+
   @@index([companyId])
+}
+
+model CompanyFiscalConfig {
+  id String @id @default(cuid())
+
+  companyId String @unique
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  provider String @default("FOCUS_NFE")
+
+  environment String @default("HOMOLOGACAO")
+
+  apiKeyEncrypted String?
+
+  apiKeyLast4 String?
+
+  certFileBase64 String?
+
+  certPasswordEncrypted String?
+
+  isActive Boolean @default(false)
+
+  termsAcceptedAt DateTime?
+
+  termsAcceptedByUserId String?
+
+  termsAcceptedIp String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
 }
 
 model AuditLog {
@@ -1629,6 +1684,10 @@ model OnlineOrder {
   pixExpiresAt            DateTime?
   notes                   String?
   paidAt                  DateTime?
+  // "ONLINE" (padrão) | "TOTEM" (tablet fixo na mesa) — usado só para decidir
+  // impressão (Totem não imprime pré-conta pro cliente). NÃO afeta o roteamento
+  // de status em updateKitchenStatus, que continua chaveado por source==='ONLINE'.
+  channel                 String   @default("ONLINE")
   // ── Split financeiro ──────────────────────────────────────────────────────
   grossAmount             Decimal? @db.Decimal(10, 2)
   feeAmount               Decimal? @db.Decimal(10, 2)

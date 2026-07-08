@@ -5,7 +5,7 @@ import { saApi } from "@/services/superAdminApi";
 import {
   Users, Download, Search, RefreshCw, ChevronLeft, ChevronRight,
   Phone, Mail, Store, TrendingUp, UserCheck, Clock, Ghost,
-  UserMinus, Filter, FileText,
+  UserMinus, Filter, FileText, Lock, Unlock, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { SuperAdminTopBar, saBtn } from "@/components/super-admin/SuperAdminTopBar";
 import toast from "react-hot-toast";
@@ -35,6 +35,17 @@ interface Summary {
   demo: number;
   exClient: number;
   leads: number;
+}
+
+interface CashStatusRow {
+  companyId: string;
+  companyName: string;
+  isOpen: boolean;
+  openingValue: number | null;
+  balance: number | null;
+  since: string | null;
+  lastClosedAt: string | null;
+  hasEverOpened: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -88,7 +99,26 @@ export default function ClientesPage() {
   const [typeFilter, setTypeFilter] = useState<ContactType>("ALL");
   const [page,       setPage]       = useState(1);
   const [total,      setTotal]      = useState(0);
+  const [cashRows,   setCashRows]   = useState<CashStatusRow[]>([]);
+  const [cashSummary, setCashSummary] = useState<{ total: number; open: number; neverOpened: number } | null>(null);
+  const [cashLoading, setCashLoading] = useState(true);
+  const [showCash,   setShowCash]   = useState(true);
   const LIMIT = 50;
+
+  const loadCashStatus = useCallback(async () => {
+    setCashLoading(true);
+    try {
+      const res = await saApi.get("/super-admin/cash-status");
+      setCashRows(res.data.items ?? []);
+      setCashSummary(res.data.summary ?? null);
+    } catch {
+      // silencioso — widget de conveniência, não bloqueia a página principal
+    } finally {
+      setCashLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadCashStatus(); }, [loadCashStatus]);
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
@@ -188,6 +218,69 @@ export default function ClientesPage() {
             <div className="text-xs text-gray-500 font-semibold mt-0.5">{label}</div>
           </button>
         ))}
+      </div>
+
+      {/* ── Status de Caixa por tenant ── */}
+      <div className="mb-6 rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowCash((v) => !v)}
+          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-gray-400" />
+            <span className="font-bold text-gray-800 text-sm">Status de Caixa por Loja</span>
+            {cashSummary && (
+              <span className="text-xs text-gray-400">
+                {cashSummary.open} aberto{cashSummary.open === 1 ? "" : "s"} de {cashSummary.total}
+                {cashSummary.neverOpened > 0 && ` · ${cashSummary.neverOpened} nunca abriu`}
+              </span>
+            )}
+          </div>
+          {showCash ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+        </button>
+        {showCash && (
+          <div className="border-t border-gray-100 max-h-80 overflow-y-auto">
+            {cashLoading ? (
+              <div className="px-5 py-8 text-center text-gray-400 text-sm">
+                <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />Carregando…
+              </div>
+            ) : cashRows.length === 0 ? (
+              <div className="px-5 py-8 text-center text-gray-400 text-sm">Nenhuma loja encontrada.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-gray-50">
+                  {cashRows.map((r) => (
+                    <tr key={r.companyId} className="hover:bg-gray-50/60">
+                      <td className="px-5 py-2.5 font-medium text-gray-700">{r.companyName}</td>
+                      <td className="px-5 py-2.5">
+                        {!r.hasEverOpened ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-500 px-2.5 py-0.5 text-[11px] font-bold">
+                            Nunca abriu caixa
+                          </span>
+                        ) : r.isOpen ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2.5 py-0.5 text-[11px] font-bold">
+                            <Unlock className="h-3 w-3" />Aberto
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 text-gray-600 px-2.5 py-0.5 text-[11px] font-bold">
+                            <Lock className="h-3 w-3" />Fechado
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-2.5 text-xs text-gray-400">
+                        {r.isOpen && r.since
+                          ? `desde ${new Date(r.since).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                          : !r.isOpen && r.lastClosedAt
+                          ? `fechado em ${new Date(r.lastClosedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                          : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Filters + Search ── */}

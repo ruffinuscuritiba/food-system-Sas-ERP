@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Post,
   Request,
@@ -35,9 +36,30 @@ export class CashController {
     return this.service.movement(body.type, body.value, req.user.companyId);
   }
 
+  // Fechamento às cegas: o operador só envia o valor contado.
+  // O retorno inclui a comparação, mas o FRONTEND só deve exibi-la
+  // para roles ADMIN/MANAGER/SUPER_ADMIN — CASHIER vê apenas confirmação.
   @Patch('close')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
-  close(@Request() req: any) {
-    return this.service.close(req.user.companyId);
+  close(@Body() body: any, @Request() req: any) {
+    return this.service.close(
+      req.user.companyId,
+      req.user.userId ?? null,
+      Number(body.declaredValue),
+    );
+  }
+
+  // Histórico de fechamentos — restrito a gestão (conferência das diferenças).
+  @Get('history')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  history(@Request() req: any) {
+    return this.service.history(req.user.companyId);
+  }
+
+  // Cupom de Auditoria — resumo de cartão/PIX daquela sessão de caixa.
+  @Get(':id/audit-summary')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  auditSummary(@Param('id') id: string, @Request() req: any) {
+    return this.service.auditSummary(id, req.user.companyId);
   }
 }

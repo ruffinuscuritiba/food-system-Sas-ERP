@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Optional, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Optional,
+  Logger,
+} from '@nestjs/common';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 
 import { OrderStatus, Prisma } from '@prisma/client';
@@ -42,6 +48,26 @@ export class OrdersService {
   ) {}
 
   async create(data: any) {
+    // Auditoria: sessão de caixa aberta no momento (se houver). Consultado
+    // uma única vez e reaproveitado abaixo pra (a) travar venda em DINHEIRO
+    // de balcão sem caixa aberto e (b) vincular o pedido via cashId.
+    const openCash = await this.prisma.cash.findFirst({
+      where: { companyId: data.companyId, isOpen: true },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    // Trava escopada: SÓ bloqueia venda de balcão/PDV paga em DINHEIRO físico
+    // sem caixa aberto. NUNCA bloqueia iFood/Rappi/integrações (channel
+    // explícito, ex: "IFOOD") nem outros métodos de pagamento (PIX, cartão) —
+    // esses não passam pela gaveta física da loja.
+    const isPdvChannel = !data.channel || data.channel === 'PDV';
+    if (data.paymentMethod === 'CASH' && isPdvChannel && !openCash) {
+      throw new ForbiddenException(
+        'Nenhum caixa aberto — abra o caixa em Financeiro antes de registrar vendas em dinheiro.',
+      );
+    }
+
     const productsIds = data.items.map((item) => item.productId);
 
     const products = await this.prisma.product.findMany({
@@ -198,6 +224,8 @@ export class OrdersService {
             neighborhood: data.neighborhood || null,
 
             ...(data.tableId && { tableId: data.tableId }),
+
+            ...(openCash && { cashId: openCash.id }),
 
             ...(data.channel && { channel: data.channel }),
             ...(data.externalOrderId && {
@@ -957,6 +985,10 @@ export class OrdersService {
       return {
         id: o.id,
         source: 'ONLINE' as const,
+        // Distingue Totem de pedido online comum — só afeta impressão no
+        // frontend (não imprime pré-conta pro cliente do totem). O
+        // roteamento de status acima continua chaveado por source==='ONLINE'.
+        channel: (o.channel ?? 'ONLINE') as string,
         status: this.mapOnlineStatusToKitchen(o.orderStatus),
         productionStatus: null,
         createdAt: o.createdAt,

@@ -1382,4 +1382,60 @@ export class SuperAdminService {
     const str = String(value ?? '').replace(/"/g, '""');
     return `"${str}"`;
   }
+
+  /**
+   * Status de caixa (aberto/fechado) por tenant, para o painel de operações
+   * do Super Admin — não exige login em cada empresa pra saber se o caixa
+   * está aberto. Somente leitura, não bloqueia nenhuma venda.
+   */
+  async getCashStatusReport() {
+    const companies = await this.prisma.company.findMany({
+      where: {
+        NOT: [
+          { email: { endsWith: '@foodsaas.demo' } },
+          { id: { startsWith: 'demo-' } },
+          { email: 'platform@foodsaas.internal' },
+        ],
+        archivedAt: null,
+      },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    const latestCashes = await this.prisma.cash.findMany({
+      where: { companyId: { in: companies.map((c) => c.id) } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        companyId: true, isOpen: true, openingValue: true, balance: true,
+        createdAt: true, closedAt: true,
+      },
+    });
+    const byCompany = new Map<string, (typeof latestCashes)[number]>();
+    for (const c of latestCashes) {
+      if (!byCompany.has(c.companyId)) byCompany.set(c.companyId, c);
+    }
+
+    const items = companies.map((c) => {
+      const cash = byCompany.get(c.id);
+      return {
+        companyId:   c.id,
+        companyName: c.name,
+        isOpen:      cash?.isOpen ?? false,
+        openingValue: cash ? Number(cash.openingValue) : null,
+        balance:     cash ? Number(cash.balance) : null,
+        since:       cash?.isOpen ? cash.createdAt : null,
+        lastClosedAt: !cash?.isOpen ? cash?.closedAt ?? null : null,
+        hasEverOpened: !!cash,
+      };
+    });
+
+    return {
+      items,
+      summary: {
+        total: items.length,
+        open: items.filter((i) => i.isOpen).length,
+        neverOpened: items.filter((i) => !i.hasEverOpened).length,
+      },
+    };
+  }
 }

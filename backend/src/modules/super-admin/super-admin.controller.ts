@@ -176,6 +176,13 @@ export class SuperAdminController {
 
   // ── Customers Report ─────────────────────────────────────────────────────────
 
+  /** GET /api/super-admin/cash-status — status de caixa (aberto/fechado) por tenant */
+  @Get('cash-status')
+  @UseGuards(SuperAdminGuard)
+  cashStatus() {
+    return this.service.getCashStatusReport();
+  }
+
   /** GET /api/super-admin/customers-report/csv — download CSV */
   @Get('customers-report/csv')
   @UseGuards(SuperAdminGuard)

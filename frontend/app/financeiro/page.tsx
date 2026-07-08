@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
+import { useAuthStore } from "@/stores/auth.store";
 import {
   DollarSign, TrendingUp, TrendingDown, FileText, Settings,
   CheckCircle, AlertCircle, ArrowUpRight, ArrowDownRight,
   Calendar, CreditCard, Landmark, RefreshCw, Download,
   ChevronRight, Zap, BarChart2, Info, Building2, Clock,
-  Wallet, Plus, X, Filter, Search, Package,
+  Wallet, Plus, X, Filter, Search, Package, Lock, EyeOff,
+  Unlock, ShieldCheck, Printer,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -16,7 +18,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "mensalidade" | "extrato" | "relatorio" | "configuracoes";
+type Tab = "mensalidade" | "extrato" | "caixa" | "relatorio" | "configuracoes";
 
 interface FinancialRecord {
   id: string;
@@ -45,6 +47,11 @@ interface CashStatus {
   exits?: number;
   isOpen?: boolean;
   createdAt?: string;
+  declaredValue?: number | null;
+  systemValue?: number | null;
+  difference?: number | null;
+  closedByName?: string | null;
+  closedAt?: string | null;
 }
 
 interface Order {
@@ -1172,11 +1179,341 @@ function TabConfiguracoes() {
   );
 }
 
+// ── Tab: Caixa (Fechamento às Cegas) ──────────────────────────────────────────
+
+function TabCaixa({ cash, onRefresh }: { cash: CashStatus | null; onRefresh: () => void }) {
+  const isManager = useAuthStore((s) => s.isAdmin());
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [openingValue, setOpeningValue] = useState("");
+  const [declaredValue, setDeclaredValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [lastClose, setLastClose] = useState<CashStatus | null>(null);
+  const [history, setHistory] = useState<CashStatus[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const loadHistory = useCallback(async () => {
+    if (!isManager) return;
+    setLoadingHistory(true);
+    try {
+      const res = await api.get("/cash/history");
+      setHistory(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      // silencioso — histórico é conveniência, não bloqueia a operação
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [isManager]);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  async function openCash() {
+    const value = Number(openingValue);
+    if (isNaN(value) || value < 0) { toast.error("Valor inválido"); return; }
+    setSaving(true);
+    try {
+      await api.post("/cash/open", { openingValue: value });
+      toast.success("Caixa aberto!");
+      setShowOpenModal(false);
+      setOpeningValue("");
+      onRefresh();
+    } catch {
+      toast.error("Erro ao abrir caixa");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function closeCash() {
+    const value = Number(declaredValue);
+    if (isNaN(value) || value < 0) { toast.error("Informe o valor contado"); return; }
+    setSaving(true);
+    try {
+      const res = await api.patch("/cash/close", { declaredValue: value });
+      setLastClose(res.data ?? null);
+      setShowCloseModal(false);
+      setDeclaredValue("");
+      toast.success(
+        isManager ? "Caixa fechado — conferência abaixo." : "Caixa fechado! Aguarde a conferência do gestor.",
+      );
+      onRefresh();
+      loadHistory();
+    } catch {
+      toast.error("Erro ao fechar caixa");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function printAuditSummary(cashId?: string) {
+    if (!cashId) return;
+    try {
+      const res = await api.get(`/cash/${cashId}/audit-summary`);
+      const data = res.data;
+      if (!data) { toast.error("Sessão de caixa não encontrada"); return; }
+      const rows = (data.byPaymentMethod as { paymentMethod: string; total: number; count: number }[])
+        .map((r) => `
+          <div class="line" style="display:flex;justify-content:space-between;">
+            <span>${PAYMENT_METHOD_LABELS[r.paymentMethod] ?? r.paymentMethod} (${r.count})</span>
+            <span class="bold">R$ ${fmt(r.total)}</span>
+          </div>`)
+        .join("");
+      const html = `
+        <html><head><meta charset="utf-8" /><style>
+          @page { margin: 4mm; size: 80mm auto; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; font-size: 13px; width: 72mm; padding: 4mm 0; color: #111; }
+          h1 { font-size: 15px; text-align: center; margin-bottom: 4px; }
+          hr { border: none; border-top: 1px dashed #999; margin: 8px 0; }
+          .center { text-align: center; } .bold { font-weight: bold; } .line { margin-bottom: 6px; }
+          .small { font-size: 11px; color: #555; } .total-line { font-size: 15px; font-weight: bold; }
+        </style></head><body>
+          <h1>🧾 Cupom de Auditoria</h1>
+          <p class="center small">Resumo de cartão / PIX / transferência</p>
+          <hr/>
+          <p class="small">Aberto em: ${new Date(data.openedAt).toLocaleString("pt-BR")}</p>
+          ${data.closedAt ? `<p class="small">Fechado em: ${new Date(data.closedAt).toLocaleString("pt-BR")}</p>` : `<p class="small">Caixa ainda aberto</p>`}
+          <hr/>
+          ${rows || `<p class="small center">Nenhuma venda não-dinheiro nesta sessão.</p>`}
+          <hr/>
+          <div class="line total-line" style="display:flex;justify-content:space-between;">
+            <span>TOTAL NÃO-DINHEIRO</span><span>R$ ${fmt(data.grandTotal)}</span>
+          </div>
+          <p class="small center" style="margin-top:8px;">Não inclui vendas em dinheiro — já contadas na gaveta.</p>
+        </body></html>`;
+      const w = window.open("", "_blank", "width=420,height=700");
+      if (!w) { toast.error("Popup bloqueado — permita popups para imprimir"); return; }
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      w.print();
+    } catch {
+      toast.error("Erro ao gerar cupom de auditoria");
+    }
+  }
+
+  function diffBadge(diff: number | null | undefined) {
+    if (diff === null || diff === undefined) return <Badge label="—" color="gray" />;
+    const rounded = Number(diff.toFixed(2));
+    if (rounded === 0) return <Badge label="Bateu certo" color="green" />;
+    if (rounded < 0) return <Badge label={`Falta R$ ${fmt(Math.abs(rounded))}`} color="red" />;
+    return <Badge label={`Sobra R$ ${fmt(rounded)}`} color="yellow" />;
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Status atual */}
+      <div className="border border-gray-100 rounded-2xl bg-white shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${cash?.isOpen ? "bg-blue-50" : "bg-gray-100"}`}>
+              {cash?.isOpen ? <Unlock size={18} className="text-blue-600" /> : <Lock size={18} className="text-gray-400" />}
+            </div>
+            <div>
+              <p className="font-bold text-gray-900">{cash?.isOpen ? "Caixa aberto" : "Caixa fechado"}</p>
+              {cash?.isOpen && cash?.createdAt && (
+                <p className="text-xs text-gray-400">
+                  Aberto em {new Date(cash.createdAt).toLocaleString("pt-BR")} · valor inicial R$ {fmt(Number(cash.openingValue ?? 0))}
+                </p>
+              )}
+            </div>
+          </div>
+          {cash?.isOpen ? (
+            <div className="flex items-center gap-2">
+              {isManager && (
+                <button
+                  onClick={() => printAuditSummary(cash?.id)}
+                  className="flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 px-3 py-2.5 rounded-xl text-sm font-semibold transition"
+                  title="Imprimir resumo de cartão/PIX desta sessão"
+                >
+                  <Printer size={15} /> Cupom de Auditoria
+                </button>
+              )}
+              <button
+                onClick={() => setShowCloseModal(true)}
+                className="flex items-center gap-2 bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-sm font-bold transition"
+              >
+                <Lock size={15} /> Fechar Caixa
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowOpenModal(true)}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition"
+            >
+              <Unlock size={15} /> Abrir Caixa
+            </button>
+          )}
+        </div>
+
+        {!isManager && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+            <EyeOff size={14} className="mt-0.5 shrink-0" />
+            <span>
+              <strong>Fechamento às cegas:</strong> você declara apenas o valor contado na gaveta. O sistema
+              não mostra o saldo esperado — a conferência é feita pelo gestor.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Resultado do último fechamento (só gestor vê a comparação) */}
+      {isManager && lastClose && (
+        <div className="border border-gray-100 rounded-2xl bg-white shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck size={16} className="text-primary" />
+            <h3 className="font-bold text-gray-900 text-sm">Conferência do fechamento</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Sistema esperava</p>
+              <p className="font-black text-gray-900">R$ {fmt(Number(lastClose.systemValue ?? 0))}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Operador declarou</p>
+              <p className="font-black text-gray-900">R$ {fmt(Number(lastClose.declaredValue ?? 0))}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Diferença</p>
+              {diffBadge(lastClose.difference)}
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Fechado por</p>
+              <p className="font-semibold text-gray-700 text-sm">{lastClose.closedByName ?? "—"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Histórico — só gestor */}
+      {isManager && (
+        <div className="border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+          <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+              Histórico de fechamentos
+            </span>
+            {loadingHistory && <RefreshCw size={13} className="animate-spin text-gray-400" />}
+          </div>
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50">
+                  {["Fechado em", "Operador", "Sistema", "Declarado", "Diferença", ""].map((h) => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {history.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">Nenhum fechamento registrado ainda.</td></tr>
+                )}
+                {history.map((h) => (
+                  <tr key={h.id} className="border-t border-gray-50">
+                    <td className="px-4 py-3 whitespace-nowrap">{h.closedAt ? new Date(h.closedAt).toLocaleString("pt-BR") : "—"}</td>
+                    <td className="px-4 py-3">{h.closedByName ?? "—"}</td>
+                    <td className="px-4 py-3">R$ {fmt(Number(h.systemValue ?? 0))}</td>
+                    <td className="px-4 py-3">R$ {fmt(Number(h.declaredValue ?? 0))}</td>
+                    <td className="px-4 py-3">{diffBadge(h.difference)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => printAuditSummary(h.id)}
+                        className="text-gray-400 hover:text-gray-700 transition"
+                        title="Imprimir cupom de auditoria"
+                      >
+                        <Printer size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Abrir Caixa */}
+      {showOpenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">Abrir Caixa</h2>
+              <button onClick={() => setShowOpenModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">
+                Valor inicial em caixa (R$)
+              </label>
+              <input
+                type="number" min="0" step="0.01" autoFocus
+                value={openingValue}
+                onChange={(e) => setOpeningValue(e.target.value)}
+                placeholder="0,00"
+                className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-2.5 text-sm outline-none text-gray-800"
+              />
+              <button
+                onClick={openCash}
+                disabled={saving}
+                className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl font-bold text-sm transition"
+              >
+                {saving ? "Abrindo..." : "Abrir Caixa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Fechar Caixa — às cegas (não mostra saldo do sistema) */}
+      {showCloseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <EyeOff size={16} /> Fechar Caixa
+              </h2>
+              <button onClick={() => setShowCloseModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">
+                Conte o dinheiro físico na gaveta e informe o valor abaixo. O sistema não exibe o
+                saldo esperado — a comparação fica disponível apenas para o gestor.
+              </p>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">
+                Valor contado (R$)
+              </label>
+              <input
+                type="number" min="0" step="0.01" autoFocus
+                value={declaredValue}
+                onChange={(e) => setDeclaredValue(e.target.value)}
+                placeholder="0,00"
+                className="w-full border border-gray-200 focus:border-primary rounded-xl px-4 py-2.5 text-sm outline-none text-gray-800"
+              />
+              <button
+                onClick={closeCash}
+                disabled={saving}
+                className="w-full bg-gray-900 hover:bg-black disabled:opacity-50 text-white py-2.5 rounded-xl font-bold text-sm transition"
+              >
+                {saving ? "Fechando..." : "Confirmar Fechamento"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: "mensalidade", label: "Mensalidade", icon: <CreditCard size={15} /> },
   { key: "extrato", label: "Extrato", icon: <Landmark size={15} /> },
+  { key: "caixa", label: "Fechamento de Caixa", icon: <Lock size={15} /> },
   { key: "relatorio", label: "Relatório", icon: <BarChart2 size={15} /> },
   { key: "configuracoes", label: "Configurações", icon: <Settings size={15} /> },
 ];
@@ -1286,6 +1623,9 @@ export default function FinanceiroPage() {
                 onAdd={() => setShowModal(true)}
                 onRefresh={load}
               />
+            )}
+            {tab === "caixa" && (
+              <TabCaixa cash={cash} onRefresh={load} />
             )}
             {tab === "relatorio" && (
               <TabRelatorio orders={orders} summary={summary} />

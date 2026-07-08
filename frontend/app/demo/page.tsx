@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -90,6 +90,67 @@ const ALL_NICHES = [
   "Restaurantes", "Pizzaria", "Hamburgueria", "Lanchonetes",
   "Churrascaria", "Hotdogs", "Marmitarias", "Padaria",
   "Confeitaria", "Pastelaria", "Açaí", "Conveniências", "Mercados",
+];
+
+// Slugs sem acento pra link de prospecção (?niche=marmitaria) — fácil de
+// digitar/compartilhar no WhatsApp. Abre a demo já com o nicho pré-selecionado.
+const NICHE_SLUGS: Record<string, string> = {
+  restaurantes: "Restaurantes",
+  pizzaria: "Pizzaria",
+  hamburgueria: "Hamburgueria",
+  lanchonetes: "Lanchonetes",
+  lanchonete: "Lanchonetes",
+  churrascaria: "Churrascaria",
+  hotdogs: "Hotdogs",
+  hotdog: "Hotdogs",
+  marmitarias: "Marmitarias",
+  marmitaria: "Marmitarias",
+  padaria: "Padaria",
+  confeitaria: "Confeitaria",
+  pastelaria: "Pastelaria",
+  acai: "Açaí",
+  convenencias: "Conveniências",
+  conveniencias: "Conveniências",
+  mercados: "Mercados",
+};
+
+function resolveNicheFromSlug(raw: string | null): string {
+  if (!raw) return "Restaurantes";
+  const normalized = raw.toLowerCase().trim();
+  return NICHE_SLUGS[normalized] ?? "Restaurantes";
+}
+
+// ─── Ecossistema (outros produtos separados — links externos, sem merge de
+// código/backend; cada um roda no seu próprio domínio) ─────────────────────
+const ECOSYSTEM_LINKS: { key: string; name: string; subtitle: string; image: string; href: string | null }[] = [
+  {
+    key: "food",
+    name: "Food",
+    subtitle: "R_FoodSaaS ERP",
+    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&h=280&fit=crop&q=80",
+    href: null,
+  },
+  {
+    key: "oficina",
+    name: "Oficina",
+    subtitle: "Oficina & Elétrica ERP",
+    image: "https://images.unsplash.com/photo-1493238792000-8113da705763?w=500&h=280&fit=crop&q=80",
+    href: "https://sistema-oficina-eletrica-erp.vercel.app",
+  },
+  {
+    key: "estetica",
+    name: "Estética",
+    subtitle: "Saúde & Beleza ERP",
+    image: "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=500&h=280&fit=crop&q=80",
+    href: "https://sistema-saude-beleza-erp-frontend.vercel.app",
+  },
+  {
+    key: "moda",
+    name: "Moda",
+    subtitle: "Sistema Moda ERP",
+    image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&h=280&fit=crop&q=80",
+    href: "https://sistema-moda-erp-frontend.vercel.app",
+  },
 ];
 
 interface NicheInfo {
@@ -1051,7 +1112,7 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
     e.preventDefault();
     if (!form.name.trim())    { toast.error("Informe seu nome."); return; }
     if (!form.email.includes("@")) { toast.error("Informe um e-mail válido."); return; }
-    if (!form.restaurantName.trim()) { toast.error("Informe o nome do restaurante."); return; }
+    if (!form.restaurantName.trim()) { toast.error("Informe o nome do estabelecimento."); return; }
     await onConfirm(form);
   }
 
@@ -1077,9 +1138,9 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
         <form onSubmit={handleSubmit} className="relative px-7 py-6 space-y-4">
           {[
             { label: "Seu nome *", type: "text", Icon: User, key: "name", placeholder: "João Silva" },
-            { label: "E-mail *", type: "email", Icon: Mail, key: "email", placeholder: "joao@meurestaurante.com.br" },
+            { label: "E-mail *", type: "email", Icon: Mail, key: "email", placeholder: "joao@meuemail.com.br" },
             { label: "WhatsApp (opcional)", type: "tel", Icon: Phone, key: "whatsapp", placeholder: "(11) 99999-9999" },
-            { label: "Nome do restaurante *", type: "text", Icon: Store, key: "restaurantName", placeholder: "Pizzaria Bella Napoli" },
+            { label: "Nome do estabelecimento *", type: "text", Icon: Store, key: "restaurantName", placeholder: "Ex: Bella Napoli" },
           ].map(({ label, type, Icon, key, placeholder }) => (
             <div key={key}>
               <label className="block text-xs font-semibold text-white/60 mb-1.5">{label}</label>
@@ -1114,11 +1175,13 @@ function LeadCaptureModal({ demo, onClose, onConfirm, loading }: LeadCaptureModa
 // ─── Exit-Intent Popup ─────────────────────────────────────────────────────────
 interface ExitIntentForm { name: string; whatsapp: string; }
 
-function ExitIntentModal({ onClose, onConfirm, loading }: {
+function ExitIntentModal({ niche, onClose, onConfirm, loading }: {
+  niche: string;
   onClose: () => void;
   onConfirm: (form: ExitIntentForm) => Promise<void>;
   loading: boolean;
 }) {
+  const nicheLower = niche.toLowerCase();
   const [form, setForm] = useState<ExitIntentForm>({ name: "", whatsapp: "" });
 
   function formatPhone(raw: string) {
@@ -1146,8 +1209,8 @@ function ExitIntentModal({ onClose, onConfirm, loading }: {
             <span className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest mb-3 text-orange-400 bg-orange-500/10 border border-orange-500/30">
               Antes de sair
             </span>
-            <h2 className="text-xl font-black text-white leading-tight">Ganhe um diagnóstico grátis do seu restaurante</h2>
-            <p className="mt-1.5 text-sm text-white/50">Fale agora com um especialista e descubra o que a FoodSaaS pode automatizar no seu negócio — sem compromisso.</p>
+            <h2 className="text-xl font-black text-white leading-tight">Ganhe um diagnóstico grátis para o seu negócio</h2>
+            <p className="mt-1.5 text-sm text-white/50">Fale agora com um especialista em {nicheLower} e descubra o que a FoodSaaS pode automatizar no seu negócio — sem compromisso.</p>
           </div>
           <button onClick={onClose} className="shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20 hover:text-white transition">
             <X size={14} />
@@ -1191,8 +1254,11 @@ function ExitIntentModal({ onClose, onConfirm, loading }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 function DemoContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setAuth } = useAuthStore();
-  const [selectedNiche, setSelectedNiche] = useState<string>("Restaurantes");
+  const [selectedNiche, setSelectedNiche] = useState<string>(() =>
+    resolveNicheFromSlug(searchParams.get("niche")),
+  );
   const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
@@ -1226,6 +1292,11 @@ function DemoContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ page: "/demo" }),
     }).catch(() => {});
+
+    // Link de prospecção (?niche=marmitaria) — registra o nicho já na entrada,
+    // não só quando o visitante clica numa pill (mede efetividade do link).
+    const nicheParam = searchParams.get("niche");
+    if (nicheParam) recordNicheVisit(resolveNicheFromSlug(nicheParam));
 
     // Evento de audiência: visitante da página de demonstração
     // Permite criar público personalizado "interessados em demo" no Meta Ads e GA4
@@ -1355,6 +1426,7 @@ function DemoContent() {
 
       {showExitIntent && (
         <ExitIntentModal
+          niche={selectedNiche}
           loading={exitIntentSending}
           onClose={() => setShowExitIntent(false)}
           onConfirm={handleExitIntentConfirm}
@@ -1393,6 +1465,47 @@ function DemoContent() {
             </nav>
           </div>
         </header>
+
+        {/* ── ECOSSISTEMA (outros nichos — produtos separados) ── */}
+        <section className="mx-auto max-w-6xl px-5 pt-8 sm:px-8">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
+            Parte do mesmo ecossistema
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {ECOSYSTEM_LINKS.map((s) => {
+              const cardInner = (
+                <>
+                  <div className="relative h-20 overflow-hidden rounded-xl sm:h-24">
+                    <Image src={s.image} alt={s.name} fill className="object-cover" sizes="200px" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    {!s.href && (
+                      <span className="absolute right-1.5 top-1.5 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                        Você está aqui
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs font-black text-white">{s.name}</p>
+                  <p className="text-[10px] leading-tight text-white/40">{s.subtitle}</p>
+                </>
+              );
+              return s.href ? (
+                <a
+                  key={s.key}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2.5 transition hover:border-white/20 hover:bg-white/[0.05]"
+                >
+                  {cardInner}
+                </a>
+              ) : (
+                <div key={s.key} className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.06] p-2.5">
+                  {cardInner}
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         {/* ── HERO ── */}
         <section className="mx-auto max-w-7xl px-5 pb-12 pt-20 sm:px-8 sm:pb-16 sm:pt-28">

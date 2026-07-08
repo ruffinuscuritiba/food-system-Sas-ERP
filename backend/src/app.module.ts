@@ -51,6 +51,8 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { VisitsModule } from './modules/visits/visits.module';
 import { QrCampaignsModule } from './modules/qr-campaigns/qr-campaigns.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { FiscalModule } from './modules/fiscal/fiscal.module';
+import { TotemModule } from './modules/totem/totem.module';
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch:
 // - ChatModule, AlertsModule
@@ -104,6 +106,8 @@ import { UploadModule } from './modules/upload/upload.module';
     VisitsModule,
     QrCampaignsModule,
     UploadModule,
+    FiscalModule,
+    TotemModule,
   ],
   controllers: [AppController],
   providers: [

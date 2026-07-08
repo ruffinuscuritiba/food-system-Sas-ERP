@@ -6,6 +6,7 @@ import {
   Store, Palette, ClipboardList, CreditCard, Bike, Pizza,
   Printer, MessageCircle, Cable, Users, Star, Settings,
   Save, Loader2, CheckCircle2, AlertCircle, DollarSign, QrCode, SlidersHorizontal,
+  FileCheck2,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
@@ -66,6 +67,10 @@ const FinanceiroTab = dynamic(() => import("@/components/settings/FinanceiroTab"
   ssr: false,
   loading: TabLoader,
 });
+const FiscalTab = dynamic(() => import("@/components/settings/FiscalTab"), {
+  ssr: false,
+  loading: TabLoader,
+});
 const ImpressaoLocalTab = dynamic(() => import("@/components/settings/ImpressaoLocalTab"), {
   ssr: false,
   loading: TabLoader,
@@ -90,6 +95,7 @@ const TABS = [
   { id: "whatsapp",    label: "WhatsApp IA",      icon: MessageCircle,  group: "Tecnologia" },
   { id: "integracoes", label: "Integrações",      icon: Cable,          group: "Tecnologia" },
   { id: "financeiro",  label: "Financeiro",       icon: DollarSign,     group: "Gestão" },
+  { id: "fiscal",      label: "Fiscal",           icon: FileCheck2,     group: "Gestão" },
   { id: "equipe",      label: "Equipe",           icon: Users,          group: "Gestão" },
   { id: "plano",       label: "Plano & Módulos",  icon: Star,           group: "Gestão" },
 ] as const;
@@ -755,6 +761,7 @@ function getTabDescription(tab: TabId): string {
     whatsapp:    "Atendente virtual, conexões e comportamento da IA",
     integracoes: "iFood, Rappi, gateways de pagamento e apps externos",
     financeiro:  "Split de pagamentos, conta de repasse e frequência de transferência",
+    fiscal:      "Emissão de NFC-e/NF-e via provedor de terceiros (BYOK) — credenciais e termo de uso",
     equipe:      "Usuários, funções e permissões de acesso",
     plano:       "Assinatura atual, módulos ativos e limites do plano",
     interface:   "Personalize quais seções aparecem no painel — sem perder nenhum dado",
@@ -887,6 +894,8 @@ function ConfiguracoesInner() {
             <IntegracoesTab />
           ) : activeTab === "financeiro" ? (
             <FinanceiroTab />
+          ) : activeTab === "fiscal" ? (
+            <FiscalTab />
           ) : activeTab === "equipe" ? (
             <UsuariosTab />
           ) : activeTab === "plano" ? (

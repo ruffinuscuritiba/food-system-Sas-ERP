@@ -21,8 +21,8 @@ const PLATFORM_EMAIL = 'platform@foodsaas.internal';
  *   - Leads não convertidos: WhatsApp com reconvite para a demo.
  *
  * Regras:
- *   - Máximo 1 aviso por dia (America/Sao_Paulo). Builds extras no mesmo dia
- *     são registrados como `skipped` e não reenviam.
+ *   - Máximo 1 aviso a cada 15 dias corridos. Builds dentro da janela são
+ *     registrados como `skipped` e não reenviam.
  *   - Cada build notifica no máximo uma vez (dedupe por BUILD_ID — restarts
  *     do container não reenviam).
  *   - Sem BUILD_ID (ambiente dev) o serviço não faz nada.
@@ -59,12 +59,6 @@ export class UpdateNoticesService implements OnApplicationBootstrap {
     }
   }
 
-  private brDate(d: Date): string {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Sao_Paulo',
-    }).format(d);
-  }
-
   private async checkAndNotify(): Promise<void> {
     await this.prisma.readyPromise;
 
@@ -79,19 +73,23 @@ export class UpdateNoticesService implements OnApplicationBootstrap {
     });
     if (already) return; // build já processado (restart normal)
 
-    // Limite: 1 envio por dia (fuso America/Sao_Paulo)
+    // Limite: 1 envio a cada 15 dias corridos (evita SPAM em dias com vários deploys)
+    const MIN_INTERVAL_DAYS = 15;
     const lastSent = await this.prisma.systemUpdateNotice.findFirst({
       where: { skipped: false },
       orderBy: { sentAt: 'desc' },
     });
-    if (lastSent && this.brDate(lastSent.sentAt) === this.brDate(new Date())) {
-      await this.prisma.systemUpdateNotice.create({
-        data: { buildId, skipped: true },
-      });
-      this.logger.log(
-        '[UpdateNotices] aviso de hoje já enviado — build registrado sem reenvio.',
-      );
-      return;
+    if (lastSent) {
+      const daysSince = (Date.now() - lastSent.sentAt.getTime()) / 86_400_000;
+      if (daysSince < MIN_INTERVAL_DAYS) {
+        await this.prisma.systemUpdateNotice.create({
+          data: { buildId, skipped: true },
+        });
+        this.logger.log(
+          `[UpdateNotices] último aviso há ${daysSince.toFixed(1)}d (< ${MIN_INTERVAL_DAYS}d) — build registrado sem reenvio.`,
+        );
+        return;
+      }
     }
 
     // Registra ANTES de enviar: crash no meio do envio não gera duplicidade

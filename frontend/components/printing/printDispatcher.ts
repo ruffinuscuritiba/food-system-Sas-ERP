@@ -10,7 +10,7 @@
 
 import { printTicket } from "./printTicket";
 
-export type PrintSector = "KITCHEN" | "BAR" | "CASHIER" | "DELIVERY";
+export type PrintSector = "KITCHEN" | "BAR" | "PIZZARIA" | "LANCHONETE" | "CASHIER" | "DELIVERY";
 
 export interface SectorTicket {
   sector: PrintSector;

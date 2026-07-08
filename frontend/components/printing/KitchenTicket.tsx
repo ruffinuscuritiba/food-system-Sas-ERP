@@ -36,7 +36,7 @@ const KITCHEN_CSS = `
   .seq         { font-size: 36px; font-weight: 900; text-align: center; letter-spacing: 4px; }
 `;
 
-export function buildKitchenTicket(order: PrintableOrder): string {
+export function buildKitchenTicket(order: PrintableOrder, sectorLabel: string = "COZINHA"): string {
   const source    = order.source === "ONLINE" ? "ONLINE" : "PDV";
   const typeLabel = TYPE_LABELS[order.orderType || "DINE_IN"] || "🍽️ Balcão";
   const payLabel  = PAY_LABELS[order.paymentMethod || ""] || order.paymentMethod || "—";
@@ -71,12 +71,12 @@ export function buildKitchenTicket(order: PrintableOrder): string {
     <html lang="pt-BR">
     <head>
       <meta charset="UTF-8"/>
-      <title>Cozinha #${orderSeq}</title>
+      <title>${sectorLabel} #${orderSeq}</title>
       <style>${THERMAL_CSS}${KITCHEN_CSS}</style>
     </head>
     <body>
 
-      <h1>COZINHA</h1>
+      <h1>${sectorLabel}</h1>
       <div class="seq">#${orderSeq}</div>
       <div class="center small">${time}</div>
       <hr/>

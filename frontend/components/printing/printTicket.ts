@@ -44,6 +44,8 @@ export type PrintableOrder = {
   number?: number;
   /** Adapter Caminho 2 — "PDV" | "ONLINE" */
   source?: string;
+  /** "ONLINE" (padrão) | "TOTEM" — pedido de tablet fixo na mesa, sem pré-conta */
+  channel?: string;
   orderType?: string;
   status?: string;
   orderStatus?: string;

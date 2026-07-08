@@ -52,7 +52,7 @@ export default function KitchenPage() {
   }
 
   function printKitchenOrder(order: any) {
-    PrintRouterService.printAll(order, { companyName: "Cozinha", sectors: ["KITCHEN", "BAR"] });
+    PrintRouterService.printAll(order, { companyName: "Cozinha", sectors: ["KITCHEN", "BAR", "PIZZARIA", "LANCHONETE"] });
   }
 
   useEffect(() => {

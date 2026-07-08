@@ -14,9 +14,17 @@ const Droppable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.
 const Draggable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.Draggable),       { ssr: false }) as any;
 
 const CATEGORY_TYPE_OPTS = [
-  { value: "normal",  label: "Normal",  icon: "🍽️",  desc: "Cardápio padrão" },
-  { value: "bebidas", label: "Bebidas", icon: "🥤",  desc: "Grid estilo conveniência + busca EAN" },
+  { value: "normal",  label: "Normal",     icon: "🍽️", desc: "Cardápio padrão — imprime no ticket Cozinha" },
+  { value: "bebidas", label: "Bebidas",    icon: "🥤", desc: "Grid estilo conveniência + busca EAN — imprime no ticket Bar" },
+  { value: "pizza",   label: "Pizzaria",   icon: "🍕", desc: "Imprime em ticket separado — setor Pizzaria" },
+  { value: "lanche",  label: "Lanchonete", icon: "🍔", desc: "Imprime em ticket separado — setor Lanchonete" },
 ];
+
+const CATEGORY_TYPE_ICON: Record<string, string> = {
+  bebidas: "🥤",
+  pizza:   "🍕",
+  lanche:  "🍔",
+};
 
 export default function CategoriesPage() {
   const [categories, setCategories]               = useState<any[]>([]);
@@ -203,8 +211,8 @@ export default function CategoriesPage() {
             </p>
           </div>
 
-          {/* Multi-sabores toggle (somente para normal) */}
-          {newCategoryType === "normal" && (
+          {/* Multi-sabores toggle (normal ou pizza) */}
+          {(newCategoryType === "normal" || newCategoryType === "pizza") && (
             <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
               <div
                 onClick={() => setNewAllowMulti((v) => !v)}
@@ -317,7 +325,7 @@ export default function CategoriesPage() {
                       ))}
                     </div>
 
-                    {editCategoryType === "normal" && (
+                    {(editCategoryType === "normal" || editCategoryType === "pizza") && (
                       <label className="flex items-center gap-2 cursor-pointer select-none">
                         <div
                           onClick={() => setEditAllowMulti((v) => !v)}
@@ -401,7 +409,7 @@ export default function CategoriesPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5">
                         <span className="text-base shrink-0">
-                          {category.categoryType === "bebidas" ? "🥤" : "🍽️"}
+                          {CATEGORY_TYPE_ICON[category.categoryType] ?? "🍽️"}
                         </span>
                         <h2 className="text-sm font-bold text-gray-900 truncate">{category.name}</h2>
                       </div>
@@ -409,6 +417,16 @@ export default function CategoriesPage() {
                         {category.categoryType === "bebidas" && (
                           <span className="text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full">
                             🥤 Bebidas
+                          </span>
+                        )}
+                        {category.categoryType === "pizza" && (
+                          <span className="text-xs font-semibold bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-full">
+                            🍕 Pizzaria
+                          </span>
+                        )}
+                        {category.categoryType === "lanche" && (
+                          <span className="text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-100 px-2 py-0.5 rounded-full">
+                            🍔 Lanchonete
                           </span>
                         )}
                         {category.allowMultipleFlavors && (

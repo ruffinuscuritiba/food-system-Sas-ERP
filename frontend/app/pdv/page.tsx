@@ -258,6 +258,8 @@ export default function PDVPage() {
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  // Aviso suave de caixa fechado — NÃO bloqueia venda, só avisa o operador.
+  const [cashOpen, setCashOpen] = useState<boolean | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -300,6 +302,27 @@ export default function PDVPage() {
     } catch {}
     const tick = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(tick);
+  }, []);
+
+  // Aviso suave: verifica se há caixa aberto (não bloqueia, só avisa).
+  useEffect(() => {
+    api.get("/cash/current")
+      .then(r => setCashOpen(!!r.data?.isOpen))
+      .catch(() => setCashOpen(null));
+  }, []);
+
+  // Regra de impressão do cupom do cliente por forma de pagamento
+  // (/configuracoes?tab=impressao) — "ALL" preserva o comportamento anterior.
+  const [printPaymentRule, setPrintPaymentRule] = useState<{ mode: "ALL" | "SELECTED"; types: string[] }>({ mode: "ALL", types: [] });
+  useEffect(() => {
+    api.get("/company/settings")
+      .then(r => {
+        const ps = r.data?.printingSettings;
+        if (ps?.printMode === "SELECTED" && Array.isArray(ps.printPaymentTypes)) {
+          setPrintPaymentRule({ mode: "SELECTED", types: ps.printPaymentTypes });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Tema PDV: aplica cores do preset como CSS vars (--pdv-*) no mount e ouve
@@ -638,7 +661,7 @@ export default function PDVPage() {
               })),
             })),
           },
-          { companyName },
+          { companyName, printPaymentRule },
         );
       } catch (printErr) {
         console.warn("[PDV] impressão falhou silenciosamente:", printErr);
@@ -814,6 +837,16 @@ export default function PDVPage() {
     >
       {/* CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
+
+        {/* Aviso suave: nenhum caixa aberto (não bloqueia a venda) */}
+        {cashOpen === false && (
+          <a
+            href="/financeiro?tab=caixa"
+            className="shrink-0 flex items-center justify-center gap-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-xs font-semibold px-3 py-1.5 hover:bg-amber-500/25 transition"
+          >
+            ⚠️ Nenhum caixa aberto — abra o caixa em Financeiro antes de fechar o dia
+          </a>
+        )}
 
         {/* HEADER */}
         <header className="shrink-0 border-b border-[var(--pdv-border,#161b2d)] bg-[var(--pdv-header,transparent)] shadow-[0_2px_4px_rgba(0,0,0,0.1)] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">

@@ -1475,17 +1475,20 @@ function DemoContent() {
             {ECOSYSTEM_LINKS.map((s) => {
               const cardInner = (
                 <>
-                  <div className="relative h-20 overflow-hidden rounded-xl sm:h-24">
-                    <Image src={s.image} alt={s.name} fill className="object-cover" sizes="200px" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-white">{s.name}</p>
+                      <p className="truncate text-[10px] leading-tight text-white/40">{s.subtitle}</p>
+                    </div>
                     {!s.href && (
-                      <span className="absolute right-1.5 top-1.5 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                      <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
                         Você está aqui
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 text-xs font-black text-white">{s.name}</p>
-                  <p className="text-[10px] leading-tight text-white/40">{s.subtitle}</p>
+                  <div className="relative mt-2 h-20 overflow-hidden rounded-xl sm:h-24">
+                    <Image src={s.image} alt={s.name} fill className="object-cover" sizes="200px" />
+                  </div>
                 </>
               );
               return s.href ? (
@@ -1499,9 +1502,14 @@ function DemoContent() {
                   {cardInner}
                 </a>
               ) : (
-                <div key={s.key} className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.06] p-2.5">
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={scrollToDemo}
+                  className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.06] p-2.5 text-left transition hover:border-orange-500/50 hover:bg-orange-500/[0.1]"
+                >
                   {cardInner}
-                </div>
+                </button>
               );
             })}
           </div>

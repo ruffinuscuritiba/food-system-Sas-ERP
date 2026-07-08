@@ -89,6 +89,24 @@ export default function MenuPage() {
   const initialTableNumber = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("table")
     : null;
+  // Modo Totem: tablet fixo na mesa (?totem=1&table=X) — trava em DINE_IN,
+  // mesa não editável pelo cliente, e reseta sozinho após o pedido pro
+  // próximo cliente usar o mesmo aparelho (kiosk de autoatendimento).
+  const isTotem = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("totem") === "1" && !!initialTableNumber
+    : false;
+
+  // deviceId estável por aparelho (persiste no localStorage do tablet fixo)
+  const totemDeviceId = typeof window !== "undefined" && isTotem
+    ? (() => {
+        let id = localStorage.getItem("totem_device_id");
+        if (!id) {
+          id = typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : `totem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem("totem_device_id", id);
+        }
+        return id;
+      })()
+    : null;
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -311,6 +329,45 @@ export default function MenuPage() {
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [showPixScreen, pixData?.expiresAt]);
+
+  /* ── Modo Totem: reseta sozinho após o pedido para o próximo cliente ── */
+  const [totemCountdown, setTotemCountdown] = useState(0);
+  useEffect(() => {
+    if (!isTotem || !orderSent) return;
+    setTotemCountdown(10);
+    const tick = setInterval(() => {
+      setTotemCountdown((s) => {
+        if (s <= 1) {
+          clearInterval(tick);
+          setCart([]);
+          setOrderSent(false);
+          setOrderId(null);
+          setPaymentUrl(null);
+          setShowCheckout(false);
+          setCouponCode(""); setCouponDiscount(0); setCouponId(null); setCouponMsg(null);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [isTotem, orderSent]);
+
+  /* ── Modo Totem: heartbeat a cada 30s (dashboard de status do lojista) ── */
+  useEffect(() => {
+    if (!isTotem || !totemDeviceId || !realCompanyId) return;
+    const send = () => {
+      fetch(`${apiBaseUrl}/totem/heartbeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: realCompanyId, deviceId: totemDeviceId, tableNumber }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    send();
+    const id = setInterval(send, 30_000);
+    return () => clearInterval(id);
+  }, [isTotem, totemDeviceId, realCompanyId, tableNumber]);
 
   /* ── PIX payment polling ──────────────────────────────────────── */
   useEffect(() => {
@@ -626,6 +683,7 @@ export default function MenuPage() {
           total:         capturedFinalTotal + (selectedZone?.clientFee ?? 0),
           paymentMethod: form.paymentMethod,
           notes:         selectedOrderType === "DINE_IN" ? `Mesa ${tableNumber}` : undefined,
+          channel:       isTotem ? "TOTEM" : undefined,
         }),
       });
 
@@ -858,12 +916,18 @@ export default function MenuPage() {
               Pagar agora
             </a>
           )}
-          <button
-            onClick={() => { setOrderSent(false); setOrderId(null); setPaymentUrl(null); }}
-            className="w-full bg-[var(--color-primary)] hover:opacity-90 text-white py-3 rounded-2xl font-bold text-sm transition"
-          >
-            Fazer novo pedido
-          </button>
+          {isTotem ? (
+            <p className="text-xs text-gray-400">
+              Voltando ao cardápio em {totemCountdown}s para o próximo cliente...
+            </p>
+          ) : (
+            <button
+              onClick={() => { setOrderSent(false); setOrderId(null); setPaymentUrl(null); }}
+              className="w-full bg-[var(--color-primary)] hover:opacity-90 text-white py-3 rounded-2xl font-bold text-sm transition"
+            >
+              Fazer novo pedido
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1664,15 +1728,22 @@ export default function MenuPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
-                {(["DINE_IN", "DELIVERY", "PICKUP"] as const).map((type) => (
-                  <button key={type} onClick={() => setForm((f) => ({ ...f, orderType: type }))}
-                    className={`py-3 rounded-xl font-bold transition text-sm ${form.orderType === type ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                    {type === "DINE_IN" ? "Mesa" : type === "DELIVERY" ? "Entrega" : "Retirada"}
-                  </button>
-                ))}
-            </div>
-            {form.orderType === "DINE_IN" && (
+            {!isTotem && (
+              <div className="grid grid-cols-3 gap-2">
+                  {(["DINE_IN", "DELIVERY", "PICKUP"] as const).map((type) => (
+                    <button key={type} onClick={() => setForm((f) => ({ ...f, orderType: type }))}
+                      className={`py-3 rounded-xl font-bold transition text-sm ${form.orderType === type ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                      {type === "DINE_IN" ? "Mesa" : type === "DELIVERY" ? "Entrega" : "Retirada"}
+                    </button>
+                  ))}
+              </div>
+            )}
+            {form.orderType === "DINE_IN" && isTotem && (
+              <div className="w-full border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-gray-700 text-sm font-bold flex items-center gap-2">
+                <MapPin size={14} className="text-gray-400" /> Mesa {tableNumber}
+              </div>
+            )}
+            {form.orderType === "DINE_IN" && !isTotem && (
               <input
                 placeholder="Numero da mesa *"
                 value={tableNumber ?? ""}

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "@/services/api";
 import {
   Download, Copy, CheckCheck, Wifi, WifiOff, Terminal,
-  Monitor, Server, Printer, RefreshCw, ExternalLink,
+  Monitor, Server, Printer, RefreshCw, ExternalLink, Tablet,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -65,6 +65,27 @@ export default function ImpressaoLocalTab() {
     online: false, lastSeen: null,
   });
   const [statusLoading, setStatusLoading] = useState(true);
+  const [totens, setTotens] = useState<{ deviceId: string; tableNumber: string | null; online: boolean; lastSeen: string }[]>([]);
+  const [totensSummary, setTotensSummary] = useState<{ total: number; online: number } | null>(null);
+  const [totensLoading, setTotensLoading] = useState(true);
+
+  const checkTotens = useCallback(async () => {
+    try {
+      const res = await api.get("/totem/status");
+      setTotens(res.data?.items ?? []);
+      setTotensSummary(res.data?.summary ?? null);
+    } catch {
+      // silencioso — widget de conveniência
+    } finally {
+      setTotensLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkTotens();
+    const id = setInterval(checkTotens, 30_000);
+    return () => clearInterval(id);
+  }, [checkTotens]);
 
   useEffect(() => {
     setOs(detectOS());
@@ -230,6 +251,43 @@ export default function ImpressaoLocalTab() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── Totens conectados (tablets fixos na mesa em ?totem=1) ── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+            <Tablet size={13} /> Totens Conectados
+          </p>
+          {totensSummary && (
+            <span className="text-xs text-gray-400">
+              {totensSummary.online} online de {totensSummary.total}
+            </span>
+          )}
+        </div>
+        {totensLoading ? (
+          <div className="flex items-center gap-2 text-gray-400 text-xs px-4 py-3">
+            <RefreshCw size={12} className="animate-spin" /> Verificando...
+          </div>
+        ) : totens.length === 0 ? (
+          <p className="text-xs text-gray-400 px-4 py-3 bg-gray-50 rounded-xl">
+            Nenhum totem conectado ainda. Acesse o cardápio com <code className="text-gray-600">?totem=1&amp;table=X</code> em um tablet pra ele aparecer aqui.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {totens.map((t) => (
+              <div key={t.deviceId} className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-100 text-sm">
+                <span className="font-medium text-gray-700">
+                  {t.tableNumber ? `Mesa ${t.tableNumber}` : t.deviceId.slice(0, 8)}
+                </span>
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold ${t.online ? "text-green-600" : "text-red-500"}`}>
+                  {t.online ? <Wifi size={11} /> : <WifiOff size={11} />}
+                  {t.online ? "Online" : `Offline · ${new Date(t.lastSeen).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Manual refresh ── */}

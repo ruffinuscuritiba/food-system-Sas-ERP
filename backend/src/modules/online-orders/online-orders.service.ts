@@ -50,6 +50,8 @@ export interface CreateOnlineOrderDto {
   total: number;
   paymentMethod: OnlinePaymentMethodType;
   notes?: string;
+  /** "TOTEM" quando o pedido vem de um tablet fixo na mesa (?totem=1) */
+  channel?: string;
 }
 
 @Injectable()
@@ -194,6 +196,7 @@ export class OnlineOrdersService {
         total,
         paymentMethod,
         notes: dto.notes?.trim() || null,
+        channel: dto.channel === 'TOTEM' ? 'TOTEM' : 'ONLINE',
       },
     });
 

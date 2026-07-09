@@ -22,6 +22,9 @@ import {
   ChevronDown,
   QrCode,
   Printer,
+  Unlock,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from "lucide-react";
 import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
 import { printTicket } from "@/components/printing/printTicket";
@@ -260,6 +263,13 @@ export default function PDVPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   // Aviso suave de caixa fechado — NÃO bloqueia venda, só avisa o operador.
   const [cashOpen, setCashOpen] = useState<boolean | null>(null);
+  const [cashBalance, setCashBalance] = useState<number>(0);
+  // Controles de caixa direto no PDV (Abrir/Entrada/Saída/Sangria) — o
+  // caixista muitas vezes não tem acesso ao módulo Financeiro.
+  const [cashAction, setCashAction] = useState<null | "OPEN" | "SUPPLY" | "WITHDRAW">(null);
+  const [cashActionLabel, setCashActionLabel] = useState("");
+  const [cashAmount, setCashAmount] = useState("");
+  const [cashSaving, setCashSaving] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -305,11 +315,43 @@ export default function PDVPage() {
   }, []);
 
   // Aviso suave: verifica se há caixa aberto (não bloqueia, só avisa).
-  useEffect(() => {
+  const refreshCash = useCallback(() => {
     api.get("/cash/current")
-      .then(r => setCashOpen(!!r.data?.isOpen))
+      .then(r => {
+        setCashOpen(!!r.data?.isOpen);
+        setCashBalance(Number(r.data?.balance ?? 0));
+      })
       .catch(() => setCashOpen(null));
   }, []);
+
+  useEffect(() => { refreshCash(); }, [refreshCash]);
+
+  function openCashModal(action: "OPEN" | "SUPPLY" | "WITHDRAW", label: string) {
+    setCashAction(action);
+    setCashActionLabel(label);
+    setCashAmount("");
+  }
+
+  async function submitCashAction() {
+    const value = Number(cashAmount);
+    if (isNaN(value) || value <= 0) { toast.error("Valor inválido"); return; }
+    setCashSaving(true);
+    try {
+      if (cashAction === "OPEN") {
+        await api.post("/cash/open", { openingValue: value });
+        toast.success("Caixa aberto!");
+      } else if (cashAction) {
+        await api.post("/cash/movement", { type: cashAction, value });
+        toast.success("Registrado!");
+      }
+      setCashAction(null);
+      refreshCash();
+    } catch {
+      toast.error("Erro ao registrar — tente novamente");
+    } finally {
+      setCashSaving(false);
+    }
+  }
 
   // Regra de impressão do cupom do cliente por forma de pagamento
   // (/configuracoes?tab=impressao) — "ALL" preserva o comportamento anterior.
@@ -868,6 +910,35 @@ export default function PDVPage() {
               className="bg-transparent outline-none w-full text-sm text-white placeholder-zinc-400 min-w-0"
             />
           </div>
+          {/* Controles de Caixa — Abrir/Entrada/Saída/Sangria direto no PDV */}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            {cashOpen === false && (
+              <button onClick={() => openCashModal("OPEN", "Abrir Caixa")} title="Abrir caixa"
+                className="h-9 md:h-[54px] px-3 md:px-4 rounded-xl md:rounded-2xl bg-amber-500 hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 font-bold text-black text-xs md:text-sm">
+                <Unlock size={15} /> <span className="hidden md:inline">Abrir Caixa</span>
+              </button>
+            )}
+            {cashOpen === true && (
+              <>
+                <div className="hidden md:flex flex-col items-center justify-center h-[54px] px-3 rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card-hover,#0c101d)]">
+                  <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wide leading-none">Caixa</span>
+                  <span className="font-black text-green-400 text-sm leading-none mt-0.5">R$ {cashBalance.toFixed(2)}</span>
+                </div>
+                <button onClick={() => openCashModal("SUPPLY", "Entrada de Caixa")} title="Entrada"
+                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-green-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                  <ArrowDownCircle size={15} /> <span className="hidden md:inline">Entrada</span>
+                </button>
+                <button onClick={() => openCashModal("WITHDRAW", "Saída de Caixa")} title="Saída"
+                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                  <ArrowUpCircle size={15} /> <span className="hidden md:inline">Saída</span>
+                </button>
+                <button onClick={() => openCashModal("WITHDRAW", "Sangria")} title="Sangria"
+                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-700 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                  <ArrowUpCircle size={15} /> <span className="hidden md:inline">Sangria</span>
+                </button>
+              </>
+            )}
+          </div>
           {/* Buttons */}
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
             {pdvOrderDetails.orderType === "DINE_IN" && pdvOrderDetails.tableNumber && (
@@ -1385,6 +1456,36 @@ export default function PDVPage() {
       )}
 
       {/* CRIAR CUPOM */}
+      {cashAction && (
+        <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[var(--pdv-sidebar-bg,#050816)] border border-[var(--pdv-border,#1d2336)] rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--pdv-border,#161b2d)]">
+              <h2 className="text-xl font-black text-white flex items-center gap-2">
+                {cashAction === "OPEN" ? <Unlock size={20} className="text-amber-400" /> : cashAction === "SUPPLY" ? <ArrowDownCircle size={20} className="text-green-400" /> : <ArrowUpCircle size={20} className="text-red-400" />}
+                {cashActionLabel}
+              </h2>
+              <button onClick={() => setCashAction(null)} className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center"><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">
+                  {cashAction === "OPEN" ? "Valor inicial (troco)" : "Valor"}
+                </label>
+                <input type="number" min={0} step="0.01" autoFocus value={cashAmount}
+                  onChange={e => setCashAmount(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") submitCashAction(); }}
+                  placeholder="0,00"
+                  className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
+              </div>
+              <button onClick={submitCashAction} disabled={cashSaving}
+                className="w-full py-3 rounded-xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 disabled:opacity-50 font-bold text-sm transition">
+                {cashSaving ? "Salvando..." : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCriarCupom && (
         <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[var(--pdv-sidebar-bg,#050816)] border border-[var(--pdv-border,#1d2336)] rounded-3xl shadow-2xl overflow-hidden">

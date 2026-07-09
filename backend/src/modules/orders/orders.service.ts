@@ -23,6 +23,8 @@ import { OrderNotificationService } from '../whatsapp-ai/services/order-notifica
 
 import { DeliveryConfigService } from '../delivery-config/delivery-config.service';
 
+import { PrintersService } from '../printers/printers.service';
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -45,6 +47,9 @@ export class OrdersService {
 
     @Optional()
     private qrCampaigns?: QrCampaignsService,
+
+    @Optional()
+    private printersService?: PrintersService,
   ) {}
 
   async create(data: any) {
@@ -342,7 +347,101 @@ export class OrdersService {
       }
     });
 
+    // ── Impressão automática via Printer Agent (fire-and-forget) ─────────────
+    // Só enfileira se a empresa tiver um Agent online (heartbeat < 90s); caso
+    // contrário zero overhead e comportamento idêntico ao atual (window.print()
+    // no frontend continua sendo o fallback pra quem não tem Agent instalado).
+    setImmediate(async () => {
+      try {
+        await this.enqueuePrintJobs(data.companyId, order, data.channel);
+      } catch (e: any) {
+        console.warn(`[print] falha ao enfileirar impressão para order=${order.id}: ${e?.message}`);
+      }
+    });
+
     return order;
+  }
+
+  /**
+   * Classifica os itens do pedido por setor (mesma regra do
+   * frontend/components/printing/PrintRouterService.ts: categoryType
+   * "bebidas" → BAR, demais → KITCHEN) e enfileira um PrinterJob por
+   * impressora ativa em cada papel (KITCHEN/BAR/COUNTER/DELIVERY).
+   * Mantenha as duas regras em sincronia caso uma mude.
+   */
+  private async enqueuePrintJobs(
+    companyId: string,
+    order: any,
+    channel?: string,
+  ) {
+    if (!this.printersService) return;
+    if (!this.printersService.getAgentStatus(companyId).online) return;
+
+    const orderItems = Array.isArray(order.items) ? order.items : [];
+    if (orderItems.length === 0) return;
+
+    const productIds = orderItems.map((it: any) => it.productId);
+    const [products, company] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, category: { select: { categoryType: true } } },
+      }),
+      this.prisma.company.findUnique({
+        where: { id: companyId },
+        select: { name: true },
+      }),
+    ]);
+    const typeMap = new Map(
+      products.map((p) => [p.id, p.category?.categoryType ?? 'normal']),
+    );
+
+    const kitchenItems: any[] = [];
+    const barItems: any[] = [];
+    for (const item of orderItems) {
+      const bucket =
+        typeMap.get(item.productId) === 'bebidas' ? barItems : kitchenItems;
+      bucket.push({ quantity: item.quantity, name: item.productName });
+    }
+
+    const basePayload = {
+      companyName: company?.name,
+      orderNumber: order.number,
+      source: channel ?? 'PDV',
+      orderType: order.orderType,
+      time: new Date().toLocaleTimeString('pt-BR'),
+      total: Number(order.total),
+      paymentMethod: order.paymentMethod,
+      deliveryAddress: order.deliveryAddress,
+    };
+
+    const sectorJobs: Array<{ role: 'KITCHEN' | 'BAR' | 'COUNTER' | 'DELIVERY'; items: any[] }> = [];
+    if (kitchenItems.length) sectorJobs.push({ role: 'KITCHEN', items: kitchenItems });
+    if (barItems.length) sectorJobs.push({ role: 'BAR', items: barItems });
+    sectorJobs.push({ role: 'COUNTER', items: [...kitchenItems, ...barItems] });
+    if (order.orderType === 'DELIVERY') {
+      sectorJobs.push({ role: 'DELIVERY', items: [...kitchenItems, ...barItems] });
+    }
+
+    for (const { role, items } of sectorJobs) {
+      const profiles = await this.prisma.printerProfile.findMany({
+        where: {
+          companyId,
+          role,
+          isActive: true,
+          printer: { isActive: true },
+        },
+        select: { printerId: true },
+      });
+      for (const profile of profiles) {
+        await this.printersService.enqueueJob({
+          companyId,
+          printerId: profile.printerId,
+          orderId: order.id,
+          template: role,
+          payload: { ...basePayload, template: role, items },
+        });
+      }
+    }
   }
 
   async customerLookup(phone: string, companyId: string) {

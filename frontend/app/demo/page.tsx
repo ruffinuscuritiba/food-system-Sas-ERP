@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Clock,
   Cpu,
+  FileText,
   Loader2,
   Mail,
   MessageCircle,
@@ -1917,8 +1918,9 @@ function DemoContent() {
         </section>
 
         <footer className="border-t border-white/[0.05] py-8 text-center text-xs text-white/25">
-          © {new Date().getFullYear()} R_FoodSaaS ERP — Demonstração pública ·{" "}
-          <Link href="/termos" className="underline decoration-white/20 underline-offset-2 hover:text-white/50 hover:decoration-white/40 transition-colors">
+          <p>© {new Date().getFullYear()} R_FoodSaaS ERP — Demonstração pública</p>
+          <Link href="/termos" className="mt-2 inline-flex items-center gap-1 text-orange-400/80 underline decoration-orange-400/30 underline-offset-4 hover:text-orange-400 hover:decoration-orange-400/60 transition-colors">
+            <FileText className="h-3 w-3" />
             Termos, Privacidade e Suporte
           </Link>
         </footer>

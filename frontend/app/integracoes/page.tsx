@@ -78,6 +78,9 @@ export default function IntegracoesPage() {
   const [sandboxMode,   setSandboxMode]   = useState(true);
   const [isActive,      setIsActive]      = useState(false);
   const [saving,        setSaving]        = useState(false);
+  const [validating,    setValidating]    = useState(false);
+  const [syncing,       setSyncing]       = useState(false);
+  const [catalogMapCount, setCatalogMapCount] = useState<number | null>(null);
 
   // Simulação mock
   const [simName,    setSimName]    = useState("Maria Silva");
@@ -107,6 +110,7 @@ export default function IntegracoesPage() {
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (tab === "catalog") loadCatalogMapCount("IFOOD"); }, [tab]);
 
   function loadConfigForProvider(p: Provider) {
     const cfg = configs.find((c) => c.provider === p);
@@ -139,6 +143,39 @@ export default function IntegracoesPage() {
       toast.error(e?.response?.data?.message ?? "Erro ao salvar.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function validateConnection(provider: Provider) {
+    setValidating(true);
+    try {
+      const { data } = await api.post("/integrations/test-connection", { provider });
+      toast.success(data?.message ?? "Conexão validada.");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Falha ao validar conexão.");
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function loadCatalogMapCount(provider: Provider) {
+    try {
+      const { data } = await api.get(`/integrations/catalog/maps?provider=${provider}`);
+      setCatalogMapCount(Array.isArray(data) ? data.length : 0);
+    } catch {
+      setCatalogMapCount(null);
+    }
+  }
+
+  async function syncCatalog(provider: Provider) {
+    setSyncing(true);
+    try {
+      const { data } = await api.post("/integrations/push-catalog", { provider });
+      toast.success(`Cardápio sincronizado: ${data.categories} categorias, ${data.items} itens.`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Falha ao sincronizar catálogo.");
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -311,6 +348,22 @@ export default function IntegracoesPage() {
                         </div>
                       )}
 
+                      {p === "IFOOD" && (
+                        <div>
+                          <button
+                            onClick={() => validateConnection(p)}
+                            disabled={validating || !clientId}
+                            className="text-sm bg-red-50 hover:bg-red-100 disabled:opacity-50 text-red-700 border border-red-200 px-4 py-2 rounded-xl transition font-medium flex items-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {validating ? "Validando..." : "Validar Conexão"}
+                          </button>
+                          <p className="text-xs text-gray-400 mt-1.5">
+                            Salve o Client ID/Secret primeiro, depois valide — tentamos obter um token OAuth2 real do iFood.
+                          </p>
+                        </div>
+                      )}
+
                       {p !== "MOCK" && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -449,6 +502,28 @@ export default function IntegracoesPage() {
               <AlertCircle className="inline w-4 h-4 mr-2" />
               Disponível após ativar uma integração com iFood ou Rappi. No Mock, pedidos chegam
               usando o <code className="bg-yellow-100 px-1 rounded">internalProductId</code> diretamente.
+            </div>
+
+            {/* Sincronização de catálogo — iFood */}
+            <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-red-900 flex items-center gap-2">
+                🍔 Sincronizar Cardápio com iFood
+              </h3>
+              <p className="text-sm text-red-700/80 mt-1">
+                {catalogMapCount === null
+                  ? "Carregando mapeamentos..."
+                  : catalogMapCount === 0
+                    ? "Nenhum produto mapeado ainda. Cadastre pelo menos um mapeamento (externalProductId → produto interno) antes de sincronizar."
+                    : `${catalogMapCount} produto(s) mapeado(s) — prontos para envio.`}
+              </p>
+              <button
+                onClick={() => syncCatalog("IFOOD")}
+                disabled={syncing || !catalogMapCount}
+                className="mt-3 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-4 py-2 rounded-xl transition font-medium flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Enviando..." : "Sincronizar Cardápio Agora"}
+              </button>
             </div>
           </div>
         )}

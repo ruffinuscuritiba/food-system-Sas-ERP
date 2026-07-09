@@ -310,6 +310,106 @@ export class IntegrationsService {
     return token;
   }
 
+  // ── Validação de conexão (botão "Validar" no painel) ────────────────────
+
+  async testConnection(companyId: string, providerName: string) {
+    const config = await this.prisma.integrationConfig.findUnique({
+      where: { companyId_provider: { companyId, provider: providerName as any } },
+    });
+    if (!config) {
+      throw new BadRequestException('Configure a integração antes de validar.');
+    }
+
+    if (providerName === 'MOCK') {
+      return { ok: true, message: 'Sandbox Mock sempre disponível — nenhuma credencial externa necessária.' };
+    }
+
+    if (providerName === 'IFOOD') {
+      if (!config.clientId || !config.apiKeyEncrypted) {
+        throw new BadRequestException('Informe Client ID e Client Secret antes de validar.');
+      }
+      try {
+        await this.getValidToken(config);
+      } catch (e: any) {
+        throw new BadRequestException(
+          `Client ID/Secret inválidos ou iFood indisponível: ${e?.message ?? 'erro desconhecido'}`,
+        );
+      }
+      return {
+        ok: true,
+        message: config.merchantId
+          ? 'Client ID e Secret válidos — token OAuth2 obtido com sucesso.'
+          : 'Client ID e Secret válidos. Informe o Merchant ID para habilitar o Merchant Portal completo.',
+      };
+    }
+
+    throw new BadRequestException(`Validação ainda não implementada para ${providerName}.`);
+  }
+
+  // ── Sincronização de catálogo (PASSO 5 — pushCatalog) ────────────────────
+
+  async pushCatalog(companyId: string, providerName: string) {
+    if (providerName !== 'IFOOD') {
+      throw new BadRequestException(
+        'Sincronização de catálogo disponível apenas para iFood no momento.',
+      );
+    }
+
+    const config = await this.prisma.integrationConfig.findUnique({
+      where: { companyId_provider: { companyId, provider: providerName as any } },
+    });
+    if (!config || !config.isActive) {
+      throw new BadRequestException('Ative a integração iFood antes de sincronizar o catálogo.');
+    }
+    if (!config.merchantId) {
+      throw new BadRequestException('Informe o Merchant ID antes de sincronizar o catálogo.');
+    }
+
+    const maps = await this.prisma.productCatalogMap.findMany({
+      where: { companyId, provider: providerName as any, isActive: true },
+      include: {
+        product: { include: { category: true } },
+      },
+    });
+    if (maps.length === 0) {
+      throw new BadRequestException(
+        'Nenhum produto mapeado ainda. Configure o Mapeamento de Catálogo antes de sincronizar.',
+      );
+    }
+
+    // Agrupa por categoria interna → categorias do iFood
+    const byCategory = new Map<string, { name: string; items: unknown[] }>();
+    for (const map of maps) {
+      const catId = map.product.categoryId ?? 'sem-categoria';
+      const catName = map.product.category?.name ?? 'Cardápio';
+      if (!byCategory.has(catId)) byCategory.set(catId, { name: catName, items: [] });
+      byCategory.get(catId)!.items.push({
+        id: map.externalProductId,
+        name: map.product.name,
+        externalCode: map.externalProductId,
+        status: map.product.isActive ? 'AVAILABLE' : 'UNAVAILABLE',
+        price: { value: Number(map.product.salePrice) },
+      });
+    }
+    const categories = Array.from(byCategory.entries()).map(([externalCode, c]) => ({
+      externalCode,
+      name: c.name,
+      items: c.items,
+    }));
+
+    const token = await this.getValidToken(config);
+    if (!token) throw new BadRequestException('Não foi possível obter token OAuth2 do iFood.');
+
+    const provider = this.providerFactory.get('IFOOD') as any;
+    await provider.pushCatalog(config.merchantId, categories, token);
+
+    const itemCount = categories.reduce((s, c) => s + c.items.length, 0);
+    this.logger.log(
+      `[Integrations] pushCatalog OK: ${companyId} — ${categories.length} categorias, ${itemCount} itens`,
+    );
+    return { ok: true, categories: categories.length, items: itemCount };
+  }
+
   // ── Simulação manual (PASSO 6 — Mock) ────────────────────────────────────
 
   async simulateMockOrder(

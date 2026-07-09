@@ -810,26 +810,33 @@ function PhoneFrame({
 }
 
 function MenuPhoneShowcase() {
+  const appCircles = [
+    { label: "Pizzas",  img: "/demo-assets/pizzas/pepperoni.jpg" },
+    { label: "Combos",  img: "/demo-assets/combos/familia.jpg" },
+    { label: "Bebidas", img: "/demo-assets/bebidas/cerveja.jpg" },
+    { label: "Doces",   img: "/demo-assets/sobremesas/pudim.jpg" },
+  ];
+
   const darkItems = [
-    { name: "Pizza Quatro Queijos", desc: "Muçarela, parmesão, catupiry", price: "R$ 62", stars: 4.9, bg: "from-orange-700 via-red-800 to-rose-900", emoji: "🍕" },
-    { name: "Frango Grelhado",      desc: "Temperado, farofa e vinagrete",  price: "R$ 44", stars: 4.7, bg: "from-amber-600 via-orange-700 to-orange-900", emoji: "🍗" },
-    { name: "Burger Premium",       desc: "200g, cheddar, bacon crocante",  price: "R$ 38", stars: 4.8, bg: "from-yellow-600 via-amber-700 to-orange-800", emoji: "🍔" },
-    { name: "Combo Família",        desc: "2 pizzas grandes + 2 refris 2L", price: "R$ 119", stars: 4.6, bg: "from-purple-700 via-indigo-800 to-blue-900", emoji: "🎉" },
+    { name: "Pizza Quatro Queijos", desc: "Muçarela, parmesão, catupiry", price: "R$ 62", img: "/demo-assets/pizzas/quatro-queijos.jpg" },
+    { name: "Pizza Calabresa",      desc: "Calabresa fatiada, cebola e orégano", price: "R$ 44", img: "/demo-assets/pizzas/calabresa.jpg" },
+    { name: "Pizza Pepperoni",      desc: "Pepperoni importado e muçarela",  price: "R$ 52", img: "/demo-assets/pizzas/pepperoni.jpg" },
+    { name: "Combo Família",        desc: "2 pizzas grandes + 2 refris 2L", price: "R$ 119", img: "/demo-assets/combos/familia.jpg" },
   ];
 
   const gridItems = [
-    { name: "Margherita", price: "R$52", bg: "from-red-600 to-orange-700",   emoji: "🍕" },
-    { name: "Burger",     price: "R$34", bg: "from-amber-500 to-yellow-700", emoji: "🍔" },
-    { name: "Batata",     price: "R$18", bg: "from-yellow-400 to-amber-600", emoji: "🍟" },
-    { name: "Frango",     price: "R$48", bg: "from-purple-600 to-indigo-800",emoji: "🍗" },
-    { name: "Açaí",       price: "R$24", bg: "from-purple-800 to-violet-950",emoji: "🫐" },
-    { name: "Milk Shake", price: "R$22", bg: "from-pink-500 to-rose-700",    emoji: "🥛" },
+    { name: "Quatro Queijos",     price: "R$52", img: "/demo-assets/pizzas/quatro-queijos.jpg" },
+    { name: "Pizza Portuguesa",   price: "R$50", img: "/demo-assets/pizzas/portuguesa.jpg" },
+    { name: "Calabresa Especial", price: "R$44", img: "/demo-assets/pizzas/calabresa.jpg" },
+    { name: "Frango c/ Catupiry", price: "R$48", img: "/demo-assets/pizzas/frango-catupiry.jpg" },
+    { name: "Bacon Especial",     price: "R$54", img: "/demo-assets/pizzas/bacon-especial.jpg" },
+    { name: "Coca-Cola",          price: "R$8",  img: "/demo-assets/bebidas/coca.jpg" },
   ];
 
   const classicSections = [
-    { title: "Entradas",    items: [{ name: "Caldo de Cana", price: "R$ 8", emoji: "🥤" }, { name: "Pão de Alho", price: "R$ 12", emoji: "🥖" }] },
-    { title: "Pratos",      items: [{ name: "Pizza Margherita", price: "R$ 52", emoji: "🍕" }, { name: "Frango Grelhado", price: "R$ 44", emoji: "🍗" }, { name: "Burger Premium", price: "R$ 38", emoji: "🍔" }] },
-    { title: "Sobremesas",  items: [{ name: "Pudim de Leite", price: "R$ 18", emoji: "🍮" }] },
+    { title: "Bebidas",   items: [{ name: "Água", price: "R$ 6", img: "/demo-assets/bebidas/agua.jpg" }, { name: "Cerveja", price: "R$ 10", img: "/demo-assets/bebidas/cerveja.jpg" }] },
+    { title: "Pizzas",    items: [{ name: "Pizza Portuguesa", price: "R$ 52", img: "/demo-assets/pizzas/portuguesa.jpg" }, { name: "Pizza Calabresa", price: "R$ 44", img: "/demo-assets/pizzas/calabresa.jpg" }, { name: "Pizza Bacon Especial", price: "R$ 54", img: "/demo-assets/pizzas/bacon-especial.jpg" }] },
+    { title: "Sobremesas", items: [{ name: "Pudim de Leite", price: "R$ 18", img: "/demo-assets/sobremesas/pudim.jpg" }] },
   ];
 
   return (
@@ -876,19 +883,16 @@ function MenuPhoneShowcase() {
               <div className="h-full bg-white overflow-hidden flex flex-col">
                 {/* Categorias em avatar circular */}
                 <div className="flex gap-2.5 px-2.5 py-2.5 border-b border-gray-100 flex-shrink-0">
-                  {darkItems.slice(0, 4).map((item, i) => (
-                    <div key={item.name} className="flex flex-col items-center gap-1 flex-shrink-0">
-                      <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${item.bg} flex items-center justify-center text-xs ${i===0 ? "ring-2 ring-orange-500" : ""}`}>
-                        {item.emoji}
-                      </div>
+                  {appCircles.map((cat, i) => (
+                    <div key={cat.label} className="flex flex-col items-center gap-1 flex-shrink-0">
+                      <div className={`w-6 h-6 rounded-full bg-cover bg-center ${i===0 ? "ring-2 ring-orange-500" : ""}`} style={{ backgroundImage: `url(${cat.img})` }} />
                     </div>
                   ))}
                 </div>
                 {/* Cards full-bleed: foto de fundo inteira + gradiente + texto branco */}
                 <div className="flex-1 overflow-hidden p-2 space-y-1.5">
                   {darkItems.map((item) => (
-                    <div key={item.name} className={`relative rounded-xl overflow-hidden bg-gradient-to-br ${item.bg}`} style={{ minHeight: 54 }}>
-                      <div className="absolute inset-0 flex items-center justify-center text-3xl opacity-40">{item.emoji}</div>
+                    <div key={item.name} className="relative rounded-xl overflow-hidden bg-cover bg-center" style={{ minHeight: 54, backgroundImage: `url(${item.img})` }}>
                       <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.05) 60%)" }} />
                       <div className="absolute bottom-1.5 left-2.5 right-2.5">
                         <p className="text-[8px] font-black text-white leading-tight truncate">{item.name}</p>
@@ -929,8 +933,7 @@ function MenuPhoneShowcase() {
                 {/* 2-col image grid */}
                 <div className="flex-1 overflow-hidden p-2 grid grid-cols-2 gap-1.5 content-start">
                   {gridItems.map((item) => (
-                    <div key={item.name} className={`relative rounded-xl overflow-hidden bg-gradient-to-br ${item.bg}`} style={{ aspectRatio: "1/1" }}>
-                      <div className="absolute inset-0 flex items-center justify-center" style={{ fontSize: 30 }}>{item.emoji}</div>
+                    <div key={item.name} className="relative rounded-xl overflow-hidden bg-cover bg-center" style={{ aspectRatio: "1/1", backgroundImage: `url(${item.img})` }}>
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5">
                         <p className="text-[7.5px] font-bold text-white leading-tight truncate">{item.name}</p>
                         <p className="text-[9px] font-black text-orange-400 leading-tight">{item.price}</p>
@@ -969,7 +972,7 @@ function MenuPhoneShowcase() {
                       {section.items.map((item) => (
                         <div key={item.name} className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm leading-none">{item.emoji}</span>
+                            <div className="w-5 h-5 rounded-md bg-cover bg-center shrink-0" style={{ backgroundImage: `url(${item.img})` }} />
                             <p className="text-[9px] font-semibold text-gray-800 leading-tight">{item.name}</p>
                           </div>
                           <p className="text-[9px] font-black text-gray-900 flex-shrink-0 ml-2">{item.price}</p>

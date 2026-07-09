@@ -2,6 +2,8 @@
 
 Memória técnica resumida do projeto. Consultar **antes** de explorar o código para evitar leituras repetidas.
 
+⚠️ **Problema de WhatsApp/Kely/IA não respondendo?** Antes de investigar do zero, ver [`IA.md`](./IA.md) — checklist rápido + estado atual conhecido (instância Evolution, connectionId, env vars). Esse arquivo existe porque o estado quebra silenciosamente toda vez que a Kely é reconectada via QR.
+
 ---
 
 ## Stack

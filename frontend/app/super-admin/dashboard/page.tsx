@@ -892,7 +892,7 @@ export default function SuperAdminDashboard() {
 
           {/* ── DEMO CENTRAL ─────────────────────────────────────────────── */}
           <div>
-            <DemoCentralCard variant={isDark ? "dark" : "light"} />
+            <DemoCentralCard variant={isDark ? "dark" : "light"} showConfigureAI />
           </div>
 
           {/* ── TABELA ─────────────────────────────────────────────────── */}

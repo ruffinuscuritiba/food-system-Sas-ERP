@@ -1292,9 +1292,11 @@ function TabCaixa({ cash, onRefresh }: { cash: CashStatus | null; onRefresh: () 
     }
   }
 
-  function diffBadge(diff: number | null | undefined) {
+  function diffBadge(diff: number | string | null | undefined) {
     if (diff === null || diff === undefined) return <Badge label="—" color="gray" />;
-    const rounded = Number(diff.toFixed(2));
+    const num = Number(diff);
+    if (isNaN(num)) return <Badge label="—" color="gray" />;
+    const rounded = Number(num.toFixed(2));
     if (rounded === 0) return <Badge label="Bateu certo" color="green" />;
     if (rounded < 0) return <Badge label={`Falta R$ ${fmt(Math.abs(rounded))}`} color="red" />;
     return <Badge label={`Sobra R$ ${fmt(rounded)}`} color="yellow" />;

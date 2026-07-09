@@ -124,10 +124,17 @@ export default function VisitasPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [nicheStats, setNicheStats] = useState<{ niche: string; stats: VisitStats | null }[]>([])
   const [nicheLoading, setNicheLoading] = useState(true)
+  const [topClicks, setTopClicks] = useState<{ page: string; label: string; count: number }[]>([])
+  const [clicksLoading, setClicksLoading] = useState(true)
 
   async function loadAll() {
     setRefreshing(true)
     setNicheLoading(true)
+    setClicksLoading(true)
+    saApi.get<{ page: string; label: string; count: number }[]>(`/visits/top-clicks?limit=15`)
+      .then(res => setTopClicks(res.data))
+      .catch(() => setTopClicks([]))
+      .finally(() => setClicksLoading(false))
     const [updated, niches] = await Promise.all([
       Promise.all(
         PAGES_CONFIG.map(async (p) => {
@@ -353,6 +360,46 @@ export default function VisitasPage() {
               </div>
             )
           })()}
+        </div>
+
+        {/* Botões e ações mais clicados */}
+        <h2 className="text-xs font-bold uppercase tracking-widest text-white/20 mb-1">
+          Botões e Ações Mais Clicados
+        </h2>
+        <p className="text-xs text-white/40 mb-4">
+          Ranking de CTAs por página — mostra onde os visitantes realmente clicam, para focar melhorias de conversão.
+        </p>
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 mb-10">
+          {clicksLoading ? (
+            <div className="flex items-center gap-2 text-white/30 text-sm py-4">
+              <RefreshCw size={14} className="animate-spin" /> Carregando...
+            </div>
+          ) : topClicks.length === 0 ? (
+            <p className="text-sm text-white/30 py-2">
+              Ainda sem cliques registrados. Conforme os visitantes clicam nos botões de <span className="font-mono text-white/50">/demo</span>, <span className="font-mono text-white/50">/ia-demo</span> e <span className="font-mono text-white/50">/landing</span>, o ranking aparece aqui.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {(() => {
+                const maxCount = Math.max(...topClicks.map(t => t.count), 1)
+                return topClicks.map((t, i) => (
+                  <div key={`${t.page}:${t.label}`} className="flex items-center gap-3">
+                    <span className="text-xs font-black w-5 text-center shrink-0 text-white/30">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <span className="text-sm font-bold text-white truncate flex items-center gap-2">
+                          {t.label}
+                          <span className="text-[10px] font-mono text-white/25 shrink-0">{t.page}</span>
+                        </span>
+                        <span className="text-xs text-white/50 tabular-nums shrink-0">{t.count} cliques</span>
+                      </div>
+                      <MiniBar value={t.count} max={maxCount} color={i === 0 ? "#22c55e" : "#3b82f6"} />
+                    </div>
+                  </div>
+                ))
+              })()}
+            </div>
+          )}
         </div>
 
         {/* Dica de conversão */}

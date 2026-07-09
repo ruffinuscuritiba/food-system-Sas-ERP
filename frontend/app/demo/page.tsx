@@ -33,6 +33,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 import { PDV_THEME_PRESETS, savePdvTheme, PDV_THEME_DEFAULT } from "@/lib/pdv-theme";
 import { SUPPORT_WHATSAPP } from "@/config/support";
+import { trackClick } from "@/lib/track";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
   "Olá! Gostaria de falar com um especialista da Ruffinu's R_FoodSaaS ERP.",
@@ -1375,6 +1376,7 @@ function DemoContent() {
   }
 
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
+    trackClick("/demo", `lead_submitted_${demo.plan.toLowerCase()}`);
     setEntering(demo.id);
     leadCapturedRef.current = true; // já converteu — não mostrar exit-intent
     recordNicheVisit(selectedNiche); // marketing: nicho no momento da conversão
@@ -1410,6 +1412,7 @@ function DemoContent() {
   }
 
   function scrollToDemo() {
+    trackClick("/demo", "scroll_to_demo");
     demoSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
@@ -1456,7 +1459,7 @@ function DemoContent() {
                 className="hidden rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10 sm:block">
                 Ver demos
               </button>
-              <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+              <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-white shadow-[0_4px_14px_-4px_rgba(249,115,22,0.7),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600">
                 <MessageCircle className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Falar com Especialista</span>
@@ -1546,7 +1549,7 @@ function DemoContent() {
                   Testar Demonstrações
                   <ChevronDown className="h-4 w-4" />
                 </button>
-                <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+                <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
                   className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur transition hover:border-white/20 hover:bg-white/10">
                   <MessageCircle className="h-4 w-4" />
                   Falar com Especialista
@@ -1713,7 +1716,7 @@ function DemoContent() {
                   {/* CTA */}
                   <div className="p-5 pt-0">
                     <button
-                      onClick={() => setModalDemo(demo)}
+                      onClick={() => { trackClick("/demo", `plan_cta_${card.plan.toLowerCase()}`); setModalDemo(demo); }}
                       disabled={entering !== null}
                       className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${card.btnClass}`}
                     >
@@ -1763,7 +1766,7 @@ function DemoContent() {
             ))}
           </div>
           <div className="mt-10 flex justify-center">
-            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
               className="inline-flex items-center gap-2 rounded-2xl border border-green-500/30 bg-green-500/10 px-6 py-3 text-sm font-semibold text-green-400 transition hover:bg-green-500/15">
               <MessageCircle className="h-4 w-4" />
               Dúvidas? Fale com um consultor agora
@@ -1886,7 +1889,7 @@ function DemoContent() {
                 Testar agora — é grátis
                 <ArrowRight className="h-4 w-4" />
               </button>
-              <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer"
+              <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
                 className="inline-flex items-center gap-2 rounded-2xl border border-green-500/25 bg-green-500/8 px-6 py-3.5 text-sm font-semibold text-green-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-green-500/15">
                 <MessageCircle className="h-4 w-4" />
                 WhatsApp · Consultor online agora

@@ -184,6 +184,7 @@ export default function SuperAdminDashboard() {
   // ── Data ──────────────────────────────────────────────────────────────────
   const [companies, setCompanies] = useState<Company[]>([])
   const [filtered,  setFiltered]  = useState<Company[]>([])
+  const [recentLeads, setRecentLeads] = useState<{ id: string; name: string | null; company: string | null; recommendedPlan: string | null; createdAt: string }[]>([])
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, blocked: 0, archived: 0 })
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
@@ -262,6 +263,13 @@ export default function SuperAdminDashboard() {
       router.push("/super-admin/login")
     } finally {
       setLoading(false)
+    }
+    // Leads não bloqueiam o load principal — falha aqui não deve deslogar o super-admin
+    try {
+      const leadsRes = await saApi.get("/super-admin/leads")
+      setRecentLeads(leadsRes.data)
+    } catch {
+      setRecentLeads([])
     }
   }
 
@@ -398,9 +406,9 @@ export default function SuperAdminDashboard() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 4)
 
-  // ── Notifications derived from companies data ────────────────────────────────
+  // ── Notifications derived from companies + leads data ────────────────────────
   const notifications = (() => {
-    const list: { type: string; title: string; sub: string; color: string; bg: string; companyId: string; ts: number }[] = []
+    const list: { type: string; title: string; sub: string; color: string; bg: string; companyId: string | null; ts: number }[] = []
     const now = new Date()
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     const realNew = companies.filter(co =>
@@ -424,6 +432,15 @@ export default function SuperAdminDashboard() {
       bg: "bg-red-500/10 border-red-500/20",
       companyId: co.id,
       ts: new Date(co.createdAt).getTime(),
+    }))
+    recentLeads.filter(l => new Date(l.createdAt) >= sevenDaysAgo).forEach(l => list.push({
+      type: "lead",
+      title: `Novo lead: ${l.name || "Anônimo"}${l.company ? ` — ${l.company}` : ""}`,
+      sub: `${l.recommendedPlan ? (PLAN_LABELS[l.recommendedPlan] ?? l.recommendedPlan) + " · " : ""}${new Date(l.createdAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
+      color: "text-orange-400",
+      bg: "bg-orange-500/10 border-orange-500/20",
+      companyId: null,
+      ts: new Date(l.createdAt).getTime(),
     }))
     return list.sort((a, b) => b.ts - a.ts)
   })()
@@ -628,6 +645,10 @@ export default function SuperAdminDashboard() {
                       key={i}
                       onClick={() => {
                         setShowNotif(false)
+                        if (n.type === "lead") {
+                          router.push("/super-admin/leads")
+                          return
+                        }
                         setSearch(n.title.replace(/^(Nova loja|Loja bloqueada): /, ""))
                         setTimeout(() => {
                           const row = document.getElementById(`company-row-${n.companyId}`)
@@ -639,7 +660,7 @@ export default function SuperAdminDashboard() {
                       className={`w-full flex items-start gap-3 px-4 py-3 border-b last:border-b-0 ${c("border-[#1a1a1f] hover:bg-[#18181b]", "border-gray-50 hover:bg-gray-50")} transition-colors text-left`}
                     >
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${n.bg}`}>
-                        {n.type === "signup" ? <span className="text-sm">🏪</span> : <span className="text-sm">🚫</span>}
+                        {n.type === "signup" ? <span className="text-sm">🏪</span> : n.type === "lead" ? <span className="text-sm">🔥</span> : <span className="text-sm">🚫</span>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">

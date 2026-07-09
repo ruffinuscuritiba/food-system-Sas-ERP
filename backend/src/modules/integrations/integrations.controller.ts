@@ -9,10 +9,11 @@ import {
   Put,
   Query,
   Req,
+  Res,
   RawBodyRequest,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { RolesGuard } from '@/common/guards/roles.guard';
@@ -147,6 +148,34 @@ export class IntegrationsController {
     },
   ) {
     return this.service.simulateMockOrder(req.user.companyId, body);
+  }
+
+  // ── Callback URL do OAuth iFood (campo exigido no cadastro do app) ───────
+  // Placeholder seguro: existe pra o formulário de "Criar App" no Portal do
+  // Parceiro ter um destino válido. A troca do "code" por token será ligada
+  // assim que soubermos o formato exato exigido nessa etapa (ver nota no
+  // service). Nunca expõe o code recebido na resposta.
+
+  @Get('ifood/oauth/callback')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async ifoodOAuthCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    await this.service.recordOAuthCallback(state, code);
+    res
+      .status(200)
+      .type('html')
+      .send(
+        `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>R_FoodSaaS — Autorização iFood</title></head>` +
+          `<body style="font-family:system-ui,sans-serif;background:#07090f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">` +
+          `<div style="text-align:center;max-width:420px;padding:24px">` +
+          `<h1 style="color:#f97316;font-size:20px">Autorização recebida ✅</h1>` +
+          `<p style="color:rgba(255,255,255,0.6);font-size:14px;line-height:1.5">` +
+          `Recebemos a autorização do iFood. Nossa equipe vai concluir a vinculação da loja em instantes. ` +
+          `Se precisar de ajuda, fale com o suporte.</p></div></body></html>`,
+      );
   }
 
   // ── Webhook público (sem JWT — callback externo) ───────────────────────────

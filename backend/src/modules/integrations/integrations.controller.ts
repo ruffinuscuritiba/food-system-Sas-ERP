@@ -86,6 +86,22 @@ export class IntegrationsController {
     return this.service.deleteCatalogMap(id, req.user.companyId);
   }
 
+  // ── Validação de conexão + sincronização de catálogo ─────────────────────
+
+  @Post('test-connection')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ADMIN_ROLES)
+  testConnection(@Req() req: any, @Body() body: { provider: string }) {
+    return this.service.testConnection(req.user.companyId, body.provider);
+  }
+
+  @Post('push-catalog')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ADMIN_ROLES)
+  pushCatalog(@Req() req: any, @Body() body: { provider: string }) {
+    return this.service.pushCatalog(req.user.companyId, body.provider);
+  }
+
   // ── Event log ──────────────────────────────────────────────────────────────
 
   @Get('events')

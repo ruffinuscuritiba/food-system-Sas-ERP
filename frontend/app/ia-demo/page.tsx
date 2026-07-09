@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { apiBaseUrl } from "@/services/env";
 import { SUPPORT_WHATSAPP } from "@/config/support";
+import { trackClick } from "@/lib/track";
 
 type Role = "user" | "assistant";
 
@@ -423,7 +424,7 @@ export default function IaDemoPage() {
               {/* Plan card — rendered below the message that triggered it */}
               {msg.planRecommended && !msg.streaming && (
                 <div className="ml-10 mt-2">
-                  <PlanCard plan={msg.planRecommended} onWaClick={() => saveLead({ waClicked: true })} />
+                  <PlanCard plan={msg.planRecommended} onWaClick={() => { trackClick("/ia-demo", "whatsapp_plan_card"); saveLead({ waClicked: true }); }} />
                 </div>
               )}
 
@@ -435,7 +436,7 @@ export default function IaDemoPage() {
                       href={waLink(recommendedPlan ?? undefined)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={() => saveLead({ waClicked: true })}
+                      onClick={() => { trackClick("/ia-demo", "whatsapp_inline_cta"); saveLead({ waClicked: true }); }}
                       className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 transition px-4 py-2 rounded-xl text-[11px] font-bold text-white shadow-md"
                     >
                       <MessageSquare size={13} />
@@ -599,7 +600,7 @@ export default function IaDemoPage() {
               href={waLink(recommendedPlan ?? undefined)}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => saveLead({ waClicked: true })}
+              onClick={() => { trackClick("/ia-demo", "whatsapp_footer_cta"); saveLead({ waClicked: true }); }}
               className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 transition px-4 py-2 rounded-xl text-[11px] font-bold text-white shadow-md shadow-emerald-900/30"
             >
               <MessageSquare size={13} />

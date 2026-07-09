@@ -1,5 +1,7 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
+import { trackView, trackClick } from "@/lib/track";
 
 const plans = [
   {
@@ -55,6 +57,8 @@ const plans = [
 ];
 
 export default function LandingPage() {
+  useEffect(() => { trackView("/landing"); }, []);
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Navbar */}
@@ -72,6 +76,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/signup"
+              onClick={() => trackClick("/landing", "nav_comecar_gratis")}
               className="rounded-xl bg-red-500 px-5 py-2 font-semibold hover:bg-red-600 transition"
             >
               Começar grátis
@@ -97,12 +102,14 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/signup"
+              onClick={() => trackClick("/landing", "hero_criar_conta")}
               className="w-full sm:w-auto rounded-2xl bg-red-500 px-8 py-4 text-lg font-bold hover:bg-red-600 transition"
             >
               Criar conta grátis →
             </Link>
             <Link
               href="#planos"
+              onClick={() => trackClick("/landing", "hero_ver_planos")}
               className="w-full sm:w-auto rounded-2xl border border-slate-700 px-8 py-4 text-lg font-semibold hover:border-slate-500 transition"
             >
               Ver planos
@@ -201,6 +208,7 @@ export default function LandingPage() {
                 </ul>
                 <Link
                   href={`/signup?plan=${p.plan}`}
+                  onClick={() => trackClick("/landing", `plan_${p.plan.toLowerCase()}`)}
                   className={`block rounded-xl py-3 text-center font-bold transition ${
                     p.highlight
                       ? "bg-red-500 hover:bg-red-600"
@@ -226,6 +234,7 @@ export default function LandingPage() {
           </p>
           <Link
             href="/signup"
+            onClick={() => trackClick("/landing", "footer_criar_conta")}
             className="inline-block rounded-2xl bg-red-500 px-10 py-4 text-lg font-bold hover:bg-red-600 transition"
           >
             Criar conta grátis →

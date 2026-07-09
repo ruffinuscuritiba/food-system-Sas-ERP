@@ -2068,9 +2068,12 @@ model WalletRepasse {
 model PageVisit {
   id        String   @id @default(cuid())
   page      String   @default("/demo")
+  eventType String   @default("VIEW")
+  label     String?
   createdAt DateTime @default(now())
 
   @@index([page, createdAt])
+  @@index([eventType, label])
 }
 
 // ─── QR Code Recovery Campaigns ──────────────────────────────────────────────

@@ -319,6 +319,29 @@ export default function IntegracoesPage() {
                         </div>
                       </div>
 
+                      {/* Callback URL — campo exigido no cadastro do app no Portal do Parceiro */}
+                      {p === "IFOOD" && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Callback URL — cole no campo &ldquo;Callback URL&rdquo; ao criar o app no Portal do Parceiro
+                          </label>
+                          <div className="mt-1 flex items-center gap-2">
+                            <code className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700 break-all">
+                              {apiBase}/api/integrations/ifood/oauth/callback
+                            </code>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${apiBase}/api/integrations/ifood/oauth/callback`);
+                                toast.success("URL copiada!");
+                              }}
+                              className="shrink-0 text-xs bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition"
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Credenciais OAuth2 — iFood apenas */}
                       {p === "IFOOD" && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

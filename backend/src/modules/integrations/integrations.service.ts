@@ -310,6 +310,38 @@ export class IntegrationsService {
     return token;
   }
 
+  // ── OAuth callback (Passo 2 do cadastro no Portal do Parceiro) ───────────
+  // NOTA: o mecanismo exato de troca do "code" por token (redirect clássico
+  // vs. fluxo de userCode/device-code) só fica claro na tela real do Portal
+  // do Parceiro. Este endpoint existe para o campo "Callback URL" do
+  // formulário ter um destino válido; a troca do code por token será ligada
+  // assim que soubermos o formato exato exigido nessa etapa.
+  async recordOAuthCallback(companyIdOrState: string | undefined, code: string) {
+    // companyId real é necessário (FK) — sem ele, só loga (não quebra o callback do iFood).
+    if (!companyIdOrState) {
+      this.logger.warn(
+        `[Integrations] OAuth callback do iFood recebido sem state/companyId — code=${code?.slice(0, 8)}...`,
+      );
+      return;
+    }
+    const company = await this.prisma.company.findUnique({ where: { id: companyIdOrState } });
+    if (!company) {
+      this.logger.warn(
+        `[Integrations] OAuth callback do iFood — state não corresponde a nenhuma empresa: ${companyIdOrState}`,
+      );
+      return;
+    }
+    await this.logEvent(
+      companyIdOrState,
+      'IFOOD',
+      'OAUTH_CALLBACK',
+      null,
+      'RECEIVED',
+      null,
+      { code, receivedAt: new Date().toISOString() },
+    );
+  }
+
   // ── Validação de conexão (botão "Validar" no painel) ────────────────────
 
   async testConnection(companyId: string, providerName: string) {

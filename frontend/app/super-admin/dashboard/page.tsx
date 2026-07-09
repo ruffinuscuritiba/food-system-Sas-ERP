@@ -203,7 +203,6 @@ export default function SuperAdminDashboard() {
   const [seeding, setSeeding] = useState(false)
   const [initingDemos, setInitingDemos] = useState(false)
   const [enteringAI, setEnteringAI] = useState(false)
-  const [enteringStore, setEnteringStore] = useState(false)
   const [fixingModules, setFixingModules] = useState<string | null>(null)
   const [showCloneModal, setShowCloneModal] = useState(false)
   const [cloneTarget, setCloneTarget] = useState<Company | null>(null)
@@ -407,9 +406,8 @@ export default function SuperAdminDashboard() {
     await impersonatePlatformAndGo("/whatsapp-ia", () => setEnteringAI(false))
   }
 
-  async function openMyStore() {
-    setEnteringStore(true)
-    await impersonatePlatformAndGo("/configuracoes?tab=loja", () => setEnteringStore(false))
+  function openMyStore() {
+    router.push("/super-admin/loja")
   }
 
   // ── Derivados ─────────────────────────────────────────────────────────────
@@ -593,10 +591,10 @@ export default function SuperAdminDashboard() {
               <Bot className="w-3.5 h-3.5 shrink-0" />
               {enteringAI ? "Abrindo..." : "Configurar IA"}
             </button>
-            <button onClick={openMyStore} disabled={enteringStore}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all disabled:opacity-40 ${c("text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/30", "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50")}`}>
+            <button onClick={openMyStore}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all ${c("text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/30", "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50")}`}>
               <Store className="w-3.5 h-3.5 shrink-0" />
-              {enteringStore ? "Abrindo..." : "Minha Loja"}
+              Minha Loja
             </button>
           </div>
         </nav>

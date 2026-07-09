@@ -15,6 +15,11 @@ import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { DemoVitrineService } from './demo-vitrine.service';
 import { LeadsService } from '../leads/leads.service';
+import { CompanyService } from '../company/company.service';
+import { UpdateCompanySettingsDto } from '../company/dto/update-settings.dto';
+
+// Empresa "R FoodSaaS Plataforma" — mesma conta usada pra vender o sistema via Kely.
+const PLATFORM_COMPANY_ID = 'cmq7d3dxs0006gw5pabsljy87';
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -22,7 +27,20 @@ export class SuperAdminController {
     private service: SuperAdminService,
     private vitrine: DemoVitrineService,
     private leads: LeadsService,
+    private companyService: CompanyService,
   ) {}
+
+  @Get('platform/settings')
+  @UseGuards(SuperAdminGuard)
+  getPlatformSettings() {
+    return this.companyService.getSettings(PLATFORM_COMPANY_ID);
+  }
+
+  @Patch('platform/settings')
+  @UseGuards(SuperAdminGuard)
+  updatePlatformSettings(@Body() dto: UpdateCompanySettingsDto) {
+    return this.companyService.updateSettings(PLATFORM_COMPANY_ID, dto);
+  }
 
   @Post('auth/login')
   login(@Body() body: { email: string; password: string }) {

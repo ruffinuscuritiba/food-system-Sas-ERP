@@ -1,9 +1,12 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '@/database/prisma.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+
+const PLATFORM_COMPANY_ID = 'cmq7d3dxs0006gw5pabsljy87';
 
 export interface BroadcastSummary {
   clientsWa: number;
@@ -202,12 +205,89 @@ export class UpdateNoticesService implements OnApplicationBootstrap {
         `Que tal dar mais uma olhada? O teste é grátis e leva 2 minutos pra começar:\n` +
         `${frontendUrl}/demo\n\n` +
         `Se preferir, me chama aqui que te mostro tudo na hora. 😉`;
-      if (await this.sendWa(l.whatsapp, waMsg)) summary.leadsWa++;
+      if (await this.sendWa(l.whatsapp, waMsg)) {
+        summary.leadsWa++;
+        await this.prisma.lead
+          .update({ where: { id: l.id }, data: { lastOutreachAt: new Date(), feedbackFollowUpSentAt: null } })
+          .catch(() => {});
+      }
       await this.sleep(400);
     }
 
     summary.total = summary.clientsWa + summary.clientsEmail + summary.leadsWa;
     return summary;
+  }
+
+  /**
+   * Segunda abordagem: se um lead recebeu uma mensagem (ex: aviso de
+   * atualização) e não voltou a conversar em ~30 min, a Kely manda uma
+   * mensagem pedindo feedback/sugestão — em vez de deixar a conversa morrer
+   * num link solto. Roda a cada 10 min; janela de 25–40 min evita reenvio
+   * duplicado se o cron atrasar um ciclo.
+   */
+  @Cron('*/10 * * * *')
+  async sendFeedbackFollowUps(): Promise<void> {
+    await this.prisma.readyPromise;
+    const now = Date.now();
+    const windowStart = new Date(now - 40 * 60_000);
+    const windowEnd = new Date(now - 25 * 60_000);
+
+    const candidates = await this.prisma.lead.findMany({
+      where: {
+        whatsapp: { not: null },
+        status: { not: 'PERDIDO' },
+        lastOutreachAt: { gte: windowStart, lte: windowEnd },
+        feedbackFollowUpSentAt: null,
+      },
+    });
+    if (candidates.length === 0) return;
+
+    let sent = 0;
+    for (const lead of candidates) {
+      const digits = (lead.whatsapp ?? '').replace(/\D/g, '');
+      if (!digits) continue;
+
+      const responded = await this.hasRespondedSince(digits, lead.lastOutreachAt!);
+      if (responded) {
+        // Já voltou a conversar por conta própria — não precisa da segunda abordagem.
+        await this.prisma.lead
+          .update({ where: { id: lead.id }, data: { feedbackFollowUpSentAt: new Date() } })
+          .catch(() => {});
+        continue;
+      }
+
+      const firstName = lead.name?.split(' ')[0];
+      const hello = firstName ? `Oi, *${firstName}*!` : 'Oi!';
+      const msg =
+        `${hello} 😊 Vi que você deu uma olhada no FoodSaaS, mas a gente não voltou a se falar.\n\n` +
+        `Ficou com alguma dúvida? Ou tem alguma sugestão de melhoria que eu possa levar pro nosso time? ` +
+        `Seu feedback é muito importante pra gente! 🙏`;
+
+      const ok = await this.sendWa(lead.whatsapp, msg);
+      if (ok) {
+        sent++;
+        await this.prisma.lead
+          .update({ where: { id: lead.id }, data: { feedbackFollowUpSentAt: new Date() } })
+          .catch(() => {});
+      }
+      await this.sleep(400);
+    }
+    if (sent > 0) {
+      this.logger.log(`[UpdateNotices] follow-up de feedback enviado para ${sent} lead(s).`);
+    }
+  }
+
+  /** Verifica se o lead mandou alguma mensagem pra Kely depois de `since`. */
+  private async hasRespondedSince(phoneDigits: string, since: Date): Promise<boolean> {
+    const suffix = phoneDigits.slice(-9);
+    const conv = await this.prisma.whatsappConversation.findFirst({
+      where: { companyId: PLATFORM_COMPANY_ID, customerPhone: { endsWith: suffix } },
+    });
+    if (!conv) return false;
+    const msg = await this.prisma.whatsappMessage.findFirst({
+      where: { conversationId: conv.id, role: 'USER', createdAt: { gt: since } },
+    });
+    return !!msg;
   }
 
   /**

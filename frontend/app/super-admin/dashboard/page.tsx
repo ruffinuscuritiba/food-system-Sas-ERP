@@ -8,7 +8,7 @@ import {
   BarChart3, Ban, Search, ChevronRight, LayoutDashboard,
   UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw,
   ExternalLink, Layout, Package, Bell, Moon, Sun, Activity,
-  PieChart, Layers, Bot,
+  PieChart, Layers, Bot, Store,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
@@ -203,6 +203,7 @@ export default function SuperAdminDashboard() {
   const [seeding, setSeeding] = useState(false)
   const [initingDemos, setInitingDemos] = useState(false)
   const [enteringAI, setEnteringAI] = useState(false)
+  const [enteringStore, setEnteringStore] = useState(false)
   const [fixingModules, setFixingModules] = useState<string | null>(null)
   const [showCloneModal, setShowCloneModal] = useState(false)
   const [cloneTarget, setCloneTarget] = useState<Company | null>(null)
@@ -387,19 +388,28 @@ export default function SuperAdminDashboard() {
     router.push("/super-admin/login")
   }
 
-  async function configureAI() {
-    setEnteringAI(true)
+  async function impersonatePlatformAndGo(path: string, onError: () => void) {
     try {
       const { data } = await saApi.post("/super-admin/platform/impersonate")
       localStorage.setItem("token", data.accessToken)
       localStorage.setItem("user", JSON.stringify(data.user))
       localStorage.setItem("impersonating", JSON.stringify({ companyName: "R FoodSaaS Plataforma", companyId: data.user.companyId }))
       document.cookie = `token=${data.accessToken}; path=/`
-      window.location.href = "/whatsapp-ia"
+      window.location.href = path
     } catch {
-      alert("Erro ao acessar configuração de IA")
-      setEnteringAI(false)
+      alert("Erro ao acessar a conta da plataforma")
+      onError()
     }
+  }
+
+  async function configureAI() {
+    setEnteringAI(true)
+    await impersonatePlatformAndGo("/whatsapp-ia", () => setEnteringAI(false))
+  }
+
+  async function openMyStore() {
+    setEnteringStore(true)
+    await impersonatePlatformAndGo("/configuracoes?tab=loja", () => setEnteringStore(false))
   }
 
   // ── Derivados ─────────────────────────────────────────────────────────────
@@ -582,6 +592,11 @@ export default function SuperAdminDashboard() {
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all disabled:opacity-40 ${c("text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30", "text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50")}`}>
               <Bot className="w-3.5 h-3.5 shrink-0" />
               {enteringAI ? "Abrindo..." : "Configurar IA"}
+            </button>
+            <button onClick={openMyStore} disabled={enteringStore}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all disabled:opacity-40 ${c("text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/30", "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50")}`}>
+              <Store className="w-3.5 h-3.5 shrink-0" />
+              {enteringStore ? "Abrindo..." : "Minha Loja"}
             </button>
           </div>
         </nav>

@@ -2,7 +2,7 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
-  IsUUID,
+  IsString,
   MinLength,
 } from 'class-validator';
 
@@ -21,6 +21,9 @@ export class CreateUserDto {
   @IsEnum(Role)
   role!: Role;
 
-  @IsUUID()
+  // IDs do Prisma são cuid (ex: "cmrcgugi9..."), não UUID — @IsUUID() rejeitava
+  // todo companyId real e quebrava a criação de usuário com 400 silencioso.
+  @IsString()
+  @IsNotEmpty()
   companyId!: string;
 }

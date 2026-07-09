@@ -65,6 +65,7 @@ const PUBLIC_ROUTES = [
   "/ia-demo",
   "/tracking",
   "/r",        // QR redirect de recuperação de clientes
+  "/termos",
 ];
 
 type NavItem = {

@@ -8,11 +8,13 @@ import { SuperAdminGuard } from './super-admin.guard';
 import { DemoVitrineService } from './demo-vitrine.service';
 import { DemoBootstrapService } from './demo-bootstrap.service';
 import { LeadsModule } from '../leads/leads.module';
+import { CompanyModule } from '../company/company.module';
 
 @Module({
   imports: [
     PrismaModule,
     LeadsModule,
+    CompanyModule,
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -1845,6 +1845,8 @@ model Lead {
   conversationSummary String?
   status              String   @default("NOVO")
   waClickedAt         DateTime?
+  lastOutreachAt      DateTime?
+  feedbackFollowUpSentAt DateTime?
 
   @@index([status])
   @@index([createdAt])

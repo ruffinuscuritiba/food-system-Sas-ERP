@@ -920,9 +920,9 @@ export default function PDVPage() {
             )}
             {cashOpen === true && (
               <>
-                <div className="hidden md:flex flex-col items-center justify-center h-[54px] px-3 rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card-hover,#0c101d)]">
-                  <span className="text-[8px] text-zinc-500 uppercase font-bold tracking-wide leading-none">Caixa</span>
-                  <span className="font-black text-green-400 text-sm leading-none mt-0.5">R$ {cashBalance.toFixed(2)}</span>
+                <div className="hidden md:flex items-center gap-2 h-[54px] px-3 rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card-hover,#0c101d)]" title="Caixa aberto">
+                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+                  <span className="font-bold text-green-400 text-xs leading-none">Caixa Aberto</span>
                 </div>
                 <button onClick={() => openCashModal("SUPPLY", "Entrada de Caixa")} title="Entrada"
                   className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-green-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">

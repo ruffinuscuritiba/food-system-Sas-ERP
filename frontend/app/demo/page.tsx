@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
@@ -1916,7 +1917,10 @@ function DemoContent() {
         </section>
 
         <footer className="border-t border-white/[0.05] py-8 text-center text-xs text-white/25">
-          © {new Date().getFullYear()} R_FoodSaaS ERP — Demonstração pública
+          © {new Date().getFullYear()} R_FoodSaaS ERP — Demonstração pública ·{" "}
+          <Link href="/termos" className="underline decoration-white/20 underline-offset-2 hover:text-white/50 hover:decoration-white/40 transition-colors">
+            Termos, Privacidade e Suporte
+          </Link>
         </footer>
 
       </div>

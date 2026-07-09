@@ -1798,48 +1798,72 @@ function DemoContent() {
           </div>
         </section>
 
-        {/* ── COMPARISON TABLE ── */}
-        <section className="mx-auto max-w-4xl px-5 pb-28 sm:px-8">
+        {/* ── COMPARISON TABLE + HIGHLIGHTS ── */}
+        <section className="mx-auto max-w-6xl px-5 pb-28 sm:px-8">
           <div className="mb-10 text-center">
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Comparativo de planos</h2>
             <p className="mt-3 text-sm text-white/50">Escolha o plano ideal para o tamanho da sua operação.</p>
           </div>
-          <div className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
-            <div className="grid grid-cols-4 border-b border-white/[0.07] bg-white/[0.03]">
-              <div className="p-5" />
-              {(["BASIC", "PRO", "ENTERPRISE"] as const).map((plan, i) => {
-                const colors = ["#16a34a", "#2563eb", "#7c3aed"];
-                return (
-                  <div key={plan} className="border-l border-white/[0.07] p-5 text-center">
-                    <span className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest"
-                      style={{ color: colors[i], backgroundColor: `${colors[i]}22`, border: `1px solid ${colors[i]}44` }}>
-                      {plan}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            {COMPARISON.map((feat, idx) => (
-              <div key={feat.label}
-                className={`grid grid-cols-4 border-b border-white/[0.05] transition hover:bg-white/[0.02] ${idx === COMPARISON.length - 1 ? "border-b-0" : ""}`}>
-                <div className="flex items-center px-5 py-4 text-sm font-medium text-white/75">{feat.label}</div>
-                {(["basic", "pro", "enterprise"] as PlanKey[]).map((key, i) => {
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr] lg:items-start">
+            {/* Tabela compacta */}
+            <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
+              <div className="grid grid-cols-4 border-b border-white/[0.07] bg-white/[0.03]">
+                <div className="p-3" />
+                {(["BASIC", "PRO", "ENTERPRISE"] as const).map((plan, i) => {
                   const colors = ["#16a34a", "#2563eb", "#7c3aed"];
-                  const val = feat[key];
                   return (
-                    <div key={key} className="flex items-center justify-center border-l border-white/[0.05] py-4">
-                      {val ? (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ backgroundColor: `${colors[i]}22` }}>
-                          <Check className="h-3.5 w-3.5" style={{ color: colors[i] }} strokeWidth={3} />
-                        </span>
-                      ) : (
-                        <Minus className="h-4 w-4 text-white/20" strokeWidth={2} />
-                      )}
+                    <div key={plan} className="border-l border-white/[0.07] p-2.5 text-center">
+                      <span className="inline-block rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest"
+                        style={{ color: colors[i], backgroundColor: `${colors[i]}22`, border: `1px solid ${colors[i]}44` }}>
+                        {plan}
+                      </span>
                     </div>
                   );
                 })}
               </div>
-            ))}
+              {COMPARISON.map((feat, idx) => (
+                <div key={feat.label}
+                  className={`grid grid-cols-4 border-b border-white/[0.05] transition hover:bg-white/[0.02] ${idx === COMPARISON.length - 1 ? "border-b-0" : ""}`}>
+                  <div className="flex items-center px-3 py-2.5 text-xs font-medium text-white/75">{feat.label}</div>
+                  {(["basic", "pro", "enterprise"] as PlanKey[]).map((key, i) => {
+                    const colors = ["#16a34a", "#2563eb", "#7c3aed"];
+                    const val = feat[key];
+                    return (
+                      <div key={key} className="flex items-center justify-center border-l border-white/[0.05] py-2.5">
+                        {val ? (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full" style={{ backgroundColor: `${colors[i]}22` }}>
+                            <Check className="h-3 w-3" style={{ color: colors[i] }} strokeWidth={3} />
+                          </span>
+                        ) : (
+                          <Minus className="h-3.5 w-3.5 text-white/20" strokeWidth={2} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Grid de diferenciais — divide o espaço com detalhes */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {[
+                { icon: Smartphone, title: "Sem limite de dispositivos", desc: "PDV, celular e tablet sem taxa extra por aparelho." },
+                { icon: Users, title: "Sem limite de usuários", desc: "Toda a equipe cadastrada sem cobrança adicional." },
+                { icon: MessageCircle, title: "WhatsApp com IA", desc: "Atendimento automático que fecha pedidos sozinho." },
+                { icon: Store, title: "Cardápio digital próprio", desc: "Loja online no seu domínio, sem comissão de app." },
+                { icon: TrendingUp, title: "Relatórios em tempo real", desc: "Vendas, CMV e ticket médio sempre atualizados." },
+                { icon: ShieldCheck, title: "Suporte em português", desc: "Time local, resposta rápida, sem tradutor automático." },
+              ].map((h) => (
+                <div key={h.title}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 text-center transition hover:bg-white/[0.04]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10">
+                    <h.icon className="h-4.5 w-4.5 text-orange-400" strokeWidth={2} />
+                  </div>
+                  <div className="text-xs font-bold leading-tight">{h.title}</div>
+                  <div className="text-[10px] leading-snug text-white/45">{h.desc}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

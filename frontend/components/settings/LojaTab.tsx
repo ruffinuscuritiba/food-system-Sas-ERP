@@ -556,11 +556,8 @@ export function LojaTab({ client, endpoint = "/company/settings", skipAuthCheck 
                   }`}
                 >
                   <span
-                    className={`text-sm font-medium ${
-                      day.isOpen
-                        ? "text-gray-900 dark:text-gray-100"
-                        : "text-gray-400 dark:text-gray-600"
-                    }`}
+                    className="text-sm font-medium"
+                    style={{ color: day.isOpen ? "#1f2937" : "#9ca3af" }}
                   >
                     {label}
                   </span>

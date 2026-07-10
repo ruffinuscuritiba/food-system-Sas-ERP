@@ -27,6 +27,7 @@ import { CategoriesService } from '@/modules/categories/categories.service';
 import { LeadsService } from '@/modules/leads/leads.service';
 import { OrderStatus } from '@prisma/client';
 import { WaConnection, WaConversation, WaSettings } from './types';
+import { PLATFORM_SELLER_COMPANY_ID } from '@/common/utils/matrix';
 
 const log = new Logger('WhatsappAiService');
 const PIX_EXPIRATION_MINUTES = 30;
@@ -918,16 +919,17 @@ export class WhatsappAiService implements OnApplicationBootstrap {
 
   /**
    * Detecta o ambiente da IA central a partir da empresa dona da conexão:
-   *   - platform@foodsaas.internal → R_FOOD_SAAS (vende o sistema)
-   *   - empresas demo               → LOJA_DEMO (demonstra + upsell)
-   *   - demais                      → CLIENTE_REAL (atende pedidos)
+   *   - PLATFORM_SELLER_COMPANY_ID (ou legado platform@foodsaas.internal) → R_FOOD_SAAS (vende o sistema)
+   *   - empresas demo                                                     → LOJA_DEMO (demonstra + upsell)
+   *   - demais                                                            → CLIENTE_REAL (atende pedidos)
    */
   private detectAmbiente(
     email: string | null | undefined,
     companyId: string,
   ): 'R_FOOD_SAAS' | 'LOJA_DEMO' | 'CLIENTE_REAL' {
     const mail = (email ?? '').toLowerCase();
-    if (mail === 'platform@foodsaas.internal') return 'R_FOOD_SAAS';
+    if (companyId === PLATFORM_SELLER_COMPANY_ID) return 'R_FOOD_SAAS';
+    if (mail === 'platform@foodsaas.internal') return 'R_FOOD_SAAS'; // legado
     if (
       mail.includes('@foodsaas.demo') ||
       mail.includes('demo-') ||

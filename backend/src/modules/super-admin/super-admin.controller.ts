@@ -17,9 +17,12 @@ import { DemoVitrineService } from './demo-vitrine.service';
 import { LeadsService } from '../leads/leads.service';
 import { CompanyService } from '../company/company.service';
 import { UpdateCompanySettingsDto } from '../company/dto/update-settings.dto';
+import { PrismaService } from '@/database/prisma.service';
+import { PLATFORM_SELLER_COMPANY_ID } from '@/common/utils/matrix';
 
-// Empresa "R FoodSaaS Plataforma" — mesma conta usada pra vender o sistema via Kely.
-const PLATFORM_COMPANY_ID = 'cmq7d3dxs0006gw5pabsljy87';
+// Empresa dedicada de identidade/marca da plataforma (ex: Mestra Gestão
+// Digital) — separada da loja real "Ruffinu's Pizzaria" (MATRIX_COMPANY_ID).
+const PLATFORM_COMPANY_ID = PLATFORM_SELLER_COMPANY_ID;
 
 @Controller('super-admin')
 export class SuperAdminController {
@@ -28,6 +31,7 @@ export class SuperAdminController {
     private vitrine: DemoVitrineService,
     private leads: LeadsService,
     private companyService: CompanyService,
+    private prisma: PrismaService,
   ) {}
 
   @Get('platform/settings')
@@ -40,6 +44,36 @@ export class SuperAdminController {
   @UseGuards(SuperAdminGuard)
   updatePlatformSettings(@Body() dto: UpdateCompanySettingsDto) {
     return this.companyService.updateSettings(PLATFORM_COMPANY_ID, dto);
+  }
+
+  /**
+   * POST /api/super-admin/platform/move-whatsapp-connection
+   * One-off/idempotent: reassigns a WhatsappConnection (+ suas settings) para
+   * outra empresa. Usado para mover a conexão de vendas da Kely da loja real
+   * (matrix) para a empresa dedicada de identidade da plataforma.
+   */
+  @Post('platform/move-whatsapp-connection')
+  @UseGuards(SuperAdminGuard)
+  async moveWhatsappConnection(
+    @Body() body: { connectionId: string; targetCompanyId: string },
+  ) {
+    const { connectionId, targetCompanyId } = body;
+    const target = await this.prisma.company.findUnique({
+      where: { id: targetCompanyId },
+      select: { id: true },
+    });
+    if (!target) {
+      return { ok: false, error: 'Empresa de destino não encontrada' };
+    }
+    const connection = await this.prisma.whatsappConnection.update({
+      where: { id: connectionId },
+      data: { companyId: targetCompanyId },
+    });
+    await this.prisma.whatsappAiSettings.updateMany({
+      where: { connectionId },
+      data: { companyId: targetCompanyId },
+    });
+    return { ok: true, connection };
   }
 
   @Post('auth/login')

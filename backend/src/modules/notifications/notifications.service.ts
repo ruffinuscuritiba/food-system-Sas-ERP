@@ -212,9 +212,15 @@ export class NotificationsService {
         `);
       case 'SUBSCRIPTION_BLOCKED':
         return base(`
-          <h2>Acesso suspenso</h2>
-          <p>Sua assinatura expirou. Regularize o pagamento para retomar o acesso.</p>
-          <p><a href="${data?.payUrl || '#'}" style="color:#ef4444;">Regularizar agora</a></p>
+          <h2>🔒 Acesso suspenso</h2>
+          <p>Olá, <strong>${data?.name || 'tudo bem'}</strong>! Seu período de teste grátis do FoodSaaS terminou e o acesso ao sistema foi temporariamente bloqueado.</p>
+          <p style="margin-top:12px;">Seus dados continuam salvos com segurança. Assine um plano agora para retomar o acesso imediatamente:</p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${data?.renewUrl || data?.payUrl || '#'}"
+               style="background:#ef4444;color:#fff;padding:14px 32px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none;display:inline-block;">
+              Regularizar agora →
+            </a>
+          </div>
         `);
       case 'PAYMENT_CONFIRMED':
         return base(`

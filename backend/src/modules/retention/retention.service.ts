@@ -39,9 +39,14 @@ export class RetentionService {
   async runDailyRetention() {
     this.logger.log('[Retention] Daily run started');
     try {
-      await this.cleanupExpiredTrials();
+      await this.sendTrialWarnings();
     } catch (err) {
-      this.logger.error(`[Retention] cleanupExpiredTrials failed: ${(err as Error)?.message}`);
+      this.logger.error(`[Retention] sendTrialWarnings failed: ${(err as Error)?.message}`);
+    }
+    try {
+      await this.blockExpiredTrials();
+    } catch (err) {
+      this.logger.error(`[Retention] blockExpiredTrials failed: ${(err as Error)?.message}`);
     }
     try {
       await this.sendRenewalReminders();
@@ -49,9 +54,9 @@ export class RetentionService {
       this.logger.error(`[Retention] sendRenewalReminders failed: ${(err as Error)?.message}`);
     }
     try {
-      await this.sendTrialWarnings();
+      await this.cleanupExpiredTrials();
     } catch (err) {
-      this.logger.error(`[Retention] sendTrialWarnings failed: ${(err as Error)?.message}`);
+      this.logger.error(`[Retention] cleanupExpiredTrials failed: ${(err as Error)?.message}`);
     }
     this.logger.log('[Retention] Daily run complete');
   }
@@ -320,5 +325,99 @@ export class RetentionService {
     this.logger.log(
       `[Retention] Trial warnings complete — ${sentWa} via WhatsApp, ${sentEmail} via e-mail`,
     );
+  }
+
+  // ── 4. Bloqueio automático: trial vencido e nunca convertido ────────────────
+  // Dispara no dia em que dueDate é ultrapassado (após os avisos -3/-1):
+  //   - Bloqueia a loja (isBlocked=true) — TenantGuard passa a rejeitar tudo.
+  //   - Avisa o cliente por WhatsApp + e-mail.
+  //   - Avisa o dono da plataforma por WhatsApp (NOTIFY_WHATSAPP_NUMBER).
+  //   - O sino do super-admin já deriva notificações de isBlocked=true —
+  //     nenhum código novo necessário lá além de usar updatedAt como ts.
+
+  private async blockExpiredTrials() {
+    const now = new Date();
+
+    const expired = await this.prisma.company.findMany({
+      where: {
+        wasEverActive: false,
+        subscriptionStatus: 'PENDING_PAYMENT',
+        dueDate: { lt: now },
+        isBlocked: false,
+      },
+      include: {
+        users: { where: { role: 'ADMIN' }, take: 1 },
+      },
+    });
+
+    if (expired.length === 0) return;
+
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ||
+      'https://food-system-sas-erp-frontend.vercel.app';
+    const ownerWa =
+      this.config.get<string>('NOTIFY_WHATSAPP_NUMBER') || '5567991753455';
+
+    let blocked = 0;
+
+    for (const company of expired) {
+      if (isMatrixCompany(company.id)) continue;
+      const adminEmail = company.users[0]?.email ?? '';
+      if (DEMO_EMAILS.includes(adminEmail)) continue;
+
+      const ownerName = company.users[0]?.name ?? company.name;
+      const renewUrl = `${frontendUrl}/assinatura`;
+
+      try {
+        await this.prisma.company.update({
+          where: { id: company.id },
+          data: { isBlocked: true },
+        });
+      } catch (e) {
+        this.logger.error(
+          `[Retention] blockExpiredTrials — falha ao bloquear ${company.name}: ${(e as Error)?.message}`,
+        );
+        continue;
+      }
+      blocked++;
+      this.logger.log(`[Retention] Loja bloqueada (trial vencido): ${company.name} (${company.id})`);
+
+      // Avisa o cliente — WhatsApp
+      if (company.whatsapp) {
+        const phone = company.whatsapp.replace(/\D/g, '');
+        const msg =
+          `Olá, *${ownerName}*! 👋\n\n` +
+          `Seu período de teste grátis do *FoodSaaS* terminou e o acesso ao sistema foi *temporariamente bloqueado*.\n\n` +
+          `Seus dados continuam salvos com segurança. Para voltar a usar agora mesmo, é só assinar um plano:\n` +
+          `👉 ${renewUrl}\n\n` +
+          `Qualquer dúvida, é só chamar por aqui! 😊`;
+        await this.sendEvolutionWA(phone, msg).catch((e) =>
+          this.logger.warn(`[Retention] WA de bloqueio falhou para ${company.name}: ${(e as Error)?.message}`),
+        );
+      }
+
+      // Avisa o cliente — e-mail
+      if (adminEmail) {
+        await this.notifications
+          .send({
+            to: adminEmail,
+            type: 'SUBSCRIPTION_BLOCKED',
+            data: { name: ownerName, renewUrl },
+          })
+          .catch((e) =>
+            this.logger.warn(`[Retention] E-mail de bloqueio falhou para ${adminEmail}: ${(e as Error)?.message}`),
+          );
+      }
+
+      // Avisa o dono da plataforma — WhatsApp
+      const ownerMsg =
+        `🔒 *Loja bloqueada automaticamente*\n\n` +
+        `*${company.name}*${adminEmail ? ` (${adminEmail})` : ''} teve o teste grátis vencido e foi bloqueada agora.`;
+      await this.sendEvolutionWA(ownerWa, ownerMsg).catch((e) =>
+        this.logger.warn(`[Retention] WA de aviso ao dono falhou: ${(e as Error)?.message}`),
+      );
+    }
+
+    this.logger.log(`[Retention] blockExpiredTrials complete — ${blocked} loja(s) bloqueada(s)`);
   }
 }

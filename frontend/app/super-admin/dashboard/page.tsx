@@ -22,6 +22,7 @@ interface Company {
   isBlocked: boolean
   archivedAt: string | null
   createdAt: string
+  updatedAt?: string
   businessSegment?: string
   _count: { users: number; orders: number }
 }
@@ -448,15 +449,18 @@ export default function SuperAdminDashboard() {
       companyId: co.id,
       ts: new Date(co.createdAt).getTime(),
     }))
-    companies.filter(co => co.isBlocked).forEach(co => list.push({
-      type: "blocked",
-      title: `Loja bloqueada: ${co.name}`,
-      sub: `Acesso suspenso · ${new Date(co.createdAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
-      color: "text-red-400",
-      bg: "bg-red-500/10 border-red-500/20",
-      companyId: co.id,
-      ts: new Date(co.createdAt).getTime(),
-    }))
+    companies.filter(co => co.isBlocked).forEach(co => {
+      const blockedAt = co.updatedAt ?? co.createdAt
+      return list.push({
+        type: "blocked",
+        title: `Loja bloqueada: ${co.name}`,
+        sub: `Acesso suspenso · ${new Date(blockedAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
+        color: "text-red-400",
+        bg: "bg-red-500/10 border-red-500/20",
+        companyId: co.id,
+        ts: new Date(blockedAt).getTime(),
+      })
+    })
     recentLeads.filter(l => new Date(l.createdAt) >= sevenDaysAgo).forEach(l => list.push({
       type: "lead",
       title: `Novo lead: ${l.name || "Anônimo"}${l.company ? ` — ${l.company}` : ""}`,

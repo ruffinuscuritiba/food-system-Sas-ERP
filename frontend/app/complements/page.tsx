@@ -63,11 +63,23 @@ interface Complement {
   options: ComplementOption[];
 }
 
-const TYPE_META: Record<ComplementType, { label: string; icon: React.ReactNode; color: string }> = {
-  INGREDIENTES:   { label: "Ingredientes",   icon: <Utensils size={14} />,    color: "bg-orange-50 text-orange-600 border-orange-100" },
-  ESPECIFICACOES: { label: "Especificações", icon: <Settings2 size={14} />,   color: "bg-blue-50 text-blue-600 border-blue-100" },
-  CROSS_SELL:     { label: "Sugestão",       icon: <ShoppingBag size={14} />, color: "bg-purple-50 text-purple-600 border-purple-100" },
-  DESCARTAVEIS:   { label: "Descartáveis",   icon: <Package size={14} />,     color: "bg-gray-50 text-gray-600 border-gray-200" },
+const TYPE_META: Record<ComplementType, { label: string; icon: React.ReactNode; color: string; description: string }> = {
+  INGREDIENTES:   {
+    label: "Ingredientes",   icon: <Utensils size={14} />,    color: "bg-orange-50 text-orange-600 border-orange-100",
+    description: "Dê a opção do cliente remover e adicionar ingredientes neste produto, ou escolher entre um grupo de opções.",
+  },
+  ESPECIFICACOES: {
+    label: "Especificações", icon: <Settings2 size={14} />,   color: "bg-blue-50 text-blue-600 border-blue-100",
+    description: "Faça perguntas para que o cliente defina melhor o produto e seu modo de preparo.",
+  },
+  CROSS_SELL:     {
+    label: "Cross-sell",     icon: <ShoppingBag size={14} />, color: "bg-purple-50 text-purple-600 border-purple-100",
+    description: "Aproveite para sugerir outros produtos e aumentar o valor do pedido.",
+  },
+  DESCARTAVEIS:   {
+    label: "Descartáveis",   icon: <Package size={14} />,     color: "bg-gray-50 text-gray-600 border-gray-200",
+    description: "Ao invés de enviar por padrão, economize e ajude o meio ambiente perguntando ao cliente se ele precisa de talheres plásticos, sachês ou embalagens específicas.",
+  },
 };
 
 function scopeOf(c: Complement): Scope {
@@ -519,14 +531,20 @@ export default function ComplementsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-2 uppercase">Tipo</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {(Object.keys(TYPE_META) as ComplementType[]).map((t) => {
                     const meta = TYPE_META[t];
                     return (
                       <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold min-h-[44px] ${
-                          form.type === t ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500"
-                        }`}>{meta.icon} {meta.label}</button>
+                        className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border text-left ${
+                          form.type === t ? "border-primary bg-primary/5" : "border-gray-200"
+                        }`}>
+                        <span className={form.type === t ? "text-primary mt-0.5" : "text-gray-400 mt-0.5"}>{meta.icon}</span>
+                        <span>
+                          <span className={`block text-sm font-semibold ${form.type === t ? "text-primary" : "text-gray-700"}`}>{meta.label}</span>
+                          <span className="block text-xs text-gray-500 mt-0.5">{meta.description}</span>
+                        </span>
+                      </button>
                     );
                   })}
                 </div>

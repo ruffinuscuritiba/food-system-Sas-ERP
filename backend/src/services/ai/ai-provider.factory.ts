@@ -54,14 +54,15 @@ export class AIProviderFactory {
       }
     }
 
-    // All failed — log full details server-side (visible in Render logs)
+    // All failed — log full details server-side (visible in Render/VPS logs)
     const detail = errors.join(' | ');
     console.error('[AIProviderFactory] All providers failed:', detail);
 
-    // Surface the first meaningful error so toUserMessage() can map it
-    // (quota, 404, timeout, etc.) — only fall back to generic if no detail
+    // Surface the LAST provider's error (the final resort that actually gave up),
+    // so a Gemini quota hit doesn't mask a distinct Anthropic/OpenRouter failure
+    // further down the chain. toUserMessage() maps this by keyword (quota/404/etc).
     if (errors.length > 0) {
-      throw new Error(errors[0]);
+      throw new Error(errors[errors.length - 1]);
     }
     throw new Error(
       'Não foi possível processar a imagem agora. Tente novamente em alguns instantes.',

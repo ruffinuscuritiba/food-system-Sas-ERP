@@ -35,6 +35,22 @@ export class AnthropicProvider implements AIProvider {
           text: `${prompt}\n\nDados do arquivo:\n${textContent}`,
         },
       ];
+    } else if (imageBase64 && mimeType === 'application/pdf') {
+      // Scanned/image-only PDF — Claude has native PDF support via the
+      // 'document' block; sending it as an 'image' block (previous behavior)
+      // always failed with 400 "Could not process image" since the bytes
+      // aren't a valid image regardless of the media_type we claim.
+      content = [
+        {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: imageBase64,
+          },
+        },
+        { type: 'text', text: prompt },
+      ];
     } else if (imageBase64) {
       const validMime: ValidMime =
         VALID_MIMES.find((m) => m === mimeType) ?? 'image/jpeg';

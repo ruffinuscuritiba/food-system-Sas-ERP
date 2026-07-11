@@ -9,9 +9,14 @@ export class OpenRouterProvider implements AIProvider {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
     this.apiKey = apiKey;
-    // Default to a free vision-capable model
+    // Default to a free vision-capable model.
+    // NOTE: OpenRouter's free-tier catalog rotates/deprecates models often
+    // (the previous default, google/gemini-2.0-flash-exp:free, was removed —
+    // confirmed via openrouter.ai/api/v1/models on 11/07/2026, no free Gemini
+    // model remains). Override via OPENROUTER_MODEL if this one also rots.
     this.model =
-      process.env.OPENROUTER_MODEL ?? 'google/gemini-2.0-flash-exp:free';
+      process.env.OPENROUTER_MODEL ??
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free';
   }
 
   async analyzeImage({

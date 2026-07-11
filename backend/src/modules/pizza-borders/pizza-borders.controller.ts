@@ -31,6 +31,14 @@ export class PizzaBordersController {
     return this.service.create(req.user.companyId, body);
   }
 
+  @Patch('reorder')
+  reorder(
+    @Body() body: { items: { id: string; sortOrder: number }[] },
+    @Request() req: any,
+  ) {
+    return this.service.reorder(req.user.companyId, body.items);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

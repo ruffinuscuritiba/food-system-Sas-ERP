@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { Plus, Trash2, Save, X, Settings2, Pizza, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, Save, X, Settings2, Pizza, Pencil, Check, ChevronUp, ChevronDown } from "lucide-react";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -18,6 +18,7 @@ interface PizzaBorder {
   id: string;
   name: string;
   isActive: boolean;
+  sortOrder: number;
   sizes: { size: PizzaSize; price: number }[];
 }
 
@@ -180,6 +181,25 @@ export default function PizzaBordersPage() {
     }
   }
 
+  async function moveBorder(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= borders.length) return;
+
+    const reordered = [...borders];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    const previous = borders;
+    setBorders(reordered); // otimista
+
+    try {
+      await api.patch("/pizza-borders/reorder", {
+        items: reordered.map((b, i) => ({ id: b.id, sortOrder: i + 1 })),
+      });
+    } catch {
+      toast.error("Erro ao reordenar");
+      setBorders(previous); // rollback
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -272,7 +292,7 @@ export default function PizzaBordersPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {borders.map((border) => (
+              {borders.map((border, index) => (
                 <div
                   key={border.id}
                   className={`bg-white border rounded-2xl p-5 shadow-sm transition ${
@@ -281,6 +301,25 @@ export default function PizzaBordersPage() {
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
+                      {/* Mover para cima/baixo */}
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <button
+                          onClick={() => moveBorder(index, -1)}
+                          disabled={index === 0}
+                          title="Mover para cima"
+                          className="w-6 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-25 disabled:hover:bg-transparent transition"
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveBorder(index, 1)}
+                          disabled={index === borders.length - 1}
+                          title="Mover para baixo"
+                          className="w-6 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-25 disabled:hover:bg-transparent transition"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
                       <span className="text-xl">🧀</span>
                       <div>
                         <h3 className="font-bold text-gray-900">{border.name}</h3>

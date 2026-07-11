@@ -27,14 +27,21 @@ export class PizzaBordersService {
     return this.prisma.pizzaBorder.findMany({
       where: { companyId },
       include: { sizes: { orderBy: { size: 'asc' } } },
-      orderBy: { name: 'asc' },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
   async create(companyId: string, dto: CreateBorderDto) {
+    const last = await this.prisma.pizzaBorder.findFirst({
+      where: { companyId },
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
     return this.prisma.pizzaBorder.create({
       data: {
         name: dto.name,
+        sortOrder: (last?.sortOrder ?? 0) + 1,
         company: { connect: { id: companyId } },
         sizes: {
           create: dto.sizes.map((s) => ({
@@ -45,6 +52,28 @@ export class PizzaBordersService {
       },
       include: { sizes: true },
     });
+  }
+
+  /** Reordena bordas (mover para cima/baixo). Valida que todas pertencem à empresa. */
+  async reorder(companyId: string, items: { id: string; sortOrder: number }[]) {
+    const ids = items.map((i) => i.id);
+    const owned = await this.prisma.pizzaBorder.findMany({
+      where: { id: { in: ids }, companyId },
+      select: { id: true },
+    });
+    if (owned.length !== ids.length) {
+      throw new NotFoundException('Borda fora da empresa');
+    }
+
+    await this.prisma.$transaction(
+      items.map((i) =>
+        this.prisma.pizzaBorder.update({
+          where: { id: i.id },
+          data: { sortOrder: i.sortOrder },
+        }),
+      ),
+    );
+    return { updated: items.length };
   }
 
   async update(id: string, companyId: string, dto: UpdateBorderDto) {

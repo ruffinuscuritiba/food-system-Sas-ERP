@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '@/database/prisma.service';
 import { GenerateCampaignDto } from './dto/generate-campaign.dto';
 
 export interface CampaignResult {
@@ -9,14 +16,50 @@ export interface CampaignResult {
   insight_ia: string;
 }
 
+export interface CampaignUsage {
+  used: number;
+  limit: number;
+  remaining: number;
+}
+
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models';
+
+// Limite diário de campanhas geradas por IA, por empresa.
+const DAILY_LIMIT = 3;
+
+/** Dia atual em America/Sao_Paulo no formato YYYY-MM-DD (chave estável, sem cálculo de fuso em toda query). */
+function todaySaoPauloKey(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date());
+}
 
 @Injectable()
 export class MarketingService {
   private readonly logger = new Logger(MarketingService.name);
 
-  async generateCampaign(dto: GenerateCampaignDto): Promise<CampaignResult> {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getUsage(companyId: string): Promise<CampaignUsage> {
+    const used = await this.prisma.aiCampaignGeneration.count({
+      where: { companyId, dateKey: todaySaoPauloKey() },
+    });
+    return { used, limit: DAILY_LIMIT, remaining: Math.max(0, DAILY_LIMIT - used) };
+  }
+
+  async generateCampaign(
+    dto: GenerateCampaignDto,
+    companyId: string,
+  ): Promise<CampaignResult> {
+    const usage = await this.getUsage(companyId);
+    if (usage.remaining <= 0) {
+      throw new HttpException(
+        `Limite diário de ${DAILY_LIMIT} campanhas atingido. Volte amanhã para gerar mais.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const prompt = this.buildPrompt(dto);
 
     // Gemini text-only call with JSON mode
@@ -73,8 +116,9 @@ export class MarketingService {
       );
     }
 
+    let parsed: CampaignResult;
     try {
-      const parsed: CampaignResult = JSON.parse(text);
+      parsed = JSON.parse(text);
       // Garantia de campos obrigatórios
       if (
         !parsed.nome_campanha ||
@@ -85,13 +129,23 @@ export class MarketingService {
       ) {
         throw new Error('Campos obrigatórios ausentes na resposta da IA');
       }
-      return parsed;
     } catch {
       this.logger.error('Falha ao parsear JSON da IA:', text.slice(0, 500));
       throw new BadRequestException(
         'A IA retornou um formato inesperado. Tente novamente.',
       );
     }
+
+    // Só conta pro limite diário quando a geração deu certo de fato.
+    try {
+      await this.prisma.aiCampaignGeneration.create({
+        data: { companyId, dateKey: todaySaoPauloKey() },
+      });
+    } catch (err: any) {
+      this.logger.error('Falha ao registrar uso do limite diário:', err?.message);
+    }
+
+    return parsed;
   }
 
   private buildPrompt(dto: GenerateCampaignDto): string {

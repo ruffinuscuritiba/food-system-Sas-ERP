@@ -711,9 +711,9 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* ─── Impersonation floating pill — top-right corner ─── */}
+      {/* ─── Impersonation floating pill — centralizado no topo ─── */}
       {impersonating && (
-        <div className="fixed top-3 right-3 z-[9999] flex items-center gap-2 bg-amber-500 text-white rounded-xl shadow-lg px-3 py-1.5 max-w-[calc(100vw-1.5rem)]">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 bg-amber-500 text-white rounded-xl shadow-lg px-3 py-1.5 max-w-[calc(100vw-1.5rem)]">
           <Eye size={13} className="shrink-0 opacity-80" />
           <span className="font-semibold text-xs truncate max-w-[120px] sm:max-w-[200px]">
             {impersonating.companyName}
@@ -742,11 +742,11 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       {/* ─── Module status badge — só para a conta matriz ─── */}
       {isMatrix && currentPageSlug && (
         <div
-          className={`fixed z-[9990] flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg shadow-sm border pointer-events-none select-none ${
+          className={`fixed top-3 right-3 z-[9990] flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg shadow-sm border pointer-events-none select-none ${
             currentPageInDb
               ? "bg-green-50 text-green-700 border-green-200"
               : "bg-amber-50 text-amber-700 border-amber-200"
-          } ${impersonating ? "top-12 right-3" : "top-3 right-3"}`}
+          }`}
         >
           <span className={currentPageInDb ? "text-green-500" : "text-amber-500"}>●</span>
           {currentPageInDb ? "Ativo no Banco" : "Modo Homologação (Inativo no Banco)"}

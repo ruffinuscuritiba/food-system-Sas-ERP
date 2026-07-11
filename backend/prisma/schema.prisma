@@ -1547,11 +1547,13 @@ model PizzaBorder {
   company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name      String
   isActive  Boolean           @default(true)
+  sortOrder Int               @default(0)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   sizes     PizzaBorderSize[]
 
   @@index([companyId])
+  @@index([companyId, sortOrder])
 }
 
 model PizzaBorderSize {

@@ -802,15 +802,18 @@ export default function ProductsPage() {
       {/* ── Modal de edição ─────────────────────────────────────────────── */}
       {editProduct && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-7 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
+          {/* Container sempre cabe na viewport (max-h-[90vh]) — header e rodapé
+              ficam fixos, só o miolo do formulário rola. Independe da resolução:
+              nunca corta o título nem os botões de ação. */}
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-gray-100 shrink-0">
               <h2 className="text-lg font-black text-gray-900">Editar Produto</h2>
               <button onClick={() => setEditProduct(null)} className="text-gray-400 hover:text-gray-600 transition">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto px-7 py-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Nome *</label>
                 <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={inp} />
@@ -866,41 +869,41 @@ export default function ProductsPage() {
                   onChange={(url) => setEditForm({ ...editForm, imageUrl: url })}
                 />
               </div>
-            </div>
 
-            {/* Vídeo no edit */}
-            <div className="mt-5">
-              <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                <Video size={13} className="text-gray-400" />
-                Vídeo Promocional
-                <span className="normal-case font-normal text-gray-400">(opcional)</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="url"
-                  placeholder="Cole o link do vídeo (YouTube, Vimeo, MP4…)"
-                  value={editForm.videoUrl || ""}
-                  onChange={(e) => setEditForm({ ...editForm, videoUrl: e.target.value })}
-                  className={inp + " pr-10"}
-                />
+              {/* Vídeo no edit */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                  <Video size={13} className="text-gray-400" />
+                  Vídeo Promocional
+                  <span className="normal-case font-normal text-gray-400">(opcional)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="Cole o link do vídeo (YouTube, Vimeo, MP4…)"
+                    value={editForm.videoUrl || ""}
+                    onChange={(e) => setEditForm({ ...editForm, videoUrl: e.target.value })}
+                    className={inp + " pr-10"}
+                  />
+                  {editForm.videoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, videoUrl: "" })}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
                 {editForm.videoUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setEditForm({ ...editForm, videoUrl: "" })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X size={14} />
-                  </button>
+                  <p className="mt-1.5 text-[11px] text-emerald-600 flex items-center gap-1">
+                    <Video size={11} /> Vídeo configurado — ícone de olho ficará ativo no PDV e cardápio.
+                  </p>
                 )}
               </div>
-              {editForm.videoUrl && (
-                <p className="mt-1.5 text-[11px] text-emerald-600 flex items-center gap-1">
-                  <Video size={11} /> Vídeo configurado — ícone de olho ficará ativo no PDV e cardápio.
-                </p>
-              )}
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3 px-7 py-5 border-t border-gray-100 shrink-0">
               <button onClick={() => setEditProduct(null)} className="flex-1 border border-gray-200 hover:bg-gray-50 py-3 rounded-xl font-semibold text-sm text-gray-600 transition">
                 Cancelar
               </button>

@@ -203,9 +203,14 @@ export default function ComplementsPage() {
 
     setSaving(true);
     try {
-      if (modal === "create") await api.post("/complements", payload);
-      else                    await api.patch(`/complements/${editId}`, payload);
-      toast.success(modal === "create" ? "Grupo criado!" : "Atualizado!");
+      if (modal === "create") {
+        const r = await api.post("/complements", payload);
+        // Abre a seção de opções (nome + valor) direto, sem precisar de outro clique.
+        if (r?.data?.id) setExpanded(r.data.id);
+      } else {
+        await api.patch(`/complements/${editId}`, payload);
+      }
+      toast.success(modal === "create" ? "Grupo criado! Adicione as opções abaixo." : "Atualizado!");
       setModal("none");
       fetchComplements();
     } catch (e: any) {
@@ -568,10 +573,18 @@ export default function ComplementsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase">Máximo</label>
-                  <input type="number" min={1} max={99} value={form.maxOptions} disabled={!form.multipleChoice}
-                    onChange={(e) => setForm({ ...form, maxOptions: Number(e.target.value) })}
-                    className="w-full border border-gray-200 rounded-xl px-3 text-sm text-gray-900 focus:outline-none focus:border-primary disabled:bg-gray-100 disabled:text-gray-400 min-h-[44px]"
-                    title={!form.multipleChoice ? 'Ative "Múltipla escolha" para alterar' : ''} />
+                  <input type="number" min={1} max={99} value={form.maxOptions}
+                    onChange={(e) => {
+                      const newMax = Math.max(1, Number(e.target.value));
+                      setForm({
+                        ...form,
+                        maxOptions: newMax,
+                        // Aumentar o máximo já liga "múltipla escolha" sozinho —
+                        // antes o campo ficava travado até o toggle lá embaixo ser ativado.
+                        multipleChoice: newMax > 1 ? true : form.multipleChoice,
+                      });
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-3 text-sm text-gray-900 focus:outline-none focus:border-primary min-h-[44px]" />
                 </div>
               </div>
 

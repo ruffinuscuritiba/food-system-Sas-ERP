@@ -322,6 +322,9 @@ model Company {
   qrCodes          QrCode[]
   couponRedemptions CouponRedemption[]
 
+  // ── Marketing Digital (limite diário de campanhas geradas por IA) ──────────
+  aiCampaignGenerations AiCampaignGeneration[]
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -2113,6 +2116,21 @@ model Campaign {
 
   @@index([companyId, status])
   @@index([type])
+}
+
+// Uma linha por campanha de Marketing Digital gerada com sucesso pela IA
+// (app/marketing). Usado só para contar o limite diário (3/dia) por empresa —
+// não guarda o conteúdo gerado (isso fica no localStorage do navegador).
+model AiCampaignGeneration {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  // Dia em America/Sao_Paulo no formato YYYY-MM-DD — evita cálculo de fuso
+  // horário toda vez que o limite é checado.
+  dateKey   String
+  createdAt DateTime @default(now())
+
+  @@index([companyId, dateKey])
 }
 
 model QrCode {

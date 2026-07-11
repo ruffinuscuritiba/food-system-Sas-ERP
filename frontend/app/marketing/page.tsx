@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   Megaphone, Sparkles, Copy, Check, Clock, Users, Lightbulb,
   MessageCircle, ChevronDown, Trash2, History, Loader2, Zap,
-  TrendingUp, Target, Package,
+  TrendingUp, Target, Package, Lock, Gauge,
 } from "lucide-react";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
@@ -33,6 +33,12 @@ interface Product {
   name:      string;
   salePrice: number | string;
   sizes?:    { size: string; price: number }[];
+}
+
+interface CampaignUsage {
+  used:      number;
+  limit:     number;
+  remaining: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -88,9 +94,16 @@ export default function MarketingPage() {
   const [copied,    setCopied]    = useState(false);
   const [history,   setHistory]   = useState<SavedCampaign[]>([]);
   const [showHist,  setShowHist]  = useState(false);
+  const [usage,     setUsage]     = useState<CampaignUsage | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  // ── Load products & history ──────────────────────────────────────────────
+  const loadUsage = useCallback(() => {
+    api.get<CampaignUsage>("/marketing/campaign/usage")
+      .then((r) => setUsage(r.data))
+      .catch(() => {});
+  }, []);
+
+  // ── Load products, history & limite diário ───────────────────────────────
 
   useEffect(() => {
     api.get<Product[]>("/products")
@@ -101,7 +114,9 @@ export default function MarketingPage() {
       const raw = localStorage.getItem("mkt_campaigns");
       if (raw) setHistory(JSON.parse(raw));
     } catch {}
-  }, []);
+
+    loadUsage();
+  }, [loadUsage]);
 
   // ── Auto-fill price when product is selected ─────────────────────────────
 
@@ -126,6 +141,10 @@ export default function MarketingPage() {
 
     if (!nomeProduto) { toast.error("Informe o produto"); return; }
     if (!precoDe)     { toast.error("Informe o preço original"); return; }
+    if (usage && usage.remaining <= 0) {
+      toast.error(`Limite diário de ${usage.limit} campanhas atingido. Volte amanhã.`);
+      return;
+    }
 
     setLoading(true);
     setResult(null);
@@ -141,6 +160,7 @@ export default function MarketingPage() {
       });
 
       setResult(data);
+      loadUsage();
 
       // Save to history
       const saved: SavedCampaign = {
@@ -159,6 +179,7 @@ export default function MarketingPage() {
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao gerar campanha");
+      if (e?.response?.status === 429) loadUsage();
     } finally {
       setLoading(false);
     }
@@ -215,6 +236,26 @@ export default function MarketingPage() {
             </button>
           )}
         </div>
+
+        {/* Limite diário de campanhas IA */}
+        {usage && (
+          <div
+            className={`flex items-center gap-3 rounded-2xl border p-3.5 mb-6 text-sm ${
+              usage.remaining <= 0
+                ? "bg-red-50 border-red-200 text-red-700"
+                : usage.remaining === 1
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-violet-50 border-violet-100 text-violet-700"
+            }`}
+          >
+            {usage.remaining <= 0 ? <Lock size={16} className="shrink-0" /> : <Gauge size={16} className="shrink-0" />}
+            <p className="font-semibold flex-1">
+              {usage.remaining <= 0
+                ? `Limite diário atingido — você já gerou ${usage.used} de ${usage.limit} campanhas hoje. Volte amanhã.`
+                : `Você já usou ${usage.used} de ${usage.limit} campanhas de IA hoje (${usage.remaining} ${usage.remaining === 1 ? "restante" : "restantes"}).`}
+            </p>
+          </div>
+        )}
 
         {/* History panel */}
         {showHist && (
@@ -385,11 +426,13 @@ export default function MarketingPage() {
             {/* Generate button */}
             <button
               onClick={generate}
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:opacity-60 text-white font-black text-sm transition shadow-lg shadow-violet-200 flex items-center justify-center gap-2"
+              disabled={loading || !!(usage && usage.remaining <= 0)}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm transition shadow-lg shadow-violet-200 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <><Loader2 size={16} className="animate-spin" /> Gerando campanha...</>
+              ) : usage && usage.remaining <= 0 ? (
+                <><Lock size={16} /> Limite diário atingido</>
               ) : (
                 <><Sparkles size={16} /> Gerar Campanha com IA</>
               )}
@@ -481,9 +524,14 @@ export default function MarketingPage() {
                 {/* Regen button */}
                 <button
                   onClick={generate}
-                  className="w-full py-2.5 rounded-xl border border-violet-200 text-violet-600 text-sm font-bold hover:bg-violet-50 transition flex items-center justify-center gap-2"
+                  disabled={loading || !!(usage && usage.remaining <= 0)}
+                  className="w-full py-2.5 rounded-xl border border-violet-200 text-violet-600 text-sm font-bold hover:bg-violet-50 disabled:opacity-60 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
                 >
-                  <TrendingUp size={14} /> Gerar nova variação
+                  {usage && usage.remaining <= 0 ? (
+                    <><Lock size={14} /> Limite diário atingido</>
+                  ) : (
+                    <><TrendingUp size={14} /> Gerar nova variação</>
+                  )}
                 </button>
               </div>
             )}

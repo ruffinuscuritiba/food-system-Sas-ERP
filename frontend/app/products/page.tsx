@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon, GripVertical, Video } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X, Package, Pizza, Search, Beer, Loader2, Settings2, Link as LinkIcon, GripVertical, Video, ChevronDown } from "lucide-react";
 
 // @hello-pangea/dnd — incompatível com SSR
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -259,6 +259,22 @@ export default function ProductsPage() {
   const [products, setProducts]     = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem("products_collapsed_cats");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  function toggleCatCollapsed(catId: string) {
+    setCollapsedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId); else next.add(catId);
+      try { localStorage.setItem("products_collapsed_cats", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
 
   // Create
   const [showForm, setShowForm]   = useState(false);
@@ -713,13 +729,24 @@ export default function ProductsPage() {
                 if (uncategorized.length > 0)
                   groups.push({ id: "none", name: "Sem categoria", items: uncategorized });
 
-                return groups.map(({ id: catId, name: catName, items: catProducts }) => (
+                return groups.map(({ id: catId, name: catName, items: catProducts }) => {
+                  const isCollapsed = collapsedCats.has(catId);
+                  return (
                   <div key={catId} className="mb-8">
-                    <div className="flex items-center gap-2 mb-3">
-                      <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest">{catName}</h2>
+                    <button
+                      type="button"
+                      onClick={() => toggleCatCollapsed(catId)}
+                      className="flex items-center gap-2 mb-3 w-full text-left group/cathdr"
+                    >
+                      <ChevronDown
+                        size={14}
+                        className={`text-gray-400 group-hover/cathdr:text-gray-600 transition-transform shrink-0 ${isCollapsed ? "-rotate-90" : ""}`}
+                      />
+                      <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest group-hover/cathdr:text-gray-700">{catName}</h2>
                       <div className="flex-1 h-px bg-gray-200" />
                       <span className="text-xs text-gray-400">{catProducts.length} produto{catProducts.length !== 1 ? "s" : ""}</span>
-                    </div>
+                    </button>
+                    {isCollapsed ? null : (
                     <DragDropContext onDragEnd={(r) => handleCatDragEnd(catId, r)}>
                       <Droppable droppableId={`cat-${catId}`}>
                         {(dropProvided: any) => (
@@ -791,8 +818,10 @@ export default function ProductsPage() {
                         )}
                       </Droppable>
                     </DragDropContext>
+                    )}
                   </div>
-                ));
+                  );
+                });
               })()}
             </>
           )}

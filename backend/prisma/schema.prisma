@@ -102,6 +102,7 @@ enum OnlinePaymentMethod {
 enum IntegrationProvider {
   IFOOD
   RAPPI
+  NINETY_NINE_FOOD
   MOCK
 }
 

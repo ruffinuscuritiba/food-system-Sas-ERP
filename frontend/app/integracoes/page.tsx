@@ -10,7 +10,7 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Provider = "MOCK" | "IFOOD" | "RAPPI";
+type Provider = "MOCK" | "IFOOD" | "RAPPI" | "NINETY_NINE_FOOD";
 
 interface Config {
   id: string;
@@ -44,10 +44,16 @@ interface IntegrationOrder {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const PROVIDER_LABELS: Record<Provider, { label: string; color: string; icon: string; desc: string }> = {
+const PROVIDER_LABELS: Record<Provider, { label: string; color: string; icon: string; iconUrl?: string; desc: string }> = {
   MOCK:  { label: "Mock (Teste)",  color: "bg-gray-100 text-gray-700",   icon: "🧪", desc: "Sandbox local — sem conta externa. Ideal para testar o fluxo completo antes de conectar o iFood." },
   IFOOD: { label: "iFood",         color: "bg-red-100 text-red-700",     icon: "🍔", desc: "Receba pedidos do iFood automaticamente. Requer conta parceira e homologação oficial." },
   RAPPI: { label: "Rappi",         color: "bg-orange-100 text-orange-700", icon: "🛵", desc: "Integração com Rappi. Em breve." },
+  NINETY_NINE_FOOD: {
+    label: "99Food", color: "bg-yellow-100 text-yellow-700", icon: "9️⃣",
+    // Logo oficial (Google Play — 99Food para Parceiros), não emoji: apps/marcas reais usam o ícone real.
+    iconUrl: "https://play-lh.googleusercontent.com/nfaQypUllRKXUlc5YsratEEtwkLwUuL4fLtxzJvjjZdm0c0MUHT13FfWjyCN0D39EmZAbKk5OmK2NpK-jUKeSdU=s128-rw",
+    desc: "Integração com 99Food (padrão Open Delivery). Em breve.",
+  },
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -261,7 +267,7 @@ export default function IntegracoesPage() {
         {/* ── TAB: Provedores ─────────────────────────────────────────────── */}
         {!loading && tab === "config" && (
           <div className="space-y-4">
-            {(["MOCK", "IFOOD", "RAPPI"] as Provider[]).map((p) => {
+            {(["MOCK", "IFOOD", "RAPPI", "NINETY_NINE_FOOD"] as Provider[]).map((p) => {
               const meta = PROVIDER_LABELS[p];
               const cfg  = configs.find((c) => c.provider === p);
               const open = expandedConfig === p;
@@ -272,7 +278,11 @@ export default function IntegracoesPage() {
                     onClick={() => loadConfigForProvider(p)}
                     className="w-full flex items-center gap-4 p-5 hover:bg-gray-50 transition text-left"
                   >
-                    <span className="text-2xl">{meta.icon}</span>
+                    {meta.iconUrl ? (
+                      <img src={meta.iconUrl} alt={meta.label} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <span className="text-2xl">{meta.icon}</span>
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-gray-900">{meta.label}</span>

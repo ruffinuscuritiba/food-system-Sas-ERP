@@ -38,6 +38,13 @@ export class CreateProductDto {
 
   @IsOptional()
   @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseInt(value, 10) : undefined,
+  )
+  @IsNumber()
+  imageZoom?: number;
+
+  @IsOptional()
+  @Transform(({ value }) =>
     value !== undefined && value !== '' ? parseFloat(value) : 0,
   )
   @IsNumber()

@@ -250,6 +250,7 @@ const emptyForm = () => ({
   categoryId: "", unit: "", weight: "",
   costPrice: 0, profitMargin: 0, salePrice: 0,
   imageUrl: null as string | null,
+  imageZoom: 100 as number,
   videoUrl: "" as string,
 });
 
@@ -414,6 +415,7 @@ export default function ProductsPage() {
 
       // Image: send as imageUrl (base64) — not as file attachment
       if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
+      fd.append("imageZoom", String(form.imageZoom));
       if (form.videoUrl.trim()) fd.append("videoUrl", form.videoUrl.trim());
       else fd.append("videoUrl", "");
 
@@ -444,6 +446,7 @@ export default function ProductsPage() {
       profitMargin: 0,
       salePrice:   Number(product.salePrice)   || 0,
       imageUrl:    product.imageUrl    || null,
+      imageZoom:   product.imageZoom   ?? 100,
       videoUrl:    product.videoUrl    || "",
     });
     setEditSizes(
@@ -489,6 +492,7 @@ export default function ProductsPage() {
       }
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
+      fd.append("imageZoom", String(editForm.imageZoom));
       if (editForm.videoUrl?.trim()) fd.append("videoUrl", editForm.videoUrl.trim());
       else fd.append("videoUrl", "");
 
@@ -655,6 +659,8 @@ export default function ProductsPage() {
                   <ImageUploaderPreview
                     value={form.imageUrl || undefined}
                     onChange={(url) => setForm({ ...form, imageUrl: url })}
+                    zoom={form.imageZoom}
+                    onZoomChange={(z) => setForm({ ...form, imageZoom: z })}
                   />
                 </div>
               </div>
@@ -774,11 +780,12 @@ export default function ProductsPage() {
                                       <GripVertical size={12} />
                                     </div>
                                     {/* Image */}
-                                    <div className="relative h-28 bg-gray-100">
+                                    <div className="relative h-28 bg-gray-100 overflow-hidden">
                                       <img
                                         src={product.imageUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"}
                                         onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"; }}
-                                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                        className="w-full h-full object-cover"
+                                        style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
                                         alt={product.name}
                                       />
                                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition" />
@@ -896,6 +903,8 @@ export default function ProductsPage() {
                 <ImageUploaderPreview
                   value={editForm.imageUrl || undefined}
                   onChange={(url) => setEditForm({ ...editForm, imageUrl: url })}
+                  zoom={editForm.imageZoom}
+                  onZoomChange={(z) => setEditForm({ ...editForm, imageZoom: z })}
                 />
               </div>
 

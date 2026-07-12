@@ -244,6 +244,9 @@ export default function CategoriesPage() {
               value={newBannerImage ?? undefined}
               onChange={setNewBannerImage}
               maxFileSizeMB={2}
+              zoom={newBannerZoom}
+              onZoomChange={setNewBannerZoom}
+              previewHeightClassName="h-24"
             />
           </div>
         </div>
@@ -356,36 +359,18 @@ export default function CategoriesPage() {
                         value={editBannerImage ?? undefined}
                         onChange={setEditBannerImage}
                         maxFileSizeMB={2}
+                        zoom={editBannerZoom}
+                        onZoomChange={setEditBannerZoom}
+                        previewHeightClassName="h-24"
                       />
                       {editBannerImage && (
-                        <>
-                          {/* Slider de zoom do banner */}
-                          <div className="mt-3 space-y-1">
-                            <div className="flex items-center justify-between text-[11px] text-gray-500">
-                              <span>Zoom da imagem</span>
-                              <span className="font-semibold text-gray-700">{editBannerZoom}%</span>
-                            </div>
-                            <input
-                              type="range"
-                              min={30}
-                              max={150}
-                              step={5}
-                              value={editBannerZoom}
-                              onChange={(e) => setEditBannerZoom(Number(e.target.value))}
-                              className="w-full accent-orange-500"
-                            />
-                            <div className="flex justify-between text-[10px] text-gray-400">
-                              <span>Menor</span><span>Normal</span><span>Zoom +</span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setEditBannerImage(null)}
-                            className="mt-2 text-[11px] text-red-500 hover:text-red-600 underline flex items-center gap-1"
-                          >
-                            <Trash2 size={11} /> Remover banner
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          onClick={() => setEditBannerImage(null)}
+                          className="mt-2 text-[11px] text-red-500 hover:text-red-600 underline flex items-center gap-1"
+                        >
+                          <Trash2 size={11} /> Remover banner
+                        </button>
                       )}
                     </div>
                   </div>

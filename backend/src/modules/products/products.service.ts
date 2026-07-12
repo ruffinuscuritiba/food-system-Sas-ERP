@@ -70,6 +70,8 @@ export class ProductsService {
 
         imageUrl: data.imageUrl,
 
+        imageZoom: data.imageZoom !== undefined ? Number(data.imageZoom) : 100,
+
         costPrice: parseFloat(data.costPrice || 0),
 
         profitMargin: parseFloat(data.profitMargin || 0),
@@ -181,6 +183,7 @@ export class ProductsService {
           costPrice: parseFloat(data.costPrice),
         }),
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
+        ...(data.imageZoom !== undefined && { imageZoom: Number(data.imageZoom) }),
         ...(data.videoUrl !== undefined && {
           videoUrl: data.videoUrl || null,
           hasVideo: !!data.videoUrl,

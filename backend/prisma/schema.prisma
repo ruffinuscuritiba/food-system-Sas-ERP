@@ -449,6 +449,10 @@ model Product {
 
   imageUrl String?
 
+  // Zoom em %, 30–150 (100 = padrão). Aplicado via CSS scale() onde a
+  // imagem é exibida (PDV, cardápio digital, listagem admin).
+  imageZoom Int @default(100)
+
   costPrice Decimal? @db.Decimal(10, 2)
 
   salePrice Decimal? @db.Decimal(10, 2)

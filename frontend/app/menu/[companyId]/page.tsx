@@ -20,6 +20,7 @@ type Product = {
   description: string;
   salePrice: number;
   imageUrl: string | null;
+  imageZoom?: number;
   videoUrl?: string | null;
   hasVideo?: boolean;
   sizes?: { size: string; price: number }[];
@@ -1054,7 +1055,10 @@ export default function MenuPage() {
                 onClick={() => addToCart(p)}
                 className="flex-shrink-0 w-32 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left"
               >
-                {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover" />}
+                {p.imageUrl && (
+                  <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover"
+                    style={{ transform: `scale(${(p.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
+                )}
                 <div className="p-2">
                   <p className="text-xs font-semibold text-gray-800 line-clamp-2">{p.name}</p>
                   <p className="text-xs font-bold mt-0.5" style={{ color: theme.primaryColor }}>
@@ -1162,7 +1166,10 @@ export default function MenuPage() {
                 onClick={() => addToCart(p)}
                 className="flex-shrink-0 w-32 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left"
               >
-                {p.imageUrl && <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover" />}
+                {p.imageUrl && (
+                  <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover"
+                    style={{ transform: `scale(${(p.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
+                )}
                 <div className="p-2">
                   <p className="text-xs font-semibold text-gray-800 line-clamp-2">{p.name}</p>
                   <p className="text-xs font-bold mt-0.5" style={{ color: theme.primaryColor }}>
@@ -1253,7 +1260,8 @@ export default function MenuPage() {
                     style={{ minHeight: 128, backgroundColor: "#1f2937" }}
                   >
                     {product.imageUrl && (
-                      <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+                      <img src={product.imageUrl} alt={product.name} className="absolute inset-0 w-full h-full object-cover"
+                        style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
                     )}
                     <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.05) 60%)" }} />
                     {!product.imageUrl && (
@@ -1356,12 +1364,13 @@ export default function MenuPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 relative">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 relative overflow-hidden">
                     {product.imageUrl ? (
                       <img
                         src={product.imageUrl}
                         alt={product.name}
                         className="w-full h-full object-cover"
+                        style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
                         onError={(e) => {
                           const t = e.currentTarget;
                           t.onerror = null;
@@ -1488,7 +1497,8 @@ export default function MenuPage() {
                       >
                         <div className="w-full aspect-square rounded-xl bg-gray-100 overflow-hidden mb-2 flex items-center justify-center">
                           {p.imageUrl ? (
-                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                            <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover"
+                              style={{ transform: `scale(${(p.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
                           ) : (
                             <span className="text-2xl">🍽️</span>
                           )}

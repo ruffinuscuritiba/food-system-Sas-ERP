@@ -21,6 +21,21 @@ interface Props {
   /** Tamanho máximo do arquivo ORIGINAL antes da compressão. Default 5 MB. */
   maxFileSizeMB?: number;
   className?: string;
+  /**
+   * Zoom em %, 30–150 (100 = padrão). Quando fornecido junto com onZoomChange,
+   * exibe uma barra de zoom abaixo do preview E aplica o mesmo scale() na
+   * imagem exibida aqui — o preview passa a mostrar o corte real (WYSIWYG),
+   * em vez de só guardar um número que só é aplicado em outra tela.
+   */
+  zoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  /**
+   * Classe Tailwind de altura do preview (default "h-48"). Passe uma altura
+   * baixa (ex: "h-24") quando a imagem final renderiza numa faixa larga e
+   * baixa (banner de categoria), para o preview cortar na mesma proporção
+   * do resultado real — sem isso o corte parece certo aqui e errado lá.
+   */
+  previewHeightClassName?: string;
 }
 
 async function compressToBase64(file: File, maxDim = 1200, quality = 0.82): Promise<string> {
@@ -65,11 +80,14 @@ export function ImageUploaderPreview({
   quality = 0.82,
   maxFileSizeMB = 5,
   className = "",
+  zoom,
+  onZoomChange,
+  previewHeightClassName = "h-48",
 }: Props) {
   const inputRef      = useRef<HTMLInputElement>(null);
   const containerRef  = useRef<HTMLDivElement>(null);
   const [loading,    setLoading]   = useState(false);
-  const [zoom,       setZoom]      = useState(false);
+  const [zoomModalOpen, setZoomModalOpen] = useState(false);
   const [error,      setError]     = useState("");
   const [moveMode,   setMoveMode]  = useState(false);
   const [dragging,   setDragging]  = useState(false);
@@ -149,7 +167,7 @@ export function ImageUploaderPreview({
 
   if (loading) {
     return (
-      <div className={`relative rounded-2xl overflow-hidden border-2 border-orange-200 bg-orange-50 flex flex-col items-center justify-center gap-2 h-48 ${className}`}>
+      <div className={`relative rounded-2xl overflow-hidden border-2 border-orange-200 bg-orange-50 flex flex-col items-center justify-center gap-2 ${previewHeightClassName} ${className}`}>
         <div className="w-8 h-8 border-3 border-orange-400 border-t-transparent rounded-full animate-spin" />
         <p className="text-xs text-orange-500 font-semibold">Comprimindo…</p>
       </div>
@@ -163,10 +181,10 @@ export function ImageUploaderPreview({
       <div className={`relative group ${className}`}>
 
         {/* Zoom modal */}
-        {zoom && (
+        {zoomModalOpen && (
           <div
             className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
-            onClick={() => setZoom(false)}
+            onClick={() => setZoomModalOpen(false)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={value} alt="preview ampliado" className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain" />
@@ -175,7 +193,7 @@ export function ImageUploaderPreview({
 
         <div
           ref={containerRef}
-          className="relative rounded-2xl overflow-hidden border-2 border-gray-100 shadow-sm h-48 select-none"
+          className={`relative rounded-2xl overflow-hidden border-2 border-gray-100 shadow-sm select-none bg-gray-50 ${previewHeightClassName}`}
           style={{ cursor: moveMode ? (dragging ? "grabbing" : "grab") : undefined }}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
@@ -187,8 +205,8 @@ export function ImageUploaderPreview({
             draggable={false}
             src={value}
             alt="preview"
-            className="w-full h-full object-cover transition-[object-position] duration-100"
-            style={{ objectPosition: objectPos }}
+            className="w-full h-full object-cover transition-[object-position,transform] duration-100"
+            style={{ objectPosition: objectPos, transform: `scale(${(zoom ?? 100) / 100})`, transformOrigin: "center center" }}
             onError={() => onChange(null)}
           />
 
@@ -220,7 +238,7 @@ export function ImageUploaderPreview({
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
               <button
                 type="button"
-                onClick={() => setZoom(true)}
+                onClick={() => setZoomModalOpen(true)}
                 className="w-10 h-10 rounded-xl bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition"
                 title="Ampliar"
               >
@@ -265,6 +283,27 @@ export function ImageUploaderPreview({
           )}
         </div>
 
+        {onZoomChange && (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between text-[11px] text-gray-500">
+              <span>Zoom da imagem</span>
+              <span className="font-semibold text-gray-700">{zoom ?? 100}%</span>
+            </div>
+            <input
+              type="range"
+              min={30}
+              max={150}
+              step={5}
+              value={zoom ?? 100}
+              onChange={(e) => onZoomChange(Number(e.target.value))}
+              className="w-full accent-orange-500"
+            />
+            <div className="flex justify-between text-[10px] text-gray-400">
+              <span>Menor</span><span>Normal</span><span>Zoom +</span>
+            </div>
+          </div>
+        )}
+
         <input
           ref={inputRef}
           type="file"
@@ -290,7 +329,7 @@ export function ImageUploaderPreview({
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
     >
-      <label className="flex flex-col items-center justify-center gap-3 h-48 border-2 border-dashed border-gray-200 hover:border-orange-400 rounded-2xl cursor-pointer transition-all duration-200 hover:bg-orange-50 group">
+      <label className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-200 hover:border-orange-400 rounded-2xl cursor-pointer transition-all duration-200 hover:bg-orange-50 group ${previewHeightClassName}`}>
         <div className="w-12 h-12 rounded-2xl bg-gray-100 group-hover:bg-orange-100 flex items-center justify-center transition">
           <ImageIcon size={20} className="text-gray-400 group-hover:text-orange-500 transition" />
         </div>

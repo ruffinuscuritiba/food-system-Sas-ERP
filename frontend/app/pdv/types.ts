@@ -6,6 +6,7 @@ export type Product = {
   description?: string;
   salePrice: number;
   imageUrl?: string;
+  imageZoom?: number;
   categoryId?: string;
   sizes?: ProductSize[];
 };

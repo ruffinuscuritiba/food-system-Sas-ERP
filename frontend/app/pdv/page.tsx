@@ -40,7 +40,7 @@ interface Category {
 interface ProductSize { size: string; price: number; }
 interface Product {
   id: string; name: string; description?: string;
-  salePrice?: number; costPrice?: number; imageUrl?: string;
+  salePrice?: number; costPrice?: number; imageUrl?: string; imageZoom?: number;
   videoUrl?: string; hasVideo?: boolean;
   categoryId?: string; isActive: boolean;
   sizes?: ProductSize[];
@@ -1090,11 +1090,12 @@ export default function PDVPage() {
                   return (
                   <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:bg-[var(--pdv-card-hover,#151c2d)] hover:border-[var(--color-primary,#2563eb)] shadow-[var(--pdv-shadow,none)] hover:shadow-[var(--pdv-shadow-hover,none)] hover:-translate-y-0.5 transition group"
                     onClick={() => openProductAdd(product)}>
-                    <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl relative">
+                    <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-4xl relative overflow-hidden">
                       <span>{activeIsBeverage ? "🥤" : "🍽️"}</span>
                       {imgSrc && (
                         <img src={imgSrc} alt={product.name}
                           className="absolute inset-0 w-full h-full object-cover"
+                          style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
                           loading="lazy"
                           onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
@@ -1124,6 +1125,7 @@ export default function PDVPage() {
                       {product.imageUrl && (
                         <img src={product.imageUrl} alt={product.name}
                           className="absolute inset-0 w-full h-full object-cover rounded-3xl"
+                          style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
                           loading="lazy"
                           onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />

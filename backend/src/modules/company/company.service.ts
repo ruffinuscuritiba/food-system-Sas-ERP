@@ -231,6 +231,7 @@ export class CompanyService {
         layoutType: true,
         buttonRadius: true,
         googleReviewUrl: true,
+        businessHours: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');

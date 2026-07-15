@@ -45,6 +45,24 @@ function productPriceLabel(product: Product, primaryColor?: string): string {
   return `R$ ${Number(product.salePrice).toFixed(2).replace(".", ",")}`;
 }
 
+type BusinessHourDay = { open: string; close: string; isOpen: boolean };
+type BusinessHours = Record<string, BusinessHourDay>;
+
+/** Dia da semana (0=domingo…6=sábado, igual Date.getDay()) + faixa que cruza a meia-noite. */
+function isStoreOpenNow(hours: BusinessHours | null | undefined): boolean {
+  if (!hours) return true; // sem configuração — não bloqueia (comportamento anterior)
+  const now = new Date();
+  const day = hours[String(now.getDay())];
+  if (!day || !day.isOpen) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const [oh, om] = day.open.split(":").map(Number);
+  const [ch, cm] = day.close.split(":").map(Number);
+  const startMin = oh * 60 + (om || 0);
+  const endMin = ch * 60 + (cm || 0);
+  if (endMin > startMin) return cur >= startMin && cur <= endMin;
+  return cur >= startMin || cur <= endMin; // horário atravessa a meia-noite
+}
+
 type CartComplement = {
   complementOptionId: string;
   complementName:     string;
@@ -165,6 +183,7 @@ export default function MenuPage() {
     buttonRadius?: string;
     blocks?: { id: string; visible: boolean; order: number }[];
   } | null>(null);
+  const [businessHours, setBusinessHours] = useState<BusinessHours | null>(null);
 
   // Delivery zone state — populated after loadMenu; matched per neighborhood change
   const [deliveryZones, setDeliveryZones] = useState<{ id: string; name: string; neighborhood: string | null; clientFee: number }[]>([]);
@@ -276,7 +295,10 @@ export default function MenuPage() {
       // Layout config (block ordering, buttonRadius, layoutType)
       if (layoutRes?.ok) {
         const ld = await layoutRes.json().catch(() => null);
-        if (ld) setMenuLayoutConfig(ld.layoutConfig ?? null);
+        if (ld) {
+          setMenuLayoutConfig(ld.layoutConfig ?? null);
+          setBusinessHours(ld.businessHours ?? null);
+        }
       }
 
       setLoading(false);
@@ -1037,7 +1059,10 @@ export default function MenuPage() {
             </div>
           </div>
           <div className="flex items-center gap-4 mt-3 text-white/80 text-xs">
-            <span className="flex items-center gap-1"><Clock size={12} /> Aberto agora</span>
+            <span className="flex items-center gap-1">
+              <Clock size={12} />
+              {isStoreOpenNow(businessHours) ? "Aberto agora" : "Fechado no momento"}
+            </span>
             <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { OrdersModule } from '@/modules/orders/orders.module';
 import { ProductsModule } from '@/modules/products/products.module';
 import { CategoriesModule } from '@/modules/categories/categories.module';
 import { LeadsModule } from '@/modules/leads/leads.module';
+import { NotificationsModule } from '@/modules/notifications/notifications.module';
 import { WhatsappAiController } from './whatsapp-ai.controller';
 import { WhatsappAiService } from './whatsapp-ai.service';
 import { WhisperService } from './services/whisper.service';
@@ -25,6 +26,7 @@ import { EvolutionProvisionService } from './services/evolution-provision.servic
     forwardRef(() => ProductsModule),
     forwardRef(() => CategoriesModule),
     LeadsModule,
+    NotificationsModule,
   ],
   controllers: [WhatsappAiController],
   providers: [

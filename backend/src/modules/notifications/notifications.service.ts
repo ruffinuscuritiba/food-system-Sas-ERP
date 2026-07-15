@@ -12,7 +12,8 @@ export type NotificationType =
   | 'PAYMENT_CONFIRMED'
   | 'DEMO_LEAD'
   | 'NEW_SIGNUP'
-  | 'SYSTEM_UPDATE';
+  | 'SYSTEM_UPDATE'
+  | 'HUMAN_HELP_REQUESTED';
 
 export interface NotificationPayload {
   to: string;
@@ -110,6 +111,8 @@ export class NotificationsService {
         return `🚀 Novo cliente cadastrado — ${data?.companyName || 'Restaurante'}`;
       case 'SYSTEM_UPDATE':
         return '🚀 Seu FoodSaaS foi atualizado — melhorias já disponíveis';
+      case 'HUMAN_HELP_REQUESTED':
+        return `🙋 Cliente pediu atendimento humano no WhatsApp — ${data?.customerName || data?.customerPhone || 'cliente'}`;
       default:
         return 'Notificação FoodSaaS';
     }
@@ -280,6 +283,19 @@ export class NotificationsService {
           </table>
           <p style="margin-top:20px;background:#1e293b;border-left:3px solid #22c55e;padding:12px 16px;border-radius:4px;font-size:13px;">
             Entre em contato para ajudar na configuração e aumentar a conversão!
+          </p>
+        `);
+      case 'HUMAN_HELP_REQUESTED':
+        return base(`
+          <h2 style="color:#f59e0b;">🙋 Cliente pediu atendimento humano</h2>
+          <p style="margin-top:16px;">Um cliente pediu pra falar com uma pessoa no WhatsApp de <strong>${data?.companyName || 'sua loja'}</strong> e a IA passou o atendimento pra você.</p>
+          <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+            <tr><td style="padding:8px 0;color:#94a3b8;width:140px;">Cliente</td><td style="padding:8px 0;font-weight:700;">${data?.customerName || '—'}</td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">WhatsApp</td><td style="padding:8px 0;"><a href="https://wa.me/${(data?.customerPhone || '').replace(/\D/g,'')}" style="color:#25D366;">${data?.customerPhone || '—'}</a></td></tr>
+            <tr><td style="padding:8px 0;color:#94a3b8;">Última mensagem</td><td style="padding:8px 0;">${data?.lastMessage || '—'}</td></tr>
+          </table>
+          <p style="margin-top:20px;background:#1e293b;border-left:3px solid #f59e0b;padding:12px 16px;border-radius:4px;font-size:13px;">
+            Acesse "Configurar IA → Conversas" no painel ou responda direto no WhatsApp.
           </p>
         `);
       default:

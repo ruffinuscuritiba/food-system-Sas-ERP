@@ -25,9 +25,13 @@ import { OrdersService } from '@/modules/orders/orders.service';
 import { ProductsService } from '@/modules/products/products.service';
 import { CategoriesService } from '@/modules/categories/categories.service';
 import { LeadsService } from '@/modules/leads/leads.service';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { OrderStatus } from '@prisma/client';
 import { WaConnection, WaConversation, WaSettings } from './types';
-import { PLATFORM_SELLER_COMPANY_ID } from '@/common/utils/matrix';
+import {
+  PLATFORM_SELLER_COMPANY_ID,
+  isMatrixCompany,
+} from '@/common/utils/matrix';
 
 const log = new Logger('WhatsappAiService');
 const PIX_EXPIRATION_MINUTES = 30;
@@ -138,6 +142,42 @@ function isBusinessHours(
   return cur >= startMin && cur <= endMin;
 }
 
+const DAY_LABELS_PT = [
+  'domingo',
+  'segunda-feira',
+  'terça-feira',
+  'quarta-feira',
+  'quinta-feira',
+  'sexta-feira',
+  'sábado',
+];
+
+/**
+ * Linha com o horário de hoje (ou aviso de dia fechado), pra deixar a
+ * mensagem de "fora do horário" útil em vez de só repetir "estamos fechados"
+ * pra toda pergunta (inclusive "quais os horários?").
+ */
+function formatTodayHoursLine(
+  companyHours?: Record<string, CompanyBusinessHoursDay> | null,
+): string {
+  if (!companyHours) return '';
+  const now = new Date();
+  const brFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+  });
+  const DAY_MAP: Record<string, number> = {
+    dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sáb: 6, sab: 6,
+  };
+  const dayName = brFormatter.format(now).replace('.', '').toLowerCase();
+  const day = DAY_MAP[dayName] ?? now.getDay();
+  const todayConfig = companyHours[String(day)];
+  if (!todayConfig || !todayConfig.isOpen) {
+    return `\n\n📅 Hoje (${DAY_LABELS_PT[day]}) não temos atendimento.`;
+  }
+  return `\n\n📅 Hoje (${DAY_LABELS_PT[day]}) funcionamos das ${todayConfig.open} às ${todayConfig.close}.`;
+}
+
 // ─── Payment method normalizer ───────────────────────────────────────────────
 
 function normalizePaymentMethod(
@@ -184,6 +224,8 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     private categoriesService?: CategoriesService,
     @Optional()
     private leadsService?: LeadsService,
+    @Optional()
+    private notificationsService?: NotificationsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -861,7 +903,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     // Lê businessHours centralizado de Company (nova fonte) com fallback para settings (legado)
     const companyRow = await this.prisma.company.findUnique({
       where: { id: connection.companyId },
-      select: { businessHours: true },
+      select: { businessHours: true, slug: true },
     });
     const companyHours = companyRow?.businessHours as
       | Record<string, CompanyBusinessHoursDay>
@@ -874,9 +916,16 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       `[DIAG][businessHours] conn=${connection.id} inHours=${_inBusinessHours} ambiente=${ambiente} source=${companyHours ? 'Company' : 'WhatsappAiSettings'} start=${settings?.businessHoursStart} end=${settings?.businessHoursEnd} days=${settings?.businessDays}`,
     );
     if (!_inBusinessHours) {
-      const msg =
+      const prefix =
         settings.offlineMessage ||
-        'Olá! No momento estamos fora do horário de atendimento. Em breve retornaremos! 🕐';
+        'Olá! No momento estamos fora do horário de atendimento. 🕐';
+      const hoursLine = formatTodayHoursLine(companyHours);
+      const frontendUrl = this.config.get<string>('FRONTEND_URL');
+      const menuLine =
+        frontendUrl && companyRow?.slug
+          ? `\n\n📋 Enquanto isso, dá pra ver nosso cardápio aqui: ${frontendUrl.replace(/\/$/, '')}/menu/${companyRow.slug}`
+          : '';
+      const msg = `${prefix}${hoursLine}${menuLine}`;
       await this.saveMessage(conv.id, connection.companyId, 'ASSISTANT', msg);
       await this.dispatchMessage(connection, phone, msg);
       return;
@@ -1335,20 +1384,17 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         where: { id: conv.id },
         data: { mode: 'HUMAN', status: 'TRANSFERRED' },
       });
-      const operatorPhone = this.config.get<string>('WHATSAPP_OPERATOR_PHONE');
-      if (operatorPhone) {
-        const notice =
-          `⚠️ *Atendimento Humano Solicitado*\n\n` +
-          `Cliente: ${conv.customerPhone}\n` +
-          `Mensagem: "${userText}"\n\n` +
-          `Acesse o WhatsApp para continuar o atendimento.`;
-        this.dispatchMessage(connection, operatorPhone, notice).catch(
-          (err: unknown) =>
-            log.warn(
-              `[AI] Falha ao notificar operador: ${(err as Error)?.message}`,
-            ),
-        );
-      }
+      this.notifyHumanHelpRequested(
+        connection,
+        companyId,
+        conv.customerPhone,
+        conv.customerName,
+        userText,
+      ).catch((err: unknown) =>
+        log.warn(
+          `[AI] notifyHumanHelpRequested falhou: ${(err as Error)?.message}`,
+        ),
+      );
     }
 
     if (closeConversation) {
@@ -1646,6 +1692,17 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         where: { id: conv.id },
         data: { mode: 'HUMAN', status: 'TRANSFERRED' },
       });
+      this.notifyHumanHelpRequested(
+        connection,
+        companyId,
+        conv.customerPhone,
+        conv.customerName,
+        userText,
+      ).catch((err: unknown) =>
+        log.warn(
+          `[AI] notifyHumanHelpRequested falhou: ${(err as Error)?.message}`,
+        ),
+      );
     }
 
     const cleanReply = resposta_para_o_cliente
@@ -1802,6 +1859,84 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       .join('\n');
 
     await this.dispatchMessage(connection, phone, text);
+  }
+
+  /**
+   * Avisa o dono da loja (WhatsApp + e-mail) quando um cliente pede
+   * atendimento humano — antes disso a IA só marcava a conversa como
+   * "TRANSFERRED" no banco, sem nenhum aviso ativo (só via se entrasse
+   * manualmente na tela de Conversas).
+   */
+  private async notifyHumanHelpRequested(
+    connection: WaConnection,
+    companyId: string,
+    customerPhone: string,
+    customerName: string | null | undefined,
+    lastMessage: string,
+  ) {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true, email: true, whatsapp: true, phone: true },
+    });
+
+    const notice =
+      `⚠️ *Atendimento Humano Solicitado*\n\n` +
+      `Cliente: ${customerName || customerPhone}\n` +
+      `Telefone: ${customerPhone}\n` +
+      `Mensagem: "${lastMessage}"\n\n` +
+      `Acesse "Configurar IA → Conversas" ou responda direto no WhatsApp.`;
+
+    const ownerWhatsapp = company?.whatsapp || company?.phone || undefined;
+    if (ownerWhatsapp) {
+      this.dispatchMessage(connection, ownerWhatsapp, notice).catch(
+        (err: unknown) =>
+          log.warn(
+            `[AI] Falha ao notificar dono via WhatsApp: ${(err as Error)?.message}`,
+          ),
+      );
+    }
+
+    // Fallback: env vars globais (NOTIFY_WHATSAPP_NUMBER é a já usada para
+    // avisos de dono em outros fluxos — signup, trial; WHATSAPP_OPERATOR_PHONE
+    // é o nome legado). Útil quando a empresa não tem whatsapp/phone cadastrado
+    // — evita não notificar ninguém.
+    const operatorPhone =
+      this.config.get<string>('NOTIFY_WHATSAPP_NUMBER') ||
+      this.config.get<string>('WHATSAPP_OPERATOR_PHONE');
+    if (operatorPhone && operatorPhone !== ownerWhatsapp) {
+      this.dispatchMessage(connection, operatorPhone, notice).catch(
+        (err: unknown) =>
+          log.warn(
+            `[AI] Falha ao notificar operador (env): ${(err as Error)?.message}`,
+          ),
+      );
+    }
+
+    // Empresa matriz ("Ruffinu's Pizzaria", uso interno de dogfooding) tem
+    // email cadastrado platform@foodsaas.internal — não é caixa monitorada.
+    // Usa ADMIN_NOTIFY_EMAIL (a mesma caixa já usada pra leads/signups) nesse caso.
+    const notifyEmail = isMatrixCompany(companyId)
+      ? this.config.get<string>('ADMIN_NOTIFY_EMAIL') || company?.email
+      : company?.email;
+
+    if (notifyEmail && this.notificationsService) {
+      this.notificationsService
+        .send({
+          to: notifyEmail,
+          type: 'HUMAN_HELP_REQUESTED',
+          data: {
+            companyName: company?.name,
+            customerName,
+            customerPhone,
+            lastMessage,
+          },
+        })
+        .catch((err: unknown) =>
+          log.warn(
+            `[AI] Falha ao notificar dono via e-mail: ${(err as Error)?.message}`,
+          ),
+        );
+    }
   }
 
   /** Envia mensagem de texto avulsa pelo primeiro WhatsApp ativo da empresa. */

@@ -232,6 +232,17 @@ export class WhatsappAiController {
     return this.service.setConversationMode(id, req.user.companyId, mode);
   }
 
+  @Patch('conversations/:id/ai-disabled')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  setAiDisabled(
+    @Param('id') id: string,
+    @Body('aiDisabled') aiDisabled: boolean,
+    @Request() req: any,
+  ) {
+    return this.service.setAiDisabled(id, req.user.companyId, aiDisabled);
+  }
+
   @Post('conversations/:id/send')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')

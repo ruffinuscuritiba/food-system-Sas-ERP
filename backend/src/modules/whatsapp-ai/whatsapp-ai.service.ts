@@ -421,8 +421,41 @@ export class WhatsappAiService implements OnApplicationBootstrap {
 
   async getSettings(connectionId: string, companyId: string) {
     await this.assertConnectionOwnership(connectionId, companyId);
+    // Select explícito: exclui id/connectionId/companyId/createdAt/updatedAt.
+    // O frontend faz `{...DEFAULT_SETTINGS, ...r.data}` e reenvia o objeto
+    // inteiro no PUT — se o GET devolvesse essas colunas, o ValidationPipe
+    // global (forbidNonWhitelisted) rejeitava com 400 "property X should not
+    // exist" em QUALQUER salvamento (era isso que quebrava ao trocar o modo).
     return this.prisma.whatsappAiSettings.findUnique({
       where: { connectionId },
+      select: {
+        aiProvider: true,
+        aiModel: true,
+        attendantName: true,
+        systemPrompt: true,
+        greetingMessage: true,
+        offlineMessage: true,
+        transferKeywords: true,
+        mode: true,
+        typingDelay: true,
+        messageDelay: true,
+        useEmojis: true,
+        businessHoursStart: true,
+        businessHoursEnd: true,
+        businessDays: true,
+        isActive: true,
+        responseStyle: true,
+        personalityType: true,
+        emojiUsage: true,
+        advancedPersonality: true,
+        speechHabits: true,
+        characteristics: true,
+        principles: true,
+        humor: true,
+        menuLinkStyle: true,
+        conversationalOrdering: true,
+        orderHandlingMode: true,
+      },
     });
   }
 
@@ -468,6 +501,23 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     return this.prisma.whatsappConversation.update({
       where: { id },
       data: { mode },
+    });
+  }
+
+  /**
+   * Liga/desliga a IA permanentemente para um contato específico — diferente
+   * de mode=HUMAN (que reseta sozinho após 60min sem resposta do operador),
+   * isso nunca volta a responder até o operador reativar manualmente. Uso:
+   * vendedor/fornecedor/número errado que não deve receber resposta automática.
+   */
+  async setAiDisabled(id: string, companyId: string, aiDisabled: boolean) {
+    const conv = await this.prisma.whatsappConversation.findFirst({
+      where: { id, companyId },
+    });
+    if (!conv) throw new NotFoundException('Conversa não encontrada');
+    return this.prisma.whatsappConversation.update({
+      where: { id },
+      data: { aiDisabled },
     });
   }
 
@@ -844,6 +894,13 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       where: { id: conv.id },
       data: { lastMessageAt: new Date(), customerName: name },
     });
+
+    if (conv.aiDisabled) {
+      log.warn(
+        `[AI] conv=${conv.id} phone=${phone} — aiDisabled=true, IA permanentemente desativada para este contato (não auto-reseta)`,
+      );
+      return;
+    }
 
     if (conv.mode === 'HUMAN' || conv.mode === 'PAUSED') {
       const AUTO_RESET_MIN = 60;

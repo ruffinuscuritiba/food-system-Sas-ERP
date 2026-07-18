@@ -1802,6 +1802,11 @@ model WhatsappConversation {
   customerName  String?
   status        String   @default("ACTIVE")   // ACTIVE | CLOSED | TRANSFERRED
   mode          String   @default("AI")        // AI | HUMAN | PAUSED
+  // Diferente de mode=HUMAN (que reseta pra AI sozinho depois de 60min sem
+  // resposta do operador): aiDisabled é permanente, só volta se o operador
+  // reativar manualmente. Uso: contato que nunca deve receber resposta
+  // automática (ex: vendedor, fornecedor, número errado).
+  aiDisabled    Boolean  @default(false)
   context       Json?                          // { cart, step, address, phone, ... }
   orderId       String?
   lastMessageAt DateTime @default(now())

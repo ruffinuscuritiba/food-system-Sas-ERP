@@ -39,6 +39,7 @@ export interface WaConversation {
   customerName: string | null;
   mode: string;
   status: string;
+  aiDisabled: boolean;
   context: Record<string, unknown> | null;
   orderId: string | null;
   connection?: WaConnection;

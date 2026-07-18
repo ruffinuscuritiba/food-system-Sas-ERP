@@ -11,6 +11,7 @@ import {
   RefreshCw, Send, AlertCircle, CheckCircle2,
   Zap, Shield, ToggleLeft, ToggleRight, Copy, Eye, EyeOff, Pencil,
   MessageCircle, TrendingUp, Users, ShoppingBag, X, QrCode,
+  BellOff, Bell,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ type AiSettings = {
 type Conversation = {
   id: string; customerPhone: string; customerName?: string;
   status: string; mode: string; orderId?: string;
+  aiDisabled?: boolean;
   lastMessageAt: string; createdAt: string;
   _count?: { messages: number };
   messages?: { role: string; content: string; createdAt: string }[];
@@ -177,6 +179,21 @@ export default function WhatsappIaPage() {
     }
   };
 
+  // ── Toggle AI disabled (permanente por contato) ─────────────────────────────
+
+  const toggleAiDisabled = async (conv: Conversation, disabled: boolean) => {
+    try {
+      await api.patch(`/whatsapp-ai/conversations/${conv.id}/ai-disabled`, { aiDisabled: disabled });
+      await loadAll();
+      if (selectedConv?.id === conv.id) {
+        setSelectedConv({ ...selectedConv, aiDisabled: disabled });
+      }
+      toast.success(disabled ? "IA desativada para este contato" : "IA reativada para este contato");
+    } catch {
+      toast.error("Erro ao alterar IA do contato");
+    }
+  };
+
   // ── Copy webhook URL ───────────────────────────────────────────────────────
 
   const copyWebhook = (connId: string) => {
@@ -259,6 +276,7 @@ export default function WhatsappIaPage() {
                 onOpen={openConversation}
                 onSend={sendManual}
                 onToggleMode={toggleConvMode}
+                onToggleAiDisabled={toggleAiDisabled}
                 messagesEndRef={messagesEndRef}
                 onRefresh={loadAll}
               />
@@ -1293,7 +1311,7 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
 
 // ─── Conversations Tab ────────────────────────────────────────────────────────
 
-function ConversationsTab({ conversations, selectedConv, messages, manualText, setManualText, sending, onOpen, onSend, onToggleMode, messagesEndRef, onRefresh }: any) {
+function ConversationsTab({ conversations, selectedConv, messages, manualText, setManualText, sending, onOpen, onSend, onToggleMode, onToggleAiDisabled, messagesEndRef, onRefresh }: any) {
   return (
     <div className="flex gap-4 h-[calc(100vh-220px)]">
       {/* List */}
@@ -1321,12 +1339,19 @@ function ConversationsTab({ conversations, selectedConv, messages, manualText, s
                 <span className="font-semibold text-white text-sm truncate max-w-[140px]">
                   {conv.customerName ?? conv.customerPhone}
                 </span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  conv.mode === "AI"    ? "bg-blue-900/40 text-blue-400" :
-                  conv.mode === "HUMAN" ? "bg-amber-900/40 text-amber-400" :
-                  "bg-slate-800 text-slate-400"
-                }`}>
-                  {conv.mode}
+                <span className="flex items-center gap-1">
+                  {conv.aiDisabled && (
+                    <span title="IA desativada para este contato" className="text-red-400">
+                      <BellOff size={11} />
+                    </span>
+                  )}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    conv.mode === "AI"    ? "bg-blue-900/40 text-blue-400" :
+                    conv.mode === "HUMAN" ? "bg-amber-900/40 text-amber-400" :
+                    "bg-slate-800 text-slate-400"
+                  }`}>
+                    {conv.mode}
+                  </span>
                 </span>
               </div>
               <p className="text-xs text-slate-500 truncate">{conv.customerPhone}</p>
@@ -1365,6 +1390,19 @@ function ConversationsTab({ conversations, selectedConv, messages, manualText, s
                   }`}
                 >
                   {selectedConv.mode === "AI" ? <><Bot size={12} /> IA ativa — Assumir</> : <><User size={12} /> Humano — Devolver IA</>}
+                </button>
+                <button
+                  onClick={() => onToggleAiDisabled(selectedConv, !selectedConv.aiDisabled)}
+                  title={selectedConv.aiDisabled
+                    ? "IA nunca responde este contato — clique para reativar"
+                    : "Desativar IA permanentemente para este contato (ex: vendedor, número errado)"}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    selectedConv.aiDisabled
+                      ? "bg-red-900/40 border border-red-700 text-red-300 hover:bg-slate-800 hover:border-slate-600 hover:text-slate-300"
+                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-red-900/40 hover:border-red-700 hover:text-red-300"
+                  }`}
+                >
+                  {selectedConv.aiDisabled ? <><BellOff size={12} /> IA desativada</> : <><Bell size={12} /> Desativar IA</>}
                 </button>
               </div>
             </div>

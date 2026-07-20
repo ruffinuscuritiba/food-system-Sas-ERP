@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { BookOpen, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
@@ -101,6 +101,13 @@ export default function RecipesPage() {
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-purple-600 transition mb-4"
+        >
+          <ArrowLeft size={16} /> Voltar ao menu
+        </Link>
+
         <div className="flex items-center gap-3 mb-8">
           <BookOpen size={28} className="text-purple-400" />
           <div>

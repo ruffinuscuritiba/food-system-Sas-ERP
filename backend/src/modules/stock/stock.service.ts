@@ -374,11 +374,28 @@ export class StockService {
     };
   }
 
-  async getMovements(companyId: string) {
+  async getMovements(
+    companyId: string,
+    filters?: { from?: string; to?: string; type?: string },
+  ) {
+    const where: Prisma.StockMovementWhereInput = { companyId };
+
+    if (filters?.type) {
+      where.type = filters.type as StockMovementType;
+    }
+
+    if (filters?.from || filters?.to) {
+      where.createdAt = {};
+      if (filters.from) where.createdAt.gte = new Date(filters.from);
+      if (filters.to) {
+        const end = new Date(filters.to);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
     return this.prisma.stockMovement.findMany({
-      where: {
-        companyId,
-      },
+      where,
 
       include: {
         ingredient: true,

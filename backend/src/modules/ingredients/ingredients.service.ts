@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../database/prisma.service';
 
@@ -45,9 +45,49 @@ export class IngredientsService {
     if (data.unit !== undefined) patch.unit = data.unit;
     if (data.cost !== undefined) patch.cost = Number(data.cost);
     if (data.isActive !== undefined) patch.isActive = Boolean(data.isActive);
-    return this.prisma.ingredient.update({
-      where: { id, companyId },
-      data: patch,
+
+    // Edição direta do campo estoque não tinha rastro em StockMovement —
+    // qualquer alteração de stock aqui vira um ADJUSTMENT auditável.
+    if (patch.stock === undefined) {
+      return this.prisma.ingredient.update({
+        where: { id, companyId },
+        data: patch,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.ingredient.findFirst({
+        where: { id, companyId },
+      });
+      if (!current) throw new NotFoundException('Ingrediente não encontrado');
+
+      const previousStock = Number(current.stock);
+      const newStock = patch.stock;
+
+      const updated = await tx.ingredient.update({
+        where: { id, companyId },
+        data: patch,
+      });
+
+      if (newStock !== previousStock) {
+        const diff = Math.abs(newStock - previousStock);
+        const unitCost = Number(current.cost);
+        await tx.stockMovement.create({
+          data: {
+            ingredient: { connect: { id } },
+            company: { connect: { id: companyId } },
+            type: 'ADJUSTMENT',
+            quantity: diff,
+            previousStock,
+            currentStock: newStock,
+            unitCost,
+            totalCost: diff * unitCost,
+            reason: 'Ajuste manual de estoque (edição de ingrediente)',
+          },
+        });
+      }
+
+      return updated;
     });
   }
 

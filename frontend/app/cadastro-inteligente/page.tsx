@@ -348,6 +348,10 @@ export default function CadastroInteligentePage() {
         const aliasMatch = !exactMatch
           ? aliases.find((a) => normalize(a.alias) === normalizedName)
           : null;
+        // Sem nenhum match: já vem marcado para criar como ingrediente novo —
+        // sem isso, notas grandes (dezenas de itens) exigiam clicar item por
+        // item em "Criar novo" ou tudo era descartado silenciosamente.
+        const hasMatch = !!exactMatch || !!aliasMatch;
         return {
           itemId: it.id,
           name,
@@ -356,7 +360,7 @@ export default function CadastroInteligentePage() {
           unitCost: it.data?.unitCost ?? it.unitCost ?? 0,
           total: it.data?.total ?? it.total ?? undefined,
           confidence: it.confidence ?? it.data?.confidence ?? undefined,
-          createProduct: false,
+          createProduct: !hasMatch,
           ingredientId: exactMatch?.id ?? aliasMatch?.ingredientId ?? "",
           rememberAlias: false,
           enabled: true,
@@ -577,9 +581,21 @@ export default function CadastroInteligentePage() {
                   ({isMenuTab ? menuItems.filter(i => i.enabled).length : invoiceItems.filter(i => i.enabled).length} selecionados)
                 </span>
               </h2>
-              <button onClick={reset} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
-                <XCircle size={14} /> Reiniciar
-              </button>
+              <div className="flex items-center gap-3">
+                {!isMenuTab && invoiceItems.some(i => !i.ingredientId && !i.createProduct) && (
+                  <button
+                    onClick={() => setInvoiceItems(invoiceItems.map(i =>
+                      !i.ingredientId ? { ...i, createProduct: true } : i
+                    ))}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Marcar sem match como "Criar novo"
+                  </button>
+                )}
+                <button onClick={reset} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
+                  <XCircle size={14} /> Reiniciar
+                </button>
+              </div>
             </div>
 
             {isMenuTab ? (

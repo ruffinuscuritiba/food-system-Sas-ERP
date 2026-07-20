@@ -78,6 +78,15 @@ export class ProductsService {
 
         salePrice: parseFloat(data.salePrice ?? data.price ?? 0),
 
+        originalPrice:
+          data.originalPrice !== undefined && data.originalPrice !== ''
+            ? parseFloat(data.originalPrice)
+            : null,
+
+        featuredLabel: data.featuredLabel || null,
+
+        isFeatured: !!data.featuredLabel,
+
         isActive: data.isActive ?? true,
 
         trackStock: data.trackStock ?? true,
@@ -181,6 +190,16 @@ export class ProductsService {
         }),
         ...(data.costPrice !== undefined && {
           costPrice: parseFloat(data.costPrice),
+        }),
+        ...(data.originalPrice !== undefined && {
+          originalPrice:
+            data.originalPrice === '' || data.originalPrice === null
+              ? null
+              : parseFloat(data.originalPrice),
+        }),
+        ...(data.featuredLabel !== undefined && {
+          featuredLabel: data.featuredLabel || null,
+          isFeatured: !!data.featuredLabel,
         }),
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
         ...(data.imageZoom !== undefined && { imageZoom: Number(data.imageZoom) }),

@@ -459,6 +459,10 @@ model Product {
 
   salePrice Decimal? @db.Decimal(10, 2)
 
+  // Preço "de" exibido riscado no cardápio quando o produto está em
+  // promoção (> salePrice). Null/vazio = produto sem promoção.
+  originalPrice Decimal? @db.Decimal(10, 2)
+
   profitMargin Decimal? @db.Decimal(5, 2)
 
   isActive Boolean @default(true)
@@ -480,8 +484,11 @@ model Product {
   // ordem de exibição (drag-and-drop)
   sortOrder Int @default(0)
 
-  // futura área de destaque/promoção — não usado ainda
+  // Aparece na seção "Destaques" do cardápio digital (derivado de featuredLabel != null)
   isFeatured Boolean @default(false)
+
+  // Rótulo mostrado no card do cardápio digital: null | "DESTAQUE" | "NOVIDADE" | "RECOMENDADO"
+  featuredLabel String?
 
   companyId String
 

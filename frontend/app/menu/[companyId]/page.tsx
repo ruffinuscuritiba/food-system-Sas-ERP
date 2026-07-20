@@ -19,6 +19,8 @@ type Product = {
   name: string;
   description: string;
   salePrice: number;
+  originalPrice?: number | null;
+  featuredLabel?: string | null;
   imageUrl: string | null;
   imageZoom?: number;
   videoUrl?: string | null;
@@ -43,6 +45,74 @@ function productPriceLabel(product: Product, primaryColor?: string): string {
     return `A partir de R$ ${min.toFixed(2).replace(".", ",")}`;
   }
   return `R$ ${Number(product.salePrice).toFixed(2).replace(".", ",")}`;
+}
+
+/** % off when originalPrice is set and genuinely higher than salePrice, else null */
+function discountPercent(product: Product): number | null {
+  const original = Number(product.originalPrice) || 0;
+  const current = Number(product.salePrice) || 0;
+  if (original <= 0 || current <= 0 || original <= current) return null;
+  return Math.round(((original - current) / original) * 100);
+}
+
+const FEATURED_LABEL_STYLES: Record<string, { text: string; className: string }> = {
+  DESTAQUE: { text: "Destaque", className: "bg-orange-500 text-white" },
+  NOVIDADE: { text: "Novidade", className: "bg-blue-500 text-white" },
+  RECOMENDADO: { text: "Recomendado", className: "bg-emerald-500 text-white" },
+};
+
+/** Champion card — synthesized from iFood/Rappi-style promo carousels:
+ *  discount/label badge top-left, quick-add "+" overlapping bottom-right of the image,
+ *  strikethrough original price when on promotion. */
+function FeaturedProductCard({ product, onAdd, primaryColor }: {
+  product: Product; onAdd: (p: Product) => void; primaryColor: string;
+}) {
+  const discount = discountPercent(product);
+  const labelStyle = !discount && product.featuredLabel ? FEATURED_LABEL_STYLES[product.featuredLabel] : null;
+
+  return (
+    <button onClick={() => onAdd(product)}
+      className="flex-shrink-0 w-36 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left hover:shadow-md active:scale-95 transition">
+      <div className="relative w-full h-24 bg-gray-100">
+        {product.imageUrl && (
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover"
+            style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
+        )}
+        {discount ? (
+          <span className="absolute top-1.5 left-1.5 bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm">
+            -{discount}%
+          </span>
+        ) : labelStyle ? (
+          <span className={`absolute top-1.5 left-1.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md shadow-sm ${labelStyle.className}`}>
+            {labelStyle.text}
+          </span>
+        ) : null}
+        <span
+          className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-white shadow-md border-2 border-white"
+          style={{ backgroundColor: primaryColor }}
+        >
+          <Plus size={14} strokeWidth={3} />
+        </span>
+      </div>
+      <div className="p-2 pt-3">
+        <p className="text-xs font-semibold text-gray-800 line-clamp-2 min-h-[2rem]">{product.name}</p>
+        {discount ? (
+          <div className="mt-0.5">
+            <span className="text-[10px] text-gray-400 line-through mr-1">
+              R$ {Number(product.originalPrice).toFixed(2).replace(".", ",")}
+            </span>
+            <span className="text-xs font-bold text-emerald-600">
+              R$ {Number(product.salePrice).toFixed(2).replace(".", ",")}
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs font-bold mt-0.5" style={{ color: primaryColor }}>
+            {productPriceLabel(product)}
+          </p>
+        )}
+      </div>
+    </button>
+  );
 }
 
 type BusinessHourDay = { open: string; close: string; isOpen: boolean };
@@ -993,7 +1063,7 @@ export default function MenuPage() {
     const b = lcBlocks.find(b => b.id === id);
     return b?.order ?? 99;
   };
-  const featuredProducts = products.filter(p => (p as any).isFeatured === true).slice(0, 6);
+  const featuredProducts = products.filter(p => !!p.featuredLabel).slice(0, 6);
   // Order bump (upsell no checkout): produtos em destaque fora do carrinho;
   // fallback para bebidas/sobremesas. Máx 4. Reaproveita publicMenu — zero backend.
   const orderBumpProducts = (() => {
@@ -1002,7 +1072,7 @@ export default function MenuPage() {
     const isUpsellCat = (p: Product) =>
       p.category?.categoryType === "bebidas" ||
       /bebida|sobremesa|doce|drink|refri|suco|adicional/i.test(p.category?.name || "");
-    const featured = products.filter(p => p.isActive && !inCart.has(p.id) && (p as any).isFeatured === true);
+    const featured = products.filter(p => p.isActive && !inCart.has(p.id) && !!p.featuredLabel);
     const extra = products.filter(p => p.isActive && !inCart.has(p.id) && !featured.some(f => f.id === p.id) && isUpsellCat(p));
     return [...featured, ...extra].slice(0, 4);
   })();
@@ -1073,24 +1143,9 @@ export default function MenuPage() {
       {showFeatured && featuredBeforeCategories && (
         <div className="max-w-2xl mx-auto px-4 pt-4">
           <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">⭐ Destaques</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth">
+          <div className="flex gap-3 overflow-x-auto pb-3 scroll-smooth">
             {featuredProducts.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => addToCart(p)}
-                className="flex-shrink-0 w-32 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left"
-              >
-                {p.imageUrl && (
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover"
-                    style={{ transform: `scale(${(p.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
-                )}
-                <div className="p-2">
-                  <p className="text-xs font-semibold text-gray-800 line-clamp-2">{p.name}</p>
-                  <p className="text-xs font-bold mt-0.5" style={{ color: theme.primaryColor }}>
-                    R$ {(Number(p.salePrice) || 0).toFixed(2).replace(".", ",")}
-                  </p>
-                </div>
-              </button>
+              <FeaturedProductCard key={p.id} product={p} onAdd={addToCart} primaryColor={theme.primaryColor} />
             ))}
           </div>
         </div>
@@ -1184,24 +1239,9 @@ export default function MenuPage() {
       {showFeatured && !featuredBeforeCategories && (
         <div className="max-w-2xl mx-auto px-4 pt-2">
           <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">⭐ Destaques</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth">
+          <div className="flex gap-3 overflow-x-auto pb-3 scroll-smooth">
             {featuredProducts.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => addToCart(p)}
-                className="flex-shrink-0 w-32 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left"
-              >
-                {p.imageUrl && (
-                  <img src={p.imageUrl} alt={p.name} className="w-full h-20 object-cover"
-                    style={{ transform: `scale(${(p.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
-                )}
-                <div className="p-2">
-                  <p className="text-xs font-semibold text-gray-800 line-clamp-2">{p.name}</p>
-                  <p className="text-xs font-bold mt-0.5" style={{ color: theme.primaryColor }}>
-                    R$ {(Number(p.salePrice) || 0).toFixed(2).replace(".", ",")}
-                  </p>
-                </div>
-              </button>
+              <FeaturedProductCard key={p.id} product={p} onAdd={addToCart} primaryColor={theme.primaryColor} />
             ))}
           </div>
         </div>
@@ -1293,20 +1333,34 @@ export default function MenuPage() {
                       <div className="absolute inset-0 flex items-center justify-center text-4xl">🍽️</div>
                     )}
                     <div className="relative z-10 flex flex-col justify-end h-full min-h-[128px] p-4">
-                      {(product as any).isFeatured && (
-                        <span
-                          className="self-start mb-1.5 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full text-white"
-                          style={{ backgroundColor: theme.primaryColor }}
-                        >
-                          Destaque
-                        </span>
-                      )}
+                      {(() => {
+                        const disc = discountPercent(product);
+                        const label = !disc && product.featuredLabel ? FEATURED_LABEL_STYLES[product.featuredLabel] : null;
+                        if (disc) return (
+                          <span className="self-start mb-1.5 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500 text-white">
+                            -{disc}% OFF
+                          </span>
+                        );
+                        if (label) return (
+                          <span className={`self-start mb-1.5 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full ${label.className}`}>
+                            {label.text}
+                          </span>
+                        );
+                        return null;
+                      })()}
                       <h3 className="text-white font-black text-base leading-tight line-clamp-1" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)", WebkitTextStroke: "0.4px rgba(0,0,0,0.6)" }}>{product.name}</h3>
                       {product.description && (
                         <p className="text-white text-xs mt-0.5 line-clamp-1" style={{ textShadow: "0 1px 2px rgba(0,0,0,1), 0 1px 4px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)", WebkitTextStroke: "0.4px rgba(0,0,0,0.7)" }}>{product.description}</p>
                       )}
                       <div className="flex items-center justify-between mt-2 gap-2">
-                        <span className="font-black text-lg shrink-0" style={{ color: "#facc15", textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)", WebkitTextStroke: "0.4px rgba(0,0,0,0.6)" }}>{productPriceLabel(product)}</span>
+                        <span className="flex items-baseline gap-1.5 shrink-0">
+                          {discountPercent(product) ? (
+                            <span className="text-xs text-white/60 line-through" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>
+                              R$ {Number(product.originalPrice).toFixed(2).replace(".", ",")}
+                            </span>
+                          ) : null}
+                          <span className="font-black text-lg" style={{ color: "#facc15", textShadow: "0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)", WebkitTextStroke: "0.4px rgba(0,0,0,0.6)" }}>{productPriceLabel(product)}</span>
+                        </span>
                         <div className="flex gap-1.5 flex-wrap justify-end">
                           {product.videoUrl && (
                             <button

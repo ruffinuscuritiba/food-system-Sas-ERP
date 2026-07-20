@@ -245,10 +245,19 @@ function MoneyField({ label, value, onChange, required }: {
 
 // ── Form state ────────────────────────────────────────────────────────────────
 
+const FEATURED_LABEL_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Sem rótulo" },
+  { value: "DESTAQUE", label: "Destaque" },
+  { value: "NOVIDADE", label: "Novidade" },
+  { value: "RECOMENDADO", label: "Recomendado" },
+];
+
 const emptyForm = () => ({
   name: "", description: "", sku: "", barcode: "",
   categoryId: "", unit: "", weight: "",
   costPrice: 0, profitMargin: 0, salePrice: 0,
+  originalPrice: 0,
+  featuredLabel: "" as string,
   imageUrl: null as string | null,
   imageZoom: 100 as number,
   videoUrl: "" as string,
@@ -413,6 +422,9 @@ export default function ProductsPage() {
         fd.append("profitMargin", String(form.profitMargin));
       }
 
+      if (form.originalPrice > 0) fd.append("originalPrice", String(form.originalPrice));
+      if (form.featuredLabel) fd.append("featuredLabel", form.featuredLabel);
+
       // Image: send as imageUrl (base64) — not as file attachment
       if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
       fd.append("imageZoom", String(form.imageZoom));
@@ -445,6 +457,8 @@ export default function ProductsPage() {
       costPrice:   Number(product.costPrice)   || 0,
       profitMargin: 0,
       salePrice:   Number(product.salePrice)   || 0,
+      originalPrice: Number(product.originalPrice) || 0,
+      featuredLabel: product.featuredLabel || "",
       imageUrl:    product.imageUrl    || null,
       imageZoom:   product.imageZoom   ?? 100,
       videoUrl:    product.videoUrl    || "",
@@ -490,6 +504,9 @@ export default function ProductsPage() {
         fd.append("costPrice", String(editForm.costPrice));
         fd.append("profitMargin", String(editForm.profitMargin));
       }
+
+      fd.append("originalPrice", editForm.originalPrice > 0 ? String(editForm.originalPrice) : "");
+      fd.append("featuredLabel", editForm.featuredLabel || "");
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
       fd.append("imageZoom", String(editForm.imageZoom));
@@ -630,6 +647,27 @@ export default function ProductsPage() {
                   </div>
                 </div>
               )}
+
+              {/* Promoção + Destaque no cardápio */}
+              <div className="grid md:grid-cols-2 gap-5 mb-5">
+                <div>
+                  <MoneyField label="Preço original (promoção) — opcional" value={form.originalPrice} onChange={(v) => setForm({ ...form, originalPrice: v })} />
+                  <p className="text-[11px] text-gray-400 mt-1">Deixe em branco se não estiver em promoção. Aparece riscado no cardápio.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Destacar produto</label>
+                  <select
+                    value={form.featuredLabel}
+                    onChange={(e) => setForm({ ...form, featuredLabel: e.target.value })}
+                    className={inp}
+                  >
+                    {FEATURED_LABEL_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">Mostra um rótulo colorido no card do cardápio digital.</p>
+                </div>
+              </div>
 
               {/* Pizza toggle */}
               <div className="mb-4">
@@ -897,6 +935,24 @@ export default function ProductsPage() {
                   }} required />
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <MoneyField label="Preço original (promoção)" value={editForm.originalPrice} onChange={(v) => setEditForm({ ...editForm, originalPrice: v })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Destacar produto</label>
+                  <select
+                    value={editForm.featuredLabel}
+                    onChange={(e) => setEditForm({ ...editForm, featuredLabel: e.target.value })}
+                    className={inp}
+                  >
+                    {FEATURED_LABEL_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Imagem</label>

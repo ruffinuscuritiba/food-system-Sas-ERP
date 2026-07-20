@@ -64,6 +64,14 @@ export class CreateProductDto {
   @IsNumber()
   salePrice?: number;
 
+  // Preço "de" (riscado no cardápio) — vazio/undefined = sem promoção.
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseFloat(value) : undefined,
+  )
+  @IsNumber()
+  originalPrice?: number;
+
   // Legacy alias — some forms still send "price"
   @IsOptional()
   @Transform(({ value }) =>
@@ -119,4 +127,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   eanCode?: string;
+
+  // "DESTAQUE" | "NOVIDADE" | "RECOMENDADO" | vazio (sem rótulo)
+  @IsOptional()
+  @IsString()
+  featuredLabel?: string;
 }

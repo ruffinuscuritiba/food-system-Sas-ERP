@@ -42,6 +42,8 @@ import {
   Cable,
   Printer,
   Settings,
+  ChevronDown,
+  TrendingUp,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -162,6 +164,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "smart-import" },
       { href: "/marketing",            label: "Marketing Digital",   icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing",    navKey: "marketing" },
       { href: "/campanhas",            label: "QR Recuperação",      icon: <QrCode size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "campanhas" },
+      { href: "/trafego-pago",         label: "Tráfego Pago",        icon: <TrendingUp size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "trafego-pago" },
     ],
   },
   {
@@ -233,6 +236,22 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
   const [sidebarConfig, setSidebarConfig] = useState<Record<string, boolean>>({});
   const [qrLinksOpen, setQrLinksOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem("sidebar_collapsed_sections");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  function toggleSection(title: string) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) next.delete(title); else next.add(title);
+      try { localStorage.setItem("sidebar_collapsed_sections", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
 
   const isDemoUser = user?.role === "DEMO";
   const planLabel = isDemoUser
@@ -558,14 +577,21 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
                     .filter((slug) => MODULE_NAV[slug] && canSee(MODULE_NAV[slug].roles))
                     .map((slug) => MODULE_NAV[slug])
                 : [];
+              const hasActiveItem = [...visible, ...moduleItems].some((item) => currentHref === item.href);
+              const isCollapsed = !!section.title && collapsedSections.has(section.title) && !hasActiveItem;
               return (
                 <div key={si} className={si > 0 ? "pt-3" : ""}>
                   {section.title && (
-                    <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      {section.title}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.title!)}
+                      className="w-full flex items-center justify-between px-2.5 pb-1 pt-0.5 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-300 transition"
+                    >
+                      <span>{section.title}</span>
+                      <ChevronDown size={12} className={`transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                    </button>
                   )}
-                  <div className="space-y-0.5">
+                  <div className={`space-y-0.5 ${isCollapsed ? "hidden" : ""}`}>
                     {visible.map((item) => {
                       const badge = isMatrix && item.moduleSlug
                         ? activeSlugs.includes(item.moduleSlug) ? "active" : "homologation"

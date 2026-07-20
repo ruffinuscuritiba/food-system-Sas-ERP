@@ -384,6 +384,13 @@ export default function CadastroInteligentePage() {
         })),
       });
       setDoneMsg(`${data.created} entrada(s) de estoque registrada(s)!`);
+      const skipped: { name: string }[] = data.skipped ?? [];
+      if (skipped.length > 0) {
+        toast.error(
+          `${skipped.length} item(ns) não encontraram ingrediente correspondente e foram ignorados: ${skipped.slice(0, 3).map(s => s.name).join(", ")}${skipped.length > 3 ? "…" : ""}. Marque "Criar novo" para esses itens e confirme de novo.`,
+          { duration: 10000 },
+        );
+      }
       setPhase("done");
     } catch {
       toast.error("Erro ao confirmar itens");

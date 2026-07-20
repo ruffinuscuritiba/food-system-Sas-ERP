@@ -799,6 +799,34 @@ export class SmartImportService {
     companyId: string,
   ) {
     const results: string[] = [];
+    const skipped: Array<{ name: string; reason: string }> = [];
+
+    // Nomes de nota fiscal costumam ser mais longos/ruidosos do que o nome
+    // cadastrado do ingrediente (ex.: "QUEIJO MUSSARELA LITORAL KG" vs.
+    // "Mussarela") — carregado uma vez por sessão para o match reverso abaixo.
+    const allIngredients = await this.prisma.ingredient.findMany({
+      where: { companyId },
+      select: { id: true, name: true },
+    });
+
+    // Número/data/fornecedor da nota (extraídos pela IA na etapa de upload)
+    // ficam gravados na movimentação para dar rastreabilidade — ex.: relatório
+    // impresso para o contador.
+    const session = await this.prisma.importSession.findFirst({
+      where: { id: sessionId, companyId },
+      select: { rawResult: true },
+    });
+    const rr: any = session?.rawResult ?? {};
+    const docNumber = rr?.document?.number;
+    const docDate = rr?.document?.date;
+    const supplierName = rr?.supplier?.name;
+    const noteLabel = docNumber
+      ? `NF nº ${docNumber}${supplierName ? ` — ${supplierName}` : ''}${docDate ? ` (${docDate})` : ''}`
+      : null;
+    const entryReason = noteLabel
+      ? `Entrada via ${noteLabel}`
+      : `Entrada via importação (sessão ${sessionId})`;
+
     for (const item of items) {
       let ingredient = await this.prisma.ingredient.findFirst({
         where: {
@@ -806,6 +834,19 @@ export class SmartImportService {
           name: { contains: item.name, mode: 'insensitive' },
         },
       });
+
+      if (!ingredient) {
+        const lowerItemName = item.name.toLowerCase();
+        const reverseMatch = allIngredients.find((c) =>
+          lowerItemName.includes(c.name.toLowerCase()),
+        );
+        if (reverseMatch) {
+          ingredient = await this.prisma.ingredient.findFirst({
+            where: { id: reverseMatch.id, companyId },
+          });
+        }
+      }
+
       if (!ingredient && item.createProduct) {
         ingredient = await this.prisma.ingredient.create({
           data: {
@@ -816,7 +857,9 @@ export class SmartImportService {
             companyId,
           },
         });
+        allIngredients.push({ id: ingredient.id, name: ingredient.name });
       }
+
       if (ingredient) {
         const previousStock = Number(ingredient.stock);
         const newStock = previousStock + item.quantity;
@@ -830,7 +873,9 @@ export class SmartImportService {
             currentStock: newStock,
             unitCost: item.unitCost,
             totalCost: item.quantity * item.unitCost,
-            reason: `Entrada via importação (sessão ${sessionId})`,
+            reason: entryReason,
+            referenceId: sessionId,
+            referenceType: 'IMPORT_INVOICE',
           },
         });
         await this.prisma.ingredient.update({
@@ -842,9 +887,15 @@ export class SmartImportService {
           data: { confirmed: true, savedId: movement.id },
         });
         results.push(movement.id);
+      } else {
+        skipped.push({
+          name: item.name,
+          reason:
+            'Nenhum ingrediente correspondente encontrado — marque "Criar novo" e confirme novamente.',
+        });
       }
     }
-    return { created: results.length, movementIds: results };
+    return { created: results.length, movementIds: results, skipped };
   }
 
   // ── Utils ──────────────────────────────────────────────────────────────────

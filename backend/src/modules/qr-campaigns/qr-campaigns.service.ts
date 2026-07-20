@@ -18,8 +18,8 @@ export interface QrPayload {
   token: string;
   /** URL completa de redirect (https://…/r/TOKEN) */
   redirectUrl: string;
-  /** Bloco pronto para fila de impressão térmica (ESC/POS JSON) */
-  printBlock: PrintBlock;
+  /** Bloco pronto para fila de impressão térmica (ESC/POS JSON) — ausente em links manuais */
+  printBlock: PrintBlock | null;
   /** Validade em ISO string */
   expiresAt: string;
 }
@@ -275,6 +275,69 @@ export class QrCampaignsService {
     return { token, redirectUrl, printBlock, expiresAt: expiresAt.toISOString() };
   }
 
+  // ── Link manual reutilizável (compartilhar em rede social, cartaz etc.) ───
+
+  /**
+   * Devolve um link/token estável para a campanha, pra compartilhar fora do
+   * fluxo automático de pedido. Reaproveita um link já gerado e ainda válido
+   * em vez de criar um novo a cada clique — mesma URL sempre que possível.
+   * Diferente do QR de pedido, esse token NUNCA é marcado como "usado": pode
+   * ser escaneado por várias pessoas diferentes (cada uma limitada pelas
+   * regras normais de limitPerDevice/IP no checkout).
+   */
+  async generateManualLink(companyId: string, campaignId: string): Promise<QrPayload> {
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: campaignId, companyId },
+    });
+    if (!campaign) throw new NotFoundException('Campanha não encontrada');
+
+    const now = new Date();
+    const existing = await this.prisma.qrCode.findFirst({
+      where: {
+        companyId,
+        campaignId,
+        isReusable: true,
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      return {
+        token: existing.token,
+        redirectUrl: existing.qrUrl,
+        printBlock: null,
+        expiresAt: existing.expiresAt.toISOString(),
+      };
+    }
+
+    let token: string | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const t = generateToken();
+      const exists = await this.prisma.qrCode.findUnique({ where: { token: t } });
+      if (!exists) { token = t; break; }
+    }
+    if (!token) throw new BadRequestException('Não foi possível gerar um link — tente novamente');
+
+    const thirtyDays = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const expiresAt  = campaign.endsAt < thirtyDays ? campaign.endsAt : thirtyDays;
+    const redirectUrl = `${this.frontendUrl}/r/${token}`;
+
+    await this.prisma.qrCode.create({
+      data: {
+        companyId,
+        campaignId,
+        orderSource: 'MANUAL',
+        isReusable: true,
+        token,
+        qrUrl: redirectUrl,
+        expiresAt,
+      },
+    });
+
+    return { token, redirectUrl, printBlock: null, expiresAt: expiresAt.toISOString() };
+  }
+
   // ── Redirect — validar token e devolver dados da sessão ───────────────────
 
   async resolveToken(token: string) {
@@ -287,9 +350,9 @@ export class QrCampaignsService {
     });
 
     if (!qr) throw new NotFoundException('Cupom não encontrado');
-    if (!qr.campaign.status)       throw new ForbiddenException('Campanha inativa');
-    if (qr.used)                   throw new ForbiddenException('Cupom já utilizado');
-    if (new Date() > qr.expiresAt) throw new ForbiddenException('Cupom expirado');
+    if (!qr.campaign.status)                     throw new ForbiddenException('Campanha inativa');
+    if (qr.used && !qr.isReusable)                throw new ForbiddenException('Cupom já utilizado');
+    if (new Date() > qr.expiresAt)                throw new ForbiddenException('Cupom expirado');
 
     // Payload de sessão (assinado/criptografado no cookie pelo controller)
     const sessionPayload = {
@@ -326,7 +389,7 @@ export class QrCampaignsService {
 
     if (!qr)                       throw new NotFoundException('Cupom inválido');
     if (!qr.campaign.status)       throw new BadRequestException('Campanha inativa');
-    if (qr.used)                   throw new BadRequestException('Cupom já utilizado');
+    if (qr.used && !qr.isReusable) throw new BadRequestException('Cupom já utilizado');
     if (new Date() > qr.expiresAt) throw new BadRequestException('Cupom expirado');
 
     const minimum = Number(qr.campaign.minimumOrder);
@@ -381,7 +444,7 @@ export class QrCampaignsService {
       });
 
       if (!qr)    throw new NotFoundException('Cupom inválido');
-      if (qr.used) throw new BadRequestException('Cupom já utilizado');
+      if (qr.used && !qr.isReusable) throw new BadRequestException('Cupom já utilizado');
 
       // Calcular desconto final
       const discountValue = Number(qr.campaign.discountValue);
@@ -394,12 +457,13 @@ export class QrCampaignsService {
       }
       discount = Math.round(discount * 100) / 100;
 
-      // Marcar QR como usado (grava phone/nome para o WhatsApp de boas-vindas)
+      // Marca como usado só quando NÃO é o link manual reutilizável — esse
+      // fica sempre disponível pra próxima pessoa escanear (grava phone/nome
+      // do último resgate de qualquer forma, útil pro WhatsApp de boas-vindas).
       await tx.qrCode.update({
         where: { id: qr.id },
         data: {
-          used: true,
-          usedAt: new Date(),
+          ...(!qr.isReusable && { used: true, usedAt: new Date() }),
           ...(dto.customerPhone && { usedByPhone: dto.customerPhone }),
           ...(dto.customerName  && { usedByCustomer: dto.customerName }),
         },

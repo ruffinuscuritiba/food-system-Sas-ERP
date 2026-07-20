@@ -48,6 +48,7 @@ interface InvoiceItem {
   confidence?: number;
   createProduct: boolean;
   ingredientId: string;
+  rememberAlias: boolean;
   enabled: boolean;
 }
 
@@ -201,6 +202,7 @@ export default function CadastroInteligentePage() {
   const [invoiceItems, setInvoiceItems]     = useState<InvoiceItem[]>([]);
   const [categories, setCategories]         = useState<{ id: string; name: string }[]>([]);
   const [ingredients, setIngredients]       = useState<{ id: string; name: string }[]>([]);
+  const [aliases, setAliases]               = useState<{ alias: string; ingredientId: string }[]>([]);
   const [doneMsg, setDoneMsg]               = useState("");
   const [errorMsg, setErrorMsg]             = useState("");
   const [dragOver, setDragOver]             = useState(false);
@@ -212,6 +214,7 @@ export default function CadastroInteligentePage() {
   useEffect(() => {
     api.get("/categories").then(r => setCategories(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get("/ingredients").then(r => setIngredients(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get("/ingredients/aliases").then(r => setAliases(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
@@ -340,7 +343,11 @@ export default function CadastroInteligentePage() {
 
       setInvoiceItems(items.map((it: any) => {
         const name = it.data?.name ?? it.name ?? "";
-        const exactMatch = ingredients.find((ing) => normalize(ing.name) === normalize(name));
+        const normalizedName = normalize(name);
+        const exactMatch = ingredients.find((ing) => normalize(ing.name) === normalizedName);
+        const aliasMatch = !exactMatch
+          ? aliases.find((a) => normalize(a.alias) === normalizedName)
+          : null;
         return {
           itemId: it.id,
           name,
@@ -350,7 +357,8 @@ export default function CadastroInteligentePage() {
           total: it.data?.total ?? it.total ?? undefined,
           confidence: it.confidence ?? it.data?.confidence ?? undefined,
           createProduct: false,
-          ingredientId: exactMatch?.id ?? "",
+          ingredientId: exactMatch?.id ?? aliasMatch?.ingredientId ?? "",
+          rememberAlias: false,
           enabled: true,
         };
       }));
@@ -395,6 +403,7 @@ export default function CadastroInteligentePage() {
           unit: i.unit,
           createProduct: i.createProduct,
           ingredientId: i.ingredientId || undefined,
+          rememberAlias: i.rememberAlias,
         })),
       });
 
@@ -848,23 +857,40 @@ function InvoiceReviewTable({
                     </button>
                   </div>
                 ) : (
-                  <select
-                    value={item.ingredientId}
-                    onChange={e => {
-                      if (e.target.value === "__new__") {
-                        update(idx, { createProduct: true, ingredientId: "" });
-                      } else {
-                        update(idx, { ingredientId: e.target.value, createProduct: false });
-                      }
-                    }}
-                    className={`w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-primary ${item.ingredientId ? "border-gray-200" : "border-amber-300 bg-amber-50"}`}
-                  >
-                    <option value="">Selecione um ingrediente...</option>
-                    {ingredients.map(ing => (
-                      <option key={ing.id} value={ing.id}>{ing.name}</option>
-                    ))}
-                    <option value="__new__">+ Criar novo ingrediente</option>
-                  </select>
+                  <div>
+                    <select
+                      value={item.ingredientId}
+                      onChange={e => {
+                        if (e.target.value === "__new__") {
+                          update(idx, { createProduct: true, ingredientId: "", rememberAlias: false });
+                        } else {
+                          update(idx, { ingredientId: e.target.value, createProduct: false });
+                        }
+                      }}
+                      className={`w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-primary ${item.ingredientId ? "border-gray-200" : "border-amber-300 bg-amber-50"}`}
+                    >
+                      <option value="">Selecione um ingrediente...</option>
+                      {ingredients.map(ing => (
+                        <option key={ing.id} value={ing.id}>{ing.name}</option>
+                      ))}
+                      <option value="__new__">+ Criar novo ingrediente</option>
+                    </select>
+                    {(() => {
+                      const selected = ingredients.find(ing => ing.id === item.ingredientId);
+                      if (!selected) return null;
+                      const normalize = (s: string) =>
+                        s.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLowerCase().trim().replace(/\s+/g, " ");
+                      if (normalize(selected.name) === normalize(item.name)) return null;
+                      return (
+                        <label className="flex items-center gap-1.5 mt-1 text-xs text-gray-500 cursor-pointer">
+                          <input type="checkbox" checked={item.rememberAlias}
+                            onChange={e => update(idx, { rememberAlias: e.target.checked })}
+                            className="accent-orange-500 w-3.5 h-3.5" />
+                          Lembrar &quot;{item.name}&quot; como {selected.name} da próxima vez
+                        </label>
+                      );
+                    })()}
+                  </div>
                 )}
               </td>
               <td className="px-3 py-2 text-center">

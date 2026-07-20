@@ -28,6 +28,12 @@ export class IngredientsController {
     return this.ingredientsService.findAll(req.user.companyId);
   }
 
+  @Get('aliases')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  listAliases(@Request() req: any) {
+    return this.ingredientsService.listAliases(req.user.companyId);
+  }
+
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   create(

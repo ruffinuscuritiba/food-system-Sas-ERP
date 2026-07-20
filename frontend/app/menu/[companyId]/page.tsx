@@ -1092,7 +1092,7 @@ export default function MenuPage() {
     const b = lcBlocks.find(b => b.id === id);
     return b?.order ?? 99;
   };
-  const featuredProducts = products.filter(p => !!p.featuredLabel).slice(0, 6);
+  const featuredProducts = products.filter(p => !!p.featuredLabel || discountPercent(p) !== null).slice(0, 6);
   // Order bump (upsell no checkout): produtos em destaque fora do carrinho;
   // fallback para bebidas/sobremesas. Máx 4. Reaproveita publicMenu — zero backend.
   const orderBumpProducts = (() => {

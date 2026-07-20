@@ -107,6 +107,7 @@ export class SmartImportController {
         unit?: string;
         createProduct?: boolean;
         ingredientId?: string;
+        rememberAlias?: boolean;
       }>;
       force?: boolean;
     },

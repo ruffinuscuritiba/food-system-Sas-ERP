@@ -796,6 +796,7 @@ export class SmartImportService {
       unit?: string;
       createProduct?: boolean;
       ingredientId?: string;
+      rememberAlias?: boolean;
     }>,
     companyId: string,
     force = false,
@@ -843,9 +844,10 @@ export class SmartImportService {
     }
 
     // Fallback para clientes antigos que não mandam ingredientId: exige
-    // igualdade exata (normalizada), nunca substring parcial — um match
-    // parcial já causou entrada no ingrediente errado (ex.: "Pimenta
-    // Calabresa" e "Linguiça Calabresa" caindo ambos em "Calabresa").
+    // igualdade exata (normalizada) contra o nome cadastrado OU um apelido
+    // já ensinado — nunca substring parcial, um match parcial já causou
+    // entrada no ingrediente errado (ex.: "Pimenta Calabresa" e "Linguiça
+    // Calabresa" caindo ambos em "Calabresa").
     const diacriticsRe = new RegExp('[\\u0300-\\u036f]', 'g');
     const normalize = (s: string) =>
       s
@@ -855,9 +857,10 @@ export class SmartImportService {
         .trim()
         .replace(/\s+/g, ' ');
     let allIngredients: { id: string; name: string }[] | null = null;
+    let allAliases: { alias: string; ingredientId: string }[] | null = null;
 
     for (const item of items) {
-      let ingredient: { id: string; stock: any } | null = null;
+      let ingredient: { id: string; stock: any; name: string } | null = null;
 
       if (item.ingredientId) {
         ingredient = await this.prisma.ingredient.findFirst({
@@ -872,12 +875,23 @@ export class SmartImportService {
             select: { id: true, name: true },
           });
         }
+        if (!allAliases) {
+          allAliases = await this.prisma.ingredientAlias.findMany({
+            where: { companyId },
+            select: { alias: true, ingredientId: true },
+          });
+        }
+        const normalizedItemName = normalize(item.name);
         const exactMatch = allIngredients.find(
-          (c) => normalize(c.name) === normalize(item.name),
+          (c) => normalize(c.name) === normalizedItemName,
         );
-        if (exactMatch) {
+        const aliasMatch = !exactMatch
+          ? allAliases.find((a) => normalize(a.alias) === normalizedItemName)
+          : null;
+        const matchedId = exactMatch?.id ?? aliasMatch?.ingredientId;
+        if (matchedId) {
           ingredient = await this.prisma.ingredient.findFirst({
-            where: { id: exactMatch.id, companyId },
+            where: { id: matchedId, companyId },
           });
         }
       }
@@ -891,6 +905,21 @@ export class SmartImportService {
             cost: item.unitCost,
             companyId,
           },
+        });
+      }
+
+      // Se o usuário escolheu manualmente um ingrediente com nome diferente
+      // do texto da nota e pediu para lembrar, grava o apelido pra próxima
+      // vez casar automaticamente.
+      if (
+        ingredient &&
+        item.rememberAlias &&
+        normalize(item.name) !== normalize(ingredient.name)
+      ) {
+        await this.prisma.ingredientAlias.upsert({
+          where: { companyId_alias: { companyId, alias: item.name } },
+          create: { companyId, alias: item.name, ingredientId: ingredient.id },
+          update: { ingredientId: ingredient.id },
         });
       }
 

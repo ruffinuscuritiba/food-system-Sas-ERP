@@ -179,6 +179,8 @@ model Company {
 
   ingredients Ingredient[]
 
+  ingredientAliases IngredientAlias[]
+
   recipes Recipe[]
 
   stockMovements StockMovement[]
@@ -895,6 +897,8 @@ model Ingredient {
 
   recipeItems RecipeItem[]
 
+  aliases IngredientAlias[]
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -904,6 +908,29 @@ model Ingredient {
   @@index([deletedAt])
 
   @@index([name])
+}
+
+// Apelido de ingrediente: nome como aparece numa nota fiscal (que difere do
+// nome cadastrado) mapeado para o Ingredient correto — evita ter que
+// escolher manualmente de novo quando o mesmo nome de fornecedor reaparecer.
+model IngredientAlias {
+  id String @id @default(cuid())
+
+  alias String
+
+  ingredientId String
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, alias])
+
+  @@index([ingredientId])
 }
 
 model Recipe {

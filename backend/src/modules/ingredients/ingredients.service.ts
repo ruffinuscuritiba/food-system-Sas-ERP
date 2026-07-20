@@ -97,4 +97,11 @@ export class IngredientsService {
       data: { deletedAt: new Date() },
     });
   }
+
+  async listAliases(companyId: string) {
+    return this.prisma.ingredientAlias.findMany({
+      where: { companyId },
+      select: { id: true, alias: true, ingredientId: true },
+    });
+  }
 }

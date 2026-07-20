@@ -181,6 +181,8 @@ model Company {
 
   ingredientAliases IngredientAlias[]
 
+  menuAnalyticsEvents MenuAnalyticsEvent[]
+
   recipes Recipe[]
 
   stockMovements StockMovement[]
@@ -938,6 +940,27 @@ model IngredientAlias {
   @@unique([companyId, alias])
 
   @@index([ingredientId])
+}
+
+// Rastreamento leve de tráfego do cardápio digital (por loja) — alimenta o
+// painel "Tráfego Pago" com dados reais pra usar em anúncios manuais
+// (Facebook/Instagram Ads): visualizações do cardápio e de cada produto.
+model MenuAnalyticsEvent {
+  id String @id @default(cuid())
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  // "MENU_VIEW" | "PRODUCT_VIEW"
+  type String
+
+  productId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, type, createdAt])
+  @@index([companyId, productId])
 }
 
 model Recipe {

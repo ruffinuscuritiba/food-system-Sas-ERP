@@ -27,6 +27,7 @@ import { ComplementsModule } from './modules/complements/complements.module';
 import { OnlineOrdersModule } from './modules/online-orders/online-orders.module';
 import { WhatsappAiModule } from './modules/whatsapp-ai/whatsapp-ai.module';
 import { IngredientsModule } from './modules/ingredients/ingredients.module';
+import { MenuAnalyticsModule } from './modules/menu-analytics/menu-analytics.module';
 import { RecipesModule } from './modules/recipes/recipes.module';
 import { StockModule } from './modules/stock/stock.module';
 import { DriversModule } from './modules/drivers/drivers.module';
@@ -85,6 +86,7 @@ import { TotemModule } from './modules/totem/totem.module';
     OnlineOrdersModule,
     WhatsappAiModule,
     IngredientsModule,
+    MenuAnalyticsModule,
     RecipesModule,
     StockModule,
     DriversModule,

@@ -410,6 +410,28 @@ export default function MenuPage() {
     } catch { /* cookie malformado — ignora */ }
   }, [realCompanyId]);
 
+  /* ── Tráfego Pago — registra 1 visualização do cardápio por carregamento ── */
+  useEffect(() => {
+    if (!realCompanyId || realCompanyId === companyId) return; // aguarda resolve do slug
+    fetch(`${apiBaseUrl}/menu-analytics/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ companyId: realCompanyId, type: "MENU_VIEW" }),
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realCompanyId]);
+
+  function trackProductView(productId: string) {
+    if (!realCompanyId) return;
+    fetch(`${apiBaseUrl}/menu-analytics/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ companyId: realCompanyId, type: "PRODUCT_VIEW", productId }),
+    }).catch(() => {});
+  }
+
   /* ── PIX countdown ────────────────────────────────────────────── */
   useEffect(() => {
     if (!showPixScreen || !pixData?.expiresAt) return;
@@ -551,6 +573,7 @@ export default function MenuPage() {
   }
 
   async function addToCart(product: Product) {
+    trackProductView(product.id);
     // Busca complementos do produto via endpoint público (multiempresa por query)
     setCompLoading(true);
     try {
@@ -575,6 +598,7 @@ export default function MenuPage() {
   }
 
   function openFlavorModal(product?: Product) {
+    if (product) trackProductView(product.id);
     setFlavorParts(2);
     setFlavorSlots(product ? [product, null] : [null, null]);
     setFlavorFilter("");

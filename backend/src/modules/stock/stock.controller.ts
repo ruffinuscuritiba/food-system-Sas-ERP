@@ -4,6 +4,7 @@ import {
   Get,
   Patch,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -23,8 +24,17 @@ export class StockController {
 
   @Get('movements')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
-  async getMovements(@Request() req: any) {
-    return this.stockService.getMovements(req.user.companyId);
+  async getMovements(
+    @Request() req: any,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('type') type?: string,
+  ) {
+    return this.stockService.getMovements(req.user.companyId, {
+      from,
+      to,
+      type,
+    });
   }
 
   @Get('low-stock')

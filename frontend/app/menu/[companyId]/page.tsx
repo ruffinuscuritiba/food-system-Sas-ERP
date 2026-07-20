@@ -61,9 +61,12 @@ const FEATURED_LABEL_STYLES: Record<string, { text: string; className: string }>
   RECOMENDADO: { text: "Recomendado", className: "bg-emerald-500 text-white" },
 };
 
-/** Champion card — synthesized from iFood/Rappi-style promo carousels:
- *  discount/label badge top-left, quick-add "+" overlapping bottom-right of the image,
- *  strikethrough original price when on promotion. */
+/** Champion card v2 — apanhado de 3 referências reais (Hamburgueria do Airton,
+ *  Toca do Lanche, Aliança Pizzaria): foto quadrada em destaque, badge de
+ *  desconto pill verde no canto superior-esquerdo (estilo Toca do Lanche),
+ *  botão "+" flutuante no canto superior-direito da foto (estilo Aliança
+ *  Pizzaria — mais fácil de tocar sem abrir o produto), bloco de preço em
+ *  2 linhas (riscado em cima, valor final grande embaixo). */
 function FeaturedProductCard({ product, onAdd, primaryColor }: {
   product: Product; onAdd: (p: Product) => void; primaryColor: string;
 }) {
@@ -72,41 +75,43 @@ function FeaturedProductCard({ product, onAdd, primaryColor }: {
 
   return (
     <button onClick={() => onAdd(product)}
-      className="flex-shrink-0 w-36 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left hover:shadow-md active:scale-95 transition">
-      <div className="relative w-full h-24 bg-gray-100">
-        {product.imageUrl && (
+      className="flex-shrink-0 w-40 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left hover:shadow-md active:scale-95 transition">
+      <div className="relative w-full aspect-square bg-gray-100">
+        {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover"
             style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
         )}
         {discount ? (
-          <span className="absolute top-1.5 left-1.5 bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm">
+          <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full shadow-sm">
             -{discount}%
           </span>
         ) : labelStyle ? (
-          <span className={`absolute top-1.5 left-1.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md shadow-sm ${labelStyle.className}`}>
+          <span className={`absolute top-2 left-2 text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full shadow-sm ${labelStyle.className}`}>
             {labelStyle.text}
           </span>
         ) : null}
         <span
-          className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-white shadow-md border-2 border-white"
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-md border-2 border-white"
           style={{ backgroundColor: primaryColor }}
         >
-          <Plus size={14} strokeWidth={3} />
+          <Plus size={15} strokeWidth={3} />
         </span>
       </div>
-      <div className="p-2 pt-3">
-        <p className="text-xs font-semibold text-gray-800 line-clamp-2 min-h-[2rem]">{product.name}</p>
+      <div className="p-2.5">
+        <p className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[2.5rem] leading-snug">{product.name}</p>
         {discount ? (
-          <div className="mt-0.5">
-            <span className="text-[10px] text-gray-400 line-through mr-1">
+          <div className="mt-1 leading-tight">
+            <p className="text-[11px] text-gray-400 line-through">
               R$ {Number(product.originalPrice).toFixed(2).replace(".", ",")}
-            </span>
-            <span className="text-xs font-bold text-emerald-600">
+            </p>
+            <p className="text-base font-black text-emerald-600">
               R$ {Number(product.salePrice).toFixed(2).replace(".", ",")}
-            </span>
+            </p>
           </div>
         ) : (
-          <p className="text-xs font-bold mt-0.5" style={{ color: primaryColor }}>
+          <p className="text-sm font-bold mt-1" style={{ color: primaryColor }}>
             {productPriceLabel(product)}
           </p>
         )}

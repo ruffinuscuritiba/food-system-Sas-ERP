@@ -795,19 +795,13 @@ export class SmartImportService {
       unitCost: number;
       unit?: string;
       createProduct?: boolean;
+      ingredientId?: string;
     }>,
     companyId: string,
+    force = false,
   ) {
     const results: string[] = [];
     const skipped: Array<{ name: string; reason: string }> = [];
-
-    // Nomes de nota fiscal costumam ser mais longos/ruidosos do que o nome
-    // cadastrado do ingrediente (ex.: "QUEIJO MUSSARELA LITORAL KG" vs.
-    // "Mussarela") — carregado uma vez por sessão para o match reverso abaixo.
-    const allIngredients = await this.prisma.ingredient.findMany({
-      where: { companyId },
-      select: { id: true, name: true },
-    });
 
     // Número/data/fornecedor da nota (extraídos pela IA na etapa de upload)
     // ficam gravados na movimentação para dar rastreabilidade — ex.: relatório
@@ -827,22 +821,63 @@ export class SmartImportService {
       ? `Entrada via ${noteLabel}`
       : `Entrada via importação (sessão ${sessionId})`;
 
-    for (const item of items) {
-      let ingredient = await this.prisma.ingredient.findFirst({
+    // Evita lançar a mesma nota fiscal duas vezes por engano (a mesma nota
+    // reenviada gera um sessionId novo, então o dedup precisa ser pelo
+    // número da nota, não pela sessão).
+    if (docNumber && !force) {
+      const existing = await this.prisma.stockMovement.findFirst({
         where: {
           companyId,
-          name: { contains: item.name, mode: 'insensitive' },
+          referenceType: 'IMPORT_INVOICE',
+          reason: { contains: `NF nº ${docNumber}` },
         },
+        select: { createdAt: true },
       });
+      if (existing) {
+        return {
+          duplicate: true,
+          docNumber,
+          existingDate: existing.createdAt,
+        };
+      }
+    }
 
-      if (!ingredient) {
-        const lowerItemName = item.name.toLowerCase();
-        const reverseMatch = allIngredients.find((c) =>
-          lowerItemName.includes(c.name.toLowerCase()),
+    // Fallback para clientes antigos que não mandam ingredientId: exige
+    // igualdade exata (normalizada), nunca substring parcial — um match
+    // parcial já causou entrada no ingrediente errado (ex.: "Pimenta
+    // Calabresa" e "Linguiça Calabresa" caindo ambos em "Calabresa").
+    const diacriticsRe = new RegExp('[\\u0300-\\u036f]', 'g');
+    const normalize = (s: string) =>
+      s
+        .normalize('NFD')
+        .replace(diacriticsRe, '')
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ');
+    let allIngredients: { id: string; name: string }[] | null = null;
+
+    for (const item of items) {
+      let ingredient: { id: string; stock: any } | null = null;
+
+      if (item.ingredientId) {
+        ingredient = await this.prisma.ingredient.findFirst({
+          where: { id: item.ingredientId, companyId },
+        });
+      }
+
+      if (!ingredient && !item.createProduct) {
+        if (!allIngredients) {
+          allIngredients = await this.prisma.ingredient.findMany({
+            where: { companyId },
+            select: { id: true, name: true },
+          });
+        }
+        const exactMatch = allIngredients.find(
+          (c) => normalize(c.name) === normalize(item.name),
         );
-        if (reverseMatch) {
+        if (exactMatch) {
           ingredient = await this.prisma.ingredient.findFirst({
-            where: { id: reverseMatch.id, companyId },
+            where: { id: exactMatch.id, companyId },
           });
         }
       }
@@ -857,7 +892,6 @@ export class SmartImportService {
             companyId,
           },
         });
-        allIngredients.push({ id: ingredient.id, name: ingredient.name });
       }
 
       if (ingredient) {
@@ -891,7 +925,7 @@ export class SmartImportService {
         skipped.push({
           name: item.name,
           reason:
-            'Nenhum ingrediente correspondente encontrado — marque "Criar novo" e confirme novamente.',
+            'Nenhum ingrediente selecionado — escolha um ingrediente ou marque "Criar novo".',
         });
       }
     }

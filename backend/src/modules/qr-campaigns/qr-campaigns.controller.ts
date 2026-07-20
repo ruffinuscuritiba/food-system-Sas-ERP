@@ -46,6 +46,14 @@ export class QrCampaignsController {
     return this.svc.toggleCampaign(id, companyId, status);
   }
 
+  // Link manual reutilizável (compartilhar fora do fluxo automático de pedido)
+  @Post(':id/manual-link')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  manualLink(@CompanyId() companyId: string, @Param('id') id: string) {
+    return this.svc.generateManualLink(companyId, id);
+  }
+
   // PrintBlock para reimpressão no PDV
   @Get('order/:orderId/print-block')
   @UseGuards(JwtAuthGuard, RolesGuard)

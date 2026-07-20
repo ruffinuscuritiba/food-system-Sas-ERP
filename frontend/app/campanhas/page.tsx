@@ -6,7 +6,7 @@ import toast from "react-hot-toast"
 import {
   QrCode, Plus, ToggleLeft, ToggleRight, Trash2,
   TrendingUp, ScanLine, ShoppingBag, DollarSign, Percent,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Link2, Copy, Check, X, Download,
 } from "lucide-react"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -63,6 +63,10 @@ export default function CampanhasPage() {
   const [showForm, setShowForm]     = useState(false)
   const [loading, setLoading]       = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [shareCampaign, setShareCampaign] = useState<Campaign | null>(null)
+  const [shareLink, setShareLink]         = useState<string | null>(null)
+  const [shareLoading, setShareLoading]   = useState(false)
+  const [copied, setCopied]               = useState(false)
 
   const [form, setForm] = useState({
     name:             "",
@@ -123,6 +127,30 @@ export default function CampanhasPage() {
     } catch {
       toast.error("Erro ao alterar status")
     }
+  }
+
+  async function openShare(c: Campaign) {
+    setShareCampaign(c)
+    setShareLink(null)
+    setCopied(false)
+    setShareLoading(true)
+    try {
+      const { data } = await api.post<{ redirectUrl: string }>(`/qr-campaigns/${c.id}/manual-link`)
+      setShareLink(data.redirectUrl)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Erro ao gerar link")
+      setShareCampaign(null)
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  async function copyLink() {
+    if (!shareLink) return
+    await navigator.clipboard.writeText(shareLink)
+    setCopied(true)
+    toast.success("Link copiado!")
+    setTimeout(() => setCopied(false), 2000)
   }
 
   async function deleteCampaign(id: string) {
@@ -331,6 +359,15 @@ export default function CampanhasPage() {
                 </div>
 
                 <button
+                  onClick={() => openShare(c)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-200 text-orange-600 text-xs font-semibold hover:bg-orange-50 transition"
+                  title="Copiar link / QR Code para compartilhar"
+                >
+                  <Link2 size={14} />
+                  Link / QR
+                </button>
+
+                <button
                   onClick={() => toggleStatus(c.id, c.status)}
                   className="text-gray-400 hover:text-orange-600 transition"
                   title={c.status ? "Pausar" : "Ativar"}
@@ -357,8 +394,66 @@ export default function CampanhasPage() {
       <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4 text-sm text-orange-700">
         <strong>Como funciona:</strong> ao finalizar cada pedido (cardápio próprio, iFood ou 99Food),
         o sistema gera automaticamente um QR code na impressão. O cliente escaneia, é redirecionado
-        para o seu cardápio digital e o desconto é aplicado automaticamente no checkout.
+        para o seu cardápio digital e o desconto é aplicado automaticamente no checkout. Use o botão
+        "Link / QR" em cada campanha para compartilhar o mesmo cupom em redes sociais, WhatsApp ou cartaz impresso.
       </div>
+
+      {/* Modal de compartilhamento */}
+      {shareCampaign && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShareCampaign(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-800">Compartilhar cupom</h3>
+              <button onClick={() => setShareCampaign(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500">{shareCampaign.name}</p>
+
+            {shareLoading ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Gerando link...</p>
+            ) : shareLink ? (
+              <>
+                <div className="flex justify-center py-2">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareLink)}`}
+                    alt="QR Code da campanha"
+                    className="rounded-xl border"
+                    width={200}
+                    height={200}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={shareLink}
+                    className="flex-1 border rounded-xl px-3 py-2 text-xs text-gray-600 bg-gray-50"
+                    onFocus={e => e.target.select()}
+                  />
+                  <button
+                    onClick={copyLink}
+                    className={`shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold transition
+                      ${copied ? "bg-emerald-100 text-emerald-700" : "bg-orange-600 text-white hover:bg-orange-700"}`}
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                    {copied ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
+                <a
+                  href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(shareLink)}`}
+                  download={`qr-${shareCampaign.name.replace(/\s+/g, "-").toLowerCase()}.png`}
+                  className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border text-sm text-gray-600 hover:bg-gray-50 transition"
+                >
+                  <Download size={14} /> Baixar QR Code (alta resolução)
+                </a>
+                <p className="text-xs text-gray-400 text-center">
+                  Esse link pode ser escaneado por várias pessoas — não expira no primeiro uso.
+                </p>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

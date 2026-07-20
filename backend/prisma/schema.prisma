@@ -2214,6 +2214,9 @@ model QrCode {
   orderSource String      @default("PROPRIO") // PROPRIO | IFOOD | 99FOOD | RAPPI | MOCK
   token         String      @unique
   qrUrl         String      @db.Text
+  // Link manual gerado pra compartilhar (Instagram, WhatsApp, cartaz) — não
+  // é de uso único como os QR de nota/pedido: fica sempre válido até expirar.
+  isReusable    Boolean     @default(false)
   used          Boolean     @default(false)
   usedAt        DateTime?
   usedByPhone   String?     // telefone do cliente que resgatou

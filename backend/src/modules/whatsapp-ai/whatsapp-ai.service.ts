@@ -1025,9 +1025,16 @@ export class WhatsappAiService implements OnApplicationBootstrap {
 
   /**
    * Detecta o ambiente da IA central a partir da empresa dona da conexão:
-   *   - PLATFORM_SELLER_COMPANY_ID (ou legado platform@foodsaas.internal) → R_FOOD_SAAS (vende o sistema)
-   *   - empresas demo                                                     → LOJA_DEMO (demonstra + upsell)
-   *   - demais                                                            → CLIENTE_REAL (atende pedidos)
+   *   - PLATFORM_SELLER_COMPANY_ID → R_FOOD_SAAS (vende o sistema)
+   *   - empresas demo              → LOJA_DEMO (demonstra + upsell)
+   *   - demais                     → CLIENTE_REAL (atende pedidos)
+   *
+   * O fallback legado por e-mail (`platform@foodsaas.internal`) foi removido:
+   * a empresa matriz "Ruffinu's Pizzaria" (MATRIX_COMPANY_ID) mantém esse
+   * e-mail histórico no cadastro mesmo sendo, hoje, uma loja real com
+   * clientes reais — o fallback fazia a Kely tentar vender o sistema pra
+   * quem só queria pedir pizza. PLATFORM_SELLER_COMPANY_ID já cobre o caso
+   * de venda do SaaS com um ID de empresa dedicado e sem essa ambiguidade.
    */
   private detectAmbiente(
     email: string | null | undefined,
@@ -1035,7 +1042,6 @@ export class WhatsappAiService implements OnApplicationBootstrap {
   ): 'R_FOOD_SAAS' | 'LOJA_DEMO' | 'CLIENTE_REAL' {
     const mail = (email ?? '').toLowerCase();
     if (companyId === PLATFORM_SELLER_COMPANY_ID) return 'R_FOOD_SAAS';
-    if (mail === 'platform@foodsaas.internal') return 'R_FOOD_SAAS'; // legado
     if (
       mail.includes('@foodsaas.demo') ||
       mail.includes('demo-') ||

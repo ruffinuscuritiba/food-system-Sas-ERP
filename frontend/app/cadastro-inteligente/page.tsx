@@ -8,7 +8,7 @@ import { AiTrialLock } from "@/components/AiTrialLock";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 import {
   Sparkles, Upload, FileText, Image as ImageIcon, Loader2,
-  CheckCircle2, XCircle, Trash2, ChevronDown, RefreshCw, Zap,
+  CheckCircle2, XCircle, X, Trash2, ChevronDown, RefreshCw, Zap,
   FileSpreadsheet, FileCode2, FileImage, Plus,
 } from "lucide-react";
 
@@ -47,6 +47,7 @@ interface InvoiceItem {
   total?: number;
   confidence?: number;
   createProduct: boolean;
+  ingredientId: string;
   enabled: boolean;
 }
 
@@ -199,6 +200,7 @@ export default function CadastroInteligentePage() {
   const [menuItems, setMenuItems]           = useState<MenuItem[]>([]);
   const [invoiceItems, setInvoiceItems]     = useState<InvoiceItem[]>([]);
   const [categories, setCategories]         = useState<{ id: string; name: string }[]>([]);
+  const [ingredients, setIngredients]       = useState<{ id: string; name: string }[]>([]);
   const [doneMsg, setDoneMsg]               = useState("");
   const [errorMsg, setErrorMsg]             = useState("");
   const [dragOver, setDragOver]             = useState(false);
@@ -209,6 +211,7 @@ export default function CadastroInteligentePage() {
 
   useEffect(() => {
     api.get("/categories").then(r => setCategories(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get("/ingredients").then(r => setIngredients(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
@@ -331,17 +334,26 @@ export default function CadastroInteligentePage() {
         } satisfies MenuItem;
       }));
     } else {
-      setInvoiceItems(items.map((it: any) => ({
-        itemId: it.id,
-        name: it.data?.name ?? it.name ?? "",
-        quantity: it.data?.quantity ?? it.quantity ?? 1,
-        unit: it.data?.unit ?? it.unit ?? "UN",
-        unitCost: it.data?.unitCost ?? it.unitCost ?? 0,
-        total: it.data?.total ?? it.total ?? undefined,
-        confidence: it.confidence ?? it.data?.confidence ?? undefined,
-        createProduct: false,
-        enabled: true,
-      })));
+      const DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
+      const normalize = (s: string) =>
+        s.normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase().trim().replace(/\s+/g, " ");
+
+      setInvoiceItems(items.map((it: any) => {
+        const name = it.data?.name ?? it.name ?? "";
+        const exactMatch = ingredients.find((ing) => normalize(ing.name) === normalize(name));
+        return {
+          itemId: it.id,
+          name,
+          quantity: it.data?.quantity ?? it.quantity ?? 1,
+          unit: it.data?.unit ?? it.unit ?? "UN",
+          unitCost: it.data?.unitCost ?? it.unitCost ?? 0,
+          total: it.data?.total ?? it.total ?? undefined,
+          confidence: it.confidence ?? it.data?.confidence ?? undefined,
+          createProduct: false,
+          ingredientId: exactMatch?.id ?? "",
+          enabled: true,
+        };
+      }));
     }
   }
 
@@ -369,11 +381,12 @@ export default function CadastroInteligentePage() {
     }
   }
 
-  async function confirmInvoice() {
+  async function confirmInvoice(force = false) {
     const enabled = invoiceItems.filter(i => i.enabled);
     if (!enabled.length) { toast.error("Nenhum item selecionado"); return; }
     try {
       const { data } = await api.post(`/smart-import/confirm/invoice/${sessionId}`, {
+        force,
         items: enabled.map(i => ({
           itemId: i.itemId,
           name: i.name,
@@ -381,13 +394,24 @@ export default function CadastroInteligentePage() {
           unitCost: Number(i.unitCost),
           unit: i.unit,
           createProduct: i.createProduct,
+          ingredientId: i.ingredientId || undefined,
         })),
       });
+
+      if (data.duplicate) {
+        const dateLabel = data.existingDate ? new Date(data.existingDate).toLocaleDateString("pt-BR") : "";
+        const proceed = window.confirm(
+          `A nota fiscal nº ${data.docNumber} já foi lançada${dateLabel ? ` em ${dateLabel}` : ""}. Confirmar mesmo assim pode duplicar o estoque. Deseja continuar?`,
+        );
+        if (proceed) await confirmInvoice(true);
+        return;
+      }
+
       setDoneMsg(`${data.created} entrada(s) de estoque registrada(s)!`);
       const skipped: { name: string }[] = data.skipped ?? [];
       if (skipped.length > 0) {
         toast.error(
-          `${skipped.length} item(ns) não encontraram ingrediente correspondente e foram ignorados: ${skipped.slice(0, 3).map(s => s.name).join(", ")}${skipped.length > 3 ? "…" : ""}. Marque "Criar novo" para esses itens e confirme de novo.`,
+          `${skipped.length} item(ns) sem ingrediente selecionado e foram ignorados: ${skipped.slice(0, 3).map(s => s.name).join(", ")}${skipped.length > 3 ? "…" : ""}. Escolha um ingrediente ou marque "Criar novo" e confirme de novo.`,
           { duration: 10000 },
         );
       }
@@ -552,12 +576,12 @@ export default function CadastroInteligentePage() {
             {isMenuTab ? (
               <MenuReviewTable items={menuItems} setItems={setMenuItems} categories={categories} />
             ) : (
-              <InvoiceReviewTable items={invoiceItems} setItems={setInvoiceItems} />
+              <InvoiceReviewTable items={invoiceItems} setItems={setInvoiceItems} ingredients={ingredients} />
             )}
 
             <div className="flex justify-end">
               <button
-                onClick={isMenuTab ? confirmMenu : confirmInvoice}
+                onClick={() => (isMenuTab ? confirmMenu() : confirmInvoice())}
                 className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 transition"
               >
                 <CheckCircle2 size={18} />
@@ -763,10 +787,11 @@ function MenuReviewTable({
 // ── Invoice Review Table ──────────────────────────────────────────────────────
 
 function InvoiceReviewTable({
-  items, setItems,
+  items, setItems, ingredients,
 }: {
   items: InvoiceItem[];
   setItems: (v: InvoiceItem[]) => void;
+  ingredients: { id: string; name: string }[];
 }) {
   function update(idx: number, patch: Partial<InvoiceItem>) {
     setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
@@ -778,11 +803,11 @@ function InvoiceReviewTable({
         <thead className="bg-gray-50 border-b border-gray-100">
           <tr>
             <th className="w-8 px-3 py-3"></th>
-            <th className="text-left px-3 py-3 font-semibold text-gray-600">Produto</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-600">Produto (da nota)</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600">Qtd</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600">Un</th>
             <th className="text-left px-3 py-3 font-semibold text-gray-600">Custo unit.</th>
-            <th className="text-center px-3 py-3 font-semibold text-gray-600 hidden md:table-cell">Criar produto?</th>
+            <th className="text-left px-3 py-3 font-semibold text-gray-600">Ingrediente</th>
             <th className="text-center px-3 py-3 font-semibold text-gray-600">Conf.</th>
             <th className="w-8 px-2 py-3"></th>
           </tr>
@@ -811,9 +836,36 @@ function InvoiceReviewTable({
                 <input type="number" value={item.unitCost} onChange={e => update(idx, { unitCost: Number(e.target.value) })}
                   className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary" step="0.01" />
               </td>
-              <td className="px-3 py-2 text-center hidden md:table-cell">
-                <input type="checkbox" checked={item.createProduct} onChange={e => update(idx, { createProduct: e.target.checked })}
-                  className="accent-orange-500 w-4 h-4" title="Criar produto no catálogo se não existir" />
+              <td className="px-3 py-2 min-w-[180px]">
+                {item.createProduct ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-lg px-2 py-1.5 truncate" title={item.name}>
+                      + Criar novo: {item.name}
+                    </span>
+                    <button type="button" onClick={() => update(idx, { createProduct: false })}
+                      className="text-gray-400 hover:text-gray-600 text-xs shrink-0">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={item.ingredientId}
+                    onChange={e => {
+                      if (e.target.value === "__new__") {
+                        update(idx, { createProduct: true, ingredientId: "" });
+                      } else {
+                        update(idx, { ingredientId: e.target.value, createProduct: false });
+                      }
+                    }}
+                    className={`w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-primary ${item.ingredientId ? "border-gray-200" : "border-amber-300 bg-amber-50"}`}
+                  >
+                    <option value="">Selecione um ingrediente...</option>
+                    {ingredients.map(ing => (
+                      <option key={ing.id} value={ing.id}>{ing.name}</option>
+                    ))}
+                    <option value="__new__">+ Criar novo ingrediente</option>
+                  </select>
+                )}
               </td>
               <td className="px-3 py-2 text-center">
                 <ConfidenceBadge v={item.confidence} />

@@ -106,7 +106,9 @@ export class SmartImportController {
         unitCost: number;
         unit?: string;
         createProduct?: boolean;
+        ingredientId?: string;
       }>;
+      force?: boolean;
     },
     @Request() req: any,
   ) {
@@ -114,6 +116,7 @@ export class SmartImportController {
       sessionId,
       body.items,
       req.user.companyId,
+      body.force,
     );
   }
 }

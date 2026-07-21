@@ -54,6 +54,7 @@ import { QrCampaignsModule } from './modules/qr-campaigns/qr-campaigns.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { TotemModule } from './modules/totem/totem.module';
+import { WhatsappCampaignsModule } from './modules/whatsapp-campaigns/whatsapp-campaigns.module';
 
 // NOTE: Modules disabled temporarily due to schema/code mismatch:
 // - ChatModule, AlertsModule
@@ -110,6 +111,7 @@ import { TotemModule } from './modules/totem/totem.module';
     UploadModule,
     FiscalModule,
     TotemModule,
+    WhatsappCampaignsModule,
   ],
   controllers: [AppController],
   providers: [

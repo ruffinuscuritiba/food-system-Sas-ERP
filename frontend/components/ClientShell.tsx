@@ -44,6 +44,7 @@ import {
   Settings,
   ChevronDown,
   TrendingUp,
+  Repeat,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -165,6 +166,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/marketing",            label: "Marketing Digital",   icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing",    navKey: "marketing" },
       { href: "/campanhas",            label: "QR Recuperação",      icon: <QrCode size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "campanhas" },
       { href: "/trafego-pago",         label: "Tráfego Pago",        icon: <TrendingUp size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "trafego-pago" },
+      { href: "/campanhas-recorrentes", label: "Reengajamento WhatsApp", icon: <Repeat size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "campanhas-recorrentes" },
     ],
   },
   {

@@ -1489,9 +1489,7 @@ export default function MenuPage() {
           }
 
           // Default list layout
-          return (
-            <div className="space-y-3">
-              {filtered.map((product) => (
+          const renderProductCard = (product: Product) => (
                 <div
                   key={product.id}
                   className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex"
@@ -1560,7 +1558,36 @@ export default function MenuPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+          );
+
+          // Em "Todos" os produtos vinham em ordem alfabética misturando
+          // pizza salgada, doce, esfiha e bebida — agrupa por categoria
+          // (mesma ordem das abas) pra ficar navegável como um cardápio real.
+          if (activeCategory === "Todos") {
+            const byCategory = new Map<string, Product[]>();
+            for (const p of filtered) {
+              const catName = p.category?.name?.trim() || "Outros";
+              if (!byCategory.has(catName)) byCategory.set(catName, []);
+              byCategory.get(catName)!.push(p);
+            }
+            const orderedCats = categories.filter((c) => c !== "Todos" && byCategory.has(c));
+            return (
+              <div className="space-y-6">
+                {orderedCats.map((catName) => (
+                  <div key={catName}>
+                    <h2 className="text-sm font-bold text-gray-700 mb-3">{catName}</h2>
+                    <div className="space-y-3">
+                      {byCategory.get(catName)!.map(renderProductCard)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-3">
+              {filtered.map(renderProductCard)}
             </div>
           );
         })()}

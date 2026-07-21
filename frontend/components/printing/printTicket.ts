@@ -112,18 +112,20 @@ export const THERMAL_CSS = `
 
 /**
  * Opens a popup, writes the full HTML string, and triggers window.print().
- * Gracefully warns in the console if popups are blocked.
+ * Returns false (and warns in the console) if the popup was blocked — callers
+ * use this to warn the operator instead of failing silently.
  */
-export function printTicket(html: string): void {
+export function printTicket(html: string): boolean {
   const w = window.open("", "_blank", "width=420,height=700");
   if (!w) {
     console.warn("[printTicket] Popup blocked — allow popups for this site.");
-    return;
+    return false;
   }
   w.document.write(html);
   w.document.close();
   w.focus();
   w.print();
+  return true;
 }
 
 // ── Helpers shared by builders ────────────────────────────────────────────────

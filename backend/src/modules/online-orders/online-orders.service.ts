@@ -10,6 +10,7 @@ import { SocketGateway } from '@/socket/socket.gateway';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
+import { StockService } from '@/modules/stock/stock.service';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
@@ -63,6 +64,7 @@ export class OnlineOrdersService {
     private readonly socketGateway: SocketGateway,
     private readonly notifications: NotificationsService,
     private readonly deliveryConfigService: DeliveryConfigService,
+    private readonly stockService: StockService,
     @Optional() private readonly qrCampaigns?: QrCampaignsService,
   ) {}
 
@@ -119,7 +121,68 @@ export class OnlineOrdersService {
       throw new BadRequestException('Valor total inválido.');
     }
 
-    // ── 1b. Validação server-side de complementos (Fase A — Item 4) ────────
+    // ── 1a. Idempotência — evita pedido duplicado quando a resposta se perde
+    // por queda de conexão e o cliente reenvia o mesmo carrinho. Janela curta
+    // (20s) e comparação por telefone+total: suficiente pra pegar retry de
+    // rede sem bloquear um segundo pedido legítimo do mesmo cliente.
+    const recentDuplicate = await this.prisma.onlineOrder.findFirst({
+      where: {
+        companyId: dto.companyId,
+        customerPhone: dto.customerPhone.trim(),
+        total,
+        createdAt: { gte: new Date(Date.now() - 20_000) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recentDuplicate) {
+      this.logger.warn(
+        `[OnlineOrder] possível reenvio duplicado — retornando pedido existente ${recentDuplicate.id}`,
+      );
+      return recentDuplicate;
+    }
+
+    // ── 1b. Disponibilidade de estoque em tempo real ────────────────────────
+    // Soma o consumo de ingrediente exigido por todos os itens do carrinho
+    // (produtos sem receita cadastrada não entram na checagem — mesma regra
+    // do PDV: "sem receita → não consome/não bloqueia"). Bloqueia a criação
+    // do pedido se faltar estoque de algum ingrediente, ao invés de aceitar
+    // a venda e nunca decrementar nada (bug anterior).
+    {
+      const neededByIngredient = new Map<string, number>();
+      const nameByIngredient = new Map<string, string>();
+      for (const item of dto.items) {
+        const recipe = await this.prisma.recipe.findFirst({
+          where: { productId: item.productId },
+          include: { items: { include: { ingredient: true } } },
+        });
+        if (!recipe) continue;
+        for (const ri of recipe.items) {
+          const qty = Number(ri.quantity) * Number(item.quantity || 1);
+          neededByIngredient.set(
+            ri.ingredientId,
+            (neededByIngredient.get(ri.ingredientId) || 0) + qty,
+          );
+          nameByIngredient.set(ri.ingredientId, ri.ingredient.name);
+        }
+      }
+      for (const [ingredientId, needed] of neededByIngredient) {
+        const ingredient = await this.prisma.ingredient.findFirst({
+          where: { id: ingredientId, companyId: dto.companyId },
+          select: { stock: true, allowNegativeStock: true, name: true },
+        });
+        if (!ingredient) continue;
+        if (
+          Number(ingredient.stock) < needed &&
+          !ingredient.allowNegativeStock
+        ) {
+          throw new BadRequestException(
+            `"${nameByIngredient.get(ingredientId) || ingredient.name}" está com estoque insuficiente no momento. Remova ou ajuste a quantidade do item e tente novamente.`,
+          );
+        }
+      }
+    }
+
+    // ── 1c. Validação server-side de complementos (Fase A — Item 4) ────────
     // Garante required / minOptions / maxOptions / multipleChoice mesmo
     // que o frontend seja burlado. Tudo filtrado por companyId.
     for (const item of dto.items) {
@@ -340,9 +403,99 @@ export class OnlineOrdersService {
   }
 
   async updateOrderStatus(id: string, orderStatus: string) {
-    return this.prisma.onlineOrder.update({
+    const updated = await this.prisma.onlineOrder.update({
       where: { id },
       data: { orderStatus: orderStatus as any },
     });
+
+    // Pagamento já foi capturado pelo gateway nesse ponto (webhook) — não dá
+    // pra "rejeitar" a confirmação por falta de estoque. Só registra e loga
+    // pra o lojista resolver manualmente (fire-and-forget, nunca bloqueia).
+    if (orderStatus === 'CONFIRMED') {
+      this.consumeStockForOrder(id, updated.companyId).catch((e: any) =>
+        this.logger.warn(`[OnlineOrder] consumo de estoque falhou (${id}): ${e?.message}`),
+      );
+    } else if (orderStatus === 'CANCELED') {
+      this.restoreStockForOrder(id, updated.companyId).catch((e: any) =>
+        this.logger.warn(`[OnlineOrder] restauração de estoque falhou (${id}): ${e?.message}`),
+      );
+    }
+
+    return updated;
+  }
+
+  /**
+   * Consome os ingredientes da receita de cada item do pedido, uma única vez
+   * por pedido (idempotente via StockMovement.referenceId — protege contra
+   * chamada dupla vinda do webhook de pagamento E de uma ação manual da
+   * cozinha para o mesmo pedido). Produtos sem receita não consomem nada,
+   * mesma regra do PDV.
+   */
+  async consumeStockForOrder(id: string, companyId: string, userId = 'SYSTEM') {
+    const already = await this.prisma.stockMovement.findFirst({
+      where: { referenceId: id, referenceType: 'ONLINE_ORDER' },
+      select: { id: true },
+    });
+    if (already) return;
+
+    const order = await this.prisma.onlineOrder.findFirst({ where: { id, companyId } });
+    if (!order) return;
+    const items: any[] = Array.isArray(order.items) ? (order.items as any[]) : [];
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        for (const item of items) {
+          if (!item?.productId) continue;
+          const recipe = await tx.recipe.findFirst({
+            where: { productId: item.productId },
+            include: { items: { include: { ingredient: true } } },
+          });
+          if (!recipe) continue;
+          for (const recipeItem of recipe.items) {
+            const qty = Number(recipeItem.quantity) * Number(item.quantity || 1);
+            await this.stockService.consumeIngredientTransactional(tx, {
+              ingredientId: recipeItem.ingredientId,
+              quantity: qty,
+              companyId,
+              performedById: userId,
+              reason: `Consumo automático pedido online ${id}`,
+              referenceId: id,
+              referenceType: 'ONLINE_ORDER',
+            });
+          }
+        }
+      },
+      { isolationLevel: 'Serializable' },
+    );
+  }
+
+  /** Reverte o consumo feito por consumeStockForOrder — só age se algo foi de fato consumido. */
+  async restoreStockForOrder(id: string, companyId: string, userId = 'SYSTEM') {
+    const consumed = await this.prisma.stockMovement.findMany({
+      where: { referenceId: id, referenceType: 'ONLINE_ORDER', type: 'SALE' },
+    });
+    if (consumed.length === 0) return;
+    const alreadyRestored = await this.prisma.stockMovement.findFirst({
+      where: { referenceId: id, referenceType: 'ONLINE_ORDER', type: 'RETURN' },
+    });
+    if (alreadyRestored) return;
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        for (const m of consumed) {
+          if (!m.ingredientId) continue;
+          await this.stockService.restoreIngredientTransactional(tx, {
+            ingredientId: m.ingredientId,
+            quantity: Number(m.quantity),
+            companyId,
+            performedById: userId,
+            reason: `Cancelamento pedido online ${id}`,
+            referenceId: id,
+            referenceType: 'ONLINE_ORDER',
+          });
+        }
+      },
+      { isolationLevel: 'Serializable' },
+    );
   }
 }

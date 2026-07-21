@@ -858,14 +858,24 @@ export class SmartImportService {
         .replace(/\s+/g, ' ');
     let allIngredients: { id: string; name: string }[] | null = null;
     let allAliases: { alias: string; ingredientId: string }[] | null = null;
+    // Itens duplicados DENTRO da mesma nota (ex.: OCR extraiu a mesma linha
+    // 3x) não podem virar 3 ingredientes — cada nome normalizado só pode
+    // criar um ingrediente novo por chamada; as próximas ocorrências
+    // reaproveitam o que acabou de ser criado NESTE loop.
+    const createdInThisBatch = new Map<string, { id: string; stock: any; name: string }>();
 
     for (const item of items) {
       let ingredient: { id: string; stock: any; name: string } | null = null;
+      const normalizedItemName = normalize(item.name);
 
       if (item.ingredientId) {
         ingredient = await this.prisma.ingredient.findFirst({
           where: { id: item.ingredientId, companyId },
         });
+      }
+
+      if (!ingredient) {
+        ingredient = createdInThisBatch.get(normalizedItemName) ?? null;
       }
 
       if (!ingredient && !item.createProduct) {
@@ -881,7 +891,6 @@ export class SmartImportService {
             select: { alias: true, ingredientId: true },
           });
         }
-        const normalizedItemName = normalize(item.name);
         const exactMatch = allIngredients.find(
           (c) => normalize(c.name) === normalizedItemName,
         );
@@ -906,6 +915,7 @@ export class SmartImportService {
             companyId,
           },
         });
+        createdInThisBatch.set(normalizedItemName, ingredient);
       }
 
       // Se o usuário escolheu manualmente um ingrediente com nome diferente
@@ -945,6 +955,11 @@ export class SmartImportService {
           where: { id: ingredient.id },
           data: { stock: newStock, lastPurchaseCost: item.unitCost },
         });
+        // Mantém o objeto em memória sincronizado — se este ingrediente veio
+        // de createdInThisBatch (mesmo nome repetido na nota), a PRÓXIMA
+        // ocorrência precisa ver o estoque já somado, não o valor stale de
+        // quando foi criado (senão a 2ª entrada sobrescreveria a 1ª).
+        ingredient.stock = newStock;
         await this.prisma.importItem.update({
           where: { id: item.itemId },
           data: { confirmed: true, savedId: movement.id },

@@ -241,7 +241,20 @@ export class ProductsService {
       },
 
       include: {
-        category: true,
+        // Select enxuto: bannerImage/bannerImageZoom são base64 grandes e
+        // ficam duplicados em todo produto da mesma categoria — não usados
+        // pelo cardápio digital (inflavam o payload em vários MB).
+        category: {
+          select: {
+            id: true,
+            name: true,
+            categoryType: true,
+            displayColumns: true,
+            allowMultipleFlavors: true,
+            sortOrder: true,
+            parentCategoryId: true,
+          },
+        },
         sizes: { orderBy: { size: 'asc' } },
       },
 

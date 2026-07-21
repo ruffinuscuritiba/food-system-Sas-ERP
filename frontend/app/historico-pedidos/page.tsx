@@ -82,8 +82,8 @@ export default function HistoricoPedidosPage() {
 
   useEffect(() => { load(); }, []);
 
-  function handlePrint(order: Order) {
-    PrintRouterService.printAll(
+  async function handlePrint(order: Order) {
+    const result = await PrintRouterService.printAll(
       {
         ...order,
         status: STATUS_PT[order.status]?.label || order.status,
@@ -92,6 +92,14 @@ export default function HistoricoPedidosPage() {
       },
       { companyName },
     );
+    if (result.blockedSectors.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const toast = (await import("react-hot-toast")).default;
+      toast.error(
+        `Impressão bloqueada pelo navegador (${result.blockedSectors.join(", ")}). Libere pop-ups para este site.`,
+        { id: "historico-print-blocked", duration: 8000 },
+      );
+    }
   }
 
   return (

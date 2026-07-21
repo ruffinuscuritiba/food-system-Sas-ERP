@@ -364,63 +364,71 @@ export class AuthService {
     const demoEmail = DEMO_PLAN_EMAIL[dto.plan];
     if (!demoEmail) throw new BadRequestException('Plano de demonstração inválido');
 
-    const sessionToken = `demo-gate-${dto.email}-${Date.now()}`;
+    const sessionToken = `demo-gate-${dto.email || 'anon'}-${Date.now()}`;
+    // O gate de formulário foi removido de /demo (clique em "Testar X" entra
+    // direto, sem pedir dado nenhum) — sem isso, os 3 avisos abaixo disparariam
+    // pra CADA clique com campos em branco, virando ruído que afoga um lead
+    // de verdade (ex.: vindo do exit-intent, que continua mandando dado real
+    // pra /leads). Só notifica quando pelo menos um campo real foi enviado.
+    const hasLeadData = !!(dto.name || dto.email || dto.whatsapp || dto.restaurantName);
 
-    // 1. Save lead (fire-and-forget — never blocks demo access)
-    setImmediate(async () => {
-      try {
-        await this.leadsService.upsert({
-          sessionToken,
-          name: dto.name,
-          company: dto.restaurantName,
-          whatsapp: dto.whatsapp,
-          recommendedPlan: dto.plan.toUpperCase(),
-        });
-      } catch (err) {
-        this.logger.warn(`Lead save failed: ${(err as Error)?.message}`);
-      }
-    });
-
-    // 2. Notify admin (fire-and-forget)
-    const adminEmail = this.config.get<string>('ADMIN_NOTIFY_EMAIL');
-    if (adminEmail) {
+    if (hasLeadData) {
+      // 1. Save lead (fire-and-forget — never blocks demo access)
       setImmediate(async () => {
         try {
-          await this.notifications.send({
-            to: adminEmail,
-            type: 'DEMO_LEAD',
-            data: {
-              name:           dto.name,
-              email:          dto.email,
-              whatsapp:       dto.whatsapp,
-              restaurantName: dto.restaurantName,
-              plan:           dto.plan.toUpperCase(),
-            },
+          await this.leadsService.upsert({
+            sessionToken,
+            name: dto.name,
+            company: dto.restaurantName,
+            whatsapp: dto.whatsapp,
+            recommendedPlan: dto.plan.toUpperCase(),
           });
         } catch (err) {
-          this.logger.warn(`Demo lead email failed: ${(err as Error)?.message}`);
+          this.logger.warn(`Lead save failed: ${(err as Error)?.message}`);
         }
       });
-    } else {
-      this.logger.warn(
-        `[DEMO LEAD] ADMIN_NOTIFY_EMAIL not set — lead data: ${JSON.stringify({ name: dto.name, restaurantName: dto.restaurantName, whatsapp: dto.whatsapp, plan: dto.plan })}`,
-      );
-    }
 
-    // WA owner notification — lead quente na demo
-    setImmediate(() => {
-      const planLabels: Record<string, string> = { basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise', delivery: 'Delivery' };
-      const waMsg =
-        `🔥 *Lead quente na demo!*\n\n` +
-        `*${dto.restaurantName}*\n` +
-        `👤 ${dto.name}\n` +
-        `📧 ${dto.email}\n` +
-        `📱 ${dto.whatsapp || '—'}\n` +
-        `💳 Plano ${planLabels[dto.plan] ?? dto.plan}`;
-      this.notifyOwnerWhatsapp(waMsg).catch((err) =>
-        this.logger.warn(`[Demo] WA notify failed: ${err?.message}`),
-      );
-    });
+      // 2. Notify admin (fire-and-forget)
+      const adminEmail = this.config.get<string>('ADMIN_NOTIFY_EMAIL');
+      if (adminEmail) {
+        setImmediate(async () => {
+          try {
+            await this.notifications.send({
+              to: adminEmail,
+              type: 'DEMO_LEAD',
+              data: {
+                name:           dto.name,
+                email:          dto.email,
+                whatsapp:       dto.whatsapp,
+                restaurantName: dto.restaurantName,
+                plan:           dto.plan.toUpperCase(),
+              },
+            });
+          } catch (err) {
+            this.logger.warn(`Demo lead email failed: ${(err as Error)?.message}`);
+          }
+        });
+      } else {
+        this.logger.warn(
+          `[DEMO LEAD] ADMIN_NOTIFY_EMAIL not set — lead data: ${JSON.stringify({ name: dto.name, restaurantName: dto.restaurantName, whatsapp: dto.whatsapp, plan: dto.plan })}`,
+        );
+      }
+
+      // WA owner notification — lead quente na demo
+      setImmediate(() => {
+        const planLabels: Record<string, string> = { basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise', delivery: 'Delivery' };
+        const waMsg =
+          `🔥 *Lead quente na demo!*\n\n` +
+          `*${dto.restaurantName}*\n` +
+          `👤 ${dto.name}\n` +
+          `📧 ${dto.email}\n` +
+          `📱 ${dto.whatsapp || '—'}\n` +
+          `💳 Plano ${planLabels[dto.plan] ?? dto.plan}`;
+        this.notifyOwnerWhatsapp(waMsg).catch((err) =>
+          this.logger.warn(`[Demo] WA notify failed: ${err?.message}`),
+        );
+      });
+    }
 
     // 3. Find demo user and return token
     const user = await this.prisma.user.findUnique({

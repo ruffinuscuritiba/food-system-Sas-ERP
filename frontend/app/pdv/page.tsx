@@ -704,9 +704,20 @@ export default function PDVPage() {
             })),
           },
           { companyName, printPaymentRule },
-        );
+        ).then((result) => {
+          if (result.blockedSectors.length > 0) {
+            toast.error(
+              `Impressão bloqueada pelo navegador (${result.blockedSectors.join(", ")}). Libere pop-ups para este site e reimprima.`,
+              { duration: 8000 },
+            );
+          }
+        }).catch((printErr) => {
+          console.warn("[PDV] impressão falhou:", printErr);
+          toast.error("Falha ao imprimir o pedido. Use o botão \"Reimprimir\".", { duration: 8000 });
+        });
       } catch (printErr) {
         console.warn("[PDV] impressão falhou silenciosamente:", printErr);
+        toast.error("Falha ao imprimir o pedido. Use o botão \"Reimprimir\".", { duration: 8000 });
       }
 
       // Salva endereço desagregado do cliente para autofill futuro (fire-and-forget)

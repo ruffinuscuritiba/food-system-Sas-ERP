@@ -35,9 +35,9 @@ import { buildKitchenTicket }            from "./KitchenTicket";
 import { buildBarTicket }                from "./BarTicket";
 import { buildDeliveryLabel }            from "./DeliveryLabel";
 import { buildReceipt80mm }              from "./Receipt80mm";
-import { type SectorTicket, type PrintSector, printDispatcher, printAllTickets } from "./printDispatcher";
+import { type SectorTicket, type PrintSector, type PrintBatchResult, printDispatcher, printAllTickets } from "./printDispatcher";
 
-export type { PrintSector, SectorTicket };
+export type { PrintSector, SectorTicket, PrintBatchResult };
 
 export interface PrintRouterOptions {
   companyName:  string;
@@ -95,9 +95,12 @@ export class PrintRouterService {
     return tickets;
   }
 
-  /** Prints all relevant sector tickets for an order. */
-  static printAll(order: PrintableOrder, opts: PrintRouterOptions): void {
-    printAllTickets(PrintRouterService.route(order, opts));
+  /**
+   * Prints all relevant sector tickets for an order. Returns a promise with
+   * the sectors whose popup was blocked, so callers can warn the operator.
+   */
+  static printAll(order: PrintableOrder, opts: PrintRouterOptions): Promise<PrintBatchResult> {
+    return printAllTickets(PrintRouterService.route(order, opts));
   }
 
   /** Prints a single sector ticket directly. */

@@ -14,6 +14,7 @@ import { WhatsappAiModule } from '../whatsapp-ai/whatsapp-ai.module';
 import { DeliveryConfigModule } from '../delivery-config/delivery-config.module';
 import { QrCampaignsModule } from '../qr-campaigns/qr-campaigns.module';
 import { PrintersModule } from '../printers/printers.module';
+import { OnlineOrdersModule } from '../online-orders/online-orders.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PrintersModule } from '../printers/printers.module';
     DeliveryConfigModule,
     QrCampaignsModule,
     PrintersModule,
+    forwardRef(() => OnlineOrdersModule),
   ],
 
   controllers: [OrdersController],

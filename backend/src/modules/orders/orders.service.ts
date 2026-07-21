@@ -24,9 +24,12 @@ import { OrderNotificationService } from '../whatsapp-ai/services/order-notifica
 import { DeliveryConfigService } from '../delivery-config/delivery-config.service';
 
 import { PrintersService } from '../printers/printers.service';
+import { OnlineOrdersService } from '../online-orders/online-orders.service';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private prisma: PrismaService,
 
@@ -50,6 +53,9 @@ export class OrdersService {
 
     @Optional()
     private printersService?: PrintersService,
+
+    @Optional()
+    private onlineOrdersService?: OnlineOrdersService,
   ) {}
 
   async create(data: any) {
@@ -1147,15 +1153,32 @@ export class OrdersService {
       const mapped = this.mapKitchenStatusToOnline(status);
       const onlineOrder = await this.prisma.onlineOrder.findFirst({
         where: { id, companyId },
-        select: { id: true },
+        select: { id: true, orderStatus: true },
       });
       if (!onlineOrder)
         throw new NotFoundException('Pedido online não encontrado.');
+
+      // Consumo de estoque ANTES de gravar o novo status: se faltar
+      // ingrediente, a transição é bloqueada (erro visível pro operador),
+      // igual ao comportamento do PDV — em vez de confirmar e nunca
+      // decrementar nada (bug anterior). Idempotente: chamada dupla para o
+      // mesmo pedido não consome duas vezes.
+      if (mapped === 'CONFIRMED' && onlineOrder.orderStatus !== 'CONFIRMED') {
+        await this.onlineOrdersService?.consumeStockForOrder(id, companyId, userId);
+      }
 
       const updated = await this.prisma.onlineOrder.update({
         where: { id },
         data: { orderStatus: mapped as any },
       });
+
+      if (mapped === 'CANCELED') {
+        this.onlineOrdersService
+          ?.restoreStockForOrder(id, companyId, userId)
+          .catch((e: any) =>
+            this.logger.warn(`[ONLINE] restauração de estoque falhou (${id}): ${e?.message}`),
+          );
+      }
 
       try {
         this.socketGateway.emitKitchenUpdate({

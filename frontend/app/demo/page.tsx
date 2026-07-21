@@ -1381,15 +1381,18 @@ function DemoContent() {
   }
 
   async function enterDemoWithLead(demo: DemoAccount, form: LeadForm) {
-    trackClick("/demo", `lead_submitted_${demo.plan.toLowerCase()}`);
+    trackClick("/demo", `demo_entered_${demo.plan.toLowerCase()}`);
     setEntering(demo.id);
-    leadCapturedRef.current = true; // já converteu — não mostrar exit-intent
+    // NÃO marca leadCapturedRef aqui — sem formulário, nenhum dado real foi
+    // capturado; o exit-intent continua podendo aparecer depois se o
+    // visitante sair sem converter (é o único jeito de capturar esse lead
+    // agora que "Testar X" entra direto, sem gate).
     recordNicheVisit(selectedNiche); // marketing: nicho no momento da conversão
-    // Dispara evento Lead no Meta Pixel e GA4 para remarketing
+    // Evento custom (não "Lead" — sem dado capturado, "Lead" real fica só no exit-intent)
     try {
       const w = window as any;
-      if (w.fbq) w.fbq("track", "Lead", { content_name: `Demo ${demo.plan}`, currency: "BRL" });
-      if (w.gtag) w.gtag("event", "generate_lead", { event_category: "demo", event_label: demo.plan });
+      if (w.fbq) w.fbq("trackCustom", "DemoEntered", { content_name: `Demo ${demo.plan}` });
+      if (w.gtag) w.gtag("event", "demo_entered", { event_category: "demo", event_label: demo.plan });
     } catch {}
     try {
       const { data } = await api.post("auth/demo-access", {
@@ -1721,7 +1724,13 @@ function DemoContent() {
                   {/* CTA */}
                   <div className="p-5 pt-0">
                     <button
-                      onClick={() => { trackClick("/demo", `plan_cta_${card.plan.toLowerCase()}`); setModalDemo(demo); }}
+                      onClick={() => {
+                        trackClick("/demo", `plan_cta_${card.plan.toLowerCase()}`);
+                        // Sem gate de formulário — "Testar X" entra direto na demo,
+                        // como o botão promete. Captura de lead fica só no
+                        // exit-intent (secundária, não bloqueia quem quer só ver).
+                        enterDemoWithLead(demo, { name: "", email: "", whatsapp: "", restaurantName: "" });
+                      }}
                       disabled={entering !== null}
                       className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black text-white transition-all duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${card.btnClass}`}
                     >

@@ -1,7 +1,17 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
+import { CreateCampaignDto, UpdateCampaignDto } from './dto/create-campaign.dto';
+import { AddContactsDto } from './dto/add-contacts.dto';
+
+/** Normaliza telefone BR pro mesmo formato usado no disparo (dígitos + DDI 55). */
+function normalizePhoneBr(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return digits;
+  if (digits.startsWith('55') && digits.length >= 12) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return digits;
+}
 
 /**
  * Campanhas recorrentes de WhatsApp — reengajamento de cliente.
@@ -50,6 +60,12 @@ export class WhatsappCampaignsService {
     return eligible.length;
   }
 
+  /**
+   * Contatos elegíveis, ordenados do que espera há MAIS tempo pro que espera
+   * há MENOS (nunca contatado vem primeiro) — usado pelo gotejamento pra
+   * garantir que, ao longo de vários lotes, todo mundo eventualmente recebe
+   * em vez de sempre pegar os mesmos primeiros N da lista.
+   */
   private async getEligibleContacts(companyId: string, minIntervalDays: number) {
     const optedIn = await this.prisma.customer.findMany({
       where: { companyId, marketingOptIn: true },
@@ -58,13 +74,70 @@ export class WhatsappCampaignsService {
     if (optedIn.length === 0) return [];
 
     const cutoff = new Date(Date.now() - minIntervalDays * 24 * 60 * 60_000);
-    const recentlySent = await this.prisma.whatsappCampaignSend.findMany({
-      where: { companyId, status: 'SENT', sentAt: { gte: cutoff } },
-      select: { phone: true },
-    });
+    const [recentlySent, lastSentByPhone] = await Promise.all([
+      this.prisma.whatsappCampaignSend.findMany({
+        where: { companyId, status: 'SENT', sentAt: { gte: cutoff } },
+        select: { phone: true },
+      }),
+      this.prisma.whatsappCampaignSend.groupBy({
+        by: ['phone'],
+        where: { companyId, status: 'SENT' },
+        _max: { sentAt: true },
+      }),
+    ]);
     const recentPhones = new Set(recentlySent.map((s) => s.phone));
+    const lastSentMap = new Map(
+      lastSentByPhone.map((r) => [r.phone, r._max.sentAt?.getTime() ?? 0]),
+    );
 
-    return optedIn.filter((c) => c.phone && !recentPhones.has(c.phone));
+    return optedIn
+      .filter((c) => c.phone && !recentPhones.has(c.phone))
+      .sort((a, b) => (lastSentMap.get(a.phone) ?? 0) - (lastSentMap.get(b.phone) ?? 0));
+  }
+
+  /**
+   * Adiciona contatos manualmente à base de opt-in (ex.: lista de convite
+   * pra inauguração) — o admin está explicitamente afirmando que esses
+   * números podem receber, então marca marketingOptIn=true na hora. Não
+   * cria duplicata: reaproveita Customer existente com o mesmo telefone.
+   */
+  async addContacts(companyId: string, dto: AddContactsDto) {
+    let created = 0;
+    let updated = 0;
+    let invalid = 0;
+
+    for (const entry of dto.contacts) {
+      const phone = normalizePhoneBr(entry.phone);
+      if (!phone || phone.length < 10) {
+        invalid++;
+        continue;
+      }
+      const existing = await this.prisma.customer.findFirst({
+        where: { companyId, phone },
+      });
+      if (existing) {
+        await this.prisma.customer.update({
+          where: { id: existing.id },
+          data: {
+            marketingOptIn: true,
+            name: existing.name?.trim() ? existing.name : (entry.name?.trim() || existing.name),
+          },
+        });
+        updated++;
+      } else {
+        await this.prisma.customer.create({
+          data: {
+            companyId,
+            phone,
+            name: entry.name?.trim() || phone,
+            marketingOptIn: true,
+          },
+        });
+        created++;
+      }
+    }
+
+    return { created, updated, invalid, total: dto.contacts.length };
   }
 
   async listCampaigns(companyId: string) {
@@ -95,8 +168,26 @@ export class WhatsappCampaignsService {
         name: dto.name.trim(),
         message: dto.message.trim(),
         minIntervalDays: dto.minIntervalDays ?? 15,
+        maxPerRun: dto.maxPerRun ?? 50,
         createdById: userId,
         status: 'DRAFT',
+      },
+    });
+  }
+
+  async updateCampaign(id: string, companyId: string, dto: UpdateCampaignDto) {
+    const campaign = await this.prisma.whatsappCampaign.findFirst({ where: { id, companyId } });
+    if (!campaign) throw new NotFoundException('Campanha não encontrada.');
+    if (campaign.status === 'ARCHIVED') {
+      throw new BadRequestException('Campanha desativada definitivamente — não pode ser editada.');
+    }
+    return this.prisma.whatsappCampaign.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.message !== undefined && { message: dto.message.trim() }),
+        ...(dto.minIntervalDays !== undefined && { minIntervalDays: dto.minIntervalDays }),
+        ...(dto.maxPerRun !== undefined && { maxPerRun: dto.maxPerRun }),
       },
     });
   }
@@ -104,6 +195,9 @@ export class WhatsappCampaignsService {
   async activateCampaign(id: string, companyId: string) {
     const campaign = await this.prisma.whatsappCampaign.findFirst({ where: { id, companyId } });
     if (!campaign) throw new NotFoundException('Campanha não encontrada.');
+    if (campaign.status === 'ARCHIVED') {
+      throw new BadRequestException('Campanha desativada definitivamente — crie uma nova campanha se quiser reenviar.');
+    }
     if (campaign.status === 'ACTIVE') return campaign;
 
     const updated = await this.prisma.whatsappCampaign.update({
@@ -119,6 +213,16 @@ export class WhatsappCampaignsService {
     });
 
     return updated;
+  }
+
+  /** Desativação definitiva — diferente de pausar, nunca mais pode ser reativada. */
+  async archiveCampaign(id: string, companyId: string) {
+    const campaign = await this.prisma.whatsappCampaign.findFirst({ where: { id, companyId } });
+    if (!campaign) throw new NotFoundException('Campanha não encontrada.');
+    return this.prisma.whatsappCampaign.update({
+      where: { id },
+      data: { status: 'ARCHIVED' },
+    });
   }
 
   async pauseCampaign(id: string, companyId: string) {
@@ -144,13 +248,24 @@ export class WhatsappCampaignsService {
    * Motor de envio. Roda em background (setImmediate), sequencial (um por
    * vez, não em paralelo) com delay fixo — checa o status da campanha antes
    * de cada envio pra permitir pausar no meio.
+   *
+   * Gotejamento: só envia até `maxPerRun` contatos por ativação (os que
+   * esperam há mais tempo primeiro). Se sobrar gente elegível além disso,
+   * a campanha volta pra PAUSED em vez de COMPLETED — "Retomar" dispara o
+   * próximo lote, e assim por diante até a lista se esgotar.
    */
   private async runCampaign(campaignId: string): Promise<void> {
     const campaign = await this.prisma.whatsappCampaign.findUnique({ where: { id: campaignId } });
     if (!campaign || campaign.status !== 'ACTIVE') return;
 
-    const contacts = await this.getEligibleContacts(campaign.companyId, campaign.minIntervalDays);
-    this.logger.log(`[Campaign ${campaignId}] iniciando envio pra ${contacts.length} contato(s) elegível(is)`);
+    const allEligible = await this.getEligibleContacts(campaign.companyId, campaign.minIntervalDays);
+    const cap = campaign.maxPerRun ?? 50;
+    const contacts = allEligible.slice(0, cap);
+    const deferred = allEligible.length - contacts.length;
+    this.logger.log(
+      `[Campaign ${campaignId}] iniciando lote de ${contacts.length}/${allEligible.length} contato(s) elegível(is)` +
+        (deferred > 0 ? ` — ${deferred} adiado(s) pro próximo lote (limite de ${cap}/ativação)` : ''),
+    );
 
     for (const contact of contacts) {
       // Re-checa status a cada iteração — permite pausar no meio do envio.
@@ -184,11 +299,23 @@ export class WhatsappCampaignsService {
       await new Promise((resolve) => setTimeout(resolve, this.SEND_DELAY_MS));
     }
 
-    await this.prisma.whatsappCampaign.updateMany({
-      where: { id: campaignId, status: 'ACTIVE' },
-      data: { status: 'COMPLETED' },
-    });
-    this.logger.log(`[Campaign ${campaignId}] concluída`);
+    if (deferred > 0) {
+      // Ainda tem gente esperando além do limite do lote — volta pra PAUSED
+      // (não COMPLETED) pra deixar claro que "Retomar" manda o próximo lote.
+      await this.prisma.whatsappCampaign.updateMany({
+        where: { id: campaignId, status: 'ACTIVE' },
+        data: { status: 'PAUSED' },
+      });
+      this.logger.log(
+        `[Campaign ${campaignId}] lote concluído — ${deferred} contato(s) aguardando o próximo "Retomar"`,
+      );
+    } else {
+      await this.prisma.whatsappCampaign.updateMany({
+        where: { id: campaignId, status: 'ACTIVE' },
+        data: { status: 'COMPLETED' },
+      });
+      this.logger.log(`[Campaign ${campaignId}] concluída`);
+    }
   }
 
   private async logSend(

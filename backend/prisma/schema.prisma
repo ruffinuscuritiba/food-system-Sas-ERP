@@ -2272,6 +2272,9 @@ enum CampaignStatus {
   ACTIVE
   PAUSED
   COMPLETED
+  // Desativação definitiva — diferente de PAUSED (que pode ser retomado a
+  // qualquer momento): campanha arquivada nunca mais pode ser ativada.
+  ARCHIVED
 }
 
 enum CampaignSendStatus {
@@ -2292,6 +2295,12 @@ model WhatsappCampaign {
   message         String         @db.Text
   status          CampaignStatus @default(DRAFT)
   minIntervalDays Int            @default(15)
+  // Gotejamento: quantos contatos recebem mensagem por ativação/lote (não é
+  // o tamanho total da campanha). Se sobrarem elegíveis além desse número,
+  // o motor envia só os N mais antigos (nunca contatados ou há mais tempo
+  // sem contato) e volta a campanha pra PAUSED — clique em "Retomar" dispara
+  // o próximo lote de N, até a lista se esgotar.
+  maxPerRun       Int            @default(50)
   createdById     String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

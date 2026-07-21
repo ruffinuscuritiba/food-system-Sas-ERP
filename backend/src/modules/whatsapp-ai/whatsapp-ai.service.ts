@@ -26,6 +26,7 @@ import { ProductsService } from '@/modules/products/products.service';
 import { CategoriesService } from '@/modules/categories/categories.service';
 import { LeadsService } from '@/modules/leads/leads.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { SocketGateway } from '@/socket/socket.gateway';
 import { OrderStatus } from '@prisma/client';
 import { WaConnection, WaConversation, WaSettings } from './types';
 import {
@@ -226,6 +227,8 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     private leadsService?: LeadsService,
     @Optional()
     private notificationsService?: NotificationsService,
+    @Optional()
+    private socketGateway?: SocketGateway,
   ) {}
 
   onApplicationBootstrap() {
@@ -997,6 +1000,18 @@ export class WhatsappAiService implements OnApplicationBootstrap {
           where: { id: conv.id },
           data: { mode: 'HUMAN', status: 'TRANSFERRED' },
         });
+        this.notifyHumanHelpRequested(
+          connection,
+          connection.companyId,
+          conv.customerPhone,
+          conv.customerName,
+          text,
+          conv.id,
+        ).catch((err: unknown) =>
+          log.warn(
+            `[AI] notifyHumanHelpRequested falhou (transferKeywords): ${(err as Error)?.message}`,
+          ),
+        );
         const msg =
           '👤 Você foi transferido para um atendente humano. Aguarde um momento...';
         await this.saveMessage(conv.id, connection.companyId, 'ASSISTANT', msg);
@@ -1352,6 +1367,18 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
               data: { mode: 'HUMAN', status: 'TRANSFERRED' },
             })
             .catch(() => {});
+          this.notifyHumanHelpRequested(
+            connection,
+            companyId,
+            conv.customerPhone,
+            conv.customerName,
+            userText,
+            conv.id,
+          ).catch((err: unknown) =>
+            log.warn(
+              `[AI] notifyHumanHelpRequested falhou (sales mode): ${(err as Error)?.message}`,
+            ),
+          );
         } else {
           log.warn(
             `[AI] conv=${conv.id} ambiente=${ambiente} — IA pediu transbordo mas cliente não solicitou; mantendo modo IA`,
@@ -1453,6 +1480,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         conv.customerPhone,
         conv.customerName,
         userText,
+        conv.id,
       ).catch((err: unknown) =>
         log.warn(
           `[AI] notifyHumanHelpRequested falhou: ${(err as Error)?.message}`,
@@ -1761,6 +1789,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         conv.customerPhone,
         conv.customerName,
         userText,
+        conv.id,
       ).catch((err: unknown) =>
         log.warn(
           `[AI] notifyHumanHelpRequested falhou: ${(err as Error)?.message}`,
@@ -1936,7 +1965,19 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     customerPhone: string,
     customerName: string | null | undefined,
     lastMessage: string,
+    conversationId?: string,
   ) {
+    // Alerta sonoro em tempo real pro time (ClientShell.tsx escuta esse
+    // evento em qualquer tela do painel, não só na aba Conversas — cliente
+    // pedindo humano/gerente não pode depender de alguém estar de olho
+    // na tela certa).
+    this.socketGateway?.emitHumanHelpRequested(companyId, {
+      conversationId: conversationId ?? '',
+      customerPhone,
+      customerName,
+      lastMessage,
+    });
+
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
       select: { name: true, email: true, whatsapp: true, phone: true },

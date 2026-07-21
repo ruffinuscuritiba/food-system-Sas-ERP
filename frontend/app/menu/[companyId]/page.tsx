@@ -26,7 +26,7 @@ type Product = {
   videoUrl?: string | null;
   hasVideo?: boolean;
   sizes?: { size: string; price: number }[];
-  category?: { name: string; categoryType?: string; displayColumns?: number };
+  category?: { name: string; categoryType?: string; displayColumns?: number; sortOrder?: number };
   isActive: boolean;
 };
 
@@ -309,14 +309,6 @@ export default function MenuPage() {
       const list: Product[] = Array.isArray(menuData) ? menuData : (menuData.products || []);
       setProducts(list);
 
-      // Mantém a ordem em que aparecem nos produtos (que já vêm ordenados por sortOrder do backend).
-      // "Outros" fica sempre por último.
-      const catNames = Array.from(new Set<string>(
-        list.map((p) => p.category?.name?.trim() || "Outros")
-      ));
-      const ordered = [...catNames.filter((n) => n !== "Outros"), ...catNames.filter((n) => n === "Outros")];
-      setCategories(["Todos", ...ordered]);
-
       // Keep full category objects (with categoryType) from menu data
       const catObjs: any[] = [];
       list.forEach((p) => {
@@ -324,7 +316,18 @@ export default function MenuPage() {
           catObjs.push(p.category);
         }
       });
+      // Mesma ordem usada no PDV: Category.sortOrder, depois nome (ver categories.service.ts findAll)
+      catObjs.sort((a, b) => {
+        const diff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        return diff !== 0 ? diff : String(a.name || "").localeCompare(String(b.name || ""));
+      });
       setCategoryObjects(catObjs);
+
+      // "Outros" agrupa produtos sem categoria e fica sempre por último.
+      const catNames = catObjs.map((c) => String(c.name || "").trim()).filter(Boolean);
+      const hasUncategorized = list.some((p) => !p.category?.name);
+      const ordered = hasUncategorized && !catNames.includes("Outros") ? [...catNames, "Outros"] : catNames;
+      setCategories(["Todos", ...ordered]);
 
       // Pizza size configs
       if (sizeConfigRes?.ok) {
@@ -1193,7 +1196,7 @@ export default function MenuPage() {
             style={{ background: theme.primaryColor }}
           >
             <ShoppingCart size={16} />
-            {cartCount > 0 ? `R$ ${cartTotal.toFixed(2)}` : "Ver cardápio"}
+            {cartCount > 0 ? `R$ ${cartTotal.toFixed(2)}` : "Ver pedido"}
           </button>
         </div>
       </div>
@@ -1439,11 +1442,11 @@ export default function MenuPage() {
                         <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
                       )}
                     </div>
-                    <div className="flex items-center justify-between mt-3 gap-2 flex-wrap">
-                      <span className={`font-black leading-tight ${product.sizes && product.sizes.length > 1 ? "text-sm" : "text-lg"}`} style={{ color: theme.primaryColor }}>
+                    <div className="flex items-center justify-between mt-3 gap-2">
+                      <span className={`font-black leading-tight truncate min-w-0 ${product.sizes && product.sizes.length > 1 ? "text-sm" : "text-lg"}`} style={{ color: theme.primaryColor }}>
                         {productPriceLabel(product)}
                       </span>
-                      <div className="flex gap-1.5 flex-wrap">
+                      <div className="flex gap-1.5 shrink-0">
                         {product.videoUrl && (
                           <button
                             onClick={() => setVideoProduct(product)}

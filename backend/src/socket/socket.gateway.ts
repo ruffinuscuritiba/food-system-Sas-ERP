@@ -70,6 +70,23 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Cliente pediu atendimento humano no WhatsApp (Kely transferiu a
+   * conversa). Front-end toca alerta sonoro + mostra banner enquanto
+   * ninguém assumir a conversa — ver ClientShell.tsx.
+   */
+  emitHumanHelpRequested(
+    companyId: string,
+    data: {
+      conversationId: string;
+      customerPhone: string;
+      customerName?: string | null;
+      lastMessage: string;
+    },
+  ) {
+    this.server.to(`company:${companyId}`).emit('humanHelpRequested', data);
+  }
+
+  /**
    * Cliente público entra na room do próprio pedido para receber atualizações
    * de status em tempo real. Não precisa de token — orderId já é o "segredo".
    * Cliente conecta ao socket → emite 'joinOrder' com orderId → recebe

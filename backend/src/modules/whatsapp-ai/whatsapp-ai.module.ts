@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '@/database/prisma.module';
+import { SocketModule } from '@/socket/socket.module';
 import { OrdersModule } from '@/modules/orders/orders.module';
 import { ProductsModule } from '@/modules/products/products.module';
 import { CategoriesModule } from '@/modules/categories/categories.module';
@@ -27,6 +28,7 @@ import { EvolutionProvisionService } from './services/evolution-provision.servic
     forwardRef(() => CategoriesModule),
     LeadsModule,
     NotificationsModule,
+    SocketModule,
   ],
   controllers: [WhatsappAiController],
   providers: [

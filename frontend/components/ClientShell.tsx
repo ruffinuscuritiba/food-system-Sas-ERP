@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { applyDemoTheme, clearDemoTheme, DEMO_IDS } from "@/lib/demoThemes";
 import { PDV_THEME_DEFAULT, savePdvTheme, applyPdvVars } from "@/lib/pdv-theme";
+import { socket } from "@/services/socket";
 
 import {
   LayoutDashboard,
@@ -45,6 +46,7 @@ import {
   ChevronDown,
   TrendingUp,
   Repeat,
+  Bell,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -238,6 +240,10 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
   const [sidebarConfig, setSidebarConfig] = useState<Record<string, boolean>>({});
   const [qrLinksOpen, setQrLinksOpen] = useState(false);
+  const [humanAlerts, setHumanAlerts] = useState<
+    { conversationId: string; customerPhone: string; customerName?: string | null; lastMessage: string; at: number }[]
+  >([]);
+  const humanAlertAudioRef = useRef<HTMLAudioElement>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -281,6 +287,54 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  // Alerta sonoro em tempo real: cliente pediu atendimento humano/gerente no
+  // WhatsApp (Kely transferiu a conversa). Toca em loop até alguém dispensar
+  // — um beep único é fácil de perder quando a equipe não está de olho na tela.
+  // Reconecta o socket a cada 5s se algo (outra página) o tiver derrubado,
+  // pra não depender de qual tela o operador está usando no momento.
+  useEffect(() => {
+    const canReceiveAlerts = user && ["SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"].includes(user.role);
+    if (!canReceiveAlerts) return;
+
+    if (!socket.connected) socket.connect();
+    const reconnectTimer = setInterval(() => {
+      if (!socket.connected) socket.connect();
+    }, 5000);
+
+    function handleHumanHelp(data: { conversationId: string; customerPhone: string; customerName?: string | null; lastMessage: string }) {
+      setHumanAlerts((prev) => {
+        const withoutDup = prev.filter((a) => a.conversationId !== data.conversationId);
+        return [...withoutDup, { ...data, at: Date.now() }];
+      });
+    }
+
+    socket.on("humanHelpRequested", handleHumanHelp);
+    return () => {
+      clearInterval(reconnectTimer);
+      socket.off("humanHelpRequested", handleHumanHelp);
+      // Não desconecta — outras páginas (kitchen/orders/tables) também
+      // gerenciam o mesmo socket compartilhado.
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
+
+  // Toca/para o alarme em loop conforme a fila de alertas pendentes.
+  useEffect(() => {
+    const el = humanAlertAudioRef.current;
+    if (!el) return;
+    if (humanAlerts.length > 0) {
+      el.loop = true;
+      el.play().catch(() => {});
+    } else {
+      el.pause();
+      el.currentTime = 0;
+    }
+  }, [humanAlerts.length]);
+
+  function dismissHumanAlert(conversationId: string) {
+    setHumanAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
+  }
 
   useEffect(() => {
     if (!user?.companyId) return;
@@ -496,6 +550,42 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     // Wrapper White Label — aplica CompanyTheme via CSS variables em <html>
     <ThemeProvider>
       <Toaster position="top-right" />
+      <audio ref={humanAlertAudioRef} src="/notification.mp3" preload="auto" />
+
+      {humanAlerts.length > 0 && (
+        <div className="fixed top-3 right-3 z-[10000] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]">
+          {humanAlerts.map((a) => (
+            <div
+              key={a.conversationId}
+              className="bg-red-600 text-white rounded-xl shadow-2xl p-3.5 flex items-start gap-3 animate-pulse"
+            >
+              <Bell size={18} className="mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">Cliente pediu atendimento humano</p>
+                <p className="text-xs text-red-100 truncate">
+                  {a.customerName || a.customerPhone} · {a.customerPhone}
+                </p>
+                <p className="text-xs text-red-50 mt-1 line-clamp-2">"{a.lastMessage}"</p>
+                <div className="flex gap-2 mt-2">
+                  <Link
+                    href="/whatsapp-ia"
+                    onClick={() => dismissHumanAlert(a.conversationId)}
+                    className="text-xs font-semibold bg-white text-red-700 px-2.5 py-1 rounded-lg hover:bg-red-50 transition"
+                  >
+                    Atender agora
+                  </Link>
+                  <button
+                    onClick={() => dismissHumanAlert(a.conversationId)}
+                    className="text-xs font-semibold text-red-100 px-2.5 py-1 rounded-lg hover:bg-red-700 transition"
+                  >
+                    Dispensar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Mobile top bar */}
       <div

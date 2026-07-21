@@ -5,6 +5,7 @@ import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
   Repeat, Users, Zap, CheckCircle2, Plus, Pause, Play, X, Info, Loader2,
+  UserPlus, Archive, Gauge,
 } from "lucide-react";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
@@ -19,8 +20,9 @@ interface Campaign {
   id: string;
   name: string;
   message: string;
-  status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
+  status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
   minIntervalDays: number;
+  maxPerRun: number;
   createdAt: string;
   stats: CampaignStats;
 }
@@ -31,11 +33,15 @@ interface Summary {
   deliveryRate: number | null;
 }
 
+const MAX_PER_RUN_MIN = 10;
+const MAX_PER_RUN_MAX = 500;
+
 const STATUS_LABELS: Record<Campaign["status"], { label: string; className: string }> = {
-  DRAFT:     { label: "Rascunho",  className: "bg-gray-100 text-gray-600" },
-  ACTIVE:    { label: "Ativa",     className: "bg-emerald-100 text-emerald-700" },
-  PAUSED:    { label: "Pausada",   className: "bg-amber-100 text-amber-700" },
-  COMPLETED: { label: "Concluída", className: "bg-blue-100 text-blue-700" },
+  DRAFT:     { label: "Rascunho",   className: "bg-gray-100 text-gray-600" },
+  ACTIVE:    { label: "Ativa",      className: "bg-emerald-100 text-emerald-700" },
+  PAUSED:    { label: "Pausada",    className: "bg-amber-100 text-amber-700" },
+  COMPLETED: { label: "Concluída",  className: "bg-blue-100 text-blue-700" },
+  ARCHIVED:  { label: "Desativada", className: "bg-gray-200 text-gray-500" },
 };
 
 export default function CampanhasRecorrentesPage() {
@@ -45,10 +51,14 @@ export default function CampanhasRecorrentesPage() {
   const [summary, setSummary] = useState<Summary>({ eligibleContacts: 0, activeCampaigns: 0, deliveryRate: null });
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [showContactsModal, setShowContactsModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingContacts, setSavingContacts] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: "", message: "", minIntervalDays: 15 });
+  const [form, setForm] = useState({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50 });
+  const [contactsText, setContactsText] = useState("");
 
   async function load() {
     setLoading(true);
@@ -78,7 +88,7 @@ export default function CampanhasRecorrentesPage() {
       await api.post("/whatsapp-campaigns", form);
       toast.success("Campanha criada como rascunho!");
       setShowModal(false);
-      setForm({ name: "", message: "", minIntervalDays: 15 });
+      setForm({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50 });
       load();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao criar campanha");
@@ -91,10 +101,10 @@ export default function CampanhasRecorrentesPage() {
     setBusyId(id);
     try {
       await api.patch(`/whatsapp-campaigns/${id}/activate`);
-      toast.success("Campanha ativada — envio iniciado em segundo plano.");
+      toast.success("Lote de envio disparado em segundo plano.");
       load();
-    } catch {
-      toast.error("Erro ao ativar campanha");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Erro ao ativar campanha");
     } finally {
       setBusyId(null);
     }
@@ -113,6 +123,55 @@ export default function CampanhasRecorrentesPage() {
     }
   }
 
+  async function archive(id: string) {
+    setBusyId(id);
+    try {
+      await api.patch(`/whatsapp-campaigns/${id}/archive`);
+      toast.success("Campanha desativada definitivamente.");
+      setConfirmArchiveId(null);
+      load();
+    } catch {
+      toast.error("Erro ao desativar campanha");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function parseContactsText(raw: string): { name?: string; phone: string }[] {
+    return raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split(",").map((p) => p.trim());
+        if (parts.length >= 2) return { name: parts[0], phone: parts[1] };
+        return { phone: parts[0] };
+      });
+  }
+
+  async function saveContacts() {
+    const contacts = parseContactsText(contactsText);
+    if (contacts.length === 0) {
+      toast.error("Cole ao menos um contato");
+      return;
+    }
+    setSavingContacts(true);
+    try {
+      const { data } = await api.post("/whatsapp-campaigns/contacts", { contacts });
+      toast.success(
+        `${data.created} novo(s) + ${data.updated} atualizado(s) marcado(s) com opt-in.` +
+          (data.invalid > 0 ? ` ${data.invalid} inválido(s) ignorado(s).` : ""),
+      );
+      setContactsText("");
+      setShowContactsModal(false);
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Erro ao adicionar contatos");
+    } finally {
+      setSavingContacts(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="max-w-6xl mx-auto">
@@ -124,12 +183,20 @@ export default function CampanhasRecorrentesPage() {
               <p className="text-gray-500 text-sm mt-0.5">Campanhas recorrentes só pra quem deu opt-in — respeita intervalo mínimo entre envios</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition"
-          >
-            <Plus size={16} /> Nova Campanha
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowContactsModal(true)}
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition"
+            >
+              <UserPlus size={16} /> Adicionar Contatos
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition"
+            >
+              <Plus size={16} /> Nova Campanha
+            </button>
+          </div>
         </div>
 
         {/* Aviso de opt-in */}
@@ -137,7 +204,7 @@ export default function CampanhasRecorrentesPage() {
           <Info size={16} className="mt-0.5 shrink-0" />
           <p>
             Só clientes com consentimento de marketing (<code className="font-mono text-xs bg-blue-100 px-1 py-0.5 rounded">marketingOptIn</code>) recebem essas campanhas.
-            Nenhum cliente é contatado sem ter dado esse aceite antes.
+            Use "Adicionar Contatos" pra marcar o opt-in manualmente (ex: lista de convite de inauguração) — você está confirmando que pode mandar pra esses números.
           </p>
         </div>
 
@@ -179,6 +246,7 @@ export default function CampanhasRecorrentesPage() {
                   <tr className="text-left text-gray-400 text-xs uppercase tracking-wide">
                     <th className="px-5 py-3">Nome</th>
                     <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Lote</th>
                     <th className="px-5 py-3">Enviados</th>
                     <th className="px-5 py-3">Falhas</th>
                     <th className="px-5 py-3">Pulados</th>
@@ -195,31 +263,64 @@ export default function CampanhasRecorrentesPage() {
                           {STATUS_LABELS[c.status].label}
                         </span>
                       </td>
+                      <td className="px-5 py-3 text-gray-500">
+                        <span className="inline-flex items-center gap-1"><Gauge size={12} />{c.maxPerRun}/vez</span>
+                      </td>
                       <td className="px-5 py-3 text-emerald-600 font-semibold">{c.stats.sent}</td>
                       <td className="px-5 py-3 text-red-500 font-semibold">{c.stats.failed}</td>
                       <td className="px-5 py-3 text-gray-400">{c.stats.skipped}</td>
                       <td className="px-5 py-3 text-gray-500">{new Date(c.createdAt).toLocaleDateString("pt-BR")}</td>
                       <td className="px-5 py-3">
-                        {(c.status === "DRAFT" || c.status === "PAUSED") && (
-                          <button
-                            onClick={() => activate(c.id)}
-                            disabled={busyId === c.id}
-                            className="flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700 font-semibold text-xs disabled:opacity-50"
-                          >
-                            {busyId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
-                            {c.status === "DRAFT" ? "Ativar" : "Retomar"}
-                          </button>
-                        )}
-                        {c.status === "ACTIVE" && (
-                          <button
-                            onClick={() => pause(c.id)}
-                            disabled={busyId === c.id}
-                            className="flex items-center gap-1.5 text-amber-600 hover:text-amber-700 font-semibold text-xs disabled:opacity-50"
-                          >
-                            {busyId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />}
-                            Pausar
-                          </button>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {(c.status === "DRAFT" || c.status === "PAUSED") && (
+                            <button
+                              onClick={() => activate(c.id)}
+                              disabled={busyId === c.id}
+                              className="flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700 font-semibold text-xs disabled:opacity-50"
+                            >
+                              {busyId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                              {c.status === "DRAFT" ? "Ativar" : "Retomar"}
+                            </button>
+                          )}
+                          {c.status === "ACTIVE" && (
+                            <button
+                              onClick={() => pause(c.id)}
+                              disabled={busyId === c.id}
+                              className="flex items-center gap-1.5 text-amber-600 hover:text-amber-700 font-semibold text-xs disabled:opacity-50"
+                            >
+                              {busyId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />}
+                              Pausar
+                            </button>
+                          )}
+                          {(c.status === "DRAFT" || c.status === "PAUSED" || c.status === "ACTIVE") && (
+                            confirmArchiveId === c.id ? (
+                              <span className="flex items-center gap-1.5 text-xs">
+                                <span className="text-gray-500">Definitivo?</span>
+                                <button
+                                  onClick={() => archive(c.id)}
+                                  disabled={busyId === c.id}
+                                  className="font-semibold text-red-600 hover:text-red-700"
+                                >
+                                  Sim
+                                </button>
+                                <button
+                                  onClick={() => setConfirmArchiveId(null)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  Não
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmArchiveId(c.id)}
+                                className="flex items-center gap-1.5 text-gray-400 hover:text-red-600 font-semibold text-xs"
+                                title="Desativar definitivamente"
+                              >
+                                <Archive size={13} />
+                              </button>
+                            )
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -247,7 +348,7 @@ export default function CampanhasRecorrentesPage() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ex: Reengajamento Julho"
+                  placeholder="Ex: Inauguração"
                   className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary"
                 />
               </div>
@@ -259,22 +360,41 @@ export default function CampanhasRecorrentesPage() {
                 <textarea
                   value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  placeholder="Oi {{nome}}! Sentimos sua falta — que tal pedir sua pizza favorita hoje?"
+                  placeholder="Oi {{nome}}! Hoje é a inauguração da nossa pizzaria — vem conferir!"
                   rows={4}
                   className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary resize-none"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Intervalo mínimo entre envios (dias)</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={form.minIntervalDays}
-                  onChange={(e) => setForm({ ...form, minIntervalDays: Number(e.target.value) || 15 })}
-                  className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-                />
-                <p className="text-xs text-gray-400 mt-1">Nenhum cliente recebe 2 campanhas (dessa ou de outra) dentro desse período.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Intervalo mínimo (dias)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.minIntervalDays}
+                    onChange={(e) => setForm({ ...form, minIntervalDays: Number(e.target.value) || 15 })}
+                    className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Disparos por vez</label>
+                  <input
+                    type="number"
+                    min={MAX_PER_RUN_MIN}
+                    max={MAX_PER_RUN_MAX}
+                    value={form.maxPerRun}
+                    onChange={(e) => {
+                      const v = Number(e.target.value) || MAX_PER_RUN_MIN;
+                      setForm({ ...form, maxPerRun: Math.min(MAX_PER_RUN_MAX, Math.max(MAX_PER_RUN_MIN, v)) });
+                    }}
+                    className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </div>
               </div>
+              <p className="text-xs text-gray-400 -mt-2">
+                Nenhum cliente recebe 2 campanhas dentro do intervalo mínimo. "Disparos por vez" limita quantos saem a cada clique em Ativar/Retomar
+                (mín. {MAX_PER_RUN_MIN}, máx. {MAX_PER_RUN_MAX}) — se sobrar gente elegível, a campanha volta pra "Pausada" e o próximo lote sai no próximo "Retomar".
+              </p>
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -291,6 +411,52 @@ export default function CampanhasRecorrentesPage() {
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : null}
                 Criar como rascunho
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal — Adicionar Contatos */}
+      {showContactsModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-gray-900">Adicionar Contatos</h2>
+              <button onClick={() => setShowContactsModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-3">
+              Cole um contato por linha, no formato <code className="font-mono bg-gray-100 px-1 py-0.5 rounded text-xs">Nome, Telefone</code> (nome é opcional — só o telefone também funciona).
+              Ao adicionar, esses números ficam marcados com opt-in e passam a ser elegíveis pras campanhas.
+            </p>
+            <textarea
+              value={contactsText}
+              onChange={(e) => setContactsText(e.target.value)}
+              placeholder={"João Silva, 67999998888\nMaria Souza, 67988887777\n67977776666"}
+              rows={8}
+              className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary resize-none font-mono"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              {parseContactsText(contactsText).length} contato(s) detectado(s) nesta lista.
+            </p>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setShowContactsModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveContacts}
+                disabled={savingContacts}
+                className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingContacts ? <Loader2 size={15} className="animate-spin" /> : null}
+                Adicionar
               </button>
             </div>
           </div>

@@ -566,10 +566,18 @@ export default function MenuPage() {
     setCouponLoading(true);
     setCouponMsg(null);
     try {
+      const items = cart.map((i) => {
+        const compExtra = (i.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+        return {
+          productId: i.flavors ? i.flavors[0].id : i.product.id,
+          quantity: i.quantity,
+          unitPrice: Number(i.product.salePrice) + compExtra,
+        };
+      });
       const res = await fetch(`${apiBaseUrl}/coupons/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), companyId: realCompanyId, orderTotal: cartTotal }),
+        body: JSON.stringify({ code: code.trim(), companyId: realCompanyId, orderTotal: cartTotal, items }),
       });
       const data = await res.json();
       if (data.valid) {

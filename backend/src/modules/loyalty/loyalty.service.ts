@@ -61,11 +61,19 @@ export class LoyaltyService {
   }
 
   // ── Valida e aplica cupom num pedido ──────────────────────
+  //
+  // Regra de negócio: cupom NUNCA se aplica (1) a bebidas, nem (2) a produtos
+  // que já têm promoção própria (Product.originalPrice) acima de 40% off —
+  // evita empilhar cupom em cima de item já com desconto profundo. A base de
+  // cálculo do cupom exclui o valor desses itens; o resto do carrinho paga
+  // preço normal. Reavaliado 100% no servidor (re-busca categoria/preço por
+  // productId) — nunca confia em flag enviada pelo cliente.
   async validateCoupon(
     code: string,
     companyId: string,
     orderAmount: number,
     customerId?: string,
+    items?: { productId: string; quantity: number; unitPrice: number }[],
   ) {
     const coupon = await this.prisma.coupon.findFirst({
       where: {
@@ -91,14 +99,62 @@ export class LoyaltyService {
       );
     }
 
+    // Base de cálculo — por padrão o carrinho inteiro; reduzida abaixo
+    // quando há itens de bebida ou já em promoção > 40%.
+    let discountableAmount = orderAmount;
+    let excludedAmount = 0;
+
+    if (items && items.length > 0) {
+      const productIds = [...new Set(items.map((i) => i.productId))];
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: productIds }, companyId },
+        select: {
+          id: true,
+          salePrice: true,
+          originalPrice: true,
+          category: { select: { categoryType: true } },
+        },
+      });
+      const productMap = new Map(products.map((p) => [p.id, p]));
+
+      let itemsSubtotal = 0;
+      for (const item of items) {
+        const lineTotal = item.unitPrice * item.quantity;
+        itemsSubtotal += lineTotal;
+
+        const product = productMap.get(item.productId);
+        const isBeverage = product?.category?.categoryType === 'bebidas';
+
+        const original = Number(product?.originalPrice ?? 0);
+        const current = Number(product?.salePrice ?? 0);
+        const ownDiscountPct =
+          original > 0 && current > 0 && original > current
+            ? ((original - current) / original) * 100
+            : 0;
+        const isDeepPromo = ownDiscountPct > 40;
+
+        if (isBeverage || isDeepPromo) excludedAmount += lineTotal;
+      }
+      discountableAmount = Math.max(itemsSubtotal - excludedAmount, 0);
+    }
+
     let discount = 0;
     if (coupon.type === 'PERCENTAGE') {
-      discount = orderAmount * (Number(coupon.value) / 100);
+      discount = discountableAmount * (Number(coupon.value) / 100);
       if (coupon.maxDiscount)
         discount = Math.min(discount, Number(coupon.maxDiscount));
     } else if (coupon.type === 'FIXED_AMOUNT') {
-      discount = Math.min(Number(coupon.value), orderAmount);
+      discount = Math.min(Number(coupon.value), discountableAmount);
     }
+
+    const valueLabel =
+      coupon.type === 'PERCENTAGE'
+        ? `${Number(coupon.value)}%`
+        : `R$ ${Number(coupon.value).toFixed(2)}`;
+    const message =
+      excludedAmount > 0
+        ? `${valueLabel} de desconto aplicado — bebidas e itens já em promoção não entram no cálculo. 🎉`
+        : `${valueLabel} de desconto aplicado! 🎉`;
 
     return {
       couponId: coupon.id,
@@ -106,7 +162,41 @@ export class LoyaltyService {
       type: coupon.type,
       discount: new Decimal(discount).toDecimalPlaces(2),
       finalAmount: new Decimal(orderAmount - discount).toDecimalPlaces(2),
+      excludedAmount: new Decimal(excludedAmount).toDecimalPlaces(2),
+      message,
     };
+  }
+
+  // ── Marca cupom como usado (chamado após pedido criado) ───
+  async redeemCoupon(couponId: string) {
+    return this.prisma.coupon
+      .update({
+        where: { id: couponId },
+        data: { usageCount: { increment: 1 } },
+      })
+      .catch((err) =>
+        this.logger.warn(`Coupon redeem failed: ${err?.message}`),
+      );
+  }
+
+  // ── Admin: lista cupons da empresa ────────────────────────
+  async listCoupons(companyId: string) {
+    return this.prisma.coupon.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // ── Admin: ativa/desativa cupom ───────────────────────────
+  async toggleCoupon(id: string, companyId: string) {
+    const coupon = await this.prisma.coupon.findFirst({
+      where: { id, companyId },
+    });
+    if (!coupon) throw new NotFoundException('Cupom não encontrado');
+    return this.prisma.coupon.update({
+      where: { id },
+      data: { active: !coupon.active },
+    });
   }
 
   // ── Resgate de pontos por cupom ───────────────────────────

@@ -11,11 +11,11 @@ npm install
 
 ## Configuração
 
-Defina as variáveis de ambiente:
+Defina as variáveis de ambiente — ou crie um arquivo `.env` na **mesma pasta do executável** (lido automaticamente, funciona tanto rodando via `node index.js` quanto no `.exe` empacotado):
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
-| `PRINTER_AUTH_TOKEN` | ✅ | JWT de admin da empresa (pegue no localStorage após login) |
+| `PRINTER_AUTH_TOKEN` | ✅ | JWT de admin da empresa (pegue no localStorage após login, ou no botão "Copiar" da tela Impressão Local) |
 | `API_URL` | | URL do backend (default: `http://localhost:3001/api`) |
 | `POLL_INTERVAL_MS` | | Intervalo de polling em ms (default: `5000`) |
 | `PAPER_WIDTH` | | Largura do papel: `58` ou `80` (default: `80`) |
@@ -34,6 +34,22 @@ NETWORK_HOST=192.168.1.100
 NETWORK_PORT=9100
 ```
 
+### Modo Impressora do Windows (recomendado para a maioria das térmicas brasileiras)
+
+Use o **nome exato** da impressora tal como aparece em "Impressoras e Scanners" do Windows. Funciona com impressoras conectadas por porta COM/serial (comum em Bematech, Elgin, Tanca — que aparecem ao Windows como `NomeDaImpressora_COM3:` e não como dispositivo USB "cru"), USB genérico ou compartilhada em rede — o agente envia os bytes RAW direto pelo spooler do Windows (WinAPI), sem depender de VID/PID.
+
+```env
+PRINTER_NAME=MP-4200 TH
+```
+
+Exemplo `.env` completo:
+
+```env
+PRINTER_AUTH_TOKEN=cole_o_token_aqui
+API_URL=https://api.seudominio.com/api
+PRINTER_NAME=MP-4200 TH
+```
+
 ## Uso
 
 ```bash
@@ -42,6 +58,10 @@ PRINTER_AUTH_TOKEN=seu_jwt node index.js
 
 # Com PM2 (persistente)
 npm run pm2
+
+# Executável empacotado (Windows) — crie o .env ao lado do .exe e dê duplo-clique,
+# ou rode pelo terminal:
+./FoodSaaS-Printer-Agent-win.exe
 ```
 
 ## Como obter o JWT

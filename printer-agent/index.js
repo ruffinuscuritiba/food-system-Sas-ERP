@@ -2,21 +2,71 @@
  * FoodSaaS Printer Agent — Phase 3
  *
  * Polls /printers/jobs?status=PENDING, prints via ESC/POS, confirms each job.
- * Supports: USB (node-escpos), Network TCP, and Browser-print fallback (no-op).
+ * Supports: USB (node-escpos), Network TCP, impressora instalada no Windows
+ * (nome da fila de impressão — funciona com porta COM/serial, USB genérico,
+ * compartilhada etc., pois usa o spooler do Windows via WinAPI RAW), e
+ * fallback de debug (loga no console, sem hardware).
  *
  * Usage:
- *   PRINTER_AUTH_TOKEN=<jwt>  node index.js
+ *   PRINTER_AUTH_TOKEN=<token>  node index.js
+ *   (ou crie um arquivo .env na mesma pasta — lido automaticamente)
  *
  * Env vars:
  *   API_URL           — backend base URL (default: http://localhost:3001/api)
- *   PRINTER_AUTH_TOKEN — JWT do admin da empresa (obrigatório)
+ *   PRINTER_AUTH_TOKEN — chave de ativação da loja (obrigatório)
  *   POLL_INTERVAL_MS  — intervalo de polling em ms (default: 5000)
  *   PAPER_WIDTH       — 58 | 80 (default: 80)
- *   USB_VENDOR_ID     — HEX (ex: 0x04b8) — habilita USB
- *   USB_PRODUCT_ID    — HEX (ex: 0x0202) — habilita USB
+ *   USB_VENDOR_ID     — HEX (ex: 0x04b8) — habilita USB direto (node-escpos)
+ *   USB_PRODUCT_ID    — HEX (ex: 0x0202) — habilita USB direto (node-escpos)
  *   NETWORK_HOST      — IP da impressora (ex: 192.168.1.100) — habilita TCP
  *   NETWORK_PORT      — porta TCP (default: 9100)
+ *   PRINTER_NAME      — nome exato da impressora instalada no Windows
+ *                       (ex: "MP-4200 TH") — envia RAW via spooler, funciona
+ *                       com impressoras em porta COM/serial (Bematech, Elgin
+ *                       etc.), USB genérico ou compartilhada
  */
+
+// Carrega variáveis do arquivo .env na mesma pasta do executável (o .env
+// nunca era lido antes — PRINTER_AUTH_TOKEN sempre ficava vazio mesmo com o
+// arquivo criado corretamente, e o processo encerrava sozinho ao iniciar).
+//
+// Parser feito à mão (sem depender do pacote "dotenv"): o pkg (empacotador
+// do .exe) tem suporte instável a pacotes ESM novos — adicionar "dotenv"
+// quebrou o snapshot do binário (Error: Cannot find module .../index.js).
+// Um parser de .env é trivial o bastante pra não precisar de dependência.
+//
+// Arquivo é CommonJS (não ESM) de propósito — o pkg tem bugs conhecidos
+// com "type":"module" (import.meta, top-level await e geração de bytecode
+// quebravam o executável de formas diferentes); CJS é o modo mais maduro
+// e testado do pkg.
+const fs = require("fs");
+const path = require("path");
+
+function loadDotEnv() {
+  // process.pkg existe só dentro do .exe empacotado.
+  const baseDir = typeof process.pkg !== "undefined"
+    ? path.dirname(process.execPath)
+    : process.argv[1] ? path.dirname(process.argv[1]) : process.cwd();
+  const envPath = path.join(baseDir, ".env");
+  if (!fs.existsSync(envPath)) return;
+  const content = fs.readFileSync(envPath, "utf-8");
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+loadDotEnv();
 
 const API_URL         = process.env.API_URL          ?? "http://localhost:3001/api";
 const AUTH_TOKEN      = process.env.PRINTER_AUTH_TOKEN ?? "";
@@ -26,6 +76,7 @@ const USB_VENDOR_ID   = process.env.USB_VENDOR_ID  ? parseInt(process.env.USB_VE
 const USB_PRODUCT_ID  = process.env.USB_PRODUCT_ID ? parseInt(process.env.USB_PRODUCT_ID, 16) : null;
 const NETWORK_HOST    = process.env.NETWORK_HOST ?? null;
 const NETWORK_PORT    = Number(process.env.NETWORK_PORT ?? 9100);
+const PRINTER_NAME    = process.env.PRINTER_NAME ?? null;
 
 // ── ESC/POS byte sequences ────────────────────────────────────────────────────
 
@@ -146,7 +197,7 @@ function buildTicket(job) {
 // ── Printer backends ──────────────────────────────────────────────────────────
 
 async function printUsb(data) {
-  const { USB } = await import("escpos");
+  const { USB } = require("escpos");
   const device  = new USB(USB_VENDOR_ID, USB_PRODUCT_ID);
   return new Promise((resolve, reject) => {
     device.open((err) => {
@@ -160,9 +211,9 @@ async function printUsb(data) {
 }
 
 async function printNetwork(data) {
-  const net = await import("net");
+  const net = require("net");
   return new Promise((resolve, reject) => {
-    const sock = net.default.createConnection(NETWORK_PORT, NETWORK_HOST, () => {
+    const sock = net.createConnection(NETWORK_PORT, NETWORK_HOST, () => {
       sock.write(data, (err) => {
         sock.end();
         if (err) reject(err); else resolve();
@@ -173,6 +224,95 @@ async function printNetwork(data) {
   });
 }
 
+// Impressora instalada no Windows (qualquer porta: COM/serial, USB genérico,
+// compartilhada) — envia bytes RAW direto pelo spooler via WinAPI
+// (OpenPrinter/StartDocPrinter/WritePrinter), técnica clássica documentada
+// pela Microsoft (KB322091). Evita depender de VID/PID de USB — a maioria
+// das térmicas brasileiras (Bematech, Elgin, Tanca) se apresenta ao Windows
+// como porta COM virtual, não como dispositivo USB "cru".
+async function printWindowsRaw(data, printerName) {
+  const os          = require("os");
+  const { spawn }   = require("child_process");
+
+  const tmpDir   = fs.mkdtempSync(path.join(os.tmpdir(), "fsaas-print-"));
+  const dataFile = path.join(tmpDir, "ticket.prn");
+  const psFile   = path.join(tmpDir, "print.ps1");
+  fs.writeFileSync(dataFile, data);
+
+  const psScript = `
+param([string]$PrinterName, [string]$DataFile)
+Add-Type @"
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+public class FoodSaaSRawPrinter {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public class DOCINFOA {
+        [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
+        [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
+        [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+    }
+    [DllImport("winspool.drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool OpenPrinter(string szPrinter, out IntPtr hPrinter, IntPtr pd);
+    [DllImport("winspool.drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool ClosePrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
+    [DllImport("winspool.drv", EntryPoint = "EndDocPrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool EndDocPrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv", EntryPoint = "StartPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool StartPagePrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv", EntryPoint = "EndPagePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool EndPagePrinter(IntPtr hPrinter);
+    [DllImport("winspool.drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+    public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
+
+    public static bool SendFileToPrinter(string printerName, string fileName) {
+        byte[] bytes = File.ReadAllBytes(fileName);
+        IntPtr pUnmanagedBytes = Marshal.AllocCoTaskMem(bytes.Length);
+        Marshal.Copy(bytes, 0, pUnmanagedBytes, bytes.Length);
+        IntPtr hPrinter;
+        bool ok = false;
+        if (OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {
+            DOCINFOA di = new DOCINFOA();
+            di.pDocName = "FoodSaaS Ticket";
+            di.pDataType = "RAW";
+            if (StartDocPrinter(hPrinter, 1, di)) {
+                if (StartPagePrinter(hPrinter)) {
+                    Int32 written;
+                    ok = WritePrinter(hPrinter, pUnmanagedBytes, bytes.Length, out written);
+                    EndPagePrinter(hPrinter);
+                }
+                EndDocPrinter(hPrinter);
+            }
+            ClosePrinter(hPrinter);
+        }
+        Marshal.FreeCoTaskMem(pUnmanagedBytes);
+        return ok;
+    }
+}
+"@
+$result = [FoodSaaSRawPrinter]::SendFileToPrinter($PrinterName, $DataFile)
+if (-not $result) { Write-Error "Falha ao enviar para a impressora '$PrinterName'"; exit 1 }
+`;
+  fs.writeFileSync(psFile, psScript);
+
+  return new Promise((resolve, reject) => {
+    const ps = spawn("powershell.exe", [
+      "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", psFile,
+      "-PrinterName", printerName, "-DataFile", dataFile,
+    ]);
+    let stderr = "";
+    ps.stderr.on("data", (d) => { stderr += d.toString(); });
+    ps.on("error", reject);
+    ps.on("close", (code) => {
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `powershell saiu com código ${code}`));
+    });
+  });
+}
+
 async function printJob(job) {
   const data = buildTicket(job);
 
@@ -180,6 +320,8 @@ async function printJob(job) {
     await printUsb(data);
   } else if (NETWORK_HOST) {
     await printNetwork(data);
+  } else if (PRINTER_NAME) {
+    await printWindowsRaw(data, PRINTER_NAME);
   } else {
     // No hardware configured — log the ticket as plain text for debugging
     console.log("=== TICKET (no hardware) ===");
@@ -240,11 +382,6 @@ async function sendHeartbeat() {
 // ── Poll loop ─────────────────────────────────────────────────────────────────
 
 async function poll() {
-  if (!AUTH_TOKEN) {
-    console.error("PRINTER_AUTH_TOKEN não configurado. Defina a variável de ambiente.");
-    process.exit(1);
-  }
-
   let jobs;
   try {
     jobs = await fetchPendingJobs();
@@ -269,15 +406,42 @@ async function poll() {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-console.log(`FoodSaaS Printer Agent iniciado`);
-console.log(`  API: ${API_URL}`);
-console.log(`  Polling a cada ${POLL_MS}ms`);
-if (USB_VENDOR_ID)  console.log(`  Modo: USB (${USB_VENDOR_ID.toString(16)}:${USB_PRODUCT_ID.toString(16)})`);
-else if (NETWORK_HOST) console.log(`  Modo: Network TCP (${NETWORK_HOST}:${NETWORK_PORT})`);
-else console.log(`  Modo: Debug (sem hardware — log no console)`);
+// Ao rodar o .exe com duplo-clique no Windows, um erro fatal fechava a janela
+// do console instantaneamente — impossível ler a mensagem. Agora, se faltar
+// o token, avisa claramente e espera ENTER antes de fechar.
+async function waitBeforeExit() {
+  if (process.stdin.isTTY) {
+    console.error("\nPressione ENTER para fechar esta janela...");
+    await new Promise((resolve) => {
+      process.stdin.resume();
+      process.stdin.once("data", resolve);
+    });
+  }
+  process.exit(1);
+}
 
-sendHeartbeat(); // heartbeat imediato ao iniciar
-setInterval(sendHeartbeat, 30_000);
+async function main() {
+  if (!AUTH_TOKEN) {
+    console.error("PRINTER_AUTH_TOKEN não configurado.");
+    console.error("Crie um arquivo .env na MESMA PASTA deste executável com o conteúdo:");
+    console.error("  PRINTER_AUTH_TOKEN=<chave copiada da tela Impressão Local>");
+    await waitBeforeExit();
+    return;
+  }
 
-poll(); // primeira execução imediata
-setInterval(poll, POLL_MS);
+  console.log(`FoodSaaS Printer Agent iniciado`);
+  console.log(`  API: ${API_URL}`);
+  console.log(`  Polling a cada ${POLL_MS}ms`);
+  if (USB_VENDOR_ID)  console.log(`  Modo: USB (${USB_VENDOR_ID.toString(16)}:${USB_PRODUCT_ID.toString(16)})`);
+  else if (NETWORK_HOST) console.log(`  Modo: Network TCP (${NETWORK_HOST}:${NETWORK_PORT})`);
+  else if (PRINTER_NAME) console.log(`  Modo: Impressora do Windows ("${PRINTER_NAME}")`);
+  else console.log(`  Modo: Debug (sem hardware — log no console)`);
+
+  sendHeartbeat(); // heartbeat imediato ao iniciar
+  setInterval(sendHeartbeat, 30_000);
+
+  poll(); // primeira execução imediata
+  setInterval(poll, POLL_MS);
+}
+
+main();

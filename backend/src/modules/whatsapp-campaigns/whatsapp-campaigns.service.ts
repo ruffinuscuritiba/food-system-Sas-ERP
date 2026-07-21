@@ -3,15 +3,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { CreateCampaignDto, UpdateCampaignDto } from './dto/create-campaign.dto';
 import { AddContactsDto } from './dto/add-contacts.dto';
-
-/** Normaliza telefone BR pro mesmo formato usado no disparo (dígitos + DDI 55). */
-function normalizePhoneBr(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
-  if (!digits) return digits;
-  if (digits.startsWith('55') && digits.length >= 12) return digits;
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-  return digits;
-}
+import { normalizePhoneBr } from '@/common/utils/phone';
 
 /**
  * Campanhas recorrentes de WhatsApp — reengajamento de cliente.

@@ -11,6 +11,7 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 import { StockService } from '@/modules/stock/stock.service';
+import { normalizePhoneBr } from '@/common/utils/phone';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
@@ -53,6 +54,8 @@ export interface CreateOnlineOrderDto {
   notes?: string;
   /** "TOTEM" quando o pedido vem de um tablet fixo na mesa (?totem=1) */
   channel?: string;
+  /** Opt-in de marketing marcado no checkout — nunca revoga se vier false/ausente. */
+  marketingOptIn?: boolean;
 }
 
 @Injectable()
@@ -268,6 +271,17 @@ export class OnlineOrdersService {
     // Errors here are logged but do NOT roll back or affect the response.
     setImmediate(() => {
       try {
+        // → Marca opt-in de marketing (se o cliente marcou a caixa no checkout).
+        // Nunca roda síncrono com o pedido — não pode atrasar/derrubar a compra.
+        this.syncCustomerOptIn(
+          dto.companyId,
+          dto.customerPhone,
+          dto.customerName,
+          dto.marketingOptIn,
+        ).catch((e: any) =>
+          this.logger.warn(`[OnlineOrder] syncCustomerOptIn falhou: ${e?.message}`),
+        );
+
         // → Kitchen screen picks up new order
         this.socketGateway.emitOrderCreated(order);
 
@@ -333,6 +347,45 @@ export class OnlineOrdersService {
     });
 
     return order;
+  }
+
+  /**
+   * Marca marketingOptIn=true no Customer correspondente ao telefone do
+   * pedido, quando o cliente marcou a caixa de opt-in no checkout do
+   * cardápio digital. Nunca escreve `false` — ausência/desmarcado apenas
+   * não mexe no que já existe (evita revogar consentimento dado antes por
+   * outro canal, ex.: "Adicionar Contatos" do admin ou pedido anterior).
+   */
+  private async syncCustomerOptIn(
+    companyId: string,
+    rawPhone: string,
+    name: string,
+    marketingOptIn?: boolean,
+  ) {
+    if (!marketingOptIn) return;
+    const phone = normalizePhoneBr(rawPhone);
+    if (!phone || phone.length < 10) return;
+
+    const existing = await this.prisma.customer.findFirst({
+      where: { companyId, phone },
+    });
+    if (existing) {
+      if (!existing.marketingOptIn) {
+        await this.prisma.customer.update({
+          where: { id: existing.id },
+          data: { marketingOptIn: true },
+        });
+      }
+    } else {
+      await this.prisma.customer.create({
+        data: {
+          companyId,
+          phone,
+          name: name?.trim() || phone,
+          marketingOptIn: true,
+        },
+      });
+    }
   }
 
   /**

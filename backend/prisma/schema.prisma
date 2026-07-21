@@ -327,6 +327,9 @@ model Company {
   qrCodes          QrCode[]
   couponRedemptions CouponRedemption[]
 
+  // ── Campanhas recorrentes de WhatsApp (reengajamento com opt-in) ──────────
+  whatsappCampaigns WhatsappCampaign[]
+
   // ── Marketing Digital (limite diário de campanhas geradas por IA) ──────────
   aiCampaignGenerations AiCampaignGeneration[]
 
@@ -551,6 +554,11 @@ model Customer {
   address String?
 
   notes String?
+
+  // Consentimento explícito pra receber mensagem de marketing recorrente via
+  // WhatsApp (campanhas de reengajamento). Default false — opt-out por padrão,
+  // nunca assume consentimento.
+  marketingOptIn Boolean @default(false)
 
   orders Order[]
 
@@ -2250,4 +2258,60 @@ model CouponRedemption {
   @@index([companyId])
   @@index([qrCodeId])
   @@index([createdAt])
+}
+
+// ─── Campanhas recorrentes de WhatsApp (reengajamento com opt-in) ───────────
+// Diferente do QrCode/Campaign acima (cupom de recuperação): isso é envio de
+// mensagem de marketing direto. Só dispara pra Customer.marketingOptIn=true,
+// e nunca reenvia pro mesmo telefone antes de `minIntervalDays` (padrão 15) —
+// contado a partir do último envio bem-sucedido, em QUALQUER campanha da
+// empresa, pra não empilhar mensagens de campanhas diferentes no mesmo cliente.
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum CampaignSendStatus {
+  SENT
+  FAILED
+  SKIPPED_INTERVAL
+  SKIPPED_NO_OPTIN
+  SKIPPED_NO_PHONE
+}
+
+model WhatsappCampaign {
+  id              String         @id @default(cuid())
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id])
+  name            String
+  // Texto da mensagem — suporta variável {{nome}} (substituída pelo nome do
+  // cliente). Sem spintax/variação de texto — mensagem única e transparente.
+  message         String         @db.Text
+  status          CampaignStatus @default(DRAFT)
+  minIntervalDays Int            @default(15)
+  createdById     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  sends           WhatsappCampaignSend[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+}
+
+model WhatsappCampaignSend {
+  id           String              @id @default(cuid())
+  campaignId   String
+  campaign     WhatsappCampaign    @relation(fields: [campaignId], references: [id])
+  companyId    String
+  customerId   String?
+  phone        String
+  status       CampaignSendStatus
+  errorMessage String?
+  sentAt       DateTime            @default(now())
+
+  @@index([campaignId])
+  @@index([companyId, phone, sentAt])
 }

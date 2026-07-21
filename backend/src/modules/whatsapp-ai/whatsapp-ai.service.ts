@@ -2002,33 +2002,38 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     }
   }
 
-  /** Envia mensagem de texto avulsa pelo primeiro WhatsApp ativo da empresa. */
-  async sendTextMessage(companyId: string, phone: string, text: string) {
+  /**
+   * Envia mensagem de texto avulsa pelo primeiro WhatsApp ativo da empresa.
+   * Retorna true só quando o dispatch realmente foi tentado com sucesso —
+   * usado por quem precisa de rastreamento real de entrega (ex.: campanhas
+   * recorrentes), não apenas notificações "melhor esforço".
+   */
+  async sendTextMessage(companyId: string, phone: string, text: string): Promise<boolean> {
     const raw = phone.replace(/\D/g, '');
-    if (!raw || raw.length < 8) return;
+    if (!raw || raw.length < 8) return false;
     let connection: WaConnection | null = null;
     try {
       connection = (await this.prisma.whatsappConnection.findFirst({
         where: { companyId, isActive: true },
         orderBy: { createdAt: 'desc' },
       })) as WaConnection | null;
-    } catch { return; }
-    if (!connection) return;
-    await this.dispatchMessage(connection, raw, text).catch(() => { /* silent */ });
+    } catch { return false; }
+    if (!connection) return false;
+    return this.dispatchMessage(connection, raw, text);
   }
 
   private async dispatchMessage(
     connection: WaConnection,
     phone: string,
     text: string,
-  ) {
+  ): Promise<boolean> {
     try {
       if (connection.provider === 'EVOLUTION') {
         if (!connection.apiUrl || !connection.instanceName) {
           log.error(
             `[dispatchMessage] Connection ${connection.id} misconfigured: missing apiUrl or instanceName`,
           );
-          return;
+          return false;
         }
         await sendEvolution(
           connection.apiUrl,
@@ -2042,7 +2047,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
           log.error(
             `[dispatchMessage] Connection ${connection.id} misconfigured: missing phoneNumberId`,
           );
-          return;
+          return false;
         }
         await sendCloudApi(
           connection.phoneNumberId,
@@ -2054,11 +2059,14 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         log.error(
           `[dispatchMessage] Connection ${connection.id}: unsupported provider "${connection.provider}"`,
         );
+        return false;
       }
+      return true;
     } catch (err: unknown) {
       log.error(
         `[dispatchMessage] Connection ${connection.id} send failed: ${(err as Error)?.message}`,
       );
+      return false;
     }
   }
 

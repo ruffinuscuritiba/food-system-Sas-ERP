@@ -4,12 +4,14 @@ import {
   Get,
   Patch,
   Post,
-  Query,
   Param,
   BadRequestException,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { CompanyId } from '@/common/decorators/company-id.decorator';
 import { LoyaltyService } from '@/modules/loyalty/loyalty.service';
 
 @Controller('coupons')
@@ -63,21 +65,26 @@ export class CouponsController {
     return this.loyalty.redeemCoupon(body.couponId);
   }
 
-  /** ADMIN — list company coupons */
-  @UseGuards(JwtAuthGuard)
+  /** ADMIN — list company coupons (PDV "Criar Cupom" e telas futuras de gestão) */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
   @Get()
-  list(@Query('companyId') companyId: string) {
-    if (!companyId) throw new BadRequestException('companyId é obrigatório.');
+  list(@CompanyId() companyId: string) {
     return this.loyalty.listCoupons(companyId);
   }
 
-  /** ADMIN — create coupon */
-  @UseGuards(JwtAuthGuard)
+  /**
+   * ADMIN — create coupon. companyId vem SEMPRE do JWT (@CompanyId), nunca
+   * do body — corpo pode mandar `companyId` mas é ignorado, para não
+   * confiar num valor que o cliente poderia adulterar.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
   @Post()
   create(
+    @CompanyId() companyId: string,
     @Body()
     body: {
-      companyId: string;
       code: string;
       type: 'PERCENTAGE' | 'FIXED_AMOUNT' | 'FREE_SHIPPING';
       value: number;
@@ -88,17 +95,21 @@ export class CouponsController {
       customerId?: string;
     },
   ) {
+    if (!body.code || !body.type) {
+      throw new BadRequestException('code e type são obrigatórios.');
+    }
     return this.loyalty.createCoupon({
       ...body,
+      companyId,
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
     });
   }
 
   /** ADMIN — toggle active/inactive */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
   @Patch(':id/toggle')
-  toggle(@Param('id') id: string, @Query('companyId') companyId: string) {
-    if (!companyId) throw new BadRequestException('companyId é obrigatório.');
+  toggle(@Param('id') id: string, @CompanyId() companyId: string) {
     return this.loyalty.toggleCoupon(id, companyId);
   }
 }

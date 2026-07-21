@@ -1477,55 +1477,6 @@ function DemoContent() {
           </div>
         </header>
 
-        {/* ── ECOSSISTEMA (outros nichos — produtos separados) ── */}
-        <section className="mx-auto max-w-6xl px-5 pt-8 sm:px-8">
-          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
-            Parte do mesmo ecossistema
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {ECOSYSTEM_LINKS.map((s) => {
-              const cardInner = (
-                <>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-white">{s.name}</p>
-                      <p className="truncate text-[10px] leading-tight text-white/40">{s.subtitle}</p>
-                    </div>
-                    {!s.href && (
-                      <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
-                        Você está aqui
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative mt-2 h-20 overflow-hidden rounded-xl sm:h-24">
-                    <Image src={s.image} alt={s.name} fill className="object-cover" sizes="200px" />
-                  </div>
-                </>
-              );
-              return s.href ? (
-                <a
-                  key={s.key}
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2.5 transition hover:border-white/20 hover:bg-white/[0.05]"
-                >
-                  {cardInner}
-                </a>
-              ) : (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={scrollToDemo}
-                  className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.06] p-2.5 text-left transition hover:border-orange-500/50 hover:bg-orange-500/[0.1]"
-                >
-                  {cardInner}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
         {/* ── HERO ── */}
         <section className="mx-auto max-w-7xl px-5 pb-12 pt-20 sm:px-8 sm:pb-16 sm:pt-28">
           <div className="flex flex-col items-center text-center">
@@ -1573,10 +1524,10 @@ function DemoContent() {
           <div className="mx-auto max-w-5xl px-5 sm:px-8">
             <div className="grid grid-cols-2 divide-x divide-white/[0.06] md:grid-cols-4">
               {[
-                { icon: <Users className="h-4 w-4" />, value: "150+", label: "restaurantes ativos" },
-                { icon: <BarChart3 className="h-4 w-4" />, value: "50 mil", label: "pedidos por mês" },
-                { icon: <ShieldCheck className="h-4 w-4" />, value: "99.9%", label: "uptime garantido" },
                 { icon: <Clock className="h-4 w-4" />, value: "7 dias", label: "de trial grátis" },
+                { icon: <ShieldCheck className="h-4 w-4" />, value: "0%", label: "de comissão no cardápio" },
+                { icon: <Zap className="h-4 w-4" />, value: "10 min", label: "para começar a vender" },
+                { icon: <MessageCircle className="h-4 w-4" />, value: "WhatsApp", label: "suporte direto com o time" },
               ].map((m, i) => (
                 <div key={i} className="flex items-center gap-3 px-6 py-5 md:justify-center">
                   <span className="text-orange-400/70">{m.icon}</span>
@@ -1779,13 +1730,6 @@ function DemoContent() {
               </div>
             ))}
           </div>
-          <div className="mt-10 flex justify-center">
-            <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
-              className="inline-flex items-center gap-2 rounded-2xl border border-green-500/30 bg-green-500/10 px-6 py-3 text-sm font-semibold text-green-400 transition hover:bg-green-500/15">
-              <MessageCircle className="h-4 w-4" />
-              Dúvidas? Fale com um consultor agora
-            </a>
-          </div>
         </section>
 
         {/* ── TESTIMONIALS ── */}
@@ -1910,7 +1854,7 @@ function DemoContent() {
               </a>
             </div>
             <p className="mt-5 text-[11px] text-white/25">
-              Mais de 150 restaurantes confiam no R_FoodSaaS · Suporte em português
+              Sem fidelidade · Cancele quando quiser · Suporte em português
             </p>
             <a
               href="https://instagram.com/mestragenciadigital"
@@ -1923,6 +1867,57 @@ function DemoContent() {
               </svg>
               @mestragenciadigital
             </a>
+          </div>
+        </section>
+
+        {/* ── ECOSSISTEMA (outros nichos — produtos separados) — movido pro rodapé:
+             quem clicou num anúncio de comida não precisa ver isso antes de
+             conhecer o produto que veio ver. ── */}
+        <section className="mx-auto max-w-6xl px-5 pb-4 sm:px-8">
+          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
+            Parte do mesmo ecossistema
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {ECOSYSTEM_LINKS.map((s) => {
+              const cardInner = (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-white">{s.name}</p>
+                      <p className="truncate text-[10px] leading-tight text-white/40">{s.subtitle}</p>
+                    </div>
+                    {!s.href && (
+                      <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                        Você está aqui
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative mt-2 h-20 overflow-hidden rounded-xl sm:h-24">
+                    <Image src={s.image} alt={s.name} fill className="object-cover" sizes="200px" />
+                  </div>
+                </>
+              );
+              return s.href ? (
+                <a
+                  key={s.key}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2.5 transition hover:border-white/20 hover:bg-white/[0.05]"
+                >
+                  {cardInner}
+                </a>
+              ) : (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={scrollToDemo}
+                  className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.06] p-2.5 text-left transition hover:border-orange-500/50 hover:bg-orange-500/[0.1]"
+                >
+                  {cardInner}
+                </button>
+              );
+            })}
           </div>
         </section>
 

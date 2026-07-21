@@ -111,7 +111,7 @@ function customerPhone(order: Order): string {
 
 // ── Print ─────────────────────────────────────────────────────────────────────
 
-function printOrder(order: Order, companyName: string) {
+async function printOrder(order: Order, companyName: string) {
   const printable: PrintableOrder = {
     ...(order as unknown as PrintableOrder),
     source:        (order as Order & { source?: string }).source,
@@ -119,7 +119,13 @@ function printOrder(order: Order, companyName: string) {
     customerName:  customerName(order),
     customerPhone: customerPhone(order),
   };
-  PrintRouterService.printAll(printable, { companyName });
+  const result = await PrintRouterService.printAll(printable, { companyName });
+  if (result.blockedSectors.length > 0) {
+    toast.error(
+      `Impressão bloqueada pelo navegador (${result.blockedSectors.join(", ")}). Libere pop-ups para este site.`,
+      { id: "orders-print-blocked", duration: 8000 },
+    );
+  }
 }
 
 // ── Edit Notes Modal ──────────────────────────────────────────────────────────

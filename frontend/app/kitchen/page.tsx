@@ -51,8 +51,16 @@ export default function KitchenPage() {
     }
   }
 
-  function printKitchenOrder(order: any) {
-    PrintRouterService.printAll(order, { companyName: "Cozinha", sectors: ["KITCHEN", "BAR", "PIZZARIA", "LANCHONETE"] });
+  async function printKitchenOrder(order: any) {
+    const result = await PrintRouterService.printAll(order, { companyName: "Cozinha", sectors: ["KITCHEN", "BAR", "PIZZARIA", "LANCHONETE"] });
+    if (result.blockedSectors.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const toast = (await import("react-hot-toast")).default;
+      toast.error(
+        `Impressão bloqueada pelo navegador (${result.blockedSectors.join(", ")}). Libere pop-ups para este site.`,
+        { id: "kitchen-print-blocked", duration: 8000 },
+      );
+    }
   }
 
   useEffect(() => {

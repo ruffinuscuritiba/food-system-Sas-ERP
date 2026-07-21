@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '@/database/prisma.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -377,7 +378,27 @@ export class PaymentsService {
     const [, onlineOrderId, companyId] = ref.split('|');
     if (!onlineOrderId || !companyId) return;
 
-    const mpStatus: string = mp.status;
+    await this.applyMpPaymentResult(onlineOrderId, companyId, mp.status, eventId);
+
+    // Mark webhook as processed
+    await this.prisma.paymentWebhook.update({
+      where: { gateway_eventId: { gateway: 'MERCADOPAGO', eventId } },
+      data: { processed: true, companyId },
+    });
+  }
+
+  /**
+   * Aplica o resultado de um pagamento MP a um OnlineOrder — compartilhado
+   * entre o webhook (tempo real) e a reconciliação por polling (fallback
+   * quando o webhook não chega). Idempotente: se o pedido já estiver
+   * CONFIRMED, não repete os side-effects (evita crédito duplo na carteira).
+   */
+  private async applyMpPaymentResult(
+    onlineOrderId: string,
+    companyId: string,
+    mpStatus: string,
+    mercadopagoPaymentId: string,
+  ): Promise<void> {
     const paymentStatus =
       mpStatus === 'approved'
         ? 'APPROVED'
@@ -387,9 +408,12 @@ export class PaymentsService {
             ? 'EXPIRED'
             : 'PENDING';
 
+    const current = await this.onlineOrders.findOne(onlineOrderId, companyId);
+    if (current.paymentStatus === 'APPROVED') return; // já processado — evita crédito duplo
+
     await this.onlineOrders.updatePayment(onlineOrderId, {
       paymentStatus: paymentStatus as any,
-      mercadopagoPaymentId: eventId,
+      mercadopagoPaymentId,
       paidAt: mpStatus === 'approved' ? new Date() : undefined,
     });
 
@@ -442,12 +466,56 @@ export class PaymentsService {
           this.logger.warn(`[OnlineOrderWebhook] email failed: ${e?.message}`),
         );
     }
+  }
 
-    // Mark webhook as processed
-    await this.prisma.paymentWebhook.update({
-      where: { gateway_eventId: { gateway: 'MERCADOPAGO', eventId } },
-      data: { processed: true, companyId },
+  // ─── Reconciliação — fallback para quando o webhook do MP não chega ────────
+  // Roda a cada 5 min: revarre pedidos PIX PENDING recentes e reconsulta o MP
+  // diretamente. Cobre o cenário "cliente pagou, saiu da tela, e o webhook
+  // falhou (timeout, MP fora do ar, etc)" — sem isso o pedido ficava PENDING
+  // para sempre mesmo com o dinheiro já na conta da loja.
+  @Cron('*/5 * * * *')
+  async reconcilePendingPixPayments(): Promise<void> {
+    const accessToken = this.config.get<string>('MERCADOPAGO_ACCESS_TOKEN');
+    if (!accessToken) return;
+
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000);
+    const pending = await this.prisma.onlineOrder.findMany({
+      where: {
+        paymentStatus: 'PENDING',
+        paymentMethod: 'PIX',
+        mercadopagoPaymentId: { not: null },
+        createdAt: { gte: twoHoursAgo },
+      },
+      select: { id: true, companyId: true, mercadopagoPaymentId: true },
+      take: 100,
     });
+    if (pending.length === 0) return;
+
+    this.logger.log(`[Reconciliation] revisando ${pending.length} pagamento(s) PIX pendente(s)`);
+
+    for (const order of pending) {
+      try {
+        const res = await fetch(
+          `https://api.mercadopago.com/v1/payments/${order.mercadopagoPaymentId}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        if (!res.ok) continue;
+        const mp: any = await res.json();
+        if (mp.status && mp.status !== 'pending' && mp.status !== 'in_process') {
+          await this.applyMpPaymentResult(
+            order.id,
+            order.companyId,
+            mp.status,
+            String(order.mercadopagoPaymentId),
+          );
+          this.logger.log(
+            `[Reconciliation] pedido ${order.id} estava PENDING no sistema mas ${mp.status} no MP — corrigido`,
+          );
+        }
+      } catch (e: any) {
+        this.logger.warn(`[Reconciliation] falha ao checar pedido ${order.id}: ${e?.message}`);
+      }
+    }
   }
 
   // ─── Webhook: subscription plans (existing) ────────────────────────────────

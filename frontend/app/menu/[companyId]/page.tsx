@@ -281,6 +281,8 @@ export default function MenuPage() {
   const [pixData, setPixData]             = useState<PixData | null>(null);
   const [pixCountdown, setPixCountdown]   = useState(0);
   const [pixPaid, setPixPaid]             = useState(false);
+  const [pixExpired, setPixExpired]       = useState(false);
+  const [regeneratingPix, setRegeneratingPix] = useState(false);
 
   async function loadMenu(attempt = 1) {
     setLoading(true);
@@ -446,12 +448,40 @@ export default function MenuPage() {
     const tick = () => {
       const secs = Math.max(0, Math.floor((new Date(pixData.expiresAt).getTime() - Date.now()) / 1000));
       setPixCountdown(secs);
-      if (secs === 0) setPixPaid(false);
+      if (secs === 0) setPixExpired(true);
     };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [showPixScreen, pixData?.expiresAt]);
+
+  /* ── PIX regenerar após expirar (mesmo pedido, novo QR) ──────────── */
+  async function regeneratePix() {
+    if (!onlineOrderId) return;
+    setRegeneratingPix(true);
+    try {
+      const pixRes = await fetch(`${apiBaseUrl}/payments/online-order/${onlineOrderId}/pix`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: realCompanyId }),
+      });
+      if (!pixRes.ok) throw new Error(await pixRes.text());
+      const pix = await pixRes.json();
+      setPixData({
+        pixCopyPaste: pix.pixCopyPaste,
+        pixQrcode:    pix.pixQrcode,
+        expiresAt:    new Date(pix.expiresAt),
+        paymentId:    pix.paymentId,
+        mock:         pix.mock,
+      });
+      setPixExpired(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar um novo PIX. Tente novamente em instantes.");
+    } finally {
+      setRegeneratingPix(false);
+    }
+  }
 
   /* ── Modo Totem: reseta sozinho após o pedido para o próximo cliente ── */
   const [totemCountdown, setTotemCountdown] = useState(0);
@@ -494,7 +524,7 @@ export default function MenuPage() {
 
   /* ── PIX payment polling ──────────────────────────────────────── */
   useEffect(() => {
-    if (!showPixScreen || !onlineOrderId || pixPaid) return;
+    if (!showPixScreen || !onlineOrderId || pixPaid || pixExpired) return;
     const poll = setInterval(async () => {
       try {
         const res = await fetch(`${apiBaseUrl}/payments/status/${onlineOrderId}?companyId=${companyId}`);
@@ -511,7 +541,7 @@ export default function MenuPage() {
       } catch { /* silent */ }
     }, 4000);
     return () => clearInterval(poll);
-  }, [showPixScreen, onlineOrderId, pixPaid, companyId]);
+  }, [showPixScreen, onlineOrderId, pixPaid, pixExpired, companyId]);
 
   const fetchLoyaltyBalance = useCallback(async (phone: string) => {
     if (!phone || phone.length < 8 || !companyId) return;
@@ -753,6 +783,7 @@ export default function MenuPage() {
     setShowPixScreen(false);
     setPixPaid(false);
     setPixData(null);
+    setPixExpired(false);
   }
 
   async function submitOrder() {
@@ -868,6 +899,7 @@ export default function MenuPage() {
             paymentId:    pix.paymentId,
             mock:         pix.mock,
           });
+          setPixExpired(false);
           setShowPixScreen(true);
         } catch (e) {
           console.error(e);
@@ -916,6 +948,35 @@ export default function MenuPage() {
               style={{ background: theme.primaryColor }}
             >
               Fazer novo pedido
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (pixExpired) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
+          <div className="bg-white rounded-3xl shadow-lg p-10 max-w-sm w-full flex flex-col items-center gap-5">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center">
+              <Timer size={40} className="text-amber-500" />
+            </div>
+            <h1 className="text-2xl font-black text-gray-900">PIX expirado</h1>
+            <p className="text-gray-500 text-sm">O código expirou antes do pagamento ser confirmado. Seu pedido continua reservado — gere um novo código para pagar.</p>
+            <button
+              onClick={regeneratePix}
+              disabled={regeneratingPix}
+              className="w-full py-3.5 rounded-2xl font-black text-white text-base transition disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ background: theme.primaryColor }}
+            >
+              {regeneratingPix ? <Loader2 size={18} className="animate-spin" /> : null}
+              {regeneratingPix ? "Gerando..." : "Gerar novo PIX"}
+            </button>
+            <button
+              onClick={resetOrderFlow}
+              className="text-gray-400 hover:text-gray-600 text-sm transition"
+            >
+              Cancelar e voltar ao cardápio
             </button>
           </div>
         </div>
@@ -998,7 +1059,7 @@ export default function MenuPage() {
           )}
 
           <button
-            onClick={() => { setShowPixScreen(false); setPixData(null); setOnlineOrderId(null); }}
+            onClick={() => { setShowPixScreen(false); setPixData(null); setOnlineOrderId(null); setPixExpired(false); }}
             className="text-gray-400 hover:text-gray-600 text-sm transition"
           >
             Cancelar e voltar ao cardápio

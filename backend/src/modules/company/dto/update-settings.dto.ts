@@ -226,4 +226,13 @@ export class UpdateCompanySettingsDto {
   @IsObject()
   @IsOptional()
   sidebarConfig?: Record<string, boolean> | null;
+
+  // ── Rastreamento / Analytics do cardápio digital ─────────────────────────
+  @IsString()
+  @IsOptional()
+  metaPixelId?: string | null;
+
+  @IsString()
+  @IsOptional()
+  googleAnalyticsId?: string | null;
 }

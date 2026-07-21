@@ -1,12 +1,9 @@
 import { Module } from '@nestjs/common';
-import { CouponsService } from './coupons.service';
 import { CouponsController } from './coupons.controller';
-import { PrismaModule } from '@/database/prisma.module';
+import { LoyaltyModule } from '@/modules/loyalty/loyalty.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [LoyaltyModule],
   controllers: [CouponsController],
-  providers: [CouponsService],
-  exports: [CouponsService],
 })
 export class CouponsModule {}

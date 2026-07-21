@@ -20,6 +20,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { IaModule } from './modules/ia/ia.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
 import { SmartImportModule } from './modules/smart-import/smart-import.module';
 import { PizzaBordersModule } from './modules/pizza-borders/pizza-borders.module';
 import { PizzaSizeConfigsModule } from './modules/pizza-size-configs/pizza-size-configs.module';
@@ -80,6 +81,7 @@ import { WhatsappCampaignsModule } from './modules/whatsapp-campaigns/whatsapp-c
     ReportsModule,
     IaModule,
     LoyaltyModule,
+    CouponsModule,
     SmartImportModule,
     PizzaBordersModule,
     PizzaSizeConfigsModule,

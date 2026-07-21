@@ -166,6 +166,7 @@ type CustomerForm = {
   state: string;
   zipcode: string;
   complement: string;
+  marketingOptIn: boolean;
 };
 
 type PixData = {
@@ -272,6 +273,7 @@ export default function MenuPage() {
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", orderType: initialTableNumber ? "DINE_IN" : "DELIVERY", paymentMethod: "PIX",
     street: "", number: "", neighborhood: "", city: "", state: "", zipcode: "", complement: "",
+    marketingOptIn: false,
   });
   // Real company ID (resolved from slug by backend) — used in POST requests
   const [realCompanyId, setRealCompanyId] = useState<string>(companyId);
@@ -298,8 +300,10 @@ export default function MenuPage() {
       ]);
 
       if (!menuRes || !menuRes.ok) {
-        if (attempt < 8) {
-          setTimeout(() => loadMenu(attempt + 1), attempt <= 2 ? 5000 : 8000);
+        if (attempt < 4) {
+          // Backend roda em VPS sempre ativo (sem cold-start) — retry curto
+          // só pra absorver uma falha de rede pontual, não pra esperar acordar.
+          setTimeout(() => loadMenu(attempt + 1), 1500);
           return;
         }
         setLoadError(true);
@@ -383,8 +387,8 @@ export default function MenuPage() {
 
       setLoading(false);
     } catch {
-      if (attempt < 8) {
-        setTimeout(() => loadMenu(attempt + 1), attempt <= 2 ? 5000 : 8000);
+      if (attempt < 4) {
+        setTimeout(() => loadMenu(attempt + 1), 1500);
         return;
       }
       setLoadError(true);
@@ -840,6 +844,7 @@ export default function MenuPage() {
           paymentMethod: form.paymentMethod,
           notes:         selectedOrderType === "DINE_IN" ? `Mesa ${tableNumber}` : undefined,
           channel:       isTotem ? "TOTEM" : undefined,
+          marketingOptIn: form.marketingOptIn,
         }),
       });
 
@@ -1125,7 +1130,6 @@ export default function MenuPage() {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-gray-500 font-medium">Carregando cardápio...</p>
-        <p className="text-gray-400 text-xs">Aguarde, o servidor pode levar até 1 minuto para acordar</p>
       </div>
     );
   }
@@ -1847,6 +1851,18 @@ export default function MenuPage() {
               }}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             />
+
+            <label className="flex items-start gap-2.5 px-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.marketingOptIn}
+                onChange={(e) => setForm((f) => ({ ...f, marketingOptIn: e.target.checked }))}
+                className="w-4 h-4 mt-0.5 accent-[var(--color-primary)] shrink-0"
+              />
+              <span className="text-xs text-gray-500 leading-snug">
+                Quero receber novidades e promoções no WhatsApp
+              </span>
+            </label>
 
             {loyaltyPoints > 0 && (
               <label className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 cursor-pointer">

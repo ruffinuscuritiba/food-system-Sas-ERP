@@ -212,6 +212,8 @@ export class CompanyService {
         bankAccountData: true,
         walletBalance: true,
         sidebarConfig: true,
+        metaPixelId: true,
+        googleAnalyticsId: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');
@@ -325,6 +327,8 @@ export class CompanyService {
         ...(dto.sidebarConfig !== undefined && {
           sidebarConfig: dto.sidebarConfig === null ? null : JSON.parse(JSON.stringify(dto.sidebarConfig)),
         }),
+        ...(dto.metaPixelId !== undefined && { metaPixelId: dto.metaPixelId }),
+        ...(dto.googleAnalyticsId !== undefined && { googleAnalyticsId: dto.googleAnalyticsId }),
       },
       select: {
         id: true,
@@ -374,6 +378,8 @@ export class CompanyService {
         bankAccountData: true,
         walletBalance: true,
         sidebarConfig: true,
+        metaPixelId: true,
+        googleAnalyticsId: true,
       },
     });
   }

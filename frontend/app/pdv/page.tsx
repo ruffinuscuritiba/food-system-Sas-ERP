@@ -1515,8 +1515,14 @@ export default function PDVPage() {
                     <p className="text-xs text-zinc-500 mb-1">Código do cupom</p>
                     <p className="text-3xl font-black text-blue-400 tracking-widest">{cupomCreated}</p>
                   </div>
+                  <button onClick={() => {
+                      const link = `${window.location.origin}/menu/${companyId}?cupom=${encodeURIComponent(cupomCreated)}`;
+                      navigator.clipboard?.writeText(link);
+                      toast.success("Link do cupom copiado!");
+                    }}
+                    className="w-full py-3 rounded-xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 font-bold text-sm transition">Copiar Link</button>
                   <button onClick={() => { navigator.clipboard?.writeText(cupomCreated); toast.success("Código copiado!"); }}
-                    className="w-full py-3 rounded-xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 font-bold text-sm transition">Copiar código</button>
+                    className="w-full py-2 text-zinc-500 hover:text-zinc-300 font-semibold text-xs transition">Copiar apenas o código</button>
                   <button onClick={() => { setCupomCreated(null); setCupomForm({ code: gerarCodigoCupom(), type: "PERCENTAGE", value: "", usageLimit: "", expiresAt: "" }); }}
                     className="w-full py-3 rounded-xl bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-zinc-400 hover:text-white font-semibold text-sm transition">Criar outro cupom</button>
                 </div>

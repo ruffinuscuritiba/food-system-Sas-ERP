@@ -184,6 +184,12 @@ export default function MenuPage() {
   const initialTableNumber = typeof window !== "undefined"
     ? new URLSearchParams(window.location.search).get("table")
     : null;
+  // Cupom compartilhado por link (?cupom=CODIGO, ex: "Copiar Link" no PDV)
+  // — pré-preenche o campo; a validação real roda quando o carrinho tiver
+  // item (ver useEffect abaixo), não aqui (base de cálculo depende do carrinho).
+  const initialCouponCode = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("cupom")
+    : null;
   // Modo Totem: tablet fixo na mesa (?totem=1&table=X) — trava em DINE_IN,
   // mesa não editável pelo cliente, e reseta sozinho após o pedido pro
   // próximo cliente usar o mesmo aparelho (kiosk de autoatendimento).
@@ -238,10 +244,11 @@ export default function MenuPage() {
   const [streetLoading, setStreetLoading] = useState(false);
   const streetDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const [couponCode, setCouponCode] = useState("");
+  const [couponCode, setCouponCode] = useState(initialCouponCode?.toUpperCase() ?? "");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponId, setCouponId] = useState<string | null>(null);
   const [couponMsg, setCouponMsg] = useState<{ text: string; valid: boolean } | null>(null);
+  const autoAppliedCouponRef = useRef(false);
   const [couponLoading, setCouponLoading] = useState(false);
 
   // QR Recovery promo (cookie qr_promo set by /r/:token redirect)
@@ -423,6 +430,19 @@ export default function MenuPage() {
       }).catch(() => {});
     } catch { /* cookie malformado — ignora */ }
   }, [realCompanyId]);
+
+  /* ── Cupom compartilhado por link (?cupom=X) — valida automaticamente
+   * assim que o carrinho tiver ao menos 1 item (a base de cálculo depende
+   * do carrinho — validar de cara com carrinho vazio sempre daria R$0).
+   * Só dispara uma vez; se o cliente remover o cupom manualmente depois,
+   * não insiste. */
+  useEffect(() => {
+    if (!initialCouponCode || autoAppliedCouponRef.current) return;
+    if (cart.length === 0 || !realCompanyId) return;
+    autoAppliedCouponRef.current = true;
+    validateCoupon(initialCouponCode);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, realCompanyId]);
 
   /* ── Tráfego Pago — registra 1 visualização do cardápio por carregamento ── */
   useEffect(() => {

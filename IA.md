@@ -20,6 +20,8 @@ do zero de novo.
 | WhatsappConnection.id (banco) | `cmr5aaozs002ualnbvo5whlpu` |
 | Empresa "plataforma" (Kely vende o sistema) | `cmq7d3dxs0006gw5pabsljy87` — nome de exibição "Ruffinu's Pizzaria", login `platform@foodsaas.internal` |
 | Número de WhatsApp do dono (avisos) | `5567991753455` (`NOTIFY_WHATSAPP_NUMBER`) |
+| Número que atende a Ruffinu's Pizzaria | `41987397797` — conexão `cmrmn2csj000p4dch7pmvre0m`, `aiProvider=CLAUDE` |
+| Número que vende o FoodSaaS (SaaS) | `41988729370` — empresa dedicada `R FoodSaaS - Vendas` (`cmrwjq6k70013vh9dc8dslbo9`), `PLATFORM_SELLER_COMPANY_ID` setada no `.env` do VPS. **Ainda falta conectar via QR** — a empresa existe mas não tem `WhatsappConnection` ainda (precisa escanear o QR com o celular físico do número, ninguém consegue fazer isso remotamente) |
 | Provider de IA ativo (Kely) | `CLAUDE` (motor completo "Carol", `claude-cart.service.ts`) — modelo `claude-haiku-4-5-20251001`, fallback automático Gemini `gemini-2.0-flash` dentro do próprio motor |
 
 ## 2. Como verificar se está tudo certo (checklist rápido)
@@ -61,4 +63,4 @@ do zero de novo.
 
 ---
 
-*Última atualização deste arquivo: 22/07/2026 — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*
+*Última atualização deste arquivo: 22/07/2026 (tarde) — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*

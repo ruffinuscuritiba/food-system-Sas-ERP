@@ -69,7 +69,7 @@ function loadDotEnv() {
 loadDotEnv();
 
 const API_URL         = process.env.API_URL          ?? "http://localhost:3001/api";
-const AUTH_TOKEN      = process.env.PRINTER_AUTH_TOKEN ?? "";
+let   AUTH_TOKEN      = process.env.PRINTER_AUTH_TOKEN ?? "";
 const POLL_MS         = Number(process.env.POLL_INTERVAL_MS ?? 5000);
 const PAPER_WIDTH     = Number(process.env.PAPER_WIDTH ?? 80);
 const USB_VENDOR_ID   = process.env.USB_VENDOR_ID  ? parseInt(process.env.USB_VENDOR_ID,  16) : null;
@@ -332,13 +332,15 @@ async function printJob(job) {
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
-const HEADERS = {
-  "Content-Type": "application/json",
-  "Authorization": `Bearer ${AUTH_TOKEN}`,
-};
+function authHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${AUTH_TOKEN}`,
+  };
+}
 
 async function fetchPendingJobs() {
-  const res = await fetch(`${API_URL}/printers/jobs?status=PENDING`, { headers: HEADERS });
+  const res = await fetch(`${API_URL}/printers/jobs?status=PENDING`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`GET jobs failed: ${res.status}`);
   const data = await res.json();
   return Array.isArray(data) ? data : (data.jobs ?? []);
@@ -347,7 +349,7 @@ async function fetchPendingJobs() {
 async function markJobSent(jobId) {
   await fetch(`${API_URL}/printers/jobs/${jobId}/status`, {
     method: "PATCH",
-    headers: HEADERS,
+    headers: authHeaders(),
     body: JSON.stringify({ status: "SENT" }),
   });
 }
@@ -355,7 +357,7 @@ async function markJobSent(jobId) {
 async function markJobPrinted(jobId) {
   await fetch(`${API_URL}/printers/jobs/${jobId}/status`, {
     method: "PATCH",
-    headers: HEADERS,
+    headers: authHeaders(),
     body: JSON.stringify({ status: "PRINTED" }),
   });
 }
@@ -363,7 +365,7 @@ async function markJobPrinted(jobId) {
 async function markJobFailed(jobId, reason) {
   await fetch(`${API_URL}/printers/jobs/${jobId}/status`, {
     method: "PATCH",
-    headers: HEADERS,
+    headers: authHeaders(),
     body: JSON.stringify({ status: "FAILED", failReason: String(reason).slice(0, 200) }),
   });
 }
@@ -374,9 +376,56 @@ async function sendHeartbeat() {
   try {
     await fetch(`${API_URL}/printers/agent/heartbeat`, {
       method: "POST",
-      headers: HEADERS,
+      headers: authHeaders(),
     });
   } catch { /* non-fatal */ }
+}
+
+// ── First-run setup — pede a chave uma única vez e salva no .env ──────────────
+// Antes disso, quem baixava o .exe e dava duplo-clique só via um erro no
+// console pedindo pra CRIAR um arquivo .env manualmente com um editor de
+// texto — travava a maioria dos usuários. Agora o próprio programa pergunta
+// e salva sozinho, igual a qualquer app "plug-and-play".
+
+function resolveBaseDir() {
+  return typeof process.pkg !== "undefined"
+    ? path.dirname(process.execPath)
+    : process.argv[1] ? path.dirname(process.argv[1]) : process.cwd();
+}
+
+async function promptForToken() {
+  const readline = require("readline");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  console.log("\n=== Configuração inicial ===");
+  console.log("No painel, acesse Configurações → Impressão e copie a 'Chave de Ativação da Loja'.\n");
+  const answer = await new Promise((resolve) => {
+    rl.question("Cole a chave aqui e pressione ENTER: ", resolve);
+  });
+  rl.close();
+  return answer.trim();
+}
+
+async function ensureToken() {
+  if (AUTH_TOKEN) return true;
+  if (!process.stdin.isTTY) return false; // rodando sem console interativo (ex: serviço) — não dá pra perguntar
+
+  const token = await promptForToken();
+  if (!token) return false;
+  AUTH_TOKEN = token;
+
+  const envPath = path.join(resolveBaseDir(), ".env");
+  try {
+    const existing = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
+    const keptLines = existing
+      .split(/\r?\n/)
+      .filter((l) => l.trim() && !l.trim().startsWith("PRINTER_AUTH_TOKEN="));
+    keptLines.push(`PRINTER_AUTH_TOKEN=${token}`);
+    fs.writeFileSync(envPath, keptLines.join("\n") + "\n", "utf-8");
+    console.log(`\n✓ Chave salva em ${envPath} — não vai precisar colar de novo.\n`);
+  } catch (err) {
+    console.warn(`Não foi possível salvar a chave automaticamente (${err.message}). Vai precisar colar de novo na próxima vez.`);
+  }
+  return true;
 }
 
 // ── Poll loop ─────────────────────────────────────────────────────────────────
@@ -421,10 +470,11 @@ async function waitBeforeExit() {
 }
 
 async function main() {
-  if (!AUTH_TOKEN) {
+  const ok = await ensureToken();
+  if (!ok) {
     console.error("PRINTER_AUTH_TOKEN não configurado.");
     console.error("Crie um arquivo .env na MESMA PASTA deste executável com o conteúdo:");
-    console.error("  PRINTER_AUTH_TOKEN=<chave copiada da tela Impressão Local>");
+    console.error("  PRINTER_AUTH_TOKEN=<chave copiada da tela Configurações → Impressão>");
     await waitBeforeExit();
     return;
   }

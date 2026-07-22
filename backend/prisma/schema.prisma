@@ -1858,6 +1858,27 @@ model WhatsappAiSettings {
   @@index([companyId])
 }
 
+// Pergunta de satisfação enviada após DELIVERED (PDV ou ONLINE) — segura o
+// link de avaliação do Google até saber se o cliente reclamou ou não.
+model DeliveryFeedback {
+  id             String    @id @default(cuid())
+  companyId      String
+  orderSource    String    // "PDV" | "ONLINE"
+  orderId        String
+  customerPhone  String
+  customerName   String?
+  requestedAt    DateTime  @default(now())
+  respondedAt    DateTime?
+  responseText   String?   @db.Text
+  sentiment      String?   // "POSITIVE" | "NEGATIVE"
+  reviewLinkSent Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  @@unique([orderSource, orderId])
+  @@index([companyId, respondedAt])
+  @@index([companyId, customerPhone])
+}
+
 model WhatsappConversation {
   id            String   @id @default(cuid())
   connectionId  String

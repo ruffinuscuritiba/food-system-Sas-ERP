@@ -9,6 +9,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '@/database/prisma.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
@@ -931,6 +932,16 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       where: { id: conv.id },
       data: { lastMessageAt: new Date(), customerName: name },
     });
+
+    // Resposta à pergunta "como foi a pizza?" pós-entrega — intercepta ANTES
+    // de qualquer gate de IA (mode/aiDisabled/horário), pois não é uma
+    // conversa de pedido: é o cliente respondendo um pedido de feedback.
+    const feedbackHandled = await this.tryHandleFeedbackReply(
+      connection.companyId,
+      phone,
+      text,
+    );
+    if (feedbackHandled) return;
 
     if (conv.aiDisabled) {
       log.warn(
@@ -2074,6 +2085,264 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
             `[AI] Falha ao notificar dono via e-mail: ${(err as Error)?.message}`,
           ),
         );
+    }
+  }
+
+  // ─── Feedback pós-entrega + Google Review condicional ──────────────────────
+  //
+  // Fluxo: DELIVERED → requestDeliveryFeedback() manda "como foi a pizza?" e
+  // grava um DeliveryFeedback pendente. A resposta do cliente é interceptada
+  // em _processIncomingWithConnection() ANTES da IA (tryHandleFeedbackReply);
+  // se for reclamação, o link do Google NUNCA é enviado — só um pedido de
+  // desculpas + alerta pro time (reusa o mesmo canal sonoro de "cliente pediu
+  // humano"). Se for elogio/neutro, manda o link na hora. Se o cliente não
+  // responder nada, o cron sendPendingFeedbackReviewLinks() manda o link
+  // sozinho depois de 2h.
+
+  /**
+   * Dispara a pergunta de satisfação pós-entrega. Só roda se a empresa tiver
+   * Google Review configurado (sem isso não há pra onde direcionar o elogio)
+   * e uma conexão WhatsApp ativa. Idempotente por (orderSource, orderId).
+   */
+  async requestDeliveryFeedback(params: {
+    companyId: string;
+    orderId: string;
+    orderSource: 'PDV' | 'ONLINE';
+    customerPhone: string;
+    customerName?: string | null;
+  }): Promise<void> {
+    try {
+      const company = await this.prisma.company.findUnique({
+        where: { id: params.companyId },
+        select: { googleReviewUrl: true },
+      });
+      if (!company?.googleReviewUrl) return;
+
+      const raw = params.customerPhone.replace(/\D/g, '');
+      if (!raw || raw.length < 8) return;
+
+      const connection = (await this.prisma.whatsappConnection.findFirst({
+        where: { companyId: params.companyId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      })) as WaConnection | null;
+      if (!connection) {
+        log.warn(
+          `[feedback] sem conexão WhatsApp ativa — pedido de feedback não enviado (order=${params.orderId})`,
+        );
+        return;
+      }
+
+      const existing = await (this.prisma as any).deliveryFeedback
+        .findUnique({
+          where: {
+            orderSource_orderId: {
+              orderSource: params.orderSource,
+              orderId: params.orderId,
+            },
+          },
+        })
+        .catch(() => null);
+      if (existing) return; // já pedimos feedback pra este pedido
+
+      const firstName = params.customerName
+        ? params.customerName.split(' ')[0]
+        : '';
+      const msg =
+        `🍕 Oi${firstName ? ` ${firstName}` : ''}! Seu pedido foi entregue!\n\n` +
+        `Como ficou? Conta pra gente — elogio, sugestão ou o que achar, sua opinião nos ajuda a melhorar sempre! 🙏`;
+
+      const sent = await this.dispatchMessage(connection, raw, msg);
+      if (!sent) return;
+
+      await (this.prisma as any).deliveryFeedback.create({
+        data: {
+          companyId: params.companyId,
+          orderSource: params.orderSource,
+          orderId: params.orderId,
+          customerPhone: raw,
+          customerName: params.customerName ?? null,
+        },
+      });
+    } catch (err: any) {
+      log.warn(
+        `[feedback] requestDeliveryFeedback falhou (order=${params.orderId}): ${err?.message}`,
+      );
+    }
+  }
+
+  /**
+   * Classificação determinística por palavra-chave — sem custo de IA extra e
+   * sem depender de outra API externa poder falhar. Qualquer coisa que não
+   * bata uma palavra negativa é tratada como positiva/neutra (mesma regra
+   * pedida: "se não responder nada ou se elogiar, manda o link").
+   */
+  private classifyFeedbackSentiment(text: string): 'POSITIVE' | 'NEGATIVE' {
+    const t = text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+    const NEGATIVE_KEYWORDS = [
+      'ruim', 'pessim', 'horrivel', 'reclama', 'problema', 'atraso', 'atrasou',
+      'fria', 'frio', 'errado', 'errada', 'faltou', 'faltando', 'nao gostei',
+      'demorou muito', 'cancelar', 'insatisf', 'decepcion', 'nao voltou',
+      'nao recomendo', 'lixo', 'nojent', 'estragad', 'mal feit', 'mal-feit',
+      'queimad', 'crua', 'sem gosto', 'sem sabor', 'nao chegou', 'cade meu',
+      'cade o meu', 'ate agora nada', 'nunca mais', 'pessimo atendimento',
+      'nota 1', 'nota 2', 'nota 0', 'detestei', 'odiei',
+    ];
+    return NEGATIVE_KEYWORDS.some((kw) => t.includes(kw))
+      ? 'NEGATIVE'
+      : 'POSITIVE';
+  }
+
+  /**
+   * Intercepta a resposta do cliente quando há um DeliveryFeedback pendente
+   * pro mesmo telefone/empresa (janela de 24h). Retorna true se tratou a
+   * mensagem aqui (o caller deve parar o processamento normal da IA).
+   */
+  private async tryHandleFeedbackReply(
+    companyId: string,
+    phoneDigitsRaw: string,
+    text: string,
+  ): Promise<boolean> {
+    try {
+      const suffix = phoneDigitsRaw.replace(/\D/g, '').slice(-8);
+      if (suffix.length < 8) return false;
+
+      const pending = await (this.prisma as any).deliveryFeedback.findFirst({
+        where: {
+          companyId,
+          respondedAt: null,
+          requestedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          customerPhone: { endsWith: suffix },
+        },
+        orderBy: { requestedAt: 'desc' },
+      });
+      if (!pending) return false;
+
+      const sentiment = this.classifyFeedbackSentiment(text);
+      await (this.prisma as any).deliveryFeedback.update({
+        where: { id: pending.id },
+        data: {
+          respondedAt: new Date(),
+          responseText: text.slice(0, 1000),
+          sentiment,
+        },
+      });
+
+      const connection = (await this.prisma.whatsappConnection.findFirst({
+        where: { companyId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      })) as WaConnection | null;
+      if (!connection) return true;
+
+      if (sentiment === 'NEGATIVE') {
+        await this.dispatchMessage(
+          connection,
+          phoneDigitsRaw,
+          'Poxa, sentimos muito 💔 Sua opinião é muito importante — nossa equipe já foi avisada e vai entrar em contato pra resolver. Obrigado por nos contar!',
+        );
+        try {
+          this.socketGateway?.emitHumanHelpRequested(companyId, {
+            conversationId: pending.id,
+            customerPhone: phoneDigitsRaw,
+            customerName: pending.customerName ?? undefined,
+            lastMessage: `⚠️ Feedback negativo pós-entrega: "${text.slice(0, 200)}"`,
+          });
+        } catch {
+          /* socket failure não deve derrubar o fluxo */
+        }
+        return true;
+      }
+
+      const company = await this.prisma.company.findUnique({
+        where: { id: companyId },
+        select: { googleReviewUrl: true },
+      });
+      if (company?.googleReviewUrl) {
+        await this.dispatchMessage(
+          connection,
+          phoneDigitsRaw,
+          `Que ótimo saber disso! 🙌 Se puder, deixa uma avaliação rápida pra gente — ajuda muito!\n\n👉 ${company.googleReviewUrl}`,
+        );
+        await (this.prisma as any).deliveryFeedback.update({
+          where: { id: pending.id },
+          data: { reviewLinkSent: true },
+        });
+      } else {
+        await this.dispatchMessage(
+          connection,
+          phoneDigitsRaw,
+          'Que bom! Obrigado pelo retorno 🙏',
+        );
+      }
+      return true;
+    } catch (err: any) {
+      log.warn(`[feedback] tryHandleFeedbackReply falhou: ${err?.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Cron de segurança: se o cliente não responder a pergunta de feedback em
+   * 2h, manda o link do Google mesmo assim (regra pedida: silêncio == ok).
+   * Janela superior de 26h evita reprocessar pedidos de feedback muito
+   * antigos (ex.: se o cron ficou parado por um tempo).
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async sendPendingFeedbackReviewLinks(): Promise<void> {
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const floor = new Date(Date.now() - 26 * 60 * 60 * 1000);
+    let pending: any[] = [];
+    try {
+      pending = await (this.prisma as any).deliveryFeedback.findMany({
+        where: {
+          respondedAt: null,
+          reviewLinkSent: false,
+          requestedAt: { lte: cutoff, gte: floor },
+        },
+        take: 100,
+      });
+    } catch {
+      return; // tabela pode não existir ainda logo após deploy (migration pendente)
+    }
+    if (pending.length === 0) return;
+
+    for (const fb of pending) {
+      try {
+        const company = await this.prisma.company.findUnique({
+          where: { id: fb.companyId },
+          select: { googleReviewUrl: true },
+        });
+        if (!company?.googleReviewUrl) {
+          await (this.prisma as any).deliveryFeedback.update({
+            where: { id: fb.id },
+            data: { respondedAt: new Date() },
+          });
+          continue;
+        }
+        const connection = (await this.prisma.whatsappConnection.findFirst({
+          where: { companyId: fb.companyId, isActive: true },
+          orderBy: { createdAt: 'desc' },
+        })) as WaConnection | null;
+        if (!connection) continue;
+
+        const firstName = fb.customerName ? fb.customerName.split(' ')[0] : '';
+        const msg =
+          `Oi${firstName ? ` ${firstName}` : ''}! Espero que tenha gostado do pedido 😊 Se puder, deixa uma avaliação rápida pra gente:\n\n` +
+          `👉 ${company.googleReviewUrl}`;
+        const sent = await this.dispatchMessage(connection, fb.customerPhone, msg);
+        if (sent) {
+          await (this.prisma as any).deliveryFeedback.update({
+            where: { id: fb.id },
+            data: { reviewLinkSent: true, respondedAt: new Date() },
+          });
+        }
+      } catch (err: any) {
+        log.warn(
+          `[feedback] cron follow-up falhou order=${fb.orderId}: ${err?.message}`,
+        );
+      }
     }
   }
 

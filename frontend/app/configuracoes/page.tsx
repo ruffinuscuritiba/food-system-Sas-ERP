@@ -30,8 +30,9 @@ const PagamentoTab = dynamic(() => import("@/components/settings/PagamentoTab"),
   ssr: false,
   loading: TabLoader,
 });
-// ImpressaoTab = configurações de layout + preview do cupom (settings/ImpressaoTab.tsx)
-// Gerenciamento de hardware de impressoras ainda acessível via /configuracoes?tab=impressao → hardware embutido abaixo
+// ImpressaoTab = tela única de impressão: assistente local (status/download/
+// token) + impressoras cadastradas + regra do cupom + layout da notinha.
+// CRUD avançado (perfis/fila/histórico) continua em /impressoras, linkado de lá.
 const ImpressaoTab = dynamic(() => import("@/components/settings/ImpressaoTab"), {
   ssr: false,
   loading: TabLoader,
@@ -40,10 +41,6 @@ const ImpressaoTab = dynamic(() => import("@/components/settings/ImpressaoTab"),
 // Abas migradas: os layouts das rotas antigas redirecionam para cá.
 // Importamos os componentes diretamente (sem passar pelo roteador) para evitar loop.
 const AparenciaTab = dynamic(() => import("@/app/theme/page"), {
-  ssr: false,
-  loading: TabLoader,
-});
-const ImpressorasHardwareTab = dynamic(() => import("@/app/impressoras/page"), {
   ssr: false,
   loading: TabLoader,
 });
@@ -67,10 +64,6 @@ const FiscalTab = dynamic(() => import("@/components/settings/FiscalTab"), {
   ssr: false,
   loading: TabLoader,
 });
-const ImpressaoLocalTab = dynamic(() => import("@/components/settings/ImpressaoLocalTab"), {
-  ssr: false,
-  loading: TabLoader,
-});
 const InterfaceTab = dynamic(() => import("@/components/settings/InterfaceTab"), {
   ssr: false,
   loading: TabLoader,
@@ -85,8 +78,7 @@ const TABS = [
   { id: "pagamento",   label: "Pagamento",        icon: CreditCard,          group: "Operação" },
   { id: "pizza",       label: "Pizza & Cardápio", icon: Pizza,               group: "Operação" },
   { id: "interface",   label: "Interface",        icon: SlidersHorizontal,   group: "Operação" },
-  { id: "impressao",        label: "Impressão",        icon: Printer,        group: "Tecnologia" },
-  { id: "impressao-local",  label: "Impressão Local",  icon: Printer,        group: "Tecnologia" },
+  { id: "impressao",   label: "Impressão",        icon: Printer,        group: "Tecnologia" },
   { id: "whatsapp",    label: "WhatsApp IA",      icon: MessageCircle,  group: "Tecnologia" },
   { id: "integracoes", label: "Integrações",      icon: Cable,          group: "Tecnologia" },
   { id: "financeiro",  label: "Financeiro",       icon: DollarSign,     group: "Gestão" },
@@ -109,6 +101,7 @@ function PlaceholderTab({ tab }: { tab: TabId }) {
     pizza:    { href: "/pizza-borders", label: "Ir para Pizza & Bordas (temporário)" },
     whatsapp: { href: "/whatsapp-ia",   label: "Ir para WhatsApp IA (temporário)" },
     entrega:  { href: "/entrega?tab=area", label: "Ir para Entrega (novo local)" },
+    "impressao-local": { href: "/configuracoes?tab=impressao", label: "Ir para Impressão (novo local)" },
   };
   const redirect = redirects[tab];
 
@@ -143,8 +136,7 @@ function getTabDescription(tab: TabId): string {
     pedidos:     "Tipos de atendimento, tempo estimado e pedido mínimo",
     pagamento:   "Formas de pagamento aceitas, gateways online e troco",
     pizza:       "Tamanhos, bordas, complementos e regras do cardápio",
-    impressao:          "Impressoras cadastradas, setores e fila de impressão",
-    "impressao-local":  "Agente de impressão local, download e token de ativação",
+    impressao:   "Assistente local, impressoras cadastradas, notinha e regras de cupom",
     whatsapp:    "Atendente virtual, conexões e comportamento da IA",
     integracoes: "iFood, Rappi, gateways de pagamento e apps externos",
     financeiro:  "Split de pagamentos, conta de repasse e frequência de transferência",
@@ -259,22 +251,7 @@ function ConfiguracoesInner() {
           ) : activeTab === "aparencia" ? (
             <AparenciaTab />
           ) : activeTab === "impressao" ? (
-            <div className="space-y-8">
-              <ImpressaoTab />
-              {/* Hardware: impressoras cadastradas, perfis e fila */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2">
-                    Hardware — Impressoras Cadastradas
-                  </span>
-                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                </div>
-                <ImpressorasHardwareTab />
-              </div>
-            </div>
-          ) : activeTab === "impressao-local" ? (
-            <ImpressaoLocalTab />
+            <ImpressaoTab />
           ) : activeTab === "integracoes" ? (
             <IntegracoesTab />
           ) : activeTab === "financeiro" ? (

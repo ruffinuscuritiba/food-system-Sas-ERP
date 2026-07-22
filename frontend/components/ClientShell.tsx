@@ -44,6 +44,7 @@ import {
   Settings,
   ChevronDown,
   Bell,
+  Volume2,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -241,6 +242,20 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   >([]);
   const humanAlertAudioRef = useRef<HTMLAudioElement>(null);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  // Preferência de som — por dispositivo (localStorage), não por empresa:
+  // o operador do balcão pode preferir campainha, enquanto a tela da cozinha
+  // pode preferir a voz anunciando o pedido.
+  const [alertSoundMode, setAlertSoundMode] = useState<"bell" | "voice">(() => {
+    if (typeof window === "undefined") return "bell";
+    return localStorage.getItem("alert_sound_mode") === "voice" ? "voice" : "bell";
+  });
+  const [soundMenuOpen, setSoundMenuOpen] = useState(false);
+
+  function changeAlertSoundMode(mode: "bell" | "voice") {
+    setAlertSoundMode(mode);
+    localStorage.setItem("alert_sound_mode", mode);
+    setSoundMenuOpen(false);
+  }
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -383,27 +398,66 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Toca/para o alarme em loop conforme a fila de alertas pendentes (soma os
-  // dois tipos — um beep único é fácil de perder quando ninguém está de olho
-  // na tela; toca até alguém dispensar manualmente). Se o navegador recusar
-  // o play() (autoplay bloqueado — ainda sem nenhuma interação do usuário
-  // nesta aba), acende um aviso visível pedindo pra tocar em qualquer lugar.
+  // Toca o alerta em RAJADAS de 3 (não loop contínuo) enquanto houver alerta
+  // pendente — repete a rajada a cada ~10s até alguém dispensar. Suporta 2
+  // modos escolhíveis pelo operador: campainha (mp3) ou voz (fala o pedido
+  // via Web Speech API, sem depender de nenhum arquivo de áudio novo).
   useEffect(() => {
-    const el = humanAlertAudioRef.current;
-    if (!el) return;
-    if (humanAlerts.length + orderAlerts.length > 0) {
-      el.loop = true;
-      el.play()
-        .then(() => setAudioBlocked(false))
-        .catch((err) => {
-          console.warn("[alertas] play() bloqueado pelo navegador:", err?.message ?? err);
-          setAudioBlocked(true);
-        });
-    } else {
-      el.pause();
-      el.currentTime = 0;
+    const pendingCount = humanAlerts.length + orderAlerts.length;
+    if (pendingCount === 0) {
+      const el = humanAlertAudioRef.current;
+      if (el) { el.pause(); el.currentTime = 0; }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      return;
     }
-  }, [humanAlerts.length, orderAlerts.length]);
+
+    const spokenLabel =
+      humanAlerts.length > 0
+        ? "Atenção! Cliente pediu atendimento humano."
+        : "Novo pedido! Olha o pedido.";
+
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const CHIME_GAP_MS = 1300;
+    const BURST_SIZE = 3;
+    const PAUSE_BETWEEN_BURSTS_MS = 9000;
+
+    function ringOnce() {
+      if (cancelled) return;
+      if (alertSoundMode === "voice" && "speechSynthesis" in window) {
+        const utter = new SpeechSynthesisUtterance(spokenLabel);
+        utter.lang = "pt-BR";
+        window.speechSynthesis.speak(utter);
+      } else {
+        const el = humanAlertAudioRef.current;
+        if (!el) return;
+        el.currentTime = 0;
+        el.play()
+          .then(() => setAudioBlocked(false))
+          .catch((err) => {
+            console.warn("[alertas] play() bloqueado pelo navegador:", err?.message ?? err);
+            setAudioBlocked(true);
+          });
+      }
+    }
+
+    function burst() {
+      if (cancelled) return;
+      for (let i = 0; i < BURST_SIZE; i++) {
+        timers.push(setTimeout(ringOnce, i * CHIME_GAP_MS));
+      }
+      timers.push(
+        setTimeout(burst, BURST_SIZE * CHIME_GAP_MS + PAUSE_BETWEEN_BURSTS_MS),
+      );
+    }
+    burst();
+
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    };
+  }, [humanAlerts.length, orderAlerts.length, alertSoundMode]);
 
   function dismissOrderAlert(orderId: string) {
     setOrderAlerts((prev) => prev.filter((a) => a.orderId !== orderId));
@@ -884,6 +938,40 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
               />
             </div>
           )}
+
+          {/* Som de alerta — campainha ou voz anunciando o pedido */}
+          <div className="px-3 pb-2 relative">
+            <button
+              type="button"
+              onClick={() => setSoundMenuOpen((v) => !v)}
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
+            >
+              <Volume2 size={13} />
+              Som de Alerta
+              <span className="ml-auto text-[10px] font-normal text-slate-400">
+                {alertSoundMode === "voice" ? "Voz" : "Campainha"}
+              </span>
+              <ChevronDown size={12} className={`transition-transform ${soundMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {soundMenuOpen && (
+              <div className="absolute left-3 right-3 top-full mt-1 z-50 rounded-xl border border-slate-700 bg-slate-900 shadow-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => changeAlertSoundMode("bell")}
+                  className={`w-full text-left px-3.5 py-2.5 text-[12px] font-medium transition ${alertSoundMode === "bell" ? "bg-primary/10 text-primary" : "text-slate-300 hover:bg-slate-800"}`}
+                >
+                  🔔 Campainha
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeAlertSoundMode("voice")}
+                  className={`w-full text-left px-3.5 py-2.5 text-[12px] font-medium transition ${alertSoundMode === "voice" ? "bg-primary/10 text-primary" : "text-slate-300 hover:bg-slate-800"}`}
+                >
+                  🗣️ Voz (fala o pedido)
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Suporte */}
           <div className="px-3 pb-2">

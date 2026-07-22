@@ -300,8 +300,7 @@ export const MODULE_CATALOG: ModuleDef[] = [
     category: "AUTOMACAO",
     tagline: "Seja avisado antes que o problema aconteça",
     description: "Alertas automáticos de estoque baixo, CMV alto, queda de receita e pico de cancelamentos.",
-    isConfigured: false,
-    setupNote: "Módulo em implementação — o schema e o AlertsModule estão no código mas o serviço ainda não está ativo no backend.",
+    isConfigured: true,
     isFree: false,
     benefits: ["Alerta de estoque mínimo", "Aviso de CMV acima do normal", "Detecção de queda de receita", "Spike de cancelamentos"],
     detail: {

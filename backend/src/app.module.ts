@@ -56,9 +56,11 @@ import { UploadModule } from './modules/upload/upload.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { TotemModule } from './modules/totem/totem.module';
 import { WhatsappCampaignsModule } from './modules/whatsapp-campaigns/whatsapp-campaigns.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
 
-// NOTE: Modules disabled temporarily due to schema/code mismatch:
-// - ChatModule, AlertsModule
+// NOTE: ChatModule segue desabilitado (schema/code mismatch). AlertsModule
+// reativado — schema Alert/AlertType/AlertSeverity já bate 100% com
+// AlertsService/AlertsScheduler (checado campo a campo antes de reativar).
 
 @Module({
   imports: [
@@ -114,6 +116,7 @@ import { WhatsappCampaignsModule } from './modules/whatsapp-campaigns/whatsapp-c
     FiscalModule,
     TotemModule,
     WhatsappCampaignsModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [

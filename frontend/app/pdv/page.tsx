@@ -8,6 +8,7 @@ import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
 import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
 import { ComplementsModal } from "@/components/shared/ComplementsModal";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
+import { socket } from "@/services/socket";
 
 type PdvOrderDetails = OrderDetails;
 import {
@@ -271,6 +272,10 @@ export default function PDVPage() {
   const [cashAmount, setCashAmount] = useState("");
   const [cashSaving, setCashSaving] = useState(false);
 
+  // Painel de status do rodapé: contagem de pedidos do dia por fase —
+  // ativos (na cozinha), em rota/entrega e finalizados.
+  const [orderStats, setOrderStats] = useState({ ativos: 0, emRota: 0, finalizados: 0 });
+
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [showTrocarMesa, setShowTrocarMesa]     = useState(false);
@@ -325,6 +330,41 @@ export default function PDVPage() {
   }, []);
 
   useEffect(() => { refreshCash(); }, [refreshCash]);
+
+  // Painel de status do rodapé — pedidos de HOJE por fase, atualiza sozinho
+  // via socket (orderCreated/kitchenUpdate/orderStatusChanged) e a cada 30s
+  // como rede de segurança caso algum evento se perca.
+  const refreshOrderStats = useCallback(() => {
+    api.get("/orders/kitchen")
+      .then((r) => {
+        const orders: any[] = Array.isArray(r.data) ? r.data : [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todays = orders.filter((o) => new Date(o.createdAt) >= today);
+        const ativos = todays.filter((o) =>
+          ["PENDING", "CONFIRMED", "PREPARING", "READY"].includes(o.status),
+        ).length;
+        const emRota = todays.filter((o) => o.status === "OUT_FOR_DELIVERY").length;
+        const finalizados = todays.filter((o) => o.status === "DELIVERED").length;
+        setOrderStats({ ativos, emRota, finalizados });
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshOrderStats();
+    const id = setInterval(refreshOrderStats, 30_000);
+    if (!socket.connected) socket.connect();
+    socket.on("orderCreated", refreshOrderStats);
+    socket.on("kitchenUpdate", refreshOrderStats);
+    socket.on("orderStatusChanged", refreshOrderStats);
+    return () => {
+      clearInterval(id);
+      socket.off("orderCreated", refreshOrderStats);
+      socket.off("kitchenUpdate", refreshOrderStats);
+      socket.off("orderStatusChanged", refreshOrderStats);
+    };
+  }, [refreshOrderStats]);
 
   function openCashModal(action: "OPEN" | "SUPPLY" | "WITHDRAW", label: string) {
     setCashAction(action);
@@ -1253,6 +1293,17 @@ export default function PDVPage() {
 
         <footer className="hidden md:flex h-[58px] border-t border-[var(--pdv-border,#161b2d)] items-center justify-between px-6">
           <div className="flex items-center gap-3 text-zinc-400"><div className="w-3 h-3 rounded-full bg-green-500" />Sistema Online</div>
+          <div className="flex items-center gap-2.5">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400" /> {orderStats.ativos} Ativos
+            </span>
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> {orderStats.emRota} Em Rota
+            </span>
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-500/10 text-zinc-400 text-xs font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" /> {orderStats.finalizados} Finalizados
+            </span>
+          </div>
           <div className="flex items-center gap-10 text-zinc-400">
             <span>Operador: Caixa 01</span>
             <span>{now.toLocaleDateString("pt-BR")}</span>

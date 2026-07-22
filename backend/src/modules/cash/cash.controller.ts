@@ -33,7 +33,12 @@ export class CashController {
   @Post('movement')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
   movement(@Body() body: any, @Request() req: any) {
-    return this.service.movement(body.type, body.value, req.user.companyId);
+    return this.service.movement(
+      body.type,
+      body.value,
+      req.user.companyId,
+      body.paymentMethod,
+    );
   }
 
   // Fechamento às cegas: o operador só envia o valor contado.

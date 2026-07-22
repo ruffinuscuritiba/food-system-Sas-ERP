@@ -25,6 +25,16 @@
   --pdv-card:         var(--surface-2);
   --pdv-card-hover:   var(--surface-3);
   --pdv-border:       var(--border-ui);
+
+  /* ── Cores semânticas — tom "grande SaaS": confiantes, nunca neon puro ── */
+  --success:      #059669;  /* emerald-600 */
+  --success-soft: #ECFDF5;
+  --warning:      #D97706;  /* amber-600 */
+  --warning-soft: #FFFBEB;
+  --danger:       #DC2626;  /* red-600 */
+  --danger-soft:  #FEF2F2;
+  --info:         #4F46E5;  /* indigo-600 — peso/autoridade */
+  --info-soft:    #EEF2FF;
 }
 
 /* ── PDV light — texto escuro SOMENTE na sidebar e header ──────────────────
@@ -156,6 +166,16 @@
   --pdv-card:         var(--surface-2);
   --pdv-card-hover:   var(--surface-3);
   --pdv-border:       var(--border-ui);
+
+  /* Semânticas no escuro — mais claras/saturadas pra contraste contra fundo cinza-azul */
+  --success:      #10B981;
+  --success-soft: rgba(16,185,129,0.14);
+  --warning:      #F59E0B;
+  --warning-soft: rgba(245,158,11,0.14);
+  --danger:       #EF4444;
+  --danger-soft:  rgba(239,68,68,0.14);
+  --info:         #818CF8;
+  --info-soft:    rgba(129,140,248,0.14);
 }
 
 /* No modo escuro, PDV e sidebar voltam a texto claro */

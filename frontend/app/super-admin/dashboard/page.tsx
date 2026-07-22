@@ -1098,7 +1098,7 @@ export default function SuperAdminDashboard() {
                                       <Copy className="w-3.5 h-3.5" />
                                       Clonar cardápio
                                     </button>
-                                    <button onClick={() => { const url = `${window.location.origin}/configuracoes?tab=impressao-local`; navigator.clipboard.writeText(url); alert(`Link copiado!\n\n${url}`); setOpenMenuId(null) }}
+                                    <button onClick={() => { const url = `${window.location.origin}/configuracoes?tab=impressao`; navigator.clipboard.writeText(url); alert(`Link copiado!\n\n${url}`); setOpenMenuId(null) }}
                                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left text-sky-400 transition ${c("hover:bg-[#27272a]", "hover:bg-gray-50")}`}>
                                       <Printer className="w-3.5 h-3.5" />
                                       Link agente impressão

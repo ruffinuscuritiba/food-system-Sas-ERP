@@ -240,6 +240,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     { orderId: string; customerName?: string | null; total?: number | string; orderType?: string; at: number }[]
   >([]);
   const humanAlertAudioRef = useRef<HTMLAudioElement>(null);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -298,7 +299,18 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       if (!socket.connected) socket.connect();
     }, 5000);
 
+    // Diagnóstico visível no console — sem isso era impossível saber, em
+    // produção, se o socket sequer estava conectado quando um pedido sumia
+    // sem alerta (ver item "alerta sonoro não funciona").
+    function handleConnect() {
+      console.log("[alertas] socket conectado — pronto para receber eventos em tempo real");
+    }
+    function handleDisconnect(reason: string) {
+      console.warn(`[alertas] socket desconectado (${reason}) — tentando reconectar a cada 5s`);
+    }
+
     function handleHumanHelp(data: { conversationId: string; customerPhone: string; customerName?: string | null; lastMessage: string }) {
+      console.log("[alertas] evento humanHelpRequested recebido", data);
       setHumanAlerts((prev) => {
         const withoutDup = prev.filter((a) => a.conversationId !== data.conversationId);
         return [...withoutDup, { ...data, at: Date.now() }];
@@ -310,6 +322,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     // a tela. Sem isso, um pedido pode ficar pendente por horas sem que
     // ninguém perceba (achado real: pedido de delivery esperando 84min).
     function handleOrderCreated(data: { id: string; channel?: string; customerName?: string | null; total?: number | string; orderType?: string }) {
+      console.log("[alertas] evento orderCreated recebido", data);
       if (!data?.id || !data.channel || data.channel === "PDV") return;
       setOrderAlerts((prev) => {
         const withoutDup = prev.filter((a) => a.orderId !== data.id);
@@ -317,10 +330,14 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       });
     }
 
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
     socket.on("humanHelpRequested", handleHumanHelp);
     socket.on("orderCreated", handleOrderCreated);
     return () => {
       clearInterval(reconnectTimer);
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
       socket.off("humanHelpRequested", handleHumanHelp);
       socket.off("orderCreated", handleOrderCreated);
       // Não desconecta — outras páginas (kitchen/orders/tables) também
@@ -329,15 +346,59 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
+  // Desbloqueia o áudio na PRIMEIRA interação do usuário com a página
+  // (click/touch/tecla, em qualquer lugar do app — não precisa ser no botão
+  // de alerta). Navegadores modernos (Chrome/Safari/Edge) bloqueiam
+  // `Audio.play()` até haver algum gesto do usuário na aba; sem isso, uma
+  // tela deixada aberta esperando pedido (kiosk, tablet da cozinha) nunca
+  // toca o primeiro som — exatamente o caso relatado em produção.
+  useEffect(() => {
+    const el = humanAlertAudioRef.current;
+    if (!el) return;
+    let unlocked = false;
+    function unlock() {
+      if (unlocked || !el) return;
+      const wasMuted = el.muted;
+      el.muted = true;
+      el.play()
+        .then(() => {
+          el.pause();
+          el.currentTime = 0;
+          el.muted = wasMuted;
+          unlocked = true;
+          setAudioBlocked(false);
+          console.log("[alertas] áudio desbloqueado após interação do usuário");
+        })
+        .catch(() => {
+          el.muted = wasMuted;
+        });
+    }
+    document.addEventListener("click", unlock, { passive: true });
+    document.addEventListener("touchstart", unlock, { passive: true });
+    document.addEventListener("keydown", unlock);
+    return () => {
+      document.removeEventListener("click", unlock);
+      document.removeEventListener("touchstart", unlock);
+      document.removeEventListener("keydown", unlock);
+    };
+  }, []);
+
   // Toca/para o alarme em loop conforme a fila de alertas pendentes (soma os
   // dois tipos — um beep único é fácil de perder quando ninguém está de olho
-  // na tela; toca até alguém dispensar manualmente).
+  // na tela; toca até alguém dispensar manualmente). Se o navegador recusar
+  // o play() (autoplay bloqueado — ainda sem nenhuma interação do usuário
+  // nesta aba), acende um aviso visível pedindo pra tocar em qualquer lugar.
   useEffect(() => {
     const el = humanAlertAudioRef.current;
     if (!el) return;
     if (humanAlerts.length + orderAlerts.length > 0) {
       el.loop = true;
-      el.play().catch(() => {});
+      el.play()
+        .then(() => setAudioBlocked(false))
+        .catch((err) => {
+          console.warn("[alertas] play() bloqueado pelo navegador:", err?.message ?? err);
+          setAudioBlocked(true);
+        });
     } else {
       el.pause();
       el.currentTime = 0;
@@ -567,6 +628,20 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <Toaster position="top-right" />
       <audio ref={humanAlertAudioRef} src="/notification.mp3" preload="auto" />
+
+      {audioBlocked && (humanAlerts.length + orderAlerts.length > 0) && (
+        <button
+          type="button"
+          onClick={(e) => {
+            const el = humanAlertAudioRef.current;
+            if (el) { el.play().then(() => setAudioBlocked(false)).catch(() => {}); }
+            e.currentTarget.blur();
+          }}
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-[10001] flex items-center gap-2 bg-gray-900 text-white rounded-full shadow-2xl px-4 py-2 text-xs font-bold animate-pulse hover:bg-gray-800 transition"
+        >
+          🔇 Som bloqueado pelo navegador — toque aqui para ativar o alerta
+        </button>
+      )}
 
       {humanAlerts.length > 0 && (
         <div className="fixed top-3 right-3 z-[10000] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]">

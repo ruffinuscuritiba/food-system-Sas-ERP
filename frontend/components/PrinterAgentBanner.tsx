@@ -50,7 +50,7 @@ export default function PrinterAgentBanner() {
       </span>
       <div className="flex items-center gap-2 shrink-0">
         <Link
-          href="/configuracoes?tab=impressao-local"
+          href="/configuracoes?tab=impressao"
           className="flex items-center gap-1 text-xs font-semibold text-orange-600 hover:text-orange-700 transition"
         >
           <Download size={12} />

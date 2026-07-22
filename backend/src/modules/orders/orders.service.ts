@@ -886,26 +886,20 @@ export class OrdersService {
       });
     }
 
-    // ── Google Review link após entrega ──────────────────────────────────────
+    // ── Feedback pós-entrega (pergunta antes de mandar o link do Google) ────
     if (status === 'DELIVERED' && customerPhone) {
-      setImmediate(async () => {
-        try {
-          const company = await (this.prisma as any).company.findUnique({
-            where: { id: order.companyId },
-            select: { googleReviewUrl: true },
-          }) as { googleReviewUrl?: string | null } | null;
-          if (!company?.googleReviewUrl) return;
-
-          const firstName = customerName ? customerName.split(' ')[0] : 'você';
-          const msg =
-            `Olá${firstName !== 'você' ? ` ${firstName}` : ''}! 🙏 Seu pedido foi entregue com sucesso!\n\n` +
-            `Ficamos muito felizes em atender você. Que tal deixar uma avaliação rápida? Sua opinião nos ajuda muito! ⭐\n\n` +
-            `👉 ${company.googleReviewUrl}`;
-
-          await this.whatsappAiService?.sendTextMessage(order.companyId, customerPhone, msg);
-        } catch {
-          /* silent — não bloqueia fluxo */
-        }
+      setImmediate(() => {
+        this.whatsappAiService
+          ?.requestDeliveryFeedback({
+            companyId: order.companyId,
+            orderId: order.id,
+            orderSource: 'PDV',
+            customerPhone,
+            customerName,
+          })
+          .catch(() => {
+            /* silent — não bloqueia fluxo */
+          });
       });
     }
 
@@ -1196,28 +1190,58 @@ export class OrdersService {
         /* socket failure must not block */
       }
 
-      // Google Review para pedidos online DELIVERED
+      // ── Notificação WhatsApp em TODA mudança de status (pedido online) ──────
+      // Antes só o PDV notificava — pedido do cardápio/totem/iFood nunca
+      // avisava o cliente de PREPARING/READY/OUT_FOR_DELIVERY etc., só na
+      // criação. Reaproveita o mesmo serviço/templates do PDV.
+      const notifyStatuses = [
+        'CONFIRMED',
+        'PREPARING',
+        'READY',
+        'OUT_FOR_DELIVERY',
+        'DELIVERED',
+        'CANCELLED',
+      ];
+      if (this.orderNotificationService && notifyStatuses.includes(status)) {
+        setImmediate(async () => {
+          try {
+            const fullOrder = await this.prisma.onlineOrder.findUnique({
+              where: { id },
+              select: { customerPhone: true, customerName: true },
+            });
+            if (!fullOrder?.customerPhone) return;
+            await this.orderNotificationService!.notifyStatusChange({
+              companyId,
+              orderId: id,
+              customerPhone: fullOrder.customerPhone,
+              customerName: fullOrder.customerName ?? undefined,
+              newStatus: status as any,
+            });
+          } catch {
+            /* silent — nunca bloqueia o fluxo principal */
+          }
+        });
+      }
+
+      // Feedback pós-entrega (pergunta antes de mandar o link do Google)
       if (status === 'DELIVERED') {
         setImmediate(async () => {
           try {
             const fullOrder = await this.prisma.onlineOrder.findUnique({
               where: { id },
-              select: { customerPhone: true, customerName: true, companyId: true },
+              select: { customerPhone: true, customerName: true },
             });
-            const phone = fullOrder?.customerPhone;
-            if (!phone) return;
-            const company = await (this.prisma as any).company.findUnique({
-              where: { id: companyId },
-              select: { googleReviewUrl: true },
-            }) as { googleReviewUrl?: string | null } | null;
-            if (!company?.googleReviewUrl) return;
-            const firstName = fullOrder?.customerName ? fullOrder.customerName.split(' ')[0] : 'você';
-            const msg =
-              `Olá${firstName !== 'você' ? ` ${firstName}` : ''}! 🙏 Seu pedido foi entregue!\n\n` +
-              `Ficamos felizes em atender você. Que tal uma avaliação rápida? ⭐\n\n` +
-              `👉 ${company.googleReviewUrl}`;
-            await this.whatsappAiService?.sendTextMessage(companyId, phone, msg);
-          } catch { /* silent */ }
+            if (!fullOrder?.customerPhone) return;
+            await this.whatsappAiService?.requestDeliveryFeedback({
+              companyId,
+              orderId: id,
+              orderSource: 'ONLINE',
+              customerPhone: fullOrder.customerPhone,
+              customerName: fullOrder.customerName,
+            });
+          } catch {
+            /* silent */
+          }
         });
       }
 

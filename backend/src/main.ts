@@ -91,11 +91,22 @@ async function bootstrap() {
         configService.get<string>('EVOLUTION_API_KEY') &&
         configService.get<string>('EVOLUTION_INSTANCE_NAME')
       );
+      // Classifica o ambiente do MercadoPago SEM nunca expor o token — só o
+      // prefixo diz se é sandbox ("TEST-...") ou produção ("APP_USR-...").
+      // checkout = token usado pra cobrar do cliente (assinatura + PIX online).
+      // payout   = token usado pra repassar o dinheiro pro dono da loja (carteira).
+      const classifyMpToken = (t?: string) =>
+        !t ? 'not_configured' : t.startsWith('TEST-') ? 'sandbox' : 'production';
+      const paymentsDiag = {
+        checkout: classifyMpToken(configService.get<string>('MERCADOPAGO_ACCESS_TOKEN')),
+        payout: classifyMpToken(configService.get<string>('MERCADO_PAGO_ACCESS_TOKEN')),
+      };
       return res.status(prismaService.isReady ? 200 : 503).json({
         status: prismaService.isReady ? 'ok' : 'starting',
         ready: prismaService.isReady,
         timestamp: new Date().toISOString(),
         channels: { email: emailConfigured, whatsapp: waConfigured },
+        payments: paymentsDiag,
       });
     }
     return next();

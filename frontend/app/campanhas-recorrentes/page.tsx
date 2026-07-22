@@ -5,8 +5,9 @@ import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import {
   Repeat, Users, Zap, CheckCircle2, Plus, Pause, Play, X, Info, Loader2,
-  UserPlus, Archive, Gauge,
+  UserPlus, Archive, Gauge, Image as ImageIcon,
 } from "lucide-react";
+import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 interface CampaignStats {
   sent: number;
   failed: number;
@@ -21,6 +22,7 @@ interface Campaign {
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
   minIntervalDays: number;
   maxPerRun: number;
+  imageUrl: string | null;
   createdAt: string;
   stats: CampaignStats;
 }
@@ -53,7 +55,7 @@ export default function CampanhasRecorrentesPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50 });
+  const [form, setForm] = useState({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50, imageUrl: null as string | null });
   const [contactsText, setContactsText] = useState("");
 
   async function load() {
@@ -84,7 +86,7 @@ export default function CampanhasRecorrentesPage() {
       await api.post("/whatsapp-campaigns", form);
       toast.success("Campanha criada como rascunho!");
       setShowModal(false);
-      setForm({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50 });
+      setForm({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50, imageUrl: null as string | null });
       load();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao criar campanha");
@@ -253,7 +255,16 @@ export default function CampanhasRecorrentesPage() {
                 <tbody className="divide-y divide-gray-50">
                   {campaigns.map((c) => (
                     <tr key={c.id}>
-                      <td className="px-5 py-3 font-semibold text-gray-800">{c.name}</td>
+                      <td className="px-5 py-3 font-semibold text-gray-800">
+                        <span className="flex items-center gap-1.5">
+                          {c.name}
+                          {c.imageUrl && (
+                            <span title="Campanha com imagem">
+                              <ImageIcon size={13} className="text-gray-400" />
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td className="px-5 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_LABELS[c.status].className}`}>
                           {STATUS_LABELS[c.status].label}
@@ -359,6 +370,15 @@ export default function CampanhasRecorrentesPage() {
                   placeholder="Oi {{nome}}! Hoje é a inauguração da nossa pizzaria — vem conferir!"
                   rows={4}
                   className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-primary resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Imagem (opcional)</label>
+                <p className="text-xs text-gray-400 mb-1.5">Anexa uma foto à mensagem — sem imagem, envia só o texto.</p>
+                <ImageUploaderPreview
+                  value={form.imageUrl ?? undefined}
+                  onChange={(url) => setForm({ ...form, imageUrl: url })}
+                  previewHeightClassName="h-32"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">

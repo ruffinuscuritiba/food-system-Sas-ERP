@@ -2293,6 +2293,9 @@ model WhatsappCampaign {
   // Texto da mensagem — suporta variável {{nome}} (substituída pelo nome do
   // cliente). Sem spintax/variação de texto — mensagem única e transparente.
   message         String         @db.Text
+  // Imagem opcional enviada junto da mensagem (data URL base64 ou https URL).
+  // Sem imagem = envio de texto puro (comportamento original preservado).
+  imageUrl        String?        @db.Text
   status          CampaignStatus @default(DRAFT)
   minIntervalDays Int            @default(15)
   // Gotejamento: quantos contatos recebem mensagem por ativação/lote (não é

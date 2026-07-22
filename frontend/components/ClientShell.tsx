@@ -236,6 +236,9 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [humanAlerts, setHumanAlerts] = useState<
     { conversationId: string; customerPhone: string; customerName?: string | null; lastMessage: string; at: number }[]
   >([]);
+  const [orderAlerts, setOrderAlerts] = useState<
+    { orderId: string; customerName?: string | null; total?: number | string; orderType?: string; at: number }[]
+  >([]);
   const humanAlertAudioRef = useRef<HTMLAudioElement>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -302,28 +305,48 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       });
     }
 
+    // Pedido chegou por um canal que NÃO foi o operador digitando no PDV
+    // (ONLINE, TOTEM, IFOOD, etc.) — ninguém "sabe" que ele existe até olhar
+    // a tela. Sem isso, um pedido pode ficar pendente por horas sem que
+    // ninguém perceba (achado real: pedido de delivery esperando 84min).
+    function handleOrderCreated(data: { id: string; channel?: string; customerName?: string | null; total?: number | string; orderType?: string }) {
+      if (!data?.id || !data.channel || data.channel === "PDV") return;
+      setOrderAlerts((prev) => {
+        const withoutDup = prev.filter((a) => a.orderId !== data.id);
+        return [...withoutDup, { orderId: data.id, customerName: data.customerName, total: data.total, orderType: data.orderType, at: Date.now() }];
+      });
+    }
+
     socket.on("humanHelpRequested", handleHumanHelp);
+    socket.on("orderCreated", handleOrderCreated);
     return () => {
       clearInterval(reconnectTimer);
       socket.off("humanHelpRequested", handleHumanHelp);
+      socket.off("orderCreated", handleOrderCreated);
       // Não desconecta — outras páginas (kitchen/orders/tables) também
       // gerenciam o mesmo socket compartilhado.
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
-  // Toca/para o alarme em loop conforme a fila de alertas pendentes.
+  // Toca/para o alarme em loop conforme a fila de alertas pendentes (soma os
+  // dois tipos — um beep único é fácil de perder quando ninguém está de olho
+  // na tela; toca até alguém dispensar manualmente).
   useEffect(() => {
     const el = humanAlertAudioRef.current;
     if (!el) return;
-    if (humanAlerts.length > 0) {
+    if (humanAlerts.length + orderAlerts.length > 0) {
       el.loop = true;
       el.play().catch(() => {});
     } else {
       el.pause();
       el.currentTime = 0;
     }
-  }, [humanAlerts.length]);
+  }, [humanAlerts.length, orderAlerts.length]);
+
+  function dismissOrderAlert(orderId: string) {
+    setOrderAlerts((prev) => prev.filter((a) => a.orderId !== orderId));
+  }
 
   function dismissHumanAlert(conversationId: string) {
     setHumanAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
@@ -570,6 +593,40 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
                   <button
                     onClick={() => dismissHumanAlert(a.conversationId)}
                     className="text-xs font-semibold text-red-100 px-2.5 py-1 rounded-lg hover:bg-red-700 transition"
+                  >
+                    Dispensar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {orderAlerts.length > 0 && (
+        <div className="fixed top-3 right-3 z-[9999] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: humanAlerts.length > 0 ? humanAlerts.length * 96 : 0 }}>
+          {orderAlerts.map((a) => (
+            <div
+              key={a.orderId}
+              className="bg-amber-600 text-white rounded-xl shadow-2xl p-3.5 flex items-start gap-3 animate-pulse"
+            >
+              <ShoppingCart size={18} className="mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">Novo pedido — não veio do PDV</p>
+                <p className="text-xs text-amber-100 truncate">
+                  {a.customerName || "Cliente"} · {a.orderType ?? ""} {a.total != null ? `· R$ ${Number(a.total).toFixed(2)}` : ""}
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Link
+                    href="/orders"
+                    onClick={() => dismissOrderAlert(a.orderId)}
+                    className="text-xs font-semibold bg-white text-amber-700 px-2.5 py-1 rounded-lg hover:bg-amber-50 transition"
+                  >
+                    Ver pedido
+                  </Link>
+                  <button
+                    onClick={() => dismissOrderAlert(a.orderId)}
+                    className="text-xs font-semibold text-amber-100 px-2.5 py-1 rounded-lg hover:bg-amber-700 transition"
                   >
                     Dispensar
                   </button>

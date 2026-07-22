@@ -26,6 +26,13 @@ export class CreateCampaignDto {
   @Max(MAX_PER_RUN_MAX)
   @IsOptional()
   maxPerRun?: number;
+
+  // Data URL base64 (ImageUploaderPreview já comprime client-side) ou https
+  // URL. Opcional — sem imagem, envia só texto (comportamento original).
+  @IsString()
+  @MaxLength(5_000_000)
+  @IsOptional()
+  imageUrl?: string;
 }
 
 export class UpdateCampaignDto {
@@ -49,4 +56,9 @@ export class UpdateCampaignDto {
   @Max(MAX_PER_RUN_MAX)
   @IsOptional()
   maxPerRun?: number;
+
+  @IsString()
+  @MaxLength(5_000_000)
+  @IsOptional()
+  imageUrl?: string;
 }

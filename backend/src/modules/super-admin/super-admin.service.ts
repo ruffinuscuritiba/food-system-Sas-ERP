@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '@/database/prisma.service';
+import { PLATFORM_SELLER_COMPANY_ID } from '@/common/utils/matrix';
 
 const DEFAULT_MODULES = [
   'TABLES',
@@ -152,53 +153,23 @@ export class SuperAdminService {
     });
   }
 
+  // "Configurar IA" no dashboard super-admin leva pra empresa dedicada a
+  // vender o próprio SaaS (PLATFORM_SELLER_COMPANY_ID). Versão antiga
+  // procurava por Company.email==='platform@foodsaas.internal' — nunca
+  // batia com nenhuma empresa real (esse e-mail é o LOGIN do admin da
+  // Ruffinu's, não o Company.email dela) — toda vez criava uma empresa
+  // "R FoodSaaS Plataforma" nova e órfã, cujo User falhava ao criar por
+  // colidir com o e-mail já usado pela Ruffinu's, deixando uma empresa
+  // fantasma sem usuário ativo (404 permanente a partir da 2ª tentativa).
   async getPlatformImpersonation() {
-    const platformEmail = 'platform@foodsaas.internal';
-
-    let company = await this.prisma.company.findFirst({
-      where: { email: platformEmail },
+    const company = await this.prisma.company.findUnique({
+      where: { id: PLATFORM_SELLER_COMPANY_ID },
     });
-
     if (!company) {
-      company = await this.prisma.company.create({
-        data: {
-          name: 'R FoodSaaS Plataforma',
-          email: platformEmail,
-          plan: 'ENTERPRISE',
-          subscriptionStatus: 'ACTIVE',
-          isBlocked: false,
-          archivedAt: new Date(), // hidden from companies list
-        },
-      });
-
-      const { randomUUID } = await import('crypto');
-      const { hash } = await import('bcrypt');
-      const pwd = await hash(randomUUID(), 10);
-
-      await this.prisma.user.create({
-        data: {
-          name: 'Admin Plataforma',
-          email: platformEmail,
-          password: pwd,
-          role: 'ADMIN',
-          isActive: true,
-          companyId: company.id,
-        },
-      });
-
-      const ALL_MODULES = [
-        'TABLES', 'CASH', 'FINANCIAL', 'STOCK', 'RECIPES', 'DELIVERY',
-        'whatsapp', 'whatsapp-ia',
-      ];
-      await Promise.all(
-        ALL_MODULES.map((mod) =>
-          this.prisma.companyModule.create({
-            data: { module: mod, active: true, companyId: company!.id },
-          }),
-        ),
+      throw new NotFoundException(
+        'Empresa vendedora do SaaS (PLATFORM_SELLER_COMPANY_ID) não configurada ou não encontrada.',
       );
     }
-
     return this.impersonateCompany(company.id);
   }
 

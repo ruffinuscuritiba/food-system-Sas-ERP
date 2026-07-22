@@ -979,8 +979,22 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     if (!settings) {
       // Reprovisionar a conexão cria uma WhatsappConnection nova e o cascade
       // apaga as settings antigas — sem self-healing a IA fica muda em silêncio.
+      // O provider default aqui NÃO pode ser fixo em GEMINI: lojas reais
+      // (CLIENTE_REAL) precisam nascer em CLAUDE (motor completo) e a
+      // conexão vendedora do SaaS precisa nascer em ANTHROPIC — nunca
+      // depender de alguém lembrar de corrigir manualmente após o QR.
+      const healingCompany = await this.prisma.company.findUnique({
+        where: { id: connection.companyId },
+        select: { email: true },
+      });
+      const healingAmbiente = this.detectAmbiente(
+        healingCompany?.email,
+        connection.companyId,
+      );
+      const healingProvider =
+        healingAmbiente === 'CLIENTE_REAL' ? 'CLAUDE' : 'ANTHROPIC';
       log.warn(
-        `[AI] connection=${connection.id} sem WhatsappAiSettings — criando defaults automaticamente`,
+        `[AI] connection=${connection.id} sem WhatsappAiSettings — criando defaults automaticamente (ambiente=${healingAmbiente}, aiProvider=${healingProvider})`,
       );
       settings = (await this.prisma.whatsappAiSettings.upsert({
         where: { connectionId: connection.id },
@@ -988,7 +1002,11 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         create: {
           connectionId: connection.id,
           companyId: connection.companyId,
-          aiModel: 'gemini-2.0-flash',
+          aiProvider: healingProvider,
+          aiModel:
+            healingProvider === 'CLAUDE'
+              ? 'claude-haiku-4-5-20251001'
+              : 'gemini-2.0-flash',
         },
       })) as unknown as WaSettings;
     }

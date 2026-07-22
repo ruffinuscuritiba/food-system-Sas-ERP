@@ -823,7 +823,8 @@ export default function MenuPage() {
   async function submitOrder() {
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
     if (form.orderType === "DINE_IN" && !tableNumber?.trim()) { toast.error("Informe o numero da mesa"); return; }
-    if (form.orderType === "DELIVERY" && !form.street) { toast.error("Informe o endereco de entrega"); return; }
+    if (form.orderType === "DELIVERY" && !form.street?.trim()) { toast.error("Informe a rua para entrega"); return; }
+    if (form.orderType === "DELIVERY" && !form.number?.trim()) { toast.error("Informe o numero da casa/apartamento"); return; }
     if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
     setSubmitting(true);
 

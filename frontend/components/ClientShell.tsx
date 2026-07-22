@@ -228,6 +228,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const { loadAuth, user } = useAuthStore();
   const { setSidebarConfig: setStoreSidebarConfig } = useCompanyStore();
   const [companyName, setCompanyName] = useState("R_FoodSaaS ERP");
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [companyPlan, setCompanyPlan] = useState("");
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -481,6 +482,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       .then((r) => {
         if (r.data?.name) setCompanyName(r.data.name);
         if (r.data?.plan) setCompanyPlan(r.data.plan);
+        setCompanySlug(r.data?.slug || null);
         const modules: any[] = Array.isArray(r.data?.modules) ? r.data.modules : [];
         const slugs = modules
           .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL" || m.active)
@@ -907,7 +909,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           {user?.companyId && (
             <div className="px-3 pb-2">
               <a
-                href={`/menu/${user.companyId}`}
+                href={`/menu/${companySlug || user.companyId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
@@ -933,6 +935,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
               <QrLinksModal
                 companyId={user.companyId}
                 companyName={companyName}
+                slug={companySlug}
                 isOpen={qrLinksOpen}
                 onClose={() => setQrLinksOpen(false)}
               />
@@ -1051,7 +1054,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           </span>
           {user?.companyId && (
             <a
-              href={`/menu/${user.companyId}`}
+              href={`/menu/${companySlug || user.companyId}`}
               target="_blank"
               rel="noopener noreferrer"
               title="Abrir cardápio"

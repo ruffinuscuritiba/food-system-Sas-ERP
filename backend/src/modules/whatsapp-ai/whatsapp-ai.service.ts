@@ -1629,7 +1629,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     const menuCtx = this.promptService.buildMenuContext(products, categories);
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
-      select: { name: true },
+      select: { name: true, slug: true },
     });
     const companyName = company?.name ?? 'nossa loja';
     const attendantName = settings.attendantName ?? 'Atendente';
@@ -1885,9 +1885,26 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       );
     }
 
-    const cleanReply = resposta_para_o_cliente
+    let cleanReply = resposta_para_o_cliente
       .replace('TRANSFERIR_HUMANO', '')
       .trim();
+
+    // Primeira resposta da Kely nesta conversa: sempre acompanha o link do
+    // cardápio digital, junto (não em mensagem separada) — pedido explícito
+    // do usuário, garantido em código pra não depender do LLM lembrar.
+    if (cleanReply && company?.slug) {
+      const isFirstReply =
+        (await this.prisma.whatsappMessage.count({
+          where: { conversationId: conv.id, role: 'ASSISTANT' },
+        })) === 0;
+      if (isFirstReply) {
+        const frontendUrl = this.config.get<string>('FRONTEND_URL');
+        if (frontendUrl) {
+          cleanReply += `\n\n📋 Nosso cardápio completo: ${frontendUrl.replace(/\/$/, '')}/menu/${company.slug}`;
+        }
+      }
+    }
+
     if (cleanReply) {
       await this.saveMessage(conv.id, companyId, 'ASSISTANT', cleanReply);
       const delay = settings.typingDelay ?? 0;

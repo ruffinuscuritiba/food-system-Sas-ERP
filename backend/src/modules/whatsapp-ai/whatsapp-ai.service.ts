@@ -1367,7 +1367,24 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         );
       }
     } else {
-      rawResponse = await this.geminiChat(aiModel, systemPrompt, aiMessages);
+      try {
+        rawResponse = await this.geminiChat(aiModel, systemPrompt, aiMessages);
+      } catch (geminiErr: unknown) {
+        const errMsg = (geminiErr as Error)?.message ?? '';
+        log.warn(
+          `[AI] conv=${conv.id} Gemini falhou (${errMsg.slice(0, 100)}). Tentando Anthropic como fallback...`,
+        );
+        if (!hasAnthropicKey) throw geminiErr;
+        const anthropicMsgs = aiMessages.map((m) => ({
+          role: m.role === 'model' ? ('assistant' as const) : ('user' as const),
+          text: m.text,
+        }));
+        rawResponse = await this.anthropicChat(
+          aiModel,
+          systemPrompt,
+          anthropicMsgs,
+        );
+      }
     }
 
     if (!rawResponse) {
@@ -1660,6 +1677,14 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         pizzaBordersContext,
         businessHoursInfo,
         paymentInfo,
+        responseStyle: settings.responseStyle,
+        personalityType: settings.personalityType,
+        emojiUsage: settings.emojiUsage,
+        advancedPersonality: settings.advancedPersonality,
+        speechHabits: settings.speechHabits,
+        characteristics: settings.characteristics,
+        principles: settings.principles,
+        humor: settings.humor,
       });
     } catch (err: unknown) {
       const msg = (err as Error)?.message ?? '';

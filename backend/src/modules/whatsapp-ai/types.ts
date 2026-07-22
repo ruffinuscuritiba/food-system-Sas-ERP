@@ -29,6 +29,14 @@ export interface WaSettings {
   greetingMessage: string | null;
   typingDelay: number | null;
   paymentMethods: string | null;
+  responseStyle: string | null;
+  personalityType: string | null;
+  emojiUsage: string | null;
+  advancedPersonality: boolean | null;
+  speechHabits: string | null;
+  characteristics: string | null;
+  principles: string | null;
+  humor: string | null;
 }
 
 export interface WaConversation {

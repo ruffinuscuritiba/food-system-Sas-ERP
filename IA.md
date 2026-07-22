@@ -20,7 +20,7 @@ do zero de novo.
 | WhatsappConnection.id (banco) | `cmr5aaozs002ualnbvo5whlpu` |
 | Empresa "plataforma" (Kely vende o sistema) | `cmq7d3dxs0006gw5pabsljy87` — nome de exibição "Ruffinu's Pizzaria", login `platform@foodsaas.internal` |
 | Número de WhatsApp do dono (avisos) | `5567991753455` (`NOTIFY_WHATSAPP_NUMBER`) |
-| Provider de IA ativo (Kely) | Anthropic `claude-haiku-4-5-20251001`, fallback automático Gemini `gemini-2.0-flash` |
+| Provider de IA ativo (Kely) | `CLAUDE` (motor completo "Carol", `claude-cart.service.ts`) — modelo `claude-haiku-4-5-20251001`, fallback automático Gemini `gemini-2.0-flash` dentro do próprio motor |
 
 ## 2. Como verificar se está tudo certo (checklist rápido)
 
@@ -38,6 +38,10 @@ do zero de novo.
 
 5. **Horário de funcionamento não está bloqueando por engano?**
    Bug conhecido: se o horário cruza meia-noite (ex: 18h–02h) e a lógica de overnight não está com o fix, `isBusinessHours()` retorna sempre `false`. Ambientes de venda (R_FOOD_SAAS/LOJA_DEMO) já têm bypass — só afeta clientes reais.
+
+6. **`aiProvider` da conexão é `CLAUDE` (loja real) ou `GEMINI`/`ANTHROPIC` (venda do SaaS)?** — ver regra principal no topo do `CLAUDE.md` e item 169. Toda reconexão via QR reseta `aiProvider` pro default `GEMINI` do schema, o que joga a loja de volta pro motor fraco (sem conhecimento de entrega/horário/pagamento/borda). Checar com `GET /whatsapp-ai/connections` (autenticado como a empresa) e corrigir com `PUT /whatsapp-ai/settings/:connectionId {"aiProvider":"CLAUDE"}` se for loja real.
+
+7. **Teste de sanidade rápido**: mande uma mensagem de teste perguntando entrega+horário+pagamento numa tacada só (ex: "entregam no bairro X? que horas fecham? aceitam pix?"). Se a resposta não cobrir os 3 pontos, o motor fraco está ativo (item 6).
 
 ## 3. Onde cada coisa mora
 
@@ -57,4 +61,4 @@ do zero de novo.
 
 ---
 
-*Última atualização deste arquivo: 09/07/2026 — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*
+*Última atualização deste arquivo: 22/07/2026 — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*

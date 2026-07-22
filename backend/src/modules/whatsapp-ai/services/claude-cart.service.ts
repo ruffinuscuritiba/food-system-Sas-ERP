@@ -76,6 +76,14 @@ export class ClaudeCartService {
     pizzaBordersContext?: string;
     businessHoursInfo?: string;
     paymentInfo?: string;
+    responseStyle?: string | null;
+    personalityType?: string | null;
+    emojiUsage?: string | null;
+    advancedPersonality?: boolean | null;
+    speechHabits?: string | null;
+    characteristics?: string | null;
+    principles?: string | null;
+    humor?: string | null;
   }): Promise<StructuredResponse> {
     const systemPrompt = this.buildSystemPrompt(params);
 
@@ -203,6 +211,14 @@ export class ClaudeCartService {
     pizzaBordersContext?: string;
     businessHoursInfo?: string;
     paymentInfo?: string;
+    responseStyle?: string | null;
+    personalityType?: string | null;
+    emojiUsage?: string | null;
+    advancedPersonality?: boolean | null;
+    speechHabits?: string | null;
+    characteristics?: string | null;
+    principles?: string | null;
+    humor?: string | null;
   }): string {
     const name = params.attendantName || 'Carol';
     const company = params.companyName;
@@ -226,6 +242,39 @@ export class ClaudeCartService {
     ]
       .filter(Boolean)
       .join('\n');
+
+    const STYLE_MAP: Record<string, string> = {
+      DIRECT: 'Respostas diretas e objetivas, sem enrolação.',
+      CONVERSATIONAL:
+        'Respostas em tom de bate-papo, com um pouco de contexto/acolhimento antes de ir direto ao ponto.',
+    };
+    const PERSONALITY_MAP: Record<string, string> = {
+      FRIENDLY: 'Tom amigável e caloroso.',
+      PLAYFUL: 'Tom descontraído e bem-humorado, sem exagerar.',
+      FORMAL: 'Tom mais formal e educado, sem gírias.',
+    };
+    const EMOJI_MAP: Record<string, string> = {
+      NONE: 'Não use emojis em nenhuma mensagem (isso substitui a regra padrão de 1 emoji).',
+      MODERATE: 'Use no máximo 1 emoji por mensagem.',
+      ALWAYS: 'Pode usar emojis livremente para deixar a conversa mais expressiva.',
+    };
+    const personalityLines = [
+      params.responseStyle ? STYLE_MAP[params.responseStyle] : '',
+      params.personalityType ? PERSONALITY_MAP[params.personalityType] : '',
+      params.emojiUsage ? EMOJI_MAP[params.emojiUsage] : '',
+    ].filter(Boolean);
+    if (params.advancedPersonality) {
+      if (params.speechHabits)
+        personalityLines.push(`Jeito de falar: ${params.speechHabits}`);
+      if (params.characteristics)
+        personalityLines.push(`Características: ${params.characteristics}`);
+      if (params.principles)
+        personalityLines.push(`Princípios: ${params.principles}`);
+      if (params.humor) personalityLines.push(`Humor: ${params.humor}`);
+    }
+    const personalitySection = personalityLines.length
+      ? `\n━━━ PERSONALIDADE CONFIGURADA (prioridade sobre o tom padrão acima) ━━━\n${personalityLines.map((l) => `• ${l}`).join('\n')}\n`
+      : '';
 
     return `Você é ${name}, a atendente virtual da ${company}. Você é simpática, prestativa, humanizada e conhece completamente o cardápio, os preços, as zonas de entrega e as formas de pagamento da loja. Seu objetivo é atender o cliente com naturalidade — tirar dúvidas, sugerir produtos e anotar pedidos.
 
@@ -272,7 +321,7 @@ Você não é apenas um sistema de pedidos. Você é a voz da ${company} no What
 — LINGUAGEM —
 22. No máximo 3 frases por mensagem. No máximo 1 emoji. Frases diretas e amigáveis.
 
-${operationalSection ? `━━━ INFORMAÇÕES OPERACIONAIS ━━━\n${operationalSection}\n` : ''}${deliverySection}${bordersSection}
+${personalitySection}${operationalSection ? `━━━ INFORMAÇÕES OPERACIONAIS ━━━\n${operationalSection}\n` : ''}${deliverySection}${bordersSection}
 ━━━ CARDÁPIO DISPONÍVEL ━━━
 ${params.menuContext || 'Cardápio não disponível no momento.'}
 

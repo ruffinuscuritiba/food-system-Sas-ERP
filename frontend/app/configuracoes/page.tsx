@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
 import {
-  Store, Palette, ClipboardList, CreditCard, Bike, Pizza,
+  Store, Palette, ClipboardList, CreditCard, Pizza,
   Printer, MessageCircle, Cable, Users, Star, Settings,
   Loader2, DollarSign, QrCode, SlidersHorizontal,
   FileCheck2,
@@ -23,10 +23,6 @@ function TabLoader() {
 }
 
 const PedidosTab = dynamic(() => import("@/components/settings/PedidosTab"), {
-  ssr: false,
-  loading: TabLoader,
-});
-const EntregaTab = dynamic(() => import("@/components/settings/EntregaTab"), {
   ssr: false,
   loading: TabLoader,
 });
@@ -87,7 +83,6 @@ const TABS = [
   { id: "aparencia",   label: "Aparência",        icon: Palette,        group: "Identidade" },
   { id: "pedidos",     label: "Pedidos",          icon: ClipboardList,       group: "Operação" },
   { id: "pagamento",   label: "Pagamento",        icon: CreditCard,          group: "Operação" },
-  { id: "entrega",     label: "Entrega",          icon: Bike,                group: "Operação" },
   { id: "pizza",       label: "Pizza & Cardápio", icon: Pizza,               group: "Operação" },
   { id: "interface",   label: "Interface",        icon: SlidersHorizontal,   group: "Operação" },
   { id: "impressao",        label: "Impressão",        icon: Printer,        group: "Tecnologia" },
@@ -108,9 +103,12 @@ const GROUPS = ["Identidade", "Operação", "Tecnologia", "Gestão"] as const;
 function PlaceholderTab({ tab }: { tab: TabId }) {
   // Abas com conteúdo implementado não têm link aqui (evita redirect circular).
   // aparencia / impressao / integracoes → renderizadas acima com os componentes migrados.
-  const redirects: Partial<Record<TabId, { href: string; label: string }>> = {
+  // Chaves antigas (ex: "entrega", migrada pra /entrega) não fazem mais parte
+  // de TabId, mas podem chegar aqui via link/bookmark antigo — daí o Record<string,...>.
+  const redirects: Partial<Record<string, { href: string; label: string }>> = {
     pizza:    { href: "/pizza-borders", label: "Ir para Pizza & Bordas (temporário)" },
     whatsapp: { href: "/whatsapp-ia",   label: "Ir para WhatsApp IA (temporário)" },
+    entrega:  { href: "/entrega?tab=area", label: "Ir para Entrega (novo local)" },
   };
   const redirect = redirects[tab];
 
@@ -144,7 +142,6 @@ function getTabDescription(tab: TabId): string {
     aparencia:   "Cores, logotipo, banner e estilo visual do sistema",
     pedidos:     "Tipos de atendimento, tempo estimado e pedido mínimo",
     pagamento:   "Formas de pagamento aceitas, gateways online e troco",
-    entrega:     "Zonas de entrega, taxas e configurações de raio",
     pizza:       "Tamanhos, bordas, complementos e regras do cardápio",
     impressao:          "Impressoras cadastradas, setores e fila de impressão",
     "impressao-local":  "Agente de impressão local, download e token de ativação",
@@ -257,8 +254,6 @@ function ConfiguracoesInner() {
             <LojaTab client={api} />
           ) : activeTab === "pedidos" ? (
             <PedidosTab />
-          ) : activeTab === "entrega" ? (
-            <EntregaTab />
           ) : activeTab === "pagamento" ? (
             <PagamentoTab />
           ) : activeTab === "aparencia" ? (

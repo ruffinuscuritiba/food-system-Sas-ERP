@@ -6,8 +6,6 @@ import toast from "react-hot-toast";
 import {
   TrendingUp, Eye, ShoppingBag, Copy, Megaphone, ImageIcon,
 } from "lucide-react";
-import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
-
 interface ViewedProduct {
   productId: string;
   name: string;
@@ -30,8 +28,6 @@ const PERIODS = [
 ];
 
 export default function TrafegoPagoPage() {
-  useNavKeyGuard("trafego-pago");
-
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
   const [totalMenuViews, setTotalMenuViews] = useState(0);

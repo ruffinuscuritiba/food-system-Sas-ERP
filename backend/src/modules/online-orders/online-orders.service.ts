@@ -103,6 +103,14 @@ export class OnlineOrdersService {
     const orderType = ORDER_TYPES.includes(dto.orderType)
       ? dto.orderType
       : 'DELIVERY';
+    if (
+      orderType === 'DELIVERY' &&
+      (!dto.address?.trim() || !dto.addressNumber?.trim())
+    ) {
+      throw new BadRequestException(
+        'Endereço de entrega incompleto — rua e número são obrigatórios.',
+      );
+    }
     const paymentMethod = PAYMENT_METHODS.includes(dto.paymentMethod)
       ? dto.paymentMethod
       : 'PIX';

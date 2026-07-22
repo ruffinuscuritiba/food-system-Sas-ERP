@@ -7,6 +7,7 @@ import { QRCodeCanvas } from "qrcode.react";
 interface Props {
   companyId: string;
   companyName?: string;
+  slug?: string | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -42,14 +43,14 @@ const SOCIAL_LINKS = [
   },
 ];
 
-export function QrLinksModal({ companyId, companyName, isOpen, onClose }: Props) {
+export function QrLinksModal({ companyId, companyName, slug, isOpen, onClose }: Props) {
   const [tab, setTab] = useState<"qr" | "links">("qr");
   const [copied, setCopied] = useState<string | null>(null);
   const [customName, setCustomName] = useState("");
 
   const origin =
     typeof window !== "undefined" ? window.location.origin : "https://foodsaas.app";
-  const menuUrl = `${origin}/menu/${companyId}`;
+  const menuUrl = `${origin}/menu/${slug || companyId}`;
 
   const getUtmUrl = (source: string) =>
     `${menuUrl}?utm_source=${encodeURIComponent(source)}&utm_medium=social&utm_campaign=cardapio`;

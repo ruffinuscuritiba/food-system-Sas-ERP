@@ -535,7 +535,9 @@ export default function PDVPage() {
     cart.length > 0 &&
     (pdvOrderDetails.orderType === "PICKUP" ||
       (pdvOrderDetails.orderType === "DINE_IN" && Boolean(pdvOrderDetails.tableNumber?.trim())) ||
-      (pdvOrderDetails.orderType === "DELIVERY" && Boolean((pdvOrderDetails.address ?? pdvOrderDetails.bairro)?.trim())));
+      (pdvOrderDetails.orderType === "DELIVERY" &&
+        Boolean(pdvOrderDetails.address?.trim()) &&
+        Boolean(pdvOrderDetails.addressNumber?.trim())));
 
   const filteredProducts = products.filter(p => {
     if (!p.isActive) return false;

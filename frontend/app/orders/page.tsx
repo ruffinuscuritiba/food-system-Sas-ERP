@@ -89,9 +89,9 @@ function timingBorderClass(order: Order): string {
 
 function timingDotClass(order: Order): string {
   const min = elapsedMin(order);
-  if (min > 45) return "bg-red-500";
-  if (min > 25) return "bg-amber-400";
-  return "bg-green-500";
+  if (min > 45) return "bg-[var(--danger)]";
+  if (min > 25) return "bg-[var(--warning)]";
+  return "bg-[var(--success)]";
 }
 
 function estimatedDelivery(order: Order): string {

@@ -7,8 +7,6 @@ import {
   Repeat, Users, Zap, CheckCircle2, Plus, Pause, Play, X, Info, Loader2,
   UserPlus, Archive, Gauge,
 } from "lucide-react";
-import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
-
 interface CampaignStats {
   sent: number;
   failed: number;
@@ -45,8 +43,6 @@ const STATUS_LABELS: Record<Campaign["status"], { label: string; className: stri
 };
 
 export default function CampanhasRecorrentesPage() {
-  useNavKeyGuard("campanhas-recorrentes");
-
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<Summary>({ eligibleContacts: 0, activeCampaigns: 0, deliveryRate: null });
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);

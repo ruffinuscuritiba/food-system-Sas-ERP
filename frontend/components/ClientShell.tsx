@@ -32,7 +32,6 @@ import {
   Bot,
   Bike,
   MapPin,
-  MapPinned,
   Landmark,
   CreditCard,
   Megaphone,
@@ -44,8 +43,6 @@ import {
   Printer,
   Settings,
   ChevronDown,
-  TrendingUp,
-  Repeat,
   Bell,
 } from "lucide-react";
 
@@ -92,8 +89,8 @@ const MODULE_NAV: Record<string, NavItem> = {
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
   "delivery": {
-    href: "/entregadores",
-    label: "Entregadores",
+    href: "/entrega",
+    label: "Entrega",
     icon: <Bike size={16} />,
     roles: ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   },
@@ -140,7 +137,6 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
       { href: "/pdv",            label: "PDV / Caixa", icon: <DollarSign size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue", navKey: "pdv" },
       { href: "/orders",         label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"], navKey: "orders" },
       { href: "/kitchen",        label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"], navKey: "kitchen" },
-      { href: "/delivery-tracking", label: "Rastreamento", icon: <MapPinned size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "delivery", navKey: "delivery-tracking" },
       { href: "/tables",         label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables", navKey: "tables" },
     ],
   },
@@ -165,10 +161,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: "IA",
     items: [
       { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "smart-import" },
-      { href: "/marketing",            label: "Marketing Digital",   icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], moduleSlug: "marketing",    navKey: "marketing" },
-      { href: "/campanhas",            label: "QR Recuperação",      icon: <QrCode size={16} />,    roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "campanhas" },
-      { href: "/trafego-pago",         label: "Tráfego Pago",        icon: <TrendingUp size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "trafego-pago" },
-      { href: "/campanhas-recorrentes", label: "Reengajamento WhatsApp", icon: <Repeat size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "campanhas-recorrentes" },
+      { href: "/marketing",            label: "Marketing & Fidelização", icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "marketing" },
     ],
   },
   {

@@ -25,12 +25,26 @@ export class CashService {
     });
   }
 
-  async movement(type: string, value: number, companyId: string) {
+  // paymentMethod é opcional: quando ausente (sangria/suprimento manual do
+  // operador), o movimento SEMPRE é dinheiro físico de verdade. Quando vem
+  // de uma venda (ex: fechamento de mesa), só afeta o saldo se for CASH —
+  // PIX/cartão não passam pela gaveta física, então não podem inflar o
+  // "Sistema" do fechamento às cegas.
+  async movement(
+    type: string,
+    value: number,
+    companyId: string,
+    paymentMethod?: string,
+  ) {
     const cash = await this.prisma.cash.findFirst({
       where: { companyId, isOpen: true },
       orderBy: { createdAt: 'desc' },
     });
     if (!cash) return null;
+
+    if (paymentMethod && paymentMethod !== 'CASH') {
+      return cash;
+    }
 
     const entries =
       type === 'SUPPLY' ? Number(cash.entries) + value : Number(cash.entries);

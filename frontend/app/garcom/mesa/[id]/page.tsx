@@ -166,12 +166,13 @@ export default function MesaDetail() {
       // If there are items in the cart, send them first
       if (cart.length > 0) await sendToKitchen();
 
-      await api.post("/cash/movement", {
-        type: "INCOME",
-        description: `Mesa ${table?.number} — fechamento`,
-        amount: tableTotal,
-        paymentMethod,
-      });
+      if (tableTotal > 0) {
+        await api.post("/cash/movement", {
+          type: "SUPPLY",
+          value: tableTotal,
+          paymentMethod,
+        });
+      }
 
       await api.patch(`/tables/${id}/status`, { status: "FREE" });
 

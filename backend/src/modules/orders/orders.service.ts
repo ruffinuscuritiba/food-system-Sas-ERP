@@ -679,6 +679,21 @@ export class OrdersService {
               Number(order.total),
             );
           }
+
+          // Credita a venda no saldo físico do caixa SOMENTE quando foi
+          // paga em dinheiro de verdade — PIX/cartão não passam pela
+          // gaveta, então nunca podem inflar o "Sistema" do fechamento
+          // às cegas. Cobre o caminho principal do PDV (balcão/delivery/
+          // retirada), que nunca chamava /cash/movement sozinho.
+          if (order.paymentMethod === 'CASH' && order.cashId) {
+            await tx.cash.updateMany({
+              where: { id: order.cashId, isOpen: true },
+              data: {
+                balance: { increment: Number(order.total) },
+                entries: { increment: Number(order.total) },
+              },
+            });
+          }
         }
 
         if (
@@ -728,6 +743,23 @@ export class OrdersService {
                 },
               );
             }
+          }
+
+          // Estorna o crédito de caixa SE E SOMENTE SE o pedido já tinha
+          // passado por CONFIRMED antes (senão nunca foi creditado — evita
+          // debitar dinheiro que nunca entrou no saldo).
+          if (
+            order.status !== OrderStatus.PENDING &&
+            order.paymentMethod === 'CASH' &&
+            order.cashId
+          ) {
+            await tx.cash.updateMany({
+              where: { id: order.cashId, isOpen: true },
+              data: {
+                balance: { decrement: Number(order.total) },
+                exits: { increment: Number(order.total) },
+              },
+            });
           }
         }
 

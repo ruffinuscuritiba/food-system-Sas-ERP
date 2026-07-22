@@ -8,6 +8,7 @@ import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
   MapPin, Clock, Phone, Search, Copy, Timer, Eye, Sparkles,
+  Home, ClipboardList,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
@@ -260,6 +261,7 @@ export default function MenuPage() {
   const [qrPromoApplied, setQrPromoApplied] = useState(false);
 
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [videoProduct, setVideoProduct] = useState<Product | null>(null);
   const [menuLayoutConfig, setMenuLayoutConfig] = useState<{
     layoutType?: string;
@@ -913,6 +915,9 @@ export default function MenuPage() {
       // Step 4 — clear cart / form state
       setShowCheckout(false);
       setShowCart(false);
+      try {
+        localStorage.setItem(`last_order_${realCompanyId}`, createdOrderId);
+      } catch {}
 
       // Step 5 — PIX flow: generate QR code and show payment screen
       if (form.paymentMethod === "PIX") {
@@ -1346,6 +1351,7 @@ export default function MenuPage() {
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
+              ref={searchInputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar no cardápio..."
@@ -1373,8 +1379,16 @@ export default function MenuPage() {
       )}
 
       {/* ─── Produtos ───────────────────────────────────────────────────────────── */}
-      {/* pb-44 (176px) cobre CTA flutuante (~80px) + safe-area iOS + margem confortável */}
-      <main className={`max-w-2xl mx-auto px-4 py-6 ${cartCount > 0 ? "pb-44" : "pb-12"}`} style={{ paddingBottom: cartCount > 0 ? "calc(7rem + env(safe-area-inset-bottom))" : undefined }}>
+      {/* Espaço reservado embaixo cobre: barra fixa de navegação (~60px, ausente no
+          totem) + CTA flutuante do carrinho (~80px) quando há item + safe-area iOS. */}
+      <main
+        className={`max-w-2xl mx-auto px-4 py-6 ${cartCount > 0 ? "pb-56" : "pb-24"}`}
+        style={{
+          paddingBottom: isTotem
+            ? (cartCount > 0 ? "calc(7rem + env(safe-area-inset-bottom))" : undefined)
+            : (cartCount > 0 ? "calc(10.5rem + env(safe-area-inset-bottom))" : "calc(6rem + env(safe-area-inset-bottom))"),
+        }}
+      >
         {filtered.length === 0 ? (
           <p className="text-gray-400 text-center py-20">Nenhum produto disponível</p>
         ) : (() => {
@@ -1649,9 +1663,12 @@ export default function MenuPage() {
         }}
       />
 
-      {/* ─── Botão flutuante de carrinho (mobile) ─────────────────────────────── */}
+      {/* ─── Botão flutuante de carrinho (mobile) — flutua ACIMA da barra fixa ── */}
       {cartCount > 0 && (
-        <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center px-4" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div
+          className={`fixed left-0 right-0 z-40 flex justify-center px-4 ${isTotem ? "bottom-6" : "bottom-[76px]"}`}
+          style={{ paddingBottom: isTotem ? "env(safe-area-inset-bottom)" : undefined }}
+        >
           <button
             onClick={() => setShowCart(true)}
             className="bg-[var(--color-primary)] hover:opacity-90 text-white px-8 py-4 rounded-2xl font-black text-base shadow-xl shadow-orange-500/40 flex items-center gap-3 transition max-w-sm w-full justify-between"
@@ -1661,6 +1678,55 @@ export default function MenuPage() {
             <span className="font-black">R$ {cartTotal.toFixed(2)}</span>
           </button>
         </div>
+      )}
+
+      {/* ─── Barra fixa de navegação (rodapé) — Cardápio / Buscar / Pedidos / Carrinho ── */}
+      {!isTotem && (
+        <nav
+          className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-stretch"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <button
+            onClick={() => { setActiveCategory("Todos"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+          >
+            <Home size={19} style={activeCategory === "Todos" ? { color: theme.primaryColor } : undefined} />
+            <span className="text-[10px] font-semibold" style={activeCategory === "Todos" ? { color: theme.primaryColor } : undefined}>Cardápio</span>
+          </button>
+          <button
+            onClick={() => { window.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => searchInputRef.current?.focus(), 350); }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+          >
+            <Search size={19} />
+            <span className="text-[10px] font-semibold">Busca</span>
+          </button>
+          <button
+            onClick={() => {
+              const lastOrderId = (() => { try { return localStorage.getItem(`last_order_${realCompanyId}`); } catch { return null; } })();
+              if (lastOrderId) router.push(`/tracking/${lastOrderId}`);
+              else toast("Você ainda não fez nenhum pedido nesta loja.", { icon: "🛎️" });
+            }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+          >
+            <ClipboardList size={19} />
+            <span className="text-[10px] font-semibold">Pedidos</span>
+          </button>
+          <button
+            onClick={() => setShowCart(true)}
+            className="flex-1 relative flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+          >
+            <ShoppingCart size={19} />
+            {cartCount > 0 && (
+              <span
+                className="absolute top-1 right-[calc(50%-20px)] min-w-[16px] h-4 px-1 rounded-full text-white text-[9px] font-black flex items-center justify-center"
+                style={{ background: theme.primaryColor }}
+              >
+                {cartCount}
+              </span>
+            )}
+            <span className="text-[10px] font-semibold">Carrinho</span>
+          </button>
+        </nav>
       )}
 
       {/* ─── Carrinho Drawer ─────────────────────────────────────────────────────── */}

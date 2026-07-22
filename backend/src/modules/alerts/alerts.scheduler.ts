@@ -29,8 +29,8 @@ export class AlertsScheduler {
       try {
         await this.reports.materializeKpiSnapshot(companyId);
         await this.generateAlerts(companyId);
-      } catch (e) {
-        this.logger.error(`Failed for company ${companyId}: ${e.message}`);
+      } catch (e: any) {
+        this.logger.error(`Failed for company ${companyId}: ${e?.message}`);
       }
       // Yield to event loop between companies — lets GC reclaim heap
       if (i < companies.length - 1)

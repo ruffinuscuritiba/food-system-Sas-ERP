@@ -21,7 +21,7 @@ do zero de novo.
 | Empresa "plataforma" (Kely vende o sistema) | `cmq7d3dxs0006gw5pabsljy87` — nome de exibição "Ruffinu's Pizzaria", login `platform@foodsaas.internal` |
 | Número de WhatsApp do dono (avisos) | `5567991753455` (`NOTIFY_WHATSAPP_NUMBER`) |
 | Número que atende a Ruffinu's Pizzaria | `41987397797` — conexão `cmrmn2csj000p4dch7pmvre0m`, `aiProvider=CLAUDE` |
-| Número que vende o FoodSaaS (SaaS) | `41988729370` — empresa dedicada `R FoodSaaS - Vendas` (`cmrwjq6k70013vh9dc8dslbo9`), `PLATFORM_SELLER_COMPANY_ID` setada no `.env` do VPS. **Ainda falta conectar via QR** — a empresa existe mas não tem `WhatsappConnection` ainda (precisa escanear o QR com o celular físico do número, ninguém consegue fazer isso remotamente) |
+| Número que vende o FoodSaaS (SaaS) | `41988729370` — empresa **`Mestra Gestão Digital`** (`cmrf983h6000auqph3fmrrp21`, CNPJ/endereço reais, já existia arquivada de sessão anterior, restaurada em 22/07/2026) = `PLATFORM_SELLER_COMPANY_ID` (era o default hardcoded o tempo todo). **Ainda falta conectar via QR** — empresa existe e tem usuário ativo, mas não tem `WhatsappConnection` ainda (precisa escanear o QR com o celular físico do número). ⚠️ Uma "R FoodSaaS - Vendas" foi criada por engano numa sessão e já foi **apagada** — não recriar. |
 | Provider de IA ativo (Kely) | `CLAUDE` (motor completo "Carol", `claude-cart.service.ts`) — modelo `claude-haiku-4-5-20251001`, fallback automático Gemini `gemini-2.0-flash` dentro do próprio motor |
 
 ## 2. Como verificar se está tudo certo (checklist rápido)
@@ -36,7 +36,7 @@ do zero de novo.
    `WhatsappConversation.mode` — se um atendente assumiu a conversa manualmente uma vez, fica em HUMAN pra sempre pra aquele número, e a Kely nunca mais responde ele. Auto-reset existe (60 min sem resposta do humano), mas só a partir do item 93.
 
 4. **`WhatsappAiSettings` existe pra essa conexão?**
-   Reprovisionar a conexão (nova instância) **apaga as settings em cascade** (1:1 com `connectionId`). Se `settings=null`, o sistema hoje faz self-healing (cria default), mas confirme `aiProvider`/`mode=AUTO` depois.
+   Reprovisionar a conexão (nova instância) **apaga as settings em cascade** (1:1 com `connectionId`). Se `settings=null`, o self-healing (desde 22/07/2026) detecta o ambiente sozinho e já cria com o provider certo (`CLAUDE` pra loja real, `ANTHROPIC` pra venda do SaaS) — não precisa mais corrigir manualmente. Ainda assim, confirme `mode=AUTO`/`HYBRID` depois.
 
 5. **Horário de funcionamento não está bloqueando por engano?**
    Bug conhecido: se o horário cruza meia-noite (ex: 18h–02h) e a lógica de overnight não está com o fix, `isBusinessHours()` retorna sempre `false`. Ambientes de venda (R_FOOD_SAAS/LOJA_DEMO) já têm bypass — só afeta clientes reais.

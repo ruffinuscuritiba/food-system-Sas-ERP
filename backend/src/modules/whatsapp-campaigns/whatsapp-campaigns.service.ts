@@ -161,6 +161,7 @@ export class WhatsappCampaignsService {
         message: dto.message.trim(),
         minIntervalDays: dto.minIntervalDays ?? 15,
         maxPerRun: dto.maxPerRun ?? 50,
+        imageUrl: dto.imageUrl || null,
         createdById: userId,
         status: 'DRAFT',
       },
@@ -180,6 +181,7 @@ export class WhatsappCampaignsService {
         ...(dto.message !== undefined && { message: dto.message.trim() }),
         ...(dto.minIntervalDays !== undefined && { minIntervalDays: dto.minIntervalDays }),
         ...(dto.maxPerRun !== undefined && { maxPerRun: dto.maxPerRun }),
+        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl || null }),
       },
     });
   }
@@ -278,7 +280,9 @@ export class WhatsappCampaignsService {
       const text = campaign.message.replace(/\{\{\s*nome\s*\}\}/gi, contact.name || 'cliente');
 
       try {
-        const delivered = await this.whatsappAi.sendTextMessage(campaign.companyId, contact.phone, text);
+        const delivered = campaign.imageUrl
+          ? await this.whatsappAi.sendMediaMessage(campaign.companyId, contact.phone, campaign.imageUrl, text)
+          : await this.whatsappAi.sendTextMessage(campaign.companyId, contact.phone, text);
         await this.logSend(
           campaignId, campaign.companyId, contact.id, contact.phone,
           delivered ? 'SENT' : 'FAILED',

@@ -56,6 +56,40 @@ async function sendEvolution(
   if (!res.ok) log.warn(`Evolution send failed: ${res.status}`);
 }
 
+/**
+ * Envia imagem + legenda via Evolution API. `imageUrl` aceita tanto uma data
+ * URL base64 (`data:image/...;base64,AAAA`, o que ImageUploaderPreview já
+ * produz — sem passo extra de upload pra nuvem) quanto uma https:// direta;
+ * Evolution aceita os dois formatos no campo `media`.
+ */
+async function sendEvolutionMedia(
+  apiUrl: string,
+  instanceName: string,
+  token: string,
+  phone: string,
+  imageUrl: string,
+  caption: string,
+) {
+  const media = imageUrl.startsWith('data:')
+    ? imageUrl.split(',').slice(1).join(',') // remove o prefixo "data:image/jpeg;base64,"
+    : imageUrl;
+  const url = `${apiUrl.replace(/\/$/, '')}/message/sendMedia/${instanceName}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: token },
+    body: JSON.stringify({
+      number: phone,
+      mediatype: 'image',
+      mimetype: 'image/jpeg',
+      media,
+      caption,
+      fileName: 'promo.jpg',
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) log.warn(`Evolution media send failed: ${res.status}`);
+}
+
 async function sendCloudApi(
   phoneNumberId: string,
   token: string,
@@ -2061,6 +2095,60 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     } catch { return false; }
     if (!connection) return false;
     return this.dispatchMessage(connection, raw, text);
+  }
+
+  /**
+   * Igual a sendTextMessage, mas com imagem — usado pelas campanhas
+   * recorrentes quando o admin anexa uma foto. Provider CLOUD_API (Meta)
+   * ainda não suporta envio de mídia aqui (exige upload prévio pra pegar um
+   * media ID) — cai pra texto puro nesse caso, com aviso no log, em vez de
+   * simplesmente falhar o envio inteiro.
+   */
+  async sendMediaMessage(
+    companyId: string,
+    phone: string,
+    imageUrl: string,
+    caption: string,
+  ): Promise<boolean> {
+    const raw = phone.replace(/\D/g, '');
+    if (!raw || raw.length < 8) return false;
+    let connection: WaConnection | null = null;
+    try {
+      connection = (await this.prisma.whatsappConnection.findFirst({
+        where: { companyId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      })) as WaConnection | null;
+    } catch { return false; }
+    if (!connection) return false;
+
+    if (connection.provider !== 'EVOLUTION') {
+      log.warn(
+        `[sendMediaMessage] Connection ${connection.id}: provider "${connection.provider}" não suporta mídia aqui — enviando só o texto.`,
+      );
+      return this.dispatchMessage(connection, raw, caption);
+    }
+    if (!connection.apiUrl || !connection.instanceName) {
+      log.error(
+        `[sendMediaMessage] Connection ${connection.id} misconfigured: missing apiUrl or instanceName`,
+      );
+      return false;
+    }
+    try {
+      await sendEvolutionMedia(
+        connection.apiUrl,
+        connection.instanceName,
+        connection.apiToken ?? '',
+        raw,
+        imageUrl,
+        caption,
+      );
+      return true;
+    } catch (err: unknown) {
+      log.error(
+        `[sendMediaMessage] Connection ${connection.id} send failed: ${(err as Error)?.message}`,
+      );
+      return false;
+    }
   }
 
   private async dispatchMessage(

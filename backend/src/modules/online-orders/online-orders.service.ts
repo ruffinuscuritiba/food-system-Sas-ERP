@@ -11,6 +11,7 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 import { StockService } from '@/modules/stock/stock.service';
+import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { normalizePhoneBr } from '@/common/utils/phone';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
@@ -69,6 +70,7 @@ export class OnlineOrdersService {
     private readonly deliveryConfigService: DeliveryConfigService,
     private readonly stockService: StockService,
     @Optional() private readonly qrCampaigns?: QrCampaignsService,
+    @Optional() private readonly whatsappAi?: WhatsappAiService,
   ) {}
 
   /**
@@ -338,6 +340,33 @@ export class OnlineOrdersService {
             })
             .catch((e: any) =>
               this.logger.warn(`[OnlineOrder] email failed: ${e?.message}`),
+            );
+        }
+
+        // → Resumo do pedido pro CLIENTE via WhatsApp (fire-and-forget, nunca
+        // atrasa/derruba a compra). Fecha o gap real: até aqui, o cliente só
+        // recebia confirmação por e-mail (nem sempre preenchido) — se ninguém
+        // no estabelecimento notasse o pedido, o cliente também não tinha
+        // nenhum sinal de que o pedido foi recebido.
+        if (this.whatsappAi && order.customerPhone) {
+          const itemsLines = (dto.items || [])
+            .map((i) => `• ${i.quantity}x ${i.productName}`)
+            .join('\n');
+          const enderecoLine =
+            orderType === 'DELIVERY'
+              ? `\n📍 Entrega: ${[dto.address, dto.addressNumber, dto.neighborhood].filter(Boolean).join(', ')}`
+              : orderType === 'DINE_IN'
+                ? ''
+                : '\n🏪 Retirada no balcão';
+          const resumo =
+            `✅ *Pedido recebido!* #${order.id.slice(-6).toUpperCase()}\n\n` +
+            `${itemsLines}\n\n` +
+            `*Total: R$ ${Number(order.total).toFixed(2)}*${enderecoLine}\n\n` +
+            `Assim que confirmarmos o preparo, avisamos por aqui. Obrigado pela preferência! 🍕`;
+          this.whatsappAi
+            .sendTextMessage(dto.companyId, order.customerPhone, resumo)
+            .catch((e: any) =>
+              this.logger.warn(`[OnlineOrder] resumo WhatsApp falhou: ${e?.message}`),
             );
         }
       } catch (err: any) {

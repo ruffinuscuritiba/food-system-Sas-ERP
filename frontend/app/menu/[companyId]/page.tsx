@@ -76,8 +76,9 @@ function FeaturedProductCard({ product, onAdd, primaryColor }: {
 
   return (
     <button onClick={() => onAdd(product)}
-      className="flex-shrink-0 w-40 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden text-left hover:shadow-md active:scale-95 transition">
-      <div className="relative w-full aspect-square bg-gray-100">
+      className="flex-shrink-0 w-40 rounded-2xl shadow-sm border overflow-hidden text-left hover:shadow-md active:scale-95 transition"
+      style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}>
+      <div className="relative w-full aspect-square" style={{ background: "var(--menu-surface-2)" }}>
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover"
             style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
@@ -85,7 +86,10 @@ function FeaturedProductCard({ product, onAdd, primaryColor }: {
           <div className="w-full h-full flex items-center justify-center text-4xl">🍽️</div>
         )}
         {discount ? (
-          <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full shadow-sm">
+          <span
+            className="absolute top-2 left-2 text-[11px] font-black px-2 py-0.5 rounded-full shadow-sm"
+            style={{ background: "var(--menu-gold)", color: "var(--menu-gold-ink)" }}
+          >
             -{discount}%
           </span>
         ) : labelStyle ? (
@@ -94,20 +98,20 @@ function FeaturedProductCard({ product, onAdd, primaryColor }: {
           </span>
         ) : null}
         <span
-          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-md border-2 border-white"
-          style={{ backgroundColor: primaryColor }}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-white shadow-md border-2"
+          style={{ backgroundColor: primaryColor, borderColor: "var(--menu-surface)" }}
         >
           <Plus size={15} strokeWidth={3} />
         </span>
       </div>
       <div className="p-2.5">
-        <p className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[2.5rem] leading-snug">{product.name}</p>
+        <p className="text-sm font-semibold line-clamp-2 min-h-[2.5rem] leading-snug" style={{ color: "var(--menu-text)" }}>{product.name}</p>
         {discount ? (
           <div className="mt-1 leading-tight">
-            <p className="text-[11px] text-gray-400 line-through">
+            <p className="text-[11px] line-through" style={{ color: "var(--menu-text-2)" }}>
               R$ {Number(product.originalPrice).toFixed(2).replace(".", ",")}
             </p>
-            <p className="text-base font-black text-emerald-600">
+            <p className="text-base font-black" style={{ color: primaryColor }}>
               R$ {Number(product.salePrice).toFixed(2).replace(".", ",")}
             </p>
           </div>
@@ -238,7 +242,7 @@ export default function MenuPage() {
   const [gaId, setGaId] = useState<string | null>(null);
   const [theme, setTheme] = useState<{
     primaryColor: string; logoUrl?: string | null; bannerUrl?: string | null;
-    pizzaPricingMode?: string;
+    pizzaPricingMode?: string; darkMode?: boolean;
   }>({ primaryColor: "#f97316" });
   const [cepLoading, setCepLoading] = useState(false);
   const [streetSuggestions, setStreetSuggestions] = useState<any[]>([]);
@@ -381,6 +385,7 @@ export default function MenuPage() {
             logoUrl: td.logoUrl || null,
             bannerUrl: td.bannerUrl || null,
             pizzaPricingMode: td.pizzaPricingMode || "MAX",
+            darkMode: td.darkMode === true,
           });
           document.documentElement.style.setProperty("--color-primary", primary);
         }
@@ -975,7 +980,7 @@ export default function MenuPage() {
 
     if (pixPaid) {
       return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center" data-menu-theme={theme.darkMode ? "dark" : "light"}>
           <div className="bg-white rounded-3xl shadow-lg p-10 max-w-sm w-full flex flex-col items-center gap-5">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle size={44} className="text-green-500" />
@@ -996,7 +1001,7 @@ export default function MenuPage() {
 
     if (pixExpired) {
       return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center" data-menu-theme={theme.darkMode ? "dark" : "light"}>
           <div className="bg-white rounded-3xl shadow-lg p-10 max-w-sm w-full flex flex-col items-center gap-5">
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center">
               <Timer size={40} className="text-amber-500" />
@@ -1024,7 +1029,7 @@ export default function MenuPage() {
     }
 
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-4">
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4 px-4" data-menu-theme={theme.darkMode ? "dark" : "light"}>
         <div className="bg-white rounded-3xl shadow-lg p-7 max-w-sm w-full flex flex-col items-center gap-5">
           {/* Header */}
           <div className="text-center">
@@ -1112,7 +1117,7 @@ export default function MenuPage() {
   // ─── Pedido enviado (dinheiro/cartão) ────────────────────────────────────────
   if (orderSent) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center">
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4 text-center" data-menu-theme={theme.darkMode ? "dark" : "light"}>
         <div className="bg-white rounded-3xl shadow-lg p-10 max-w-sm w-full flex flex-col items-center gap-5">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
             <CheckCircle size={40} className="text-green-500" />
@@ -1215,8 +1220,10 @@ export default function MenuPage() {
   // no Construtor (valor padrão do banco — passa a ter efeito visual real).
   const isAppStyle = (menuLayoutConfig?.layoutType ?? "LIST") === "LIST";
 
+  const menuThemeMode = theme.darkMode ? "dark" : "light";
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" data-menu-theme={menuThemeMode} style={{ background: "var(--menu-bg)" }}>
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: "12px", fontWeight: 600 } }} />
 
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
@@ -1274,7 +1281,7 @@ export default function MenuPage() {
       {/* ─── Destaques (featured block — before categories) ─────────────────────── */}
       {showFeatured && featuredBeforeCategories && (
         <div className="max-w-2xl mx-auto px-4 pt-4">
-          <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">⭐ Destaques</h2>
+          <h2 className="text-sm font-bold mb-3 flex items-center gap-1" style={{ color: "var(--menu-text)" }}>⭐ Destaques</h2>
           <div className="flex gap-3 overflow-x-auto pb-3 scroll-smooth">
             {featuredProducts.map((p) => (
               <FeaturedProductCard key={p.id} product={p} onAdd={addToCart} primaryColor={theme.primaryColor} />
@@ -1285,10 +1292,10 @@ export default function MenuPage() {
 
       {/* ─── Painel flutuante sobre o header ───────────────────────────────────── */}
       <div className="max-w-2xl mx-auto px-4 -mt-16 sm:-mt-10 relative z-20">
-        <div className="bg-white rounded-2xl shadow-md px-5 py-4 flex items-center justify-between">
+        <div className="rounded-2xl shadow-md px-5 py-4 flex items-center justify-between border" style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}>
           <div>
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Seu pedido</p>
-            <p className="text-gray-800 font-bold">{cartCount > 0 ? `${cartCount} ite${cartCount > 1 ? "ns" : "m"}` : "Nenhum item"}</p>
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--menu-text-2)" }}>Seu pedido</p>
+            <p className="font-bold" style={{ color: "var(--menu-text)" }}>{cartCount > 0 ? `${cartCount} ite${cartCount > 1 ? "ns" : "m"}` : "Nenhum item"}</p>
           </div>
           <button
             onClick={() => setShowCart(true)}
@@ -1302,7 +1309,7 @@ export default function MenuPage() {
       </div>
 
       {/* ─── Categorias + Busca ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm mt-4">
+      <div className="sticky top-0 z-30 border-b shadow-sm mt-4" style={{ background: "var(--menu-bg)", borderColor: "var(--menu-border)" }}>
         <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto touch-pan-x scroll-smooth">
           {isAppStyle ? (
             <div className="flex gap-4 min-w-max">
@@ -1318,14 +1325,14 @@ export default function MenuPage() {
                     className="flex flex-col items-center gap-1.5 shrink-0"
                   >
                     <div
-                      className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-2xl transition"
-                      style={{ boxShadow: isActive ? `0 0 0 3px ${theme.primaryColor}` : "0 0 0 1px #e5e7eb" }}
+                      className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-2xl transition"
+                      style={{ background: "var(--menu-surface-2)", boxShadow: isActive ? `0 0 0 3px ${theme.primaryColor}` : "0 0 0 1px var(--menu-border)" }}
                     >
                       {avatarUrl ? (
                         <img src={avatarUrl} alt={cat} className="w-full h-full object-cover" />
                       ) : "🍽️"}
                     </div>
-                    <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">
+                    <span className="text-xs font-semibold whitespace-nowrap" style={{ color: "var(--menu-text-2)" }}>
                       {cat.replace(/^[^\p{L}\p{N}]+/u, '')}
                     </span>
                   </button>
@@ -1338,10 +1345,10 @@ export default function MenuPage() {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className="px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition"
+                className="px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap transition border"
                 style={activeCategory === cat
-                  ? { background: theme.primaryColor, color: "#fff" }
-                  : { background: "#f3f4f6", color: "#4b5563" }}
+                  ? { background: theme.primaryColor, color: "#fff", borderColor: theme.primaryColor }
+                  : { background: "var(--menu-surface)", color: "var(--menu-text-2)", borderColor: "var(--menu-border)" }}
               >
                 {cat.replace(/^[^\p{L}\p{N}]+/u, '')}
               </button>
@@ -1352,18 +1359,20 @@ export default function MenuPage() {
         {searchOpen && (
           <div className="px-4 pb-3 max-w-2xl mx-auto">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--menu-text-2)" }} />
               <input
                 ref={searchInputRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onBlur={() => { if (!search) setSearchOpen(false); }}
                 placeholder="Buscar no cardápio..."
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition"
+                className="w-full border rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none transition"
+                style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
               />
               <button
                 onClick={() => { setSearch(""); setSearchOpen(false); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--menu-text-2)" }}
               >
                 <X size={13} />
               </button>
@@ -1375,7 +1384,7 @@ export default function MenuPage() {
       {/* ─── Destaques (featured block — after categories) ──────────────────────── */}
       {showFeatured && !featuredBeforeCategories && (
         <div className="max-w-2xl mx-auto px-4 pt-2">
-          <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-1">⭐ Destaques</h2>
+          <h2 className="text-sm font-bold mb-3 flex items-center gap-1" style={{ color: "var(--menu-text)" }}>⭐ Destaques</h2>
           <div className="flex gap-3 overflow-x-auto pb-3 scroll-smooth">
             {featuredProducts.map((p) => (
               <FeaturedProductCard key={p.id} product={p} onAdd={addToCart} primaryColor={theme.primaryColor} />
@@ -1544,13 +1553,14 @@ export default function MenuPage() {
           const renderProductCard = (product: Product) => (
                 <div
                   key={product.id}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex"
+                  className="rounded-2xl border shadow-sm overflow-hidden flex"
+                  style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}
                 >
                   <div className="flex-1 min-w-0 p-4 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-bold text-gray-900 text-base leading-snug line-clamp-2">{product.name}</h3>
+                      <h3 className="font-bold text-base leading-snug line-clamp-2" style={{ color: "var(--menu-text)" }}>{product.name}</h3>
                       {product.description && (
-                        <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
+                        <p className="text-sm mt-1 line-clamp-2" style={{ color: "var(--menu-text-2)" }}>{product.description}</p>
                       )}
                     </div>
                     <div className="flex items-center justify-between mt-3 gap-2">
@@ -1561,7 +1571,8 @@ export default function MenuPage() {
                         {product.videoUrl && (
                           <button
                             onClick={() => setVideoProduct(product)}
-                            className="border border-gray-200 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1"
+                            className="border hover:opacity-80 px-3 py-1.5 rounded-xl font-bold text-xs transition flex items-center gap-1"
+                            style={{ borderColor: "var(--menu-border)", color: "var(--menu-text-2)" }}
                             title="Ver vídeo do produto"
                           >
                             <Eye size={13} /> Vídeo
@@ -1570,7 +1581,8 @@ export default function MenuPage() {
                         {isPizzaCat && (
                           <button
                             onClick={() => openFlavorModal(product)}
-                            className="border border-orange-200 text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-xl font-bold text-xs transition"
+                            className="border hover:opacity-80 px-3 py-1.5 rounded-xl font-bold text-xs transition"
+                            style={{ borderColor: theme.primaryColor, color: theme.primaryColor }}
                             title="Meio a meio"
                           >
                             🍕 Meio a meio
@@ -1603,8 +1615,8 @@ export default function MenuPage() {
                       />
                     ) : null}
                     <div
-                      className="w-full h-full bg-orange-50 flex items-center justify-center text-3xl"
-                      style={{ display: product.imageUrl ? "none" : "flex" }}
+                      className="w-full h-full flex items-center justify-center text-3xl"
+                      style={{ display: product.imageUrl ? "none" : "flex", background: "var(--menu-surface-2)" }}
                     >
                       🍽️
                     </div>
@@ -1627,7 +1639,7 @@ export default function MenuPage() {
               <div className="space-y-6">
                 {orderedCats.map((catName) => (
                   <div key={catName}>
-                    <h2 className="text-sm font-bold text-gray-700 mb-3">{catName}</h2>
+                    <h2 className="text-sm font-bold mb-3" style={{ color: "var(--menu-text)" }}>{catName}</h2>
                     <div className="space-y-3">
                       {byCategory.get(catName)!.map(renderProductCard)}
                     </div>
@@ -1689,19 +1701,21 @@ export default function MenuPage() {
       {/* ─── Barra fixa de navegação (rodapé) — Cardápio / Buscar / Pedidos / Carrinho ── */}
       {!isTotem && (
         <nav
-          className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-stretch"
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          className="fixed bottom-0 left-0 right-0 z-40 border-t shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-stretch"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)", background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}
         >
           <button
             onClick={() => { setActiveCategory("Todos"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition"
+            style={{ color: activeCategory === "Todos" ? theme.primaryColor : "var(--menu-text-2)" }}
           >
-            <Home size={19} style={activeCategory === "Todos" ? { color: theme.primaryColor } : undefined} />
-            <span className="text-[10px] font-semibold" style={activeCategory === "Todos" ? { color: theme.primaryColor } : undefined}>Cardápio</span>
+            <Home size={19} />
+            <span className="text-[10px] font-semibold">Cardápio</span>
           </button>
           <button
             onClick={() => { setSearchOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => searchInputRef.current?.focus(), 350); }}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition"
+            style={{ color: "var(--menu-text-2)" }}
           >
             <Search size={19} />
             <span className="text-[10px] font-semibold">Busca</span>
@@ -1712,14 +1726,16 @@ export default function MenuPage() {
               if (lastOrderId) router.push(`/tracking/${lastOrderId}`);
               else toast("Você ainda não fez nenhum pedido nesta loja.", { icon: "🛎️" });
             }}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition"
+            style={{ color: "var(--menu-text-2)" }}
           >
             <ClipboardList size={19} />
             <span className="text-[10px] font-semibold">Pedidos</span>
           </button>
           <button
             onClick={() => setShowCart(true)}
-            className="flex-1 relative flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
+            className="flex-1 relative flex flex-col items-center justify-center gap-0.5 py-2.5 transition"
+            style={{ color: "var(--menu-text-2)" }}
           >
             <ShoppingCart size={19} />
             {cartCount > 0 && (
@@ -1737,45 +1753,45 @@ export default function MenuPage() {
 
       {/* ─── Carrinho Drawer ─────────────────────────────────────────────────────── */}
       {showCart && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex justify-end" data-menu-theme={menuThemeMode}>
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCart(false)} />
-          <div className="relative bg-white w-full max-w-md flex flex-col h-full shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-              <h2 className="text-xl font-black text-gray-900">Seu pedido</h2>
-              <button onClick={() => setShowCart(false)} className="text-gray-400 hover:text-gray-600 transition">
+          <div className="relative w-full max-w-md flex flex-col h-full shadow-2xl" style={{ background: "var(--menu-surface)" }}>
+            <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: "var(--menu-border)" }}>
+              <h2 className="text-xl font-black" style={{ color: "var(--menu-text)" }}>Seu pedido</h2>
+              <button onClick={() => setShowCart(false)} className="transition" style={{ color: "var(--menu-text-2)" }}>
                 <X size={22} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
               {cart.length === 0 ? (
-                <p className="text-gray-400 text-center py-10">Carrinho vazio</p>
+                <p className="text-center py-10" style={{ color: "var(--menu-text-2)" }}>Carrinho vazio</p>
               ) : cart.map((item) => (
-                <div key={item.cartKey} className="flex items-center gap-4 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div key={item.cartKey} className="flex items-center gap-4 rounded-xl p-4 border" style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)" }}>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-sm">{item.product.name}</p>
+                    <p className="font-bold text-sm" style={{ color: "var(--menu-text)" }}>{item.product.name}</p>
                     {item.notes && item.flavors && (
-                      <p className="text-orange-500 text-xs mt-0.5">{item.notes}</p>
+                      <p className="text-xs mt-0.5" style={{ color: theme.primaryColor }}>{item.notes}</p>
                     )}
                     {item.complements && item.complements.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {item.complements.map((c, idx) => (
-                          <li key={idx} className="text-[11px] text-gray-500">
+                          <li key={idx} className="text-[11px]" style={{ color: "var(--menu-text-2)" }}>
                             + {c.optionName}
-                            {Number(c.price) > 0 && <span className="text-orange-500 ml-1">(+R$ {Number(c.price).toFixed(2)})</span>}
+                            {Number(c.price) > 0 && <span className="ml-1" style={{ color: theme.primaryColor }}>(+R$ {Number(c.price).toFixed(2)})</span>}
                           </li>
                         ))}
                       </ul>
                     )}
-                    <p className="text-orange-500 font-bold text-sm mt-1">
+                    <p className="font-bold text-sm mt-1" style={{ color: theme.primaryColor }}>
                       R$ {((Number(item.product.salePrice) + (item.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0)) * item.quantity).toFixed(2)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => updateQuantity(item.cartKey, -1)} className="bg-gray-200 hover:bg-gray-300 p-1.5 rounded-lg transition">
+                    <button onClick={() => updateQuantity(item.cartKey, -1)} className="p-1.5 rounded-lg transition hover:opacity-80" style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}>
                       <Minus size={14} />
                     </button>
-                    <span className="font-black w-5 text-center text-gray-900">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.cartKey, 1)} className="bg-gray-200 hover:bg-gray-300 p-1.5 rounded-lg transition">
+                    <span className="font-black w-5 text-center" style={{ color: "var(--menu-text)" }}>{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.cartKey, 1)} className="p-1.5 rounded-lg transition hover:opacity-80" style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}>
                       <Plus size={14} />
                     </button>
                     <button onClick={() => setCart((p) => p.filter((i) => i.cartKey !== item.cartKey))} className="ml-1 text-red-400 hover:text-red-500">
@@ -1787,18 +1803,19 @@ export default function MenuPage() {
 
               {/* ─── Order bump (upsell antes de finalizar) ─── */}
               {cart.length > 0 && orderBumpProducts.length > 0 && (
-                <div className="pt-3 mt-1 border-t border-dashed border-gray-200">
-                  <p className="text-sm font-black text-gray-900 mb-2.5 flex items-center gap-1.5">
-                    <Sparkles size={15} className="text-orange-500" /> Que tal adicionar?
+                <div className="pt-3 mt-1 border-t border-dashed" style={{ borderColor: "var(--menu-border)" }}>
+                  <p className="text-sm font-black mb-2.5 flex items-center gap-1.5" style={{ color: "var(--menu-text)" }}>
+                    <Sparkles size={15} style={{ color: theme.primaryColor }} /> Que tal adicionar?
                   </p>
                   <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
                     {orderBumpProducts.map((p) => (
                       <button
                         key={p.id}
                         onClick={() => addToCart(p)}
-                        className="shrink-0 w-32 text-left bg-white border border-gray-200 rounded-2xl p-2.5 hover:border-orange-400 hover:shadow-md active:scale-95 transition"
+                        className="shrink-0 w-32 text-left border rounded-2xl p-2.5 hover:shadow-md active:scale-95 transition"
+                        style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}
                       >
-                        <div className="w-full aspect-square rounded-xl bg-gray-100 overflow-hidden mb-2 flex items-center justify-center">
+                        <div className="w-full aspect-square rounded-xl overflow-hidden mb-2 flex items-center justify-center" style={{ background: "var(--menu-surface-2)" }}>
                           {p.imageUrl ? (
                             <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover"
                               style={{ transform: `scale(${(p.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }} />
@@ -1806,10 +1823,10 @@ export default function MenuPage() {
                             <span className="text-2xl">🍽️</span>
                           )}
                         </div>
-                        <p className="text-xs font-bold text-gray-900 leading-tight line-clamp-2 mb-1 min-h-[2rem]">{p.name}</p>
+                        <p className="text-xs font-bold leading-tight line-clamp-2 mb-1 min-h-[2rem]" style={{ color: "var(--menu-text)" }}>{p.name}</p>
                         <div className="flex items-center justify-between">
-                          <span className="text-orange-500 font-black text-xs">R$ {productMinPrice(p).toFixed(2)}</span>
-                          <span className="bg-[var(--color-primary)] text-white rounded-full w-6 h-6 flex items-center justify-center shrink-0">
+                          <span className="font-black text-xs" style={{ color: theme.primaryColor }}>R$ {productMinPrice(p).toFixed(2)}</span>
+                          <span className="text-white rounded-full w-6 h-6 flex items-center justify-center shrink-0" style={{ background: theme.primaryColor }}>
                             <Plus size={14} />
                           </span>
                         </div>
@@ -1819,15 +1836,16 @@ export default function MenuPage() {
                 </div>
               )}
             </div>
-            <div className="px-6 py-5 border-t border-gray-100">
-              <div className="flex justify-between text-lg font-black text-gray-900 mb-4">
+            <div className="px-6 py-5 border-t" style={{ borderColor: "var(--menu-border)" }}>
+              <div className="flex justify-between text-lg font-black mb-4" style={{ color: "var(--menu-text)" }}>
                 <span>Total</span>
-                <span className="text-orange-500">R$ {cartTotal.toFixed(2)}</span>
+                <span style={{ color: theme.primaryColor }}>R$ {cartTotal.toFixed(2)}</span>
               </div>
               <button
                 onClick={() => { setShowCart(false); setShowCheckout(true); }}
                 disabled={cart.length === 0}
-                className="w-full bg-[var(--color-primary)] hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition"
+                className="w-full hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition"
+                style={{ background: theme.primaryColor }}
               >
                 Finalizar pedido <ChevronRight size={20} />
               </button>
@@ -1838,26 +1856,27 @@ export default function MenuPage() {
 
       {/* ─── Modal Pizza meio a meio ─────────────────────────────────────────────── */}
       {showFlavorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-menu-theme={menuThemeMode}>
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowFlavorModal(false)} />
-          <div className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]">
+          <div className="relative rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]" style={{ background: "var(--menu-surface)" }}>
             <div className="overflow-y-auto flex-1 p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h2 className="text-xl font-black text-gray-900">Montar Pizza</h2>
-                <p className="text-gray-400 text-xs mt-0.5">
+                <h2 className="text-xl font-black" style={{ color: "var(--menu-text)" }}>Montar Pizza</h2>
+                <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
                   {theme.pizzaPricingMode === "HALF" ? "Preço = média dos sabores" : "Preço = sabor mais caro"}
                 </p>
               </div>
-              <button onClick={() => setShowFlavorModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowFlavorModal(false)} style={{ color: "var(--menu-text-2)" }}>
                 <X size={20} />
               </button>
             </div>
             <div className="flex items-center gap-2 mb-5">
-              <span className="text-sm text-gray-500 shrink-0">Sabores:</span>
+              <span className="text-sm shrink-0" style={{ color: "var(--menu-text-2)" }}>Sabores:</span>
               {[1, 2, 3, 4].filter((n) => n <= Math.max(1, globalMaxFlavors)).map((n) => (
                 <button key={n} onClick={() => changeFlavorParts(n)}
-                  className={`flex-1 py-2 rounded-xl font-bold text-sm transition ${flavorParts === n ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                  className="flex-1 py-2 rounded-xl font-bold text-sm transition"
+                  style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
                   {n === 1 ? "1 sab." : n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
                 </button>
               ))}
@@ -1866,18 +1885,20 @@ export default function MenuPage() {
               value={flavorFilter}
               onChange={(e) => setFlavorFilter(e.target.value)}
               placeholder="Filtrar sabores..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 mb-4 focus:outline-none focus:border-orange-400"
+              className="w-full border rounded-xl px-4 py-2.5 text-sm mb-4 focus:outline-none"
+              style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
             />
             <div className="space-y-3 mb-5">
               {Array.from({ length: flavorParts }).map((_, i) => {
                 const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
                 return (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs font-black text-gray-400 w-8 text-center bg-gray-100 rounded-lg py-1 shrink-0">{fraction}</span>
+                    <span className="text-xs font-black w-8 text-center rounded-lg py-1 shrink-0" style={{ color: "var(--menu-text-2)", background: "var(--menu-surface-2)" }}>{fraction}</span>
                     <select
                       value={flavorSlots[i]?.id || ""}
                       onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-orange-400"
+                      className="flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                      style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
                     >
                       <option value="">— Sabor {i + 1} —</option>
                       {products
@@ -1892,25 +1913,25 @@ export default function MenuPage() {
               })}
             </div>
             {flavorSlots.some(Boolean) && (
-              <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 mb-5 flex justify-between items-center">
+              <div className="rounded-xl border px-4 py-3 mb-5 flex justify-between items-center" style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)" }}>
                 <div>
-                  <p className="text-xs text-gray-400">Composição</p>
-                  <p className="text-sm font-semibold text-gray-800 mt-0.5">
+                  <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Composição</p>
+                  <p className="text-sm font-semibold mt-0.5" style={{ color: "var(--menu-text)" }}>
                     {flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">Total</p>
-                  <p className="text-xl font-black text-orange-500">
+                  <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Total</p>
+                  <p className="text-xl font-black" style={{ color: theme.primaryColor }}>
                     R$ {calcPizzaPrice(flavorSlots.filter(Boolean) as Product[]).toFixed(2)}
                   </p>
                 </div>
               </div>
             )}
             </div>{/* fim scroll area */}
-            <div className="flex gap-3 p-6 pt-0 shrink-0 border-t border-gray-100">
-              <button onClick={() => setShowFlavorModal(false)} className="flex-1 border border-gray-200 hover:bg-gray-50 transition py-3 rounded-xl font-semibold text-sm text-gray-600">Cancelar</button>
-              <button onClick={confirmFlavors} className="flex-1 bg-[var(--color-primary)] hover:opacity-90 transition py-3 rounded-xl font-bold text-sm text-white">Adicionar</button>
+            <div className="flex gap-3 p-6 pt-0 shrink-0 border-t" style={{ borderColor: "var(--menu-border)" }}>
+              <button onClick={() => setShowFlavorModal(false)} className="flex-1 border hover:opacity-80 transition py-3 rounded-xl font-semibold text-sm" style={{ borderColor: "var(--menu-border)", color: "var(--menu-text-2)" }}>Cancelar</button>
+              <button onClick={confirmFlavors} className="flex-1 hover:opacity-90 transition py-3 rounded-xl font-bold text-sm text-white" style={{ background: theme.primaryColor }}>Adicionar</button>
             </div>
           </div>
         </div>
@@ -1918,7 +1939,7 @@ export default function MenuPage() {
 
       {/* ─── Checkout Modal ──────────────────────────────────────────────────────── */}
       {showCheckout && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4" data-menu-theme={menuThemeMode}>
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowCheckout(false)} />
           <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh]">
             {/* Header fixo */}

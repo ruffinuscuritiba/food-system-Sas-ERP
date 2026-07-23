@@ -37,6 +37,86 @@
   --info-soft:    #EEF2FF;
 }
 
+/* ── Cardápio Digital (/menu) — tokens escopados, independentes do tema do
+ * admin (.theme-dark acima é preferência do PAINEL de quem está logado; aqui
+ * é o CompanyTheme.darkMode de CADA LOJA, escolhido pelo dono em
+ * Configurações → Aparência). Concept "A+C" (escuro, alta conversão) quando
+ * darkMode=true; Concept "B" (claro, minimalista) quando false — mesmo
+ * comportamento visual que já existia antes, só formalizado em tokens. */
+[data-menu-theme="dark"] {
+  --menu-bg:        #0B0D12;
+  --menu-surface:   #14171F;
+  --menu-surface-2: #1B1F29;
+  --menu-border:    #262B37;
+  --menu-text:      #F5F6F8;
+  --menu-text-2:    #8B93A7;
+  --menu-accent:    #22D3B8;
+  --menu-accent-ink:#06231E;
+  --menu-gold:      #FFC93C;
+  --menu-gold-ink:  #3D2900;
+}
+[data-menu-theme="light"] {
+  --menu-bg:        #F7F8FA;
+  --menu-surface:   #FFFFFF;
+  --menu-surface-2: #F0F1F5;
+  --menu-border:    #E6E8ED;
+  --menu-text:      #1A1D23;
+  --menu-text-2:    #6B7280;
+  --menu-accent:    #16A34A;
+  --menu-accent-ink:#0B3D1D;
+  --menu-gold:      #FFC93C;
+  --menu-gold-ink:  #3D2900;
+}
+
+/* Rede de segurança pro Checkout Modal + telas de PIX/confirmação — em vez de
+ * reescrever ~350 linhas de formulário linha por linha, remapeia as classes
+ * Tailwind cinza/branca/laranja já usadas (mesma técnica já empregada acima
+ * pro PDV light, ver .pdv-root [class*="bg-[var(--color-primary"]). Só entra
+ * em vigor dentro de um elemento marcado data-menu-theme="dark" — light
+ * (Conceito B) continua exatamente como já era, zero mudança. */
+[data-menu-theme="dark"] .bg-white { background: var(--menu-surface) !important; }
+[data-menu-theme="dark"] .bg-gray-50,
+[data-menu-theme="dark"] .bg-gray-100,
+[data-menu-theme="dark"] .bg-gray-200 { background: var(--menu-surface-2) !important; }
+[data-menu-theme="dark"] .border-gray-50,
+[data-menu-theme="dark"] .border-gray-100,
+[data-menu-theme="dark"] .border-gray-200 { border-color: var(--menu-border) !important; }
+[data-menu-theme="dark"] .text-gray-900,
+[data-menu-theme="dark"] .text-gray-800,
+[data-menu-theme="dark"] .text-gray-700 { color: var(--menu-text) !important; }
+[data-menu-theme="dark"] .text-gray-600,
+[data-menu-theme="dark"] .text-gray-500,
+[data-menu-theme="dark"] .text-gray-400,
+[data-menu-theme="dark"] .text-gray-300 { color: var(--menu-text-2) !important; }
+[data-menu-theme="dark"] .placeholder-gray-300::placeholder { color: var(--menu-text-2) !important; opacity: 0.6; }
+[data-menu-theme="dark"] .hover\:bg-gray-50:hover,
+[data-menu-theme="dark"] .hover\:bg-gray-100:hover,
+[data-menu-theme="dark"] .hover\:bg-gray-200:hover { background: var(--menu-border) !important; }
+[data-menu-theme="dark"] .hover\:text-gray-600:hover { color: var(--menu-text) !important; }
+[data-menu-theme="dark"] .text-orange-500,
+[data-menu-theme="dark"] .text-orange-600 { color: var(--menu-gold) !important; }
+[data-menu-theme="dark"] .bg-orange-500 { background: var(--menu-gold) !important; color: var(--menu-gold-ink) !important; }
+[data-menu-theme="dark"] .bg-orange-50 { background: color-mix(in srgb, var(--menu-gold) 15%, transparent) !important; }
+[data-menu-theme="dark"] .border-orange-100 { border-color: color-mix(in srgb, var(--menu-gold) 35%, transparent) !important; }
+[data-menu-theme="dark"] .focus\:border-orange-400:focus { border-color: var(--menu-gold) !important; }
+[data-menu-theme="dark"] .bg-yellow-50 { background: color-mix(in srgb, var(--menu-gold) 18%, var(--menu-surface)) !important; }
+[data-menu-theme="dark"] .border-yellow-200 { border-color: color-mix(in srgb, var(--menu-gold) 45%, transparent) !important; }
+[data-menu-theme="dark"] .text-yellow-700 { color: var(--menu-gold) !important; }
+[data-menu-theme="dark"] .bg-green-50 { background: color-mix(in srgb, var(--menu-accent) 16%, var(--menu-surface)) !important; }
+[data-menu-theme="dark"] .bg-green-100 { background: color-mix(in srgb, var(--menu-accent) 25%, var(--menu-surface)) !important; }
+[data-menu-theme="dark"] .border-green-200,
+[data-menu-theme="dark"] .border-green-300 { border-color: color-mix(in srgb, var(--menu-accent) 45%, transparent) !important; }
+[data-menu-theme="dark"] .text-green-600,
+[data-menu-theme="dark"] .text-green-700,
+[data-menu-theme="dark"] .text-green-800 { color: var(--menu-accent) !important; }
+[data-menu-theme="dark"] .bg-red-50 { background: rgba(239,68,68,0.14) !important; }
+[data-menu-theme="dark"] .border-red-200 { border-color: rgba(239,68,68,0.35) !important; }
+[data-menu-theme="dark"] .bg-amber-50 { background: color-mix(in srgb, var(--menu-gold) 18%, var(--menu-surface)) !important; }
+[data-menu-theme="dark"] .bg-amber-100 { background: color-mix(in srgb, var(--menu-gold) 28%, var(--menu-surface)) !important; }
+[data-menu-theme="dark"] .border-amber-200 { border-color: color-mix(in srgb, var(--menu-gold) 45%, transparent) !important; }
+[data-menu-theme="dark"] .text-amber-700,
+[data-menu-theme="dark"] .text-amber-500 { color: var(--menu-gold) !important; }
+
 /* ── PDV light — texto escuro SOMENTE na sidebar e header ──────────────────
  * A seção de produtos (section) preserva text-white para overlay de banners. */
 .pdv-root { color: #111827; }

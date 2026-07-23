@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "FoodSaaS Printer Agent — ESC/POS polling agent for thermal printers",
   "main": "index.js",
+  "bin": "index.js",
   "scripts": {
     "start": "node index.js",
     "pm2": "pm2 start index.js --name printer-agent --restart-delay=3000",

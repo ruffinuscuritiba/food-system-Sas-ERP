@@ -3,6 +3,7 @@ node_modules_bak/
 dist/
 .next/
 .env
+printer-agent/installer/output/
 
 # Credenciais de sessão WhatsApp (Baileys) — NUNCA commitar
 bridge/auth_kely/

@@ -2,8 +2,11 @@
 ;
 ; Estagio 1 do escopo pedido pelo usuario: acabar com a experiencia de
 ; "cole o token numa janela preta" — agora e' um instalador normal do
-; Windows, pede a chave numa tela do proprio instalador, cria atalho,
-; e liga sozinho no login sem mostrar terminal nenhum.
+; Windows. Fluxo minimo, sem paginas de wizard: duplo-clique -> barra de
+; progresso (com Cancelar) -> tela final com botao Fechar. A chave de
+; ativacao NAO e' mais pedida durante a instalacao — fica num atalho
+; separado ("Configurar Chave de Ativacao") que a pessoa clica quando
+; quiser, e abre so um InputBox simples (nao reabre o instalador).
 ;
 ; Compilar: ISCC.exe FoodSaaSPrinterAgent.iss
 ; (precisa do .exe do agente ja compilado em ..\dist\FoodSaaS-Printer-Agent-win.exe
@@ -31,65 +34,31 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
-DisableWelcomePage=no
+; Sem tela de boas-vindas, sem escolha de pasta, sem tela de confirmacao —
+; duplo-clique vai direto pra barra de progresso. So a tela final
+; (com o botao Fechar) continua aparecendo.
+DisableWelcomePage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
-[Tasks]
-Name: "desktopicon"; Description: "Criar atalho na Área de Trabalho"; GroupDescription: "Ícones adicionais:"; Flags: unchecked
-
 [Files]
 Source: "..\dist\FoodSaaS-Printer-Agent-win.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "RunHidden.vbs"; DestDir: "{app}"; Flags: ignoreversion
+Source: "ConfigureToken.vbs"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\FoodSaaS Printer Agent"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\Configurar Chave de Ativação"; Filename: "wscript.exe"; Parameters: """{app}\ConfigureToken.vbs"""; WorkingDir: "{app}"
 Name: "{group}\Desinstalar FoodSaaS Printer Agent"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\FoodSaaS Printer Agent"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{userdesktop}\FoodSaaS Printer Agent"; Filename: "{app}\{#MyAppExeName}"
 ; Atalho na pasta Inicializar do Windows — liga sozinho no login, sem
 ; janela de terminal (usa o launcher oculto via wscript.exe).
 Name: "{userstartup}\FoodSaaS Printer Agent"; Filename: "wscript.exe"; Parameters: """{app}\RunHidden.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
 
-[Code]
-var
-  TokenPage: TInputQueryWizardPage;
-
-procedure InitializeWizard;
-begin
-  TokenPage := CreateInputQueryPage(wpSelectDir,
-    'Chave de Ativação da Loja',
-    'Cole a chave que aparece na tela Configurações → Impressão',
-    'No painel do FoodSaaS, vá em Configurações → Impressão e copie a chave de ativação exibida lá. Cole ela abaixo (você pode instalar sem ela agora e configurar depois, mas o agente não vai funcionar até ter uma chave válida):');
-  TokenPage.Add('Chave de ativação:', False);
-end;
-
-// Instalação silenciosa (/VERYSILENT, usada em testes automatizados e em
-// scripts de deploy em massa) não pode ficar esperando alguém digitar a
-// chave numa tela que nunca vai aparecer — pula essa página nesse caso.
-function ShouldSkipPage(PageID: Integer): Boolean;
-begin
-  Result := False;
-  if (TokenPage <> nil) and (PageID = TokenPage.ID) and WizardSilent() then
-    Result := True;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  EnvFile: string;
-  Token: string;
-begin
-  if CurStep = ssPostInstall then
-  begin
-    Token := Trim(TokenPage.Values[0]);
-    if Token <> '' then
-    begin
-      EnvFile := ExpandConstant('{app}\.env');
-      SaveStringToFile(EnvFile, 'PRINTER_AUTH_TOKEN=' + Token + #13#10, False);
-    end;
-  end;
-end;
-
 [Run]
+Filename: "wscript.exe"; Parameters: """{app}\ConfigureToken.vbs"""; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent unchecked; Description: "Configurar a chave de ativação agora"
 Filename: "wscript.exe"; Parameters: """{app}\RunHidden.vbs"""; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent; Description: "Iniciar o FoodSaaS Printer Agent agora"

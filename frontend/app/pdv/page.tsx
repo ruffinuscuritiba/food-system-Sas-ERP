@@ -996,12 +996,17 @@ export default function PDVPage() {
                   <ArrowDownCircle size={15} /> <span className="hidden md:inline">Entrada</span>
                 </button>
                 <button onClick={() => openCashModal("WITHDRAW", "Saída de Caixa")} title="Saída"
-                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-amber-500 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold text-black">
                   <ArrowUpCircle size={15} /> <span className="hidden md:inline">Saída</span>
                 </button>
                 <button onClick={() => openCashModal("WITHDRAW", "Sangria")} title="Sangria"
-                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-700 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-amber-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold text-black">
                   <ArrowUpCircle size={15} /> <span className="hidden md:inline">Sangria</span>
+                </button>
+                {/* Fechar Caixa — do lado da Sangria, mesmo grupo de controles de caixa */}
+                <button onClick={() => router.push("/financeiro?tab=caixa")} title="Fechar caixa"
+                  className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-600 hover:opacity-90 active:scale-95 transition items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                  <Lock size={15} /> <span className="hidden md:inline">Fechar Caixa</span>
                 </button>
               </>
             )}
@@ -1030,15 +1035,6 @@ export default function PDVPage() {
               <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
               <span className="hidden md:block text-[10px] leading-none">Cupom</span>
             </button>
-            {/* Fechar Caixa — só quando há caixa aberto; oculto em xs */}
-            {cashOpen === true && (
-              <button onClick={() => router.push("/financeiro?tab=caixa")} title="Fechar caixa"
-                className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
-                <Lock size={14} className="shrink-0" />
-                <span className="hidden md:block text-[10px] font-bold leading-none">Fechar</span>
-                <span className="hidden md:block text-[10px] leading-none">Caixa</span>
-              </button>
-            )}
             {/* Carrinho — sempre visível */}
             <button onClick={() => setShowCart(true)}
               className="h-9 md:h-[54px] px-2.5 sm:px-3 md:px-6 rounded-xl md:rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 md:gap-2 font-semibold relative">

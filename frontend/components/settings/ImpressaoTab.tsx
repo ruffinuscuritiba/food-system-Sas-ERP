@@ -23,9 +23,9 @@ function detectOS(): "windows" | "linux" | "mac" {
 }
 
 const DOWNLOADS = {
-  windows: { label: "Windows (.exe)",    file: "FoodSaaS-Printer-Agent-win.exe" },
-  linux:   { label: "Linux (x64)",       file: "FoodSaaS-Printer-Agent-linux" },
-  mac:     { label: "macOS (universal)", file: "FoodSaaS-Printer-Agent-mac" },
+  windows: { label: "Instalador (Windows)", file: "FoodSaaS-Printer-Agent-Setup.exe" },
+  linux:   { label: "Linux (x64)",          file: "FoodSaaS-Printer-Agent-linux" },
+  mac:     { label: "macOS (universal)",    file: "FoodSaaS-Printer-Agent-mac" },
 };
 const RELEASE_BASE = process.env.NEXT_PUBLIC_AGENT_RELEASE_URL ?? "#";
 
@@ -484,9 +484,19 @@ export default function ImpressaoTab() {
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  1. Baixe e execute o programa — não precisa instalar.<br />
-                  2. Na primeira vez, ele vai pedir a chave acima — cole e pressione ENTER.<br />
-                  3. Pronto — deixe a janela aberta em segundo plano. O status acima fica verde quando conectado.
+                  {os === "windows" ? (
+                    <>
+                      1. Baixe e execute o instalador — é um instalador comum do Windows, não abre janela preta.<br />
+                      2. Durante a instalação, cole a chave acima na tela "Chave de Ativação da Loja" (pode pular e configurar depois, se preferir).<br />
+                      3. Pronto — o assistente liga sozinho a cada login, em segundo plano. O status acima fica verde quando conectado.
+                    </>
+                  ) : (
+                    <>
+                      1. Baixe e execute o programa — não precisa instalar.<br />
+                      2. Na primeira vez, ele vai pedir a chave acima — cole e pressione ENTER.<br />
+                      3. Pronto — deixe a janela aberta em segundo plano. O status acima fica verde quando conectado.
+                    </>
+                  )}
                 </p>
               </div>
             )}

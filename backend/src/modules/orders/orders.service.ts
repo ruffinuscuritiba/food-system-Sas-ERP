@@ -187,7 +187,15 @@ export class OrdersService {
       }
     }
 
-    const total = subtotal + deliveryFee;
+    // Desconto manual (ex: DiscountRow do PDV) — nunca confiar em "total" vindo
+    // pronto do cliente; recalcular a partir de subtotal+deliveryFee-discount
+    // igual sempre foi feito, só que agora contando o desconto.
+    const discount = Math.min(
+      Math.max(Number(data.discount || 0), 0),
+      subtotal + deliveryFee,
+    );
+
+    const total = subtotal + deliveryFee - discount;
 
     const order = await this.prisma.$transaction(
       async (tx) => {
@@ -211,6 +219,8 @@ export class OrdersService {
             subtotal,
 
             deliveryFee,
+
+            discount,
 
             ...(driverFee !== undefined && { driverFee }),
 

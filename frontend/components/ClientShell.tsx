@@ -307,9 +307,17 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   // Reconecta o socket a cada 5s se algo (outra página) o tiver derrubado,
   // pra não depender de qual tela o operador está usando no momento.
   useEffect(() => {
+    // console.log/warn são removidos no build de produção (next.config.ts
+    // compiler.removeConsole só exclui "error") — usar console.error aqui
+    // não é um erro real, é a ÚNICA forma de ter visibilidade em produção.
+    console.error(`[alertas] efeito de conexão rodou — user.role=${user?.role ?? "null"}`);
     const canReceiveAlerts = user && ["SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"].includes(user.role);
-    if (!canReceiveAlerts) return;
+    if (!canReceiveAlerts) {
+      console.error("[alertas] canReceiveAlerts=false — socket NÃO será conectado");
+      return;
+    }
 
+    console.error(`[alertas] tentando conectar — socket.connected=${socket.connected}`);
     if (!socket.connected) socket.connect();
     const reconnectTimer = setInterval(() => {
       if (!socket.connected) socket.connect();
@@ -319,14 +327,17 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     // produção, se o socket sequer estava conectado quando um pedido sumia
     // sem alerta (ver item "alerta sonoro não funciona").
     function handleConnect() {
-      console.log("[alertas] socket conectado — pronto para receber eventos em tempo real");
+      console.error("[alertas] socket conectado — pronto para receber eventos em tempo real");
     }
     function handleDisconnect(reason: string) {
-      console.warn(`[alertas] socket desconectado (${reason}) — tentando reconectar a cada 5s`);
+      console.error(`[alertas] socket desconectado (${reason}) — tentando reconectar a cada 5s`);
+    }
+    function handleConnectError(err: unknown) {
+      console.error("[alertas] socket connect_error", err);
     }
 
     function handleHumanHelp(data: { conversationId: string; customerPhone: string; customerName?: string | null; lastMessage: string }) {
-      console.log("[alertas] evento humanHelpRequested recebido", data);
+      console.error("[alertas] evento humanHelpRequested recebido", data);
       setHumanAlerts((prev) => {
         const withoutDup = prev.filter((a) => a.conversationId !== data.conversationId);
         return [...withoutDup, { ...data, at: Date.now() }];
@@ -338,7 +349,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     // a tela. Sem isso, um pedido pode ficar pendente por horas sem que
     // ninguém perceba (achado real: pedido de delivery esperando 84min).
     function handleOrderCreated(data: { id: string; channel?: string; customerName?: string | null; total?: number | string; orderType?: string }) {
-      console.log("[alertas] evento orderCreated recebido", data);
+      console.error("[alertas] evento orderCreated recebido", data);
       if (!data?.id || !data.channel || data.channel === "PDV") return;
       setOrderAlerts((prev) => {
         const withoutDup = prev.filter((a) => a.orderId !== data.id);
@@ -348,12 +359,14 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
     socket.on("humanHelpRequested", handleHumanHelp);
     socket.on("orderCreated", handleOrderCreated);
     return () => {
       clearInterval(reconnectTimer);
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
       socket.off("humanHelpRequested", handleHumanHelp);
       socket.off("orderCreated", handleOrderCreated);
       // Não desconecta — outras páginas (kitchen/orders/tables) também
@@ -383,7 +396,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           el.muted = wasMuted;
           unlocked = true;
           setAudioBlocked(false);
-          console.log("[alertas] áudio desbloqueado após interação do usuário");
+          console.error("[alertas] áudio desbloqueado após interação do usuário");
         })
         .catch(() => {
           el.muted = wasMuted;

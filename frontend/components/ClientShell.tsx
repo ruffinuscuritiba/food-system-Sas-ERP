@@ -252,10 +252,26 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   });
   const [soundMenuOpen, setSoundMenuOpen] = useState(false);
 
+  function previewAlertSound(mode: "bell" | "voice") {
+    if (mode === "voice" && typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance("Novo pedido! Olha o pedido.");
+      utter.lang = "pt-BR";
+      window.speechSynthesis.speak(utter);
+    } else {
+      const el = humanAlertAudioRef.current;
+      if (el) {
+        el.currentTime = 0;
+        el.play().catch(() => {});
+      }
+    }
+  }
+
   function changeAlertSoundMode(mode: "bell" | "voice") {
     setAlertSoundMode(mode);
     localStorage.setItem("alert_sound_mode", mode);
     setSoundMenuOpen(false);
+    previewAlertSound(mode);
   }
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();

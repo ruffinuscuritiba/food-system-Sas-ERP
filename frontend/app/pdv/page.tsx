@@ -25,6 +25,7 @@ import {
   QrCode,
   Printer,
   Unlock,
+  Lock,
   ArrowDownCircle,
   ArrowUpCircle,
 } from "lucide-react";
@@ -233,6 +234,8 @@ export default function PDVPage() {
   const [cart, setCart]                         = useState<CartItem[]>([]);
   const [showCart, setShowCart]                 = useState(false);
   const [discountAmount, setDiscountAmount]     = useState(0);
+  const [companyCity, setCompanyCity]           = useState("");
+  const [companyState, setCompanyState]         = useState("");
   const [showPayment, setShowPayment]           = useState(false);
   const [lastOrder, setLastOrder] = useState<{
     id: string; number?: number; total: number; customerName: string; printBlock?: QrPrintBlock | null;
@@ -441,6 +444,8 @@ export default function PDVPage() {
       api.get(`/company/settings`)
         .then(r => {
           if (r.data?.layoutType) setLayoutType(r.data.layoutType as "LIST" | "GRID");
+          if (r.data?.city) setCompanyCity(r.data.city);
+          if (r.data?.state) setCompanyState(r.data.state);
         })
         .catch(() => {});
     }
@@ -515,6 +520,12 @@ export default function PDVPage() {
   }, []);
 
   const clearCart = useCallback(() => { setCart([]); }, []);
+
+  function confirmClearCart() {
+    if (window.confirm("Tem certeza que deseja limpar o pedido? Todos os itens do carrinho serão removidos.")) {
+      clearCart();
+    }
+  }
 
   const cartCount = cart.reduce((a, i) => a + i.qty, 0);
 
@@ -1019,13 +1030,15 @@ export default function PDVPage() {
               <span className="hidden md:block text-[10px] font-bold leading-none">Criar</span>
               <span className="hidden md:block text-[10px] leading-none">Cupom</span>
             </button>
-            {/* Limpar — oculto em xs */}
-            <button onClick={clearCart} title="Limpar conta"
-              className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
-              <Trash2 size={14} className="shrink-0" />
-              <span className="hidden md:block text-[10px] font-bold leading-none">Limpar</span>
-              <span className="hidden md:block text-[10px] leading-none">Conta</span>
-            </button>
+            {/* Fechar Caixa — só quando há caixa aberto; oculto em xs */}
+            {cashOpen === true && (
+              <button onClick={() => router.push("/financeiro?tab=caixa")} title="Fechar caixa"
+                className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-5 rounded-xl md:rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition flex-col items-center justify-center gap-0 md:gap-0.5">
+                <Lock size={14} className="shrink-0" />
+                <span className="hidden md:block text-[10px] font-bold leading-none">Fechar</span>
+                <span className="hidden md:block text-[10px] leading-none">Caixa</span>
+              </button>
+            )}
             {/* Carrinho — sempre visível */}
             <button onClick={() => setShowCart(true)}
               className="h-9 md:h-[54px] px-2.5 sm:px-3 md:px-6 rounded-xl md:rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 md:gap-2 font-semibold relative">
@@ -1437,7 +1450,7 @@ export default function PDVPage() {
 
                   {/* Formulário dentro do scroll */}
                   <div className="rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card,#0b0f1b)] p-4">
-                    <OrderDetailsForm value={pdvOrderDetails} onChange={setPdvOrderDetails} compact companyId={companyId} token={authToken} />
+                    <OrderDetailsForm value={pdvOrderDetails} onChange={setPdvOrderDetails} compact companyId={companyId} token={authToken} cityHint={companyCity} stateHint={companyState} />
                   </div>
 
                   {pdvOrderDetails.orderType === "DELIVERY" && parsedDeliveryFee > 0 && (
@@ -1465,7 +1478,12 @@ export default function PDVPage() {
             {cart.length > 0 && (
               <div className="border-t border-[var(--pdv-border,#161b2d)] p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
                 {pdvOrderDetails.orderType === "DINE_IN" ? (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
+                    {/* Limpar: fica colado no Lançar/Fechar Conta, nunca sozinho, sempre com confirmação */}
+                    <button onClick={confirmClearCart} title="Limpar pedido"
+                      className="px-3.5 rounded-2xl border border-red-900/60 text-red-400 hover:bg-red-950/40 active:scale-95 transition flex items-center justify-center">
+                      <Trash2 size={16} />
+                    </button>
                     {/* Lançar: envia para cozinha, mantém mesa aberta */}
                     <button onClick={launchToKitchen} disabled={paymentSubmitting || !pdvOrderDetails.tableNumber?.trim()}
                       className="py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
@@ -1478,10 +1496,17 @@ export default function PDVPage() {
                     </button>
                   </div>
                 ) : (
-                  <button onClick={openPayment} disabled={!canProceedToPayment}
-                    className="w-full py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
-                    Finalizar Pedido →
-                  </button>
+                  <div className="grid grid-cols-[auto_1fr] gap-2">
+                    {/* Limpar: fica colado no Finalizar Pedido, nunca sozinho, sempre com confirmação */}
+                    <button onClick={confirmClearCart} title="Limpar pedido"
+                      className="px-3.5 rounded-2xl border border-red-900/60 text-red-400 hover:bg-red-950/40 active:scale-95 transition flex items-center justify-center">
+                      <Trash2 size={16} />
+                    </button>
+                    <button onClick={openPayment} disabled={!canProceedToPayment}
+                      className="w-full py-3.5 rounded-2xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition font-bold text-sm">
+                      Finalizar Pedido →
+                    </button>
+                  </div>
                 )}
               </div>
             )}

@@ -261,6 +261,7 @@ export default function MenuPage() {
   const [qrPromoApplied, setQrPromoApplied] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [videoProduct, setVideoProduct] = useState<Product | null>(null);
   const [menuLayoutConfig, setMenuLayoutConfig] = useState<{
@@ -1348,23 +1349,27 @@ export default function MenuPage() {
           </div>
           )}
         </div>
-        <div className="px-4 pb-3 max-w-2xl mx-auto">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              ref={searchInputRef}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar no cardápio..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+        {searchOpen && (
+          <div className="px-4 pb-3 max-w-2xl mx-auto">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onBlur={() => { if (!search) setSearchOpen(false); }}
+                placeholder="Buscar no cardápio..."
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition"
+              />
+              <button
+                onClick={() => { setSearch(""); setSearchOpen(false); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
                 <X size={13} />
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ─── Destaques (featured block — after categories) ──────────────────────── */}
@@ -1695,7 +1700,7 @@ export default function MenuPage() {
             <span className="text-[10px] font-semibold" style={activeCategory === "Todos" ? { color: theme.primaryColor } : undefined}>Cardápio</span>
           </button>
           <button
-            onClick={() => { window.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => searchInputRef.current?.focus(), 350); }}
+            onClick={() => { setSearchOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => searchInputRef.current?.focus(), 350); }}
             className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-gray-500 hover:text-gray-800 transition"
           >
             <Search size={19} />

@@ -55,9 +55,12 @@ type Props = {
   compact?: boolean;
   companyId?: string;
   token?: string;
+  /** Cidade/UF da loja — usados pra dar contexto geográfico à busca de rua (Nominatim erra fácil sem isso). */
+  cityHint?: string;
+  stateHint?: string;
 };
 
-export function OrderDetailsForm({ value, onChange, compact, companyId, token }: Props) {
+export function OrderDetailsForm({ value, onChange, compact, companyId, token, cityHint, stateHint }: Props) {
   const [cepLoading,       setCepLoading]       = useState(false);
   const [phoneLoading,     setPhoneLoading]      = useState(false);
   const [ruaSuggestions,   setRuaSuggestions]    = useState<AddressSuggestion[]>([]);
@@ -134,7 +137,10 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
     if (term.length < 4) { setRuaSuggestions([]); return; }
     setRuaLoading(true);
     try {
-      const r = await fetch(`/api/address/search?q=${encodeURIComponent(term)}`);
+      const params = new URLSearchParams({ q: term });
+      if (cityHint) params.set("city", cityHint);
+      if (stateHint) params.set("state", stateHint);
+      const r = await fetch(`/api/address/search?${params.toString()}`);
       if (!r.ok) return;
       const data: AddressSuggestion[] = await r.json();
       setRuaSuggestions(data);
@@ -223,7 +229,10 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token }:
   // Enriquece bairro/cidade/cep via Nominatim quando voltam vazios do lookup
   async function enrichFromNominatim(rua: string) {
     try {
-      const r = await fetch(`/api/address/search?q=${encodeURIComponent(rua)}`);
+      const params = new URLSearchParams({ q: rua });
+      if (cityHint) params.set("city", cityHint);
+      if (stateHint) params.set("state", stateHint);
+      const r = await fetch(`/api/address/search?${params.toString()}`);
       if (!r.ok) return;
       const suggestions: AddressSuggestion[] = await r.json();
       if (suggestions.length === 0) return;

@@ -26,6 +26,24 @@ import { DeliveryConfigService } from '../delivery-config/delivery-config.servic
 import { PrintersService } from '../printers/printers.service';
 import { OnlineOrdersService } from '../online-orders/online-orders.service';
 
+// Números BR ganharam o 9º dígito móvel em 2016 — clientes/atendentes ainda
+// digitam sem ele por hábito ("67 9688-3803" em vez de "67 9 9688-3803").
+// `phone.contains` nunca casa nesse caso (não é substring), então geramos
+// as variantes com/sem o 9 pra tentar todas.
+function buildPhoneCandidates(rawDigits: string): string[] {
+  const candidates = new Set([rawDigits]);
+  if (rawDigits.length === 10) {
+    candidates.add(rawDigits.slice(0, 2) + '9' + rawDigits.slice(2));
+  } else if (rawDigits.length === 12 && rawDigits.startsWith('55')) {
+    candidates.add(rawDigits.slice(0, 4) + '9' + rawDigits.slice(4));
+  } else if (rawDigits.length === 11) {
+    candidates.add(rawDigits.slice(0, 2) + rawDigits.slice(3));
+  } else if (rawDigits.length === 13 && rawDigits.startsWith('55')) {
+    candidates.add(rawDigits.slice(0, 4) + rawDigits.slice(5));
+  }
+  return [...candidates];
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -464,9 +482,14 @@ export class OrdersService {
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 8) return null;
 
+    const candidates = buildPhoneCandidates(digits);
+
     // 1. Busca Customer diretamente por telefone
     const customer = await this.prisma.customer.findFirst({
-      where: { companyId, phone: { contains: digits } },
+      where: {
+        companyId,
+        OR: candidates.map((c) => ({ phone: { contains: c } })),
+      },
     });
 
     // 2. Busca último pedido não-cancelado pelo telefone
@@ -475,8 +498,8 @@ export class OrdersService {
         companyId,
         status: { not: 'CANCELLED' as any },
         OR: [
-          { customerPhone: { contains: digits } },
-          { customer: { phone: { contains: digits } } },
+          ...candidates.map((c) => ({ customerPhone: { contains: c } })),
+          ...candidates.map((c) => ({ customer: { phone: { contains: c } } })),
         ],
       },
       orderBy: { createdAt: 'desc' },

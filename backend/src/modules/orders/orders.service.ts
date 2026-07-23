@@ -1089,8 +1089,8 @@ export class OrdersService {
       productionStatus: o.productionStatus ?? null,
       createdAt: o.createdAt,
       customerName: o.customer?.name ?? o.customerName ?? null,
-      customerPhone: o.customer?.phone ?? null,
-      customerAddress: o.customer?.address ?? null,
+      customerPhone: o.customer?.phone ?? o.customerPhone ?? null,
+      deliveryAddress: o.deliveryAddress ?? o.customer?.address ?? null,
       orderType: o.orderType ?? 'DINE_IN',
       total: Number(o.total),
       paymentMethod: o.paymentMethod ?? null,
@@ -1125,7 +1125,7 @@ export class OrdersService {
         createdAt: o.createdAt,
         customerName: o.customerName ?? null,
         customerPhone: o.customerPhone ?? null,
-        customerAddress:
+        deliveryAddress:
           [o.address, o.addressNumber, o.neighborhood, o.city]
             .filter(Boolean)
             .join(', ') || null,

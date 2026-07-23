@@ -690,6 +690,7 @@ export default function PDVPage() {
         items: orderItems,
         subtotal: cartTotal,
         deliveryFee: parsedDeliveryFee,
+        discount: discountAmount,
         total: orderTotal,
       });
 

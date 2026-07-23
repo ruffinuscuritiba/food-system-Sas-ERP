@@ -620,6 +620,10 @@ model Order {
 
   pickedUpAt DateTime?
 
+  // Desconto manual aplicado no fechamento (ex: DiscountRow do PDV). Já
+  // subtraído do total abaixo — nunca recalcular total sem contar ele.
+  discount Decimal @default(0) @db.Decimal(10, 2)
+
   total Decimal @db.Decimal(10, 2)
 
   notes String?

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
 import { PaymentModal } from "@/components/pdv/PaymentModal";
@@ -222,6 +223,7 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
 }
 
 export default function PDVPage() {
+  const router = useRouter();
   const [categories, setCategories]             = useState<Category[]>([]);
   const [products, setProducts]                 = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -1296,15 +1298,30 @@ export default function PDVPage() {
         <footer className="hidden md:flex h-[58px] border-t border-[var(--pdv-border,#161b2d)] items-center justify-between px-6">
           <div className="flex items-center gap-3 text-zinc-400"><div className="w-3 h-3 rounded-full bg-green-500" />Sistema Online</div>
           <div className="flex items-center gap-2.5">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => router.push("/orders")}
+              title="Ver pedidos"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition cursor-pointer"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-green-400" /> {orderStats.ativos} Ativos
-            </span>
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold">
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/orders")}
+              title="Ver pedidos"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold hover:bg-blue-500/20 transition cursor-pointer"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> {orderStats.emRota} Em Rota
-            </span>
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-500/10 text-zinc-400 text-xs font-bold">
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/orders")}
+              title="Ver pedidos"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-500/10 text-zinc-400 text-xs font-bold hover:bg-zinc-500/20 transition cursor-pointer"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" /> {orderStats.finalizados} Finalizados
-            </span>
+            </button>
           </div>
           <div className="flex items-center gap-10 text-zinc-400">
             <span>Operador: Caixa 01</span>

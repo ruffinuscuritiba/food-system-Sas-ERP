@@ -717,8 +717,8 @@ export default function MenuPage() {
   function openFlavorModal(product?: Product) {
     if (product) trackProductView(product.id);
     setSelectedPizzaSize("");
-    setFlavorParts(2);
-    setFlavorSlots(product ? [product, null] : [null, null]);
+    setFlavorParts(1);
+    setFlavorSlots(product ? [product] : [null]);
     setFlavorFilter("");
     setShowFlavorModal(true);
   }
@@ -849,6 +849,104 @@ export default function MenuPage() {
     }]);
     setShowFlavorModal(false);
     toast.success("Pizza montada adicionada!");
+  }
+
+  // ── Render helpers para o modal de pizza ──
+  function renderSizeSelector() {
+    const allSizes = Array.from(new Set(products.flatMap(p => (p.sizes || []).map(s => s.size)))).filter(Boolean);
+    if (allSizes.length <= 1) return null;
+    return (
+      <div className="mb-5">
+        <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Tamanho:</span>
+        <div className="flex flex-wrap gap-2">
+          {allSizes.map((sz) => {
+            const cfg = pizzaSizeConfigs.find(c => c.size === sz && c.isActive);
+            const label = SIZE_LABELS[sz] || sz;
+            const maxFlav = cfg?.maxFlavors ?? 4;
+            return (
+              <button key={sz} onClick={() => {
+                setSelectedPizzaSize(sz);
+                if (maxFlav && flavorParts > maxFlav) changeFlavorParts(maxFlav);
+              }}
+                className="flex-1 min-w-[80px] py-2 rounded-xl font-bold text-sm transition text-center"
+                style={selectedPizzaSize === sz
+                  ? { background: theme.primaryColor, color: "#fff" }
+                  : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
+                {label}
+                <span className="block text-[10px] font-normal opacity-70">até {maxFlav} sab.</span>
+              </button>
+            );
+          })}
+        </div>
+        {!selectedPizzaSize && <p className="text-xs mt-1 text-red-500">Selecione um tamanho</p>}
+      </div>
+    );
+  }
+
+  function renderFlavorSelector() {
+    const allSizes = Array.from(new Set(products.flatMap(p => (p.sizes || []).map(s => s.size)))).filter(Boolean);
+    if (allSizes.length > 1 && !selectedPizzaSize) return null;
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-5">
+          <span className="text-sm shrink-0" style={{ color: "var(--menu-text-2)" }}>Sabores:</span>
+          {[1, 2, 3, 4].filter((n) => n <= Math.max(1, sizeMaxFlavors ?? globalMaxFlavors)).map((n) => (
+            <button key={n} onClick={() => changeFlavorParts(n)}
+              className="flex-1 py-2 rounded-xl font-bold text-sm transition"
+              style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
+              {n === 1 ? "1 sab." : n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
+            </button>
+          ))}
+        </div>
+        <input
+          value={flavorFilter}
+          onChange={(e) => setFlavorFilter(e.target.value)}
+          placeholder="Filtrar sabores..."
+          className="w-full border rounded-xl px-4 py-2.5 text-sm mb-4 focus:outline-none"
+          style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
+        />
+        <div className="space-y-3 mb-5">
+          {Array.from({ length: flavorParts }).map((_, i) => {
+            const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+            return (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-xs font-black w-8 text-center rounded-lg py-1 shrink-0" style={{ color: "var(--menu-text-2)", background: "var(--menu-surface-2)" }}>{fraction}</span>
+                <select
+                  value={flavorSlots[i]?.id || ""}
+                  onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
+                  className="flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                  style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
+                >
+                  <option value="">— Sabor {i + 1} —</option>
+                  {products
+                    .filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase()))
+                    .filter((p) => !flavorSlots.some((s, si) => si !== i && s?.id === p.id))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} — R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}</option>
+                    ))}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+        {flavorSlots.some(Boolean) && (
+          <div className="rounded-xl border px-4 py-3 mb-5 flex justify-between items-center" style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)" }}>
+            <div>
+              <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Composição</p>
+              <p className="text-sm font-semibold mt-0.5" style={{ color: "var(--menu-text)" }}>
+                {flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Total</p>
+              <p className="text-xl font-black" style={{ color: theme.primaryColor }}>
+                R$ {calcPizzaPrice(flavorSlots.filter(Boolean) as Product[], selectedPizzaSize || undefined).toFixed(2)}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const cartTotal = cart.reduce((acc, i) => {
@@ -1972,94 +2070,10 @@ export default function MenuPage() {
             </div>
 
             {/* ── Seleção de tamanho da pizza ── */}
-            {(() => {
-              const allSizes = Array.from(new Set(products.flatMap(p => (p.sizes || []).map(s => s.size)))).filter(Boolean);
-              if (allSizes.length <= 1) return null;
-              return (
-                <div className="mb-5">
-                  <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Tamanho:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {allSizes.map((sz) => {
-                      const cfg = pizzaSizeConfigs.find(c => c.size === sz && c.isActive);
-                      const label = SIZE_LABELS[sz] || sz;
-                      const maxFlav = cfg?.maxFlavors;
-                      return (
-                        <button key={sz} onClick={() => {
-                          setSelectedPizzaSize(sz);
-                          if (maxFlav && flavorParts > maxFlav) changeFlavorParts(maxFlav);
-                        }}
-                          className="flex-1 min-w-[80px] py-2 rounded-xl font-bold text-sm transition text-center"
-                          style={selectedPizzaSize === sz
-                            ? { background: theme.primaryColor, color: "#fff" }
-                            : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
-                          {label}
-                          {maxFlav ? <span className="block text-[10px] font-normal opacity-70">até {maxFlav} sab.</span> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {!selectedPizzaSize && <p className="text-xs mt-1 text-red-500">Selecione um tamanho</p>}
-                </div>
-              );
-            })()}
+            {renderSizeSelector()}
 
-            <div className="flex items-center gap-2 mb-5">
-              <span className="text-sm shrink-0" style={{ color: "var(--menu-text-2)" }}>Sabores:</span>
-              {[1, 2, 3, 4].filter((n) => n <= Math.max(1, sizeMaxFlavors ?? globalMaxFlavors)).map((n) => (
-                <button key={n} onClick={() => changeFlavorParts(n)}
-                  className="flex-1 py-2 rounded-xl font-bold text-sm transition"
-                  style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
-                  {n === 1 ? "1 sab." : n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
-                </button>
-              ))}
-            </div>
-            <input
-              value={flavorFilter}
-              onChange={(e) => setFlavorFilter(e.target.value)}
-              placeholder="Filtrar sabores..."
-              className="w-full border rounded-xl px-4 py-2.5 text-sm mb-4 focus:outline-none"
-              style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
-            />
-            <div className="space-y-3 mb-5">
-              {Array.from({ length: flavorParts }).map((_, i) => {
-                const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
-                return (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs font-black w-8 text-center rounded-lg py-1 shrink-0" style={{ color: "var(--menu-text-2)", background: "var(--menu-surface-2)" }}>{fraction}</span>
-                    <select
-                      value={flavorSlots[i]?.id || ""}
-                      onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
-                      className="flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                      style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
-                    >
-                      <option value="">— Sabor {i + 1} —</option>
-                      {products
-                        .filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase()))
-                        .filter((p) => !flavorSlots.some((s, si) => si !== i && s?.id === p.id))
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} — R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}</option>
-                        ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-            {flavorSlots.some(Boolean) && (
-              <div className="rounded-xl border px-4 py-3 mb-5 flex justify-between items-center" style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)" }}>
-                <div>
-                  <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Composição</p>
-                  <p className="text-sm font-semibold mt-0.5" style={{ color: "var(--menu-text)" }}>
-                    {flavorSlots.filter(Boolean).map((f) => f!.name).join(" + ")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Total</p>
-                  <p className="text-xl font-black" style={{ color: theme.primaryColor }}>
-                    R$ {calcPizzaPrice(flavorSlots.filter(Boolean) as Product[], selectedPizzaSize || undefined).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* ── Seleção de sabores (só mostra depois de escolher tamanho, se houver) ── */}
+            {renderFlavorSelector()}
             </div>{/* fim scroll area */}
             <div className="flex gap-3 p-6 pt-0 shrink-0 border-t" style={{ borderColor: "var(--menu-border)" }}>
               <button onClick={() => setShowFlavorModal(false)} className="flex-1 border hover:opacity-80 transition py-3 rounded-xl font-semibold text-sm" style={{ borderColor: "var(--menu-border)", color: "var(--menu-text-2)" }}>Cancelar</button>

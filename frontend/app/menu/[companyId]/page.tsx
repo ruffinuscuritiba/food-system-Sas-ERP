@@ -893,7 +893,7 @@ export default function MenuPage() {
           {[1, 2, 3, 4].filter((n) => n <= Math.max(1, sizeMaxFlavors ?? globalMaxFlavors)).map((n) => (
             <button key={n} onClick={() => changeFlavorParts(n)}
               className="flex-1 py-2 rounded-xl font-bold text-sm transition"
-              style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
+              style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text)", border: "1px solid var(--menu-border)" }}>
               {n === 1 ? "1 sab." : n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
             </button>
           ))}

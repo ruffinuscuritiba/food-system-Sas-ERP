@@ -853,27 +853,27 @@ export default function MenuPage() {
 
   // ── Render helpers para o modal de pizza ──
   function renderSizeSelector() {
-    const allSizes = Array.from(new Set(products.flatMap(p => (p.sizes || []).map(s => s.size)))).filter(Boolean);
-    if (allSizes.length <= 1) return null;
+    // Usa pizzaSizeConfigs como fonte de verdade (maxFlavors, labels, slices corretos)
+    const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
+    if (activeConfigs.length <= 1) return null;
     return (
       <div className="mb-5">
         <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Tamanho:</span>
         <div className="flex flex-wrap gap-2">
-          {allSizes.map((sz) => {
-            const cfg = pizzaSizeConfigs.find(c => c.size === sz && c.isActive);
-            const label = SIZE_LABELS[sz] || sz;
-            const maxFlav = cfg?.maxFlavors ?? 4;
+          {activeConfigs.map((cfg) => {
+            const label = cfg.label || SIZE_LABELS[cfg.size] || cfg.size;
+            const maxFlav = cfg.maxFlavors;
             return (
-              <button key={sz} onClick={() => {
-                setSelectedPizzaSize(sz);
+              <button key={cfg.size} onClick={() => {
+                setSelectedPizzaSize(cfg.size);
                 if (maxFlav && flavorParts > maxFlav) changeFlavorParts(maxFlav);
               }}
                 className="flex-1 min-w-[80px] py-2 rounded-xl font-bold text-sm transition text-center"
-                style={selectedPizzaSize === sz
+                style={selectedPizzaSize === cfg.size
                   ? { background: theme.primaryColor, color: "#fff" }
                   : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
                 {label}
-                <span className="block text-[10px] font-normal opacity-70">até {maxFlav} sab.</span>
+                <span className="block text-[10px] font-normal opacity-70">{cfg.slices} fatias · até {maxFlav} sab.</span>
               </button>
             );
           })}
@@ -884,8 +884,8 @@ export default function MenuPage() {
   }
 
   function renderFlavorSelector() {
-    const allSizes = Array.from(new Set(products.flatMap(p => (p.sizes || []).map(s => s.size)))).filter(Boolean);
-    if (allSizes.length > 1 && !selectedPizzaSize) return null;
+    const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
+    if (activeConfigs.length > 1 && !selectedPizzaSize) return null;
     return (
       <div>
         <div className="flex items-center gap-2 mb-5">

@@ -6,6 +6,7 @@ import { socket } from "@/services/socket";
 import { api } from "@/services/api";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
+import { Volume2, VolumeX } from "lucide-react";
 
 // @hello-pangea/dnd is heavy and SSR-incompatible — load lazily
 const KitchenBoard = dynamic(() => import("./KitchenBoard"), {
@@ -29,6 +30,7 @@ export default function KitchenPage() {
 
   const [orders, setOrders] = useState<any[]>([]);
   const audioRef   = useRef<any>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const printedOrders = useRef<any[]>([]);
   const containerRef  = useRef<any>(null);
 
@@ -74,7 +76,9 @@ export default function KitchenPage() {
       loadOrders();
       if (!printedOrders.current.includes(newOrder.id)) {
         printedOrders.current.push(newOrder.id);
-        audioRef.current?.play();
+        if (soundEnabled) {
+          audioRef.current?.play();
+        }
         printKitchenOrder(newOrder);
       }
     });
@@ -109,6 +113,13 @@ export default function KitchenPage() {
   return (
     <>
       <audio ref={audioRef} src="/notification.mp3" />
+      <button
+        onClick={() => setSoundEnabled(s => !s)}
+        title={soundEnabled ? "Silenciar alertas" : "Ativar alertas"}
+        className="fixed bottom-4 right-4 z-50 w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition"
+      >
+        {soundEnabled ? <Volume2 size={20} className="text-gray-600" /> : <VolumeX size={20} className="text-red-500" />}
+      </button>
       <KitchenBoard
         orders={orders}
         updateStatus={updateStatus}

@@ -1,11 +1,12 @@
 "use client";
+
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, ChefHat, Bike, PackageCheck, Clock, XCircle } from "lucide-react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, createElement } from "react";
 import { io, Socket } from "socket.io-client";
 import { apiBaseUrl, socketBaseUrl } from "@/services/env";
 
-// Status operacional unificado (Adapter Caminho 2)
+// Status operacional unificado
 type Status =
   | "PENDING"
   | "CONFIRMED"
@@ -16,18 +17,25 @@ type Status =
   | "CANCELLED"
   | "UNKNOWN";
 
-const STATUS_META: Record<Status, { label: string; color: string; icon: any; pct: number }> = {
-  PENDING:          { label: "Recebido",        color: "bg-yellow-500",  icon: Clock,         pct: 15 },
-  CONFIRMED:        { label: "Confirmado",      color: "bg-blue-500",    icon: CheckCircle2,  pct: 30 },
-  PREPARING:        { label: "Em preparo",      color: "bg-orange-500",  icon: ChefHat,       pct: 55 },
-  READY:            { label: "Pronto",          color: "bg-purple-500",  icon: PackageCheck,  pct: 75 },
-  OUT_FOR_DELIVERY: { label: "Saiu para entrega", color: "bg-cyan-500",  icon: Bike,          pct: 90 },
-  DELIVERED:        { label: "Entregue",        color: "bg-green-500",   icon: CheckCircle2,  pct: 100 },
-  CANCELLED:        { label: "Cancelado",       color: "bg-red-500",     icon: XCircle,       pct: 0 },
-  UNKNOWN:          { label: "Aguardando…",     color: "bg-slate-500",   icon: Clock,         pct: 5 },
+interface StatusConfig {
+  label: string;
+  color: string;
+  bgColor: string; // Mapeado explicitamente para evitar falha no Tailwind
+  icon: React.ElementType;
+  pct: number;
+}
+
+const STATUS_META: Record<Status, StatusConfig> = {
+  PENDING:          { label: "Recebido",         color: "bg-yellow-500", bgColor: "bg-yellow-500/20", icon: Clock,         pct: 15 },
+  CONFIRMED:        { label: "Confirmado",       color: "bg-blue-500",   bgColor: "bg-blue-500/20",   icon: CheckCircle2,  pct: 30 },
+  PREPARING:        { label: "Em preparo",       color: "bg-orange-500", bgColor: "bg-orange-500/20", icon: ChefHat,       pct: 55 },
+  READY:            { label: "Pronto",           color: "bg-purple-500", bgColor: "bg-purple-500/20", icon: PackageCheck,  pct: 75 },
+  OUT_FOR_DELIVERY: { label: "Saiu para entrega", color: "bg-cyan-500",   bgColor: "bg-cyan-500/20",   icon: Bike,          pct: 90 },
+  DELIVERED:        { label: "Entregue",         color: "bg-green-500",  bgColor: "bg-green-500/20",  icon: CheckCircle2,  pct: 100 },
+  CANCELLED:        { label: "Cancelado",        color: "bg-red-500",    bgColor: "bg-red-500/20",    icon: XCircle,       pct: 0 },
+  UNKNOWN:          { label: "Aguardando…",      color: "bg-slate-500",  bgColor: "bg-slate-500/20",  icon: Clock,         pct: 5 },
 };
 
-// Mapeia OnlineOrder.orderStatus para Status unificado (igual ao adapter Caminho 2)
 function normalize(raw: string | null | undefined): Status {
   if (!raw) return "UNKNOWN";
   const s = String(raw).toUpperCase();
@@ -43,11 +51,11 @@ function ConfirmadoContent() {
   const orderId = params.get("orderId") || "";
   const mock = params.get("mock");
 
-  const [status, setStatus]   = useState<Status>("UNKNOWN");
+  const [status, setStatus] = useState<Status>("UNKNOWN");
   const [lastUpdate, setLastUpdate] = useState<string>("");
   const [connected, setConnected] = useState(false);
 
-  // Polling fallback (a cada 15s) — caso socket falhe ou navegador bloqueie
+  // Polling fallback (15s)
   useEffect(() => {
     if (!orderId) return;
 
@@ -60,16 +68,27 @@ function ConfirmadoContent() {
         const data = await res.json();
         if (cancelled) return;
         setStatus(normalize(data?.orderStatus));
-        setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
-      } catch { /* silencioso */ }
+        setLastUpdate(
+          new Date().toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        );
+      } catch {
+        /* silencioso */
+      }
     }
 
-    poll(); // primeira chamada imediata
+    poll();
     const interval = setInterval(poll, 15000);
-    return () => { cancelled = true; clearInterval(interval); };
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [orderId]);
 
-  // Socket.IO — receber atualização imediata via room order:{id}
+  // Socket.IO
   useEffect(() => {
     if (!orderId) return;
 
@@ -80,18 +99,26 @@ function ConfirmadoContent() {
 
     socket.on("connect", () => {
       setConnected(true);
-      // Entra na room específica do pedido
       socket.emit("joinOrder", { orderId });
     });
+
     socket.on("disconnect", () => setConnected(false));
 
     socket.on("orderStatusChanged", (payload: { orderId: string; status: string }) => {
       if (payload?.orderId !== orderId) return;
       setStatus(normalize(payload.status));
-      setLastUpdate(new Date().toLocaleTimeString("pt-BR"));
+      setLastUpdate(
+        new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
     });
 
-    return () => { socket.disconnect(); };
+    return () => {
+      socket.disconnect();
+    };
   }, [orderId]);
 
   const meta = STATUS_META[status];
@@ -99,12 +126,25 @@ function ConfirmadoContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6 px-4 text-center text-white py-12">
-      <div className={`${meta.color}/20 rounded-full p-6 transition-all`}>
-        <Icon size={72} className="text-white" />
+      {/* Círculo do Ícone com classe exícita de background opaco */}
+      <div className={`${meta.bgColor} rounded-full p-6 transition-all duration-300`}>
+        {createElement(meta.icon, { size: 72, className: "text-white" })}
       </div>
 
-      <h1 className={`text-4xl font-black ${status === "DELIVERED" ? "text-green-400" : status === "CANCELLED" ? "text-red-400" : "text-white"}`}>
-        {status === "DELIVERED" ? "Pedido entregue!" : status === "CANCELLED" ? "Pedido cancelado" : meta.label}
+      <h1
+        className={`text-4xl font-black ${
+          status === "DELIVERED"
+            ? "text-green-400"
+            : status === "CANCELLED"
+            ? "text-red-400"
+            : "text-white"
+        }`}
+      >
+        {status === "DELIVERED"
+          ? "Pedido entregue!"
+          : status === "CANCELLED"
+          ? "Pedido cancelado"
+          : meta.label}
       </h1>
 
       {/* Progress bar visual */}
@@ -136,7 +176,11 @@ function ConfirmadoContent() {
       )}
 
       <div className="flex items-center gap-2 text-xs text-slate-500">
-        <span className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-slate-600"}`} />
+        <span
+          className={`w-2 h-2 rounded-full ${
+            connected ? "bg-green-500 animate-pulse" : "bg-slate-600"
+          }`}
+        />
         {connected ? "Conectado em tempo real" : "Reconectando..."}
         {lastUpdate && <span className="ml-2 text-slate-600">· Atualizado às {lastUpdate}</span>}
       </div>
@@ -150,11 +194,13 @@ function ConfirmadoContent() {
 
 export default function PedidoConfirmadoPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
       <ConfirmadoContent />
     </Suspense>
   );

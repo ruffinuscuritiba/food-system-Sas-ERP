@@ -241,7 +241,7 @@ export class PaymentsService {
       payment_method_id: 'pix',
       date_of_expiration: expiresIso,
       notification_url: `${backendUrl}/api/payments/webhook/online-order`,
-      external_reference: `ONLINE_ORDER|${order.id}|${companyId}`,
+      external_reference: `ONLINE_ORDER|${order.id}|${order.companyId}`,
       payer: {
         email: payerEmail,
         first_name: firstName,
@@ -409,6 +409,7 @@ export class PaymentsService {
             : 'PENDING';
 
     const current = await this.onlineOrders.findOne(onlineOrderId, companyId);
+    const resolvedCompanyId = current.companyId;
     if (current.paymentStatus === 'APPROVED') return; // já processado — evita crédito duplo
 
     await this.onlineOrders.updatePayment(onlineOrderId, {
@@ -422,19 +423,19 @@ export class PaymentsService {
 
       // ── Creditar valor líquido na carteira da loja (fire-and-forget) ──────
       setImmediate(() => {
-        this.onlineOrders.findOne(onlineOrderId, companyId)
+        this.onlineOrders.findOne(onlineOrderId, resolvedCompanyId)
           .then((o) => {
             const gross = parseFloat(Number(o.total ?? 0).toFixed(2));
             const pm = (o as any).paymentMethod ?? 'PIX';
             if (gross > 0) {
-              return this.walletService.creditFromOrder(companyId, onlineOrderId, gross, pm);
+              return this.walletService.creditFromOrder(resolvedCompanyId, onlineOrderId, gross, pm);
             }
           })
           .catch((e) => this.logger.warn(`[WALLET] creditFromOrder falhou: ${e?.message}`));
       });
 
       // → Kitchen / dashboard (company room)
-      this.socket.emitOnlineOrderPaid(companyId, {
+      this.socket.emitOnlineOrderPaid(resolvedCompanyId, {
         onlineOrderId,
         paymentStatus,
         orderStatus: 'CONFIRMED',
@@ -450,7 +451,7 @@ export class PaymentsService {
 
       // → Payment confirmed email to customer (fire-and-forget)
       this.onlineOrders
-        .findOne(onlineOrderId, companyId)
+        .findOne(onlineOrderId, resolvedCompanyId)
         .then((o) => {
           if (!o.customerEmail) return;
           return this.notifications.send({

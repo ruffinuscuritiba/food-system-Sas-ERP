@@ -62,6 +62,21 @@ const FEATURED_LABEL_STYLES: Record<string, { text: string; className: string }>
   RECOMENDADO: { text: "Recomendado", className: "bg-emerald-500 text-white" },
 };
 
+const SIZE_LABELS: Record<string, string> = {
+  BROTO: "Broto",
+  PEQUENA: "Pequena",
+  MEDIA: "Média",
+  GRANDE: "Grande",
+  FAMILIA: "Família",
+  EXTRA_GRANDE: "Extra Grande",
+};
+
+function getProductSizePrice(product: Product, size: string): number {
+  if (!product.sizes || product.sizes.length === 0) return Number(product.salePrice);
+  const match = product.sizes.find(s => s.size === size);
+  return match ? Number(match.price) : Number(product.salePrice);
+}
+
 /** Champion card v2 — apanhado de 3 referências reais (Hamburgueria do Airton,
  *  Toca do Lanche, Aliança Pizzaria): foto quadrada em destaque, badge de
  *  desconto pill verde no canto superior-esquerdo (estilo Toca do Lanche),
@@ -299,6 +314,10 @@ export default function MenuPage() {
   const [pixPaid, setPixPaid]             = useState(false);
   const [pixExpired, setPixExpired]       = useState(false);
   const [regeneratingPix, setRegeneratingPix] = useState(false);
+
+  // Size selection modal state
+  const [sizeSelectProduct, setSizeSelectProduct] = useState<Product | null>(null);
+  const [selectedPizzaSize, setSelectedPizzaSize] = useState<string>("");
 
   async function loadMenu(attempt = 1) {
     setLoading(true);
@@ -559,7 +578,7 @@ export default function MenuPage() {
     if (!showPixScreen || !onlineOrderId || pixPaid || pixExpired) return;
     const poll = setInterval(async () => {
       try {
-        const res = await fetch(`${apiBaseUrl}/payments/status/${onlineOrderId}?companyId=${companyId}`);
+        const res = await fetch(`${apiBaseUrl}/payments/status/${onlineOrderId}?companyId=${realCompanyId}`);
         if (!res.ok) return;
         const data = await res.json();
         if (data.paymentStatus === "APPROVED") {
@@ -573,13 +592,13 @@ export default function MenuPage() {
       } catch { /* silent */ }
     }, 4000);
     return () => clearInterval(poll);
-  }, [showPixScreen, onlineOrderId, pixPaid, pixExpired, companyId]);
+  }, [showPixScreen, onlineOrderId, pixPaid, pixExpired, realCompanyId]);
 
   const fetchLoyaltyBalance = useCallback(async (phone: string) => {
-    if (!phone || phone.length < 8 || !companyId) return;
+    if (!phone || phone.length < 8 || !realCompanyId) return;
     try {
       const res = await fetch(
-        `${apiBaseUrl}/loyalty/balance?phone=${encodeURIComponent(phone)}&companyId=${companyId}`
+        `${apiBaseUrl}/loyalty/balance?phone=${encodeURIComponent(phone)}&companyId=${realCompanyId}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -587,7 +606,7 @@ export default function MenuPage() {
         setLoyaltyDiscount(data.discountValue || 0);
       }
     } catch { /* silent */ }
-  }, [companyId]);
+  }, [realCompanyId]);
 
   async function validateCoupon(code: string) {
     if (!code.trim()) { setCouponMsg(null); setCouponDiscount(0); setCouponId(null); return; }
@@ -652,6 +671,15 @@ export default function MenuPage() {
 
   async function addToCart(product: Product) {
     trackProductView(product.id);
+    // Se o produto tem múltiplos tamanhos, pedir seleção de tamanho primeiro
+    if (product.sizes && product.sizes.length > 1) {
+      setSizeSelectProduct(product);
+      return;
+    }
+    await fetchAndAddToCart(product);
+  }
+
+  async function fetchAndAddToCart(product: Product) {
     // Busca complementos do produto via endpoint público (multiempresa por query)
     setCompLoading(true);
     try {
@@ -671,12 +699,24 @@ export default function MenuPage() {
     }
   }
 
+  function handleSizeConfirm(product: Product, sizeObj: { size: string; price: number }) {
+    const sizeLabel = SIZE_LABELS[sizeObj.size] || sizeObj.size;
+    const withSize: Product = {
+      ...product,
+      salePrice: sizeObj.price as any,
+      name: `${product.name} (${sizeLabel})`,
+    };
+    setSizeSelectProduct(null);
+    fetchAndAddToCart(withSize);
+  }
+
   function updateQuantity(cartKey: string, delta: number) {
     setCart((prev) => prev.map((i) => i.cartKey !== cartKey ? i : { ...i, quantity: i.quantity + delta }).filter((i) => i.quantity > 0));
   }
 
   function openFlavorModal(product?: Product) {
     if (product) trackProductView(product.id);
+    setSelectedPizzaSize("");
     setFlavorParts(2);
     setFlavorSlots(product ? [product, null] : [null, null]);
     setFlavorFilter("");
@@ -706,12 +746,21 @@ export default function MenuPage() {
       const d = await r.json();
       if (d.erro) return;
       const newNeighborhood = d.bairro || "";
-      const zone = newNeighborhood ? deliveryZones.find(z => z.neighborhood?.toLowerCase().trim() === newNeighborhood.toLowerCase().trim()) ?? null : null;
+      // Buscar zona de entrega — match exato ou parcial pelo bairro do CEP
+      let zone = newNeighborhood
+        ? deliveryZones.find(z => {
+            const zn = (z.neighborhood || z.name || "").toLowerCase().trim();
+            return zn === newNeighborhood.toLowerCase().trim();
+          }) ?? deliveryZones.find(z => {
+            const zn = (z.neighborhood || z.name || "").toLowerCase().trim();
+            return zn.includes(newNeighborhood.toLowerCase().trim()) || newNeighborhood.toLowerCase().trim().includes(zn);
+          }) ?? null
+        : null;
       setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
       setForm((f) => ({
         ...f,
         street: d.logradouro || f.street,
-        neighborhood: newNeighborhood || f.neighborhood,
+        neighborhood: zone ? (zone.neighborhood || zone.name || newNeighborhood) : newNeighborhood || f.neighborhood,
         city: d.localidade || f.city,
         state: d.uf || f.state,
       }));
@@ -750,13 +799,18 @@ export default function MenuPage() {
     setStreetSuggestions([]);
   }
 
-  function calcPizzaPrice(flavors: Product[]) {
-    const prices = flavors.map((f) => Number(f.salePrice));
+  function calcPizzaPrice(flavors: Product[], size?: string) {
+    const prices = flavors.map((f) => size ? getProductSizePrice(f, size) : Number(f.salePrice));
     if (theme.pizzaPricingMode === "HALF") {
       return prices.reduce((a, b) => a + b, 0) / prices.length;
     }
     return Math.max(...prices);
   }
+
+  // Máximo de sabores para o tamanho selecionado (ou global)
+  const sizeMaxFlavors = selectedPizzaSize && pizzaSizeConfigs.length > 0
+    ? (pizzaSizeConfigs.find(c => c.size === selectedPizzaSize && c.isActive)?.maxFlavors ?? 4)
+    : null;
 
   // Máximo de sabores permitido — usa os configs ou default 4
   const globalMaxFlavors = pizzaSizeConfigs.length > 0
@@ -766,15 +820,26 @@ export default function MenuPage() {
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
     if (chosen.length < 1) { toast.error("Selecione ao menos 1 sabor"); return; }
+    // Exigir seleção de tamanho se houver tamanhos disponíveis
+    const hasMultipleSizes = chosen.some(f => f.sizes && f.sizes.length > 1);
+    if (hasMultipleSizes && !selectedPizzaSize) {
+      toast.error("Selecione o tamanho da pizza");
+      return;
+    }
     const uniqueIds = new Set(chosen.map((f) => f.id));
     if (uniqueIds.size < chosen.length) { toast.error("Cada sabor deve ser diferente"); return; }
-    const finalPrice = calcPizzaPrice(chosen);
-    const base = chosen.find((f) => Number(f.salePrice) === Math.max(...chosen.map(f => Number(f.salePrice)))) || chosen[0];
+    const finalPrice = calcPizzaPrice(chosen, selectedPizzaSize || undefined);
+    const base = chosen.reduce((best, f) => {
+      const fPrice = selectedPizzaSize ? getProductSizePrice(f, selectedPizzaSize) : Number(f.salePrice);
+      const bPrice = selectedPizzaSize ? getProductSizePrice(best, selectedPizzaSize) : Number(best.salePrice);
+      return fPrice > bPrice ? f : best;
+    }, chosen[0]);
+    const sizeLabel = selectedPizzaSize ? (SIZE_LABELS[selectedPizzaSize] || selectedPizzaSize) : "";
     const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
     const noteText = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
     const composedName = chosen.length === 1
-      ? `Pizza ${chosen[0].name}`
-      : `Pizza ${chosen.length} sabores: ${chosen.map((f) => f.name).join(" + ")}`;
+      ? `Pizza ${chosen[0].name}${sizeLabel ? ` (${sizeLabel})` : ""}`
+      : `Pizza ${chosen.length} sabores${sizeLabel ? ` (${sizeLabel})` : ""}: ${chosen.map((f) => f.name).join(" + ")}`;
     setCart((prev) => [...prev, {
       cartKey: `pizza-${Date.now()}`,
       product: { ...base, name: composedName, salePrice: finalPrice as any },
@@ -888,6 +953,7 @@ export default function MenuPage() {
       if (!orderRes.ok) throw new Error(await orderRes.text());
       const orderData = await orderRes.json();
       const createdOrderId: string = orderData.id;
+      if (orderData.companyId) setRealCompanyId(orderData.companyId);
       setOnlineOrderId(createdOrderId);
 
       // Step 2 — redeem coupon async (fire-and-forget)
@@ -1854,6 +1920,39 @@ export default function MenuPage() {
         </div>
       )}
 
+      {/* ─── Modal Seleção de Tamanho ──────────────────────────────────────────── */}
+      {sizeSelectProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-menu-theme={menuThemeMode}>
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSizeSelectProduct(null)} />
+          <div className="relative rounded-3xl w-full max-w-sm shadow-2xl p-6" style={{ background: "var(--menu-surface)" }}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-black" style={{ color: "var(--menu-text)" }}>Escolha o tamanho</h2>
+                <p className="text-sm mt-0.5" style={{ color: "var(--menu-text-2)" }}>{sizeSelectProduct.name}</p>
+              </div>
+              <button onClick={() => setSizeSelectProduct(null)} style={{ color: "var(--menu-text-2)" }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {(sizeSelectProduct.sizes || []).map((s) => (
+                <button
+                  key={s.size}
+                  onClick={() => handleSizeConfirm(sizeSelectProduct, s)}
+                  className="w-full flex items-center justify-between border rounded-xl px-4 py-3 text-sm hover:opacity-90 transition"
+                  style={{ borderColor: "var(--menu-border)", background: "var(--menu-surface-2)", color: "var(--menu-text)" }}
+                >
+                  <span className="font-semibold">{SIZE_LABELS[s.size] || s.size}</span>
+                  <span className="font-black" style={{ color: theme.primaryColor }}>
+                    R$ {Number(s.price).toFixed(2)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── Modal Pizza meio a meio ─────────────────────────────────────────────── */}
       {showFlavorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-menu-theme={menuThemeMode}>
@@ -1871,9 +1970,42 @@ export default function MenuPage() {
                 <X size={20} />
               </button>
             </div>
+
+            {/* ── Seleção de tamanho da pizza ── */}
+            {(() => {
+              const allSizes = Array.from(new Set(products.flatMap(p => (p.sizes || []).map(s => s.size)))).filter(Boolean);
+              if (allSizes.length <= 1) return null;
+              return (
+                <div className="mb-5">
+                  <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Tamanho:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {allSizes.map((sz) => {
+                      const cfg = pizzaSizeConfigs.find(c => c.size === sz && c.isActive);
+                      const label = SIZE_LABELS[sz] || sz;
+                      const maxFlav = cfg?.maxFlavors;
+                      return (
+                        <button key={sz} onClick={() => {
+                          setSelectedPizzaSize(sz);
+                          if (maxFlav && flavorParts > maxFlav) changeFlavorParts(maxFlav);
+                        }}
+                          className="flex-1 min-w-[80px] py-2 rounded-xl font-bold text-sm transition text-center"
+                          style={selectedPizzaSize === sz
+                            ? { background: theme.primaryColor, color: "#fff" }
+                            : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
+                          {label}
+                          {maxFlav ? <span className="block text-[10px] font-normal opacity-70">até {maxFlav} sab.</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!selectedPizzaSize && <p className="text-xs mt-1 text-red-500">Selecione um tamanho</p>}
+                </div>
+              );
+            })()}
+
             <div className="flex items-center gap-2 mb-5">
               <span className="text-sm shrink-0" style={{ color: "var(--menu-text-2)" }}>Sabores:</span>
-              {[1, 2, 3, 4].filter((n) => n <= Math.max(1, globalMaxFlavors)).map((n) => (
+              {[1, 2, 3, 4].filter((n) => n <= Math.max(1, sizeMaxFlavors ?? globalMaxFlavors)).map((n) => (
                 <button key={n} onClick={() => changeFlavorParts(n)}
                   className="flex-1 py-2 rounded-xl font-bold text-sm transition"
                   style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
@@ -1905,7 +2037,7 @@ export default function MenuPage() {
                         .filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase()))
                         .filter((p) => !flavorSlots.some((s, si) => si !== i && s?.id === p.id))
                         .map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} — R$ {Number(p.salePrice).toFixed(2)}</option>
+                          <option key={p.id} value={p.id}>{p.name} — R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}</option>
                         ))}
                     </select>
                   </div>
@@ -1923,7 +2055,7 @@ export default function MenuPage() {
                 <div className="text-right">
                   <p className="text-xs" style={{ color: "var(--menu-text-2)" }}>Total</p>
                   <p className="text-xl font-black" style={{ color: theme.primaryColor }}>
-                    R$ {calcPizzaPrice(flavorSlots.filter(Boolean) as Product[]).toFixed(2)}
+                    R$ {calcPizzaPrice(flavorSlots.filter(Boolean) as Product[], selectedPizzaSize || undefined).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -2114,45 +2246,46 @@ export default function MenuPage() {
                         streetDebounce.current = setTimeout(() => searchStreet(v), 500);
                       }}
                       onBlur={() => setTimeout(() => setStreetSuggestions([]), 200)}
-                      className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                      className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
                       autoComplete="off"
                     />
                     {streetLoading && (
                       <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />
-                    )}
-                    {streetSuggestions.length > 0 && (
-                      <div
-                        ref={suggestionsRef}
-                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
-                      >
-                        {streetSuggestions.map((item, idx) => {
-                          const addr = item.address;
-                          const road = addr.road ?? addr.pedestrian ?? '';
-                          const city = addr.city ?? addr.town ?? addr.village ?? '';
-                          const state = (addr['ISO3166-2-lvl4'] ?? '').slice(-2);
-                          return (
-                            <button
-                              key={idx}
-                              type="button"
-                              onMouseDown={() => selectStreetSuggestion(item)}
-                              className="w-full text-left px-4 py-2.5 hover:bg-orange-50 border-b border-gray-50 last:border-0 transition"
-                            >
-                              <div className="text-sm font-semibold text-gray-800 truncate">{road}</div>
-                              <div className="text-xs text-gray-400 truncate">{city}{state ? ` — ${state}` : ''}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
                     )}
                   </div>
                   <input
                     placeholder="Nº"
                     value={form.number}
                     onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
-                    className="w-16 flex-shrink-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    className="w-16 flex-shrink-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
                     inputMode="numeric"
                   />
                 </div>
+                {/* Sugestões de rua — fora do container relative para não ser cortado */}
+                {streetSuggestions.length > 0 && (
+                  <div
+                    ref={suggestionsRef}
+                    className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden -mt-1"
+                  >
+                    {streetSuggestions.map((item, idx) => {
+                      const addr = item.address;
+                      const road = addr.road ?? addr.pedestrian ?? '';
+                      const city = addr.city ?? addr.town ?? addr.village ?? '';
+                      const state = (addr['ISO3166-2-lvl4'] ?? '').slice(-2);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onMouseDown={() => selectStreetSuggestion(item)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-orange-50 border-b border-gray-50 last:border-0 transition"
+                        >
+                          <div className="text-sm font-semibold text-gray-800 truncate">{road}</div>
+                          <div className="text-xs text-gray-400 truncate">{city}{state ? ` — ${state}` : ''}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <input
                   placeholder="Complemento (apto, bloco…)"
                   value={form.complement}
@@ -2160,17 +2293,32 @@ export default function MenuPage() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                 />
                 <div className="flex gap-2">
-                  <input
-                    placeholder="Bairro *"
-                    value={form.neighborhood}
-                    onChange={(e) => {
-                      const nb = e.target.value;
-                      setForm((f) => ({ ...f, neighborhood: nb }));
-                      const zone = deliveryZones.find(z => z.neighborhood?.toLowerCase().trim() === nb.toLowerCase().trim()) ?? null;
-                      setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
-                    }}
-                    className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
-                  />
+                  {deliveryZones.length > 0 ? (
+                    <select
+                      value={form.neighborhood}
+                      onChange={(e) => {
+                        const nb = e.target.value;
+                        setForm((f) => ({ ...f, neighborhood: nb }));
+                        const zone = deliveryZones.find(z => (z.neighborhood || z.name || "").toLowerCase().trim() === nb.toLowerCase().trim()) ?? null;
+                        setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
+                      }}
+                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm bg-white"
+                    >
+                      <option value="">Selecione o bairro *</option>
+                      {deliveryZones.map((z) => (
+                        <option key={z.id} value={z.neighborhood || z.name}>
+                          {z.name || z.neighborhood} — R$ {Number(z.clientFee).toFixed(2).replace(".", ",")}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      placeholder="Bairro *"
+                      value={form.neighborhood}
+                      onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
+                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+                    />
+                  )}
                   <input
                     placeholder="UF"
                     value={form.state}

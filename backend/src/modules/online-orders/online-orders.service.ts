@@ -445,8 +445,14 @@ export class OnlineOrdersService {
   }
 
   async findOne(id: string, companyId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: companyId }, { slug: companyId }] },
+      select: { id: true },
+    });
+    if (!company) throw new NotFoundException('Empresa nao encontrada.');
+
     const order = await this.prisma.onlineOrder.findFirst({
-      where: { id, companyId },
+      where: { id, companyId: company.id },
     });
     if (!order) throw new NotFoundException('Pedido não encontrado.');
     return order;

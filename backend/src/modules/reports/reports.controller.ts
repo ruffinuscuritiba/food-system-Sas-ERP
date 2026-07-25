@@ -2,6 +2,12 @@ import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
+function endOfDay(d: Date): Date {
+  const e = new Date(d);
+  e.setUTCHours(23, 59, 59, 999);
+  return e;
+}
+
 @UseGuards(JwtAuthGuard)
 @Controller('reports')
 export class ReportsController {
@@ -26,7 +32,7 @@ export class ReportsController {
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? new Date(to) : new Date(),
+      to: endOfDay(to ? new Date(to) : new Date()),
     };
     return this.reports.getRevenue(req.user.companyId, range);
   }
@@ -46,7 +52,7 @@ export class ReportsController {
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? new Date(to) : new Date(),
+      to: endOfDay(to ? new Date(to) : new Date()),
     };
     return this.reports.getProductRanking(
       req.user.companyId,

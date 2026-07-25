@@ -134,6 +134,32 @@ export class PrintersService {
     });
   }
 
+  // ── Agent job polling (the agent calls this to find work) ─────────────────
+
+  async getPendingJobs(companyId: string) {
+    return this.prisma.printerJob.findMany({
+      where: { companyId, status: 'PENDING' },
+      include: { printer: { select: { name: true, connectionType: true, address: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    });
+  }
+
+  async claimJob(id: string, companyId: string, status: PrintJobStatus, failReason?: string) {
+    const job = await this.prisma.printerJob.findFirst({
+      where: { id, companyId, status: 'PENDING' },
+    });
+    if (!job) throw new NotFoundException('Job não encontrado ou já processado');
+    return this.prisma.printerJob.update({
+      where: { id },
+      data: {
+        status,
+        ...(status === 'PRINTED' ? { printedAt: new Date() } : {}),
+        ...(failReason ? { failReason, attempts: { increment: 1 } } : {}),
+      },
+    });
+  }
+
   // ── Enqueue (called by PrintService after order events) ────────────────────
 
   async enqueueJob(params: {

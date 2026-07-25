@@ -24,6 +24,7 @@ import { OrderNotificationService } from '../whatsapp-ai/services/order-notifica
 import { DeliveryConfigService } from '../delivery-config/delivery-config.service';
 
 import { PrintersService } from '../printers/printers.service';
+import { PrintersGateway } from '../printers/printers.gateway';
 import { OnlineOrdersService } from '../online-orders/online-orders.service';
 
 // Números BR ganharam o 9º dígito móvel em 2016 — clientes/atendentes ainda
@@ -71,6 +72,9 @@ export class OrdersService {
 
     @Optional()
     private printersService?: PrintersService,
+
+    @Optional()
+    private printersGateway?: PrintersGateway,
 
     @Optional()
     private onlineOrdersService?: OnlineOrdersService,
@@ -475,6 +479,11 @@ export class OrdersService {
           payload: { ...basePayload, template: role, items },
         });
       }
+    }
+
+    // Notify all connected printer agents in real time
+    if (this.printersGateway) {
+      this.printersGateway.notifyNewJobs(companyId);
     }
   }
 

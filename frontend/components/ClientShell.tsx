@@ -517,8 +517,8 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
           .filter((m: any) => m.status === "ACTIVE" || m.status === "TRIAL" || m.active)
           // `||` (not `??`) because moduleSlug has @default("") — empty string is falsy
           .map((m: any) => ((m.moduleSlug || m.slug || m.module) as string).toLowerCase())
-          .filter(Boolean);
-        setActiveSlugs(slugs);
+.filter(Boolean);
+setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens repetidos no menu)
       })
       .catch(() => {});
 

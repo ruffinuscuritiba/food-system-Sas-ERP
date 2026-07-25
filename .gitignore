@@ -8,3 +8,5 @@ printer-agent/installer/output/
 # Credenciais de sessão WhatsApp (Baileys) — NUNCA commitar
 bridge/auth_kely/
 bridge/auth_*/
+.vercel
+.env*

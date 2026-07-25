@@ -293,15 +293,6 @@
 :root.theme-dark .admin-page .border-gray-300,
 :root.theme-dark .admin-page .border-slate-200,
 :root.theme-dark .admin-page .divide-gray-200 > * { border-color: var(--border-ui) !important; }
-:root.theme-dark .admin-page input:not([type="color"]):not([type="range"]),
-:root.theme-dark .admin-page textarea,
-:root.theme-dark .admin-page select {
-  background-color: var(--surface-1);
-  color: #f1f5f9;
-  -webkit-text-fill-color: #f1f5f9;
-  caret-color: #f1f5f9;
-  border-color: var(--border-ui);
-}
 :root.theme-dark .admin-page [class*="bg-[var(--color-primary"],
 :root.theme-dark .admin-page .bg-primary { color: #ffffff !important; }
 
@@ -329,13 +320,27 @@ body {
   box-sizing: border-box;
 }
 
-/*
- * Reset global de cor para inputs/textarea/select.
- * Padrão = tema claro (mármore). Texto escuro em todos os campos.
- * No .theme-dark, a seção .admin-page sobrepõe para texto claro.
- */
-input:not([type="color"]),
-input:not([type="range"]),
+/* ═══════════════════════════════════════════════════════════════════════
+ * FIX (contraste de campos): antes, TODO input/select/textarea do sistema
+ * nascia com texto escuro (#111827) por padrão, e só ficava claro se o
+ * elemento tivesse a classe `.text-white` escrita manualmente. Isso exigia
+ * que cada desenvolvedor lembrasse de anotar cada campo novo colocado sobre
+ * fundo escuro — e sempre que alguém esquecia (ex: um campo novo do
+ * checkout do cardápio, do modal de pizza, etc.), o texto saía escuro sobre
+ * fundo escuro = ilegível. Era a causa raiz do "não dá pra enxergar o que
+ * eu digito".
+ *
+ * Correção: o padrão continua escuro (superfícies claras, maioria do
+ * sistema), mas agora QUALQUER input dentro de um contêiner de tema escuro
+ * (`[data-menu-theme="dark"]` no cardápio, `.theme-dark` no admin/PDV)
+ * recebe texto claro AUTOMATICAMENTE — sem precisar de classe manual em
+ * cada elemento. A classe `.text-white` continua funcionando como escape
+ * manual para casos fora desses dois contêineres (ex: um modal escuro
+ * isolado dentro de uma página clara). Fixa a causa raiz, não só o sintoma.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Padrão: superfícies claras → texto escuro */
+input:not([type="color"]):not([type="range"]),
 textarea,
 select {
   color: #111827;
@@ -343,13 +348,35 @@ select {
   caret-color: #111827;
 }
 
-/* Restaurar para inputs que precisam de texto claro (classes explícitas sobrepõem) */
+/* Dentro de qualquer contêiner de tema escuro → texto claro automático */
+[data-menu-theme="dark"] input:not([type="color"]):not([type="range"]),
+[data-menu-theme="dark"] textarea,
+[data-menu-theme="dark"] select,
+:root.theme-dark input:not([type="color"]):not([type="range"]),
+:root.theme-dark textarea,
+:root.theme-dark select {
+  color: #F5F6F8;
+  -webkit-text-fill-color: #F5F6F8;
+  caret-color: #F5F6F8;
+}
+
+/* Placeholder acompanha o mesmo contraste dentro de contêiner escuro */
+[data-menu-theme="dark"] input::placeholder,
+[data-menu-theme="dark"] textarea::placeholder,
+:root.theme-dark input::placeholder,
+:root.theme-dark textarea::placeholder {
+  color: #8B93A7;
+  opacity: 1;
+}
+
+/* Escape manual: `.text-white` continua funcionando fora dos contêineres
+ * de tema acima (ex: modal escuro isolado dentro de página clara). */
 input.text-white,
 textarea.text-white,
 select.text-white {
-  color: #ffffff;
-  -webkit-text-fill-color: #ffffff;
-  caret-color: #ffffff;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
 }
 
 /* Fix autofill Chrome/Edge/Safari — universal
@@ -367,7 +394,18 @@ select:-webkit-autofill {
   transition: background-color 9999s ease-in-out 0s !important;
 }
 
-/* Inputs escuros (text-white) — garante fundo zinc-800 e texto branco */
+/* Inputs escuros (tema escuro do cardápio/admin ou .text-white manual) —
+ * garante fundo escuro + texto claro no autofill */
+[data-menu-theme="dark"] input:-webkit-autofill,
+[data-menu-theme="dark"] input:-webkit-autofill:hover,
+[data-menu-theme="dark"] input:-webkit-autofill:focus,
+[data-menu-theme="dark"] input:-webkit-autofill:active,
+[data-menu-theme="dark"] textarea:-webkit-autofill,
+:root.theme-dark input:-webkit-autofill,
+:root.theme-dark input:-webkit-autofill:hover,
+:root.theme-dark input:-webkit-autofill:focus,
+:root.theme-dark input:-webkit-autofill:active,
+:root.theme-dark textarea:-webkit-autofill,
 input.text-white:-webkit-autofill,
 input.text-white:-webkit-autofill:hover,
 input.text-white:-webkit-autofill:focus,
@@ -378,7 +416,7 @@ textarea.text-white:-webkit-autofill {
   caret-color: #ffffff;
 }
 
-/* Inputs claros (padrão, ex: login, cardápio público) — fundo branco + texto escuro */
+/* Inputs claros (padrão, ex: login, cardápio público claro) — fundo branco + texto escuro */
 input:not(.text-white):-webkit-autofill,
 input:not(.text-white):-webkit-autofill:hover,
 input:not(.text-white):-webkit-autofill:focus,

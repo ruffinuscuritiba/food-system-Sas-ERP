@@ -1,557 +1,509 @@
 "use client";
-import { api } from "@/services/api";
-import { apiBaseUrl } from "@/services/env";
-import { useEffect, useState, useCallback } from "react";
-import toast from "react-hot-toast";
-import { socket } from "@/services/socket";
-import { useAuthStore } from "@/stores/auth.store";
+
+import { useState, useEffect, useCallback } from "react";
 import {
-  ShoppingCart, Printer, Clock, Truck, CheckCircle2, History,
-  Phone, User, MapPin, X, Save, ChevronRight, RefreshCw,
+  Bike, Plus, Phone, MapPin, Star, CheckCircle,
+  XCircle, Search, Package, DollarSign, X, Eye, EyeOff,
+  Pencil, Loader2, ToggleLeft, ToggleRight,
 } from "lucide-react";
-import { type PrintableOrder } from "@/components/printing/printTicket";
-import { PrintRouterService } from "@/components/printing/PrintRouterService";
-import PrinterAgentBanner from "@/components/PrinterAgentBanner";
+import { api } from "@/services/api";
+import toast from "react-hot-toast";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type OrderItemComplement = {
-  complementName: string;
-  optionName: string;
-  price: number;
-  quantity: number;
-};
-
-type OrderItem = {
+interface Driver {
   id: string;
-  productName: string;
-  quantity: number;
-  unitPrice: number;
-  subtotal: number;
-  notes?: string;
-  selectedComplements?: OrderItemComplement[];
-};
-
-type Customer = { id: string; name: string; phone: string };
-
-type Order = {
-  id: string;
-  customer?: Customer;
-  customerName?: string;    // legacy / pode vir de alguns fluxos
-  customerPhone?: string;
-  deliveryAddress?: string;
-  paymentMethod: string;
-  deliveryFee: number;
-  driverFee?: number;
-  total: number;
-  status: string;
-  orderType?: string;
-  notes?: string;
-  items: OrderItem[];
-  createdAt?: string;
-  confirmedAt?: string;
-};
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  PENDING:          { label: "Pendente",     color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  CONFIRMED:        { label: "Confirmado",   color: "bg-blue-100 text-blue-700 border-blue-200" },
-  PREPARING:        { label: "Preparando",   color: "bg-primary/10 text-orange-700 border-primary/20" },
-  READY:            { label: "Pronto",       color: "bg-green-100 text-green-700 border-green-200" },
-  OUT_FOR_DELIVERY: { label: "Saiu entrega", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  DELIVERED:        { label: "Finalizado",   color: "bg-gray-100 text-gray-600 border-gray-200" },
-  CANCELLED:        { label: "Cancelado",    color: "bg-red-100 text-red-600 border-red-200" },
-};
-
-const PAY_LABELS: Record<string, string> = {
-  PIX: "PIX", CASH: "Dinheiro", CREDIT_CARD: "Crédito",
-  DEBIT_CARD: "Débito", TRANSFER: "Transferência",
-};
-
-const HISTORY_STATUSES = new Set(["DELIVERED", "CANCELLED"]);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function elapsedMin(order: Order): number {
-  const ref = order.confirmedAt || order.createdAt;
-  if (!ref) return 0;
-  return Math.floor((Date.now() - new Date(ref).getTime()) / 60000);
-}
-
-function timingBorderClass(order: Order): string {
-  if (HISTORY_STATUSES.has(order.status)) return "border-gray-100";
-  const min = elapsedMin(order);
-  if (min > 45) return "border-red-400 shadow-red-100/50 shadow-md";
-  if (min > 25) return "border-amber-400 shadow-amber-100/50 shadow-md";
-  return "border-green-400 shadow-green-100/50 shadow-md";
-}
-
-function timingDotClass(order: Order): string {
-  const min = elapsedMin(order);
-  if (min > 45) return "bg-[var(--danger)]";
-  if (min > 25) return "bg-[var(--warning)]";
-  return "bg-[var(--success)]";
-}
-
-function estimatedDelivery(order: Order): string {
-  const ref = order.confirmedAt || order.createdAt;
-  if (!ref) return "—";
-  return new Date(new Date(ref).getTime() + 45 * 60000)
-    .toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-}
-
-function customerName(order: Order): string {
-  return order.customer?.name || order.customerName || "Cliente sem cadastro";
-}
-
-function customerPhone(order: Order): string {
-  return order.customer?.phone || order.customerPhone || "—";
-}
-
-// ── Print ─────────────────────────────────────────────────────────────────────
-
-async function printOrder(order: Order, companyName: string) {
-  const printable: PrintableOrder = {
-    ...(order as unknown as PrintableOrder),
-    source:        (order as Order & { source?: string }).source,
-    status:        STATUS_LABELS[order.status]?.label || order.status,
-    customerName:  customerName(order),
-    customerPhone: customerPhone(order),
+  phone: string | null;
+  vehicleType: string | null;
+  vehiclePlate: string | null;
+  isAvailable: boolean;
+  companyId: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    isActive: boolean;
   };
-  const result = await PrintRouterService.printAll(printable, { companyName });
-  if (result.blockedSectors.length > 0) {
-    toast.error(
-      `Impressão bloqueada pelo navegador (${result.blockedSectors.join(", ")}). Libere pop-ups para este site.`,
-      { id: "orders-print-blocked", duration: 8000 },
-    );
-  }
+  // computed stats (may be absent)
+  _count?: { orders: number };
+  // FIX: total já pago em ganhos, vindo do backend (drivers.service.ts findAll)
+  totalEarnings?: number;
 }
 
-// ── Edit Notes Modal ──────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<string, string> = {
+  online:  "bg-green-100 text-green-700 border border-green-200",
+  busy:    "bg-orange-100 text-orange-700 border border-orange-200",
+  offline: "bg-gray-100 text-gray-500 border border-gray-200",
+};
+const STATUS_DOT: Record<string, string> = {
+  online: "bg-green-500",
+  busy:   "bg-orange-400",
+  offline:"bg-gray-400",
+};
+const STATUS_LABEL: Record<string, string> = {
+  online: "Online",
+  busy:   "Em entrega",
+  offline:"Offline",
+};
 
-function EditNotesModal({
-  order,
+function driverStatus(d: Driver): "online" | "busy" | "offline" {
+  if (!d.user.isActive) return "offline";
+  if (d.isAvailable) return "online";
+  return "busy";
+}
+
+const VEHICLE_TYPES = ["Moto", "Bicicleta", "Carro", "Van", "A pé"];
+
+const inp = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-orange-400 bg-white";
+const label = "block text-xs text-gray-500 font-semibold uppercase mb-1 tracking-wide";
+
+/* ─── Nova entregador modal ─────────────────────────────────────────────────── */
+function NovoEntregadorModal({
   onClose,
-  onSaved,
+  onCreated,
 }: {
-  order: Order;
   onClose: () => void;
-  onSaved: () => void;
+  onCreated: (d: Driver) => void;
 }) {
-  const [notes, setNotes] = useState(order.notes || "");
+  const [form, setForm] = useState({
+    name: "", email: "", password: "", phone: "",
+    vehicleType: "Moto", vehiclePlate: "",
+  });
+  const [showPass, setShowPass] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function save() {
+    if (!form.name.trim())  { toast.error("Nome obrigatório"); return; }
+    if (!form.email.trim()) { toast.error("E-mail obrigatório"); return; }
     setSaving(true);
     try {
-      // Atualiza via status para manter o status atual (sem alterar) — notes é incluído no body
-      // Como não há endpoint PATCH /orders/:id genérico, usamos o status atual
-      await api.patch(`/orders/${order.id}/status`, { status: order.status, notes });
-      toast.success("Observações atualizadas");
-      onSaved();
+      const res = await api.post("/drivers", {
+        name:        form.name.trim(),
+        email:       form.email.trim().toLowerCase(),
+        password:    form.password || undefined,
+        phone:       form.phone.trim() || undefined,
+        vehicleType: form.vehicleType || undefined,
+        vehiclePlate:form.vehiclePlate.trim() || undefined,
+      });
+      toast.success(`Entregador ${form.name} cadastrado!`);
+      onCreated(res.data);
       onClose();
-    } catch {
-      toast.error("Erro ao salvar");
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Erro ao cadastrar"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-900">Editar Pedido</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <Bike size={18} className="text-orange-500" />
+            <h2 className="font-bold text-gray-900">Novo Entregador</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+            <X size={20} />
+          </button>
         </div>
-        <div className="px-5 py-4 space-y-3">
+
+        <div className="p-6 space-y-4">
+          {/* Name */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
-              Observações do pedido
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={4}
-              className="w-full border border-gray-200 focus:border-primary rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none resize-none"
-              placeholder="Ex: sem cebola, ponto da carne..."
+            <label className={label}>Nome completo *</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Ex: João Silva" className={inp} />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className={label}>E-mail (login) *</label>
+            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="joao@empresa.com" className={inp} />
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className={label}>Senha (deixe em branco para usar padrão)</label>
+            <div className="relative">
+              <input
+                type={showPass ? "text" : "password"}
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="Padrão: Entregador@123"
+                className={`${inp} pr-10`}
+              />
+              <button type="button" onClick={() => setShowPass(s => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className={label}>Telefone / WhatsApp</label>
+            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              placeholder="(00) 00000-0000" inputMode="tel" className={inp} />
+          </div>
+
+          {/* Vehicle type */}
+          <div>
+            <label className={label}>Tipo de veículo</label>
+            <select value={form.vehicleType} onChange={e => setForm(f => ({ ...f, vehicleType: e.target.value }))}
+              className={inp}>
+              {VEHICLE_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </div>
+
+          {/* Plate */}
+          <div>
+            <label className={label}>Placa do veículo</label>
+            <input
+              value={form.vehiclePlate}
+              onChange={e => setForm(f => ({ ...f, vehiclePlate: e.target.value.toUpperCase() }))}
+              placeholder="Ex: ABC-1234"
+              className={inp}
             />
           </div>
-          <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
-            <p><strong>Cliente:</strong> {customerName(order)}</p>
-            <p><strong>Telefone:</strong> {customerPhone(order)}</p>
-            {order.deliveryAddress && <p><strong>Endereço:</strong> {order.deliveryAddress}</p>}
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button onClick={save} disabled={saving}
+              className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold text-sm transition flex items-center justify-center gap-2">
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+              {saving ? "Cadastrando…" : "Cadastrar"}
+            </button>
           </div>
-        </div>
-        <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 py-2.5 rounded-xl text-sm font-semibold transition"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition"
-          >
-            <Save size={14} /> {saving ? "Salvando..." : "Salvar"}
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+/* ─── Editar entregador modal ───────────────────────────────────────────────── */
+function EditarDriverModal({
+  driver,
+  onClose,
+  onUpdated,
+}: {
+  driver: Driver;
+  onClose: () => void;
+  onUpdated: (d: Driver) => void;
+}) {
+  const [form, setForm] = useState({
+    name:        driver.user.name,
+    phone:       driver.phone ?? "",
+    vehicleType: driver.vehicleType ?? "Moto",
+    vehiclePlate:driver.vehiclePlate ?? "",
+    isActive:    driver.user.isActive,
+    isAvailable: driver.isAvailable,
+  });
+  const [saving, setSaving] = useState(false);
 
-export default function OrdersPage() {
-  const [orders, setOrders]         = useState<Order[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [companyName, setCompanyName] = useState("Restaurante");
-  const [showHistory, setShowHistory] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const { user } = useAuthStore();
-
-  const fetchOrders = useCallback(async () => {
+  async function save() {
+    setSaving(true);
     try {
-      // Endpoint unificado (Item 4 — Caminho 2): PDV + Cardápio Digital
-      const response = await api.get("/orders/kitchen");
-      setOrders(Array.isArray(response.data) ? response.data : []);
+      const res = await api.patch(`/drivers/${driver.id}`, {
+        name:        form.name.trim(),
+        phone:       form.phone.trim() || undefined,
+        vehicleType: form.vehicleType,
+        vehiclePlate:form.vehiclePlate.trim(),
+        isActive:    form.isActive,
+        isAvailable: form.isAvailable,
+      });
+      toast.success("Entregador atualizado!");
+      onUpdated(res.data);
+      onClose();
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Erro ao atualizar"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <Pencil size={16} className="text-orange-500" />
+            <h2 className="font-bold text-gray-900">Editar Entregador</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className={label}>Nome</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className={inp} />
+          </div>
+          <div>
+            <label className={label}>Telefone</label>
+            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inp} placeholder="(00) 00000-0000" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label}>Tipo veículo</label>
+              <select value={form.vehicleType} onChange={e => setForm(f => ({ ...f, vehicleType: e.target.value }))} className={inp}>
+                {VEHICLE_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={label}>Placa</label>
+              <input value={form.vehiclePlate} onChange={e => setForm(f => ({ ...f, vehiclePlate: e.target.value.toUpperCase() }))} className={inp} />
+            </div>
+          </div>
+
+          {/* Toggles */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
+              <span className="text-sm text-gray-700 font-medium">Conta ativa</span>
+              <button onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}
+                className={`transition ${form.isActive ? "text-green-500" : "text-gray-400"}`}>
+                {form.isActive ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+              </button>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
+              <span className="text-sm text-gray-700 font-medium">Disponível para entregas</span>
+              <button onClick={() => setForm(f => ({ ...f, isAvailable: !f.isAvailable }))}
+                className={`transition ${form.isAvailable ? "text-orange-500" : "text-gray-400"}`}>
+                {form.isAvailable ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition">
+              Cancelar
+            </button>
+            <button onClick={save} disabled={saving}
+              className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold text-sm transition flex items-center justify-center gap-2">
+              {saving && <Loader2 size={16} className="animate-spin" />}
+              {saving ? "Salvando…" : "Salvar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main page ─────────────────────────────────────────────────────────────── */
+export default function EntregadoresPage() {
+  const [drivers, setDrivers]         = useState<Driver[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState("");
+  const [filter, setFilter]           = useState<"all"|"online"|"busy"|"offline">("all");
+  const [showNovo, setShowNovo]       = useState(false);
+  const [editDriver, setEditDriver]   = useState<Driver | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/drivers");
+      setDrivers(Array.isArray(res.data) ? res.data : []);
     } catch {
-      toast.error("Erro ao carregar pedidos");
+      toast.error("Erro ao carregar entregadores");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  async function fetchCompany() {
-    if (!user?.companyId) return;
-    try {
-      const res = await fetch(`${apiBaseUrl}/company/${user.companyId}`);
-      const data = await res.json();
-      if (data?.name) setCompanyName(data.name);
-    } catch {}
-  }
+  useEffect(() => { load(); }, [load]);
 
-  async function updateStatus(id: string, status: string, source?: string) {
-    try {
-      const src = (source as string) || "PDV";
-      await api.patch(`/orders/kitchen/${src}/${id}/status`, { status });
-      toast.success("Status atualizado");
-      fetchOrders();
-    } catch {
-      toast.error("Erro ao atualizar status");
-    }
-  }
+  const filtered = drivers.filter(d => {
+    const s = driverStatus(d);
+    const matchSearch =
+      d.user.name.toLowerCase().includes(search.toLowerCase()) ||
+      (d.phone ?? "").includes(search) ||
+      (d.vehicleType ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === "all" || s === filter;
+    return matchSearch && matchFilter;
+  });
 
-  useEffect(() => {
-    fetchOrders();
-    fetchCompany();
-    socket.connect();
-    socket.on("orderCreated", fetchOrders);
-    socket.on("kitchenUpdate", fetchOrders);
-    return () => {
-      socket.off("orderCreated");
-      socket.off("kitchenUpdate");
-      socket.disconnect();
-    };
-  }, [fetchOrders]);
+  const online  = drivers.filter(d => driverStatus(d) === "online").length;
+  const busy    = drivers.filter(d => driverStatus(d) === "busy").length;
+  const offline = drivers.filter(d => driverStatus(d) === "offline").length;
 
-  // Separar ativos × histórico
-  const activeOrders  = orders.filter(o => !HISTORY_STATUSES.has(o.status));
-  const historyOrders = orders.filter(o =>  HISTORY_STATUSES.has(o.status));
-  const displayOrders = showHistory ? historyOrders : activeOrders;
+  function onCreated(d: Driver) { setDrivers(prev => [d, ...prev]); }
+  function onUpdated(d: Driver) { setDrivers(prev => prev.map(x => x.id === d.id ? d : x)); }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <PrinterAgentBanner />
+    <div className="space-y-6">
 
-      <div className="p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary p-2.5 rounded-xl">
-              <ShoppingCart size={20} className="text-white" />
-            </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: "Online agora",  value: online,  icon: <CheckCircle size={20} className="text-green-500"  />, color: "text-green-600"  },
+          { label: "Em entrega",    value: busy,    icon: <Bike        size={20} className="text-orange-500" />, color: "text-orange-600" },
+          { label: "Offline",       value: offline, icon: <XCircle     size={20} className="text-gray-400"   />, color: "text-gray-500"   },
+          { label: "Total",         value: drivers.length, icon: <Package size={20} className="text-blue-500" />, color: "text-blue-600" },
+        ].map((s, i) => (
+          <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">{s.icon}</div>
             <div>
-              <h1 className="text-2xl font-black text-gray-900">Pedidos</h1>
-              <p className="text-gray-400 text-sm">Gestão em tempo real</p>
+              <p className="text-xs text-gray-500 font-medium">{s.label}</p>
+              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+        ))}
+      </div>
+
+      {/* Search + Filter + Novo Entregador */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            placeholder="Buscar por nome, telefone ou veículo..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-400 bg-white"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(["all", "online", "busy", "offline"] as const).map(f => (
             <button
-              onClick={fetchOrders}
-              className="border border-gray-200 text-gray-500 hover:bg-gray-100 p-2 rounded-xl transition"
-              title="Atualizar"
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            </button>
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition ${
-                showHistory
-                  ? "bg-gray-800 text-white border-gray-800"
-                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                filter === f
+                  ? "bg-orange-500 text-white border-orange-500"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
               }`}
             >
-              <History size={15} />
-              Histórico
-              {historyOrders.length > 0 && (
-                <span className="bg-gray-400 text-white text-xs px-1.5 py-0.5 rounded-full">
-                  {historyOrders.length}
-                </span>
-              )}
+              {{ all: "Todos", online: "Online", busy: "Em entrega", offline: "Offline" }[f]}
             </button>
-          </div>
+          ))}
         </div>
+        {/* FIX: botão "Novo Entregador" agora fica sempre visível aqui,
+            não só quando a lista está vazia. Antes era impossível cadastrar
+            um novo entregador se já existisse pelo menos um na lista. */}
+        <button
+          onClick={() => setShowNovo(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm transition whitespace-nowrap"
+        >
+          <Plus size={16} />
+          Novo Entregador
+        </button>
+      </div>
 
-        {/* Legend */}
-        {!showHistory && (
-          <div className="flex items-center gap-4 mb-5 text-xs text-gray-500">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Em dia (&lt;25 min)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" /> Próximo do prazo (25–45 min)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Atrasado (&gt;45 min)
-            </span>
-          </div>
-        )}
-
-        {/* Orders list */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20 gap-3">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-400">Carregando pedidos...</span>
-          </div>
-        ) : displayOrders.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <ShoppingCart size={48} className="mx-auto mb-3 opacity-30" />
-            {showHistory ? "Nenhum pedido no histórico" : "Nenhum pedido ativo no momento"}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {displayOrders.map((order) => {
-              const statusInfo = STATUS_LABELS[order.status] || { label: order.status, color: "bg-gray-100 text-gray-600 border-gray-200" };
-              const items: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-              const elapsed = elapsedMin(order);
-              const isDelivery = order.orderType === "DELIVERY" || Number(order.deliveryFee) > 0;
-
-              return (
-                <div
-                  key={`${(order as any).source ?? 'PDV'}-${order.id}`}
-                  className={`bg-white rounded-2xl border-2 overflow-hidden transition ${timingBorderClass(order)}`}
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-                    <div className="flex items-center gap-3">
-                      {/* Timing dot */}
-                      {!HISTORY_STATUSES.has(order.status) && (
-                        <span className={`w-3 h-3 rounded-full shrink-0 ${timingDotClass(order)}`} />
-                      )}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <User size={13} className="text-gray-400" />
-                          <p className="font-black text-gray-900 text-sm">{customerName(order)}</p>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <Phone size={11} className="text-gray-400" />
-                          <p className="text-gray-400 text-xs">{customerPhone(order)}</p>
-                        </div>
-                      </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusInfo.color}`}>
-                        {statusInfo.label}
-                      </span>
-                      {/* Adapter Item 4 — fonte do pedido */}
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide ${
-                        (order as any).source === "ONLINE"
-                          ? "bg-blue-100 text-blue-700 border border-blue-200"
-                          : (order as any).source === "MOCK"
-                            ? "bg-purple-100 text-purple-700 border border-purple-200"
-                            : (order as any).source === "IFOOD"
-                              ? "bg-red-100 text-red-700 border border-red-200"
-                              : "bg-gray-100 text-gray-600 border border-gray-200"
-                      }`}>
-                        {(order as any).source ?? "PDV"}
-                      </span>
-                      {/* Fase 2: badge de tipo de atendimento */}
-                      {order.orderType === "DELIVERY" && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
-                          🛵 Delivery
-                        </span>
-                      )}
-                      {order.orderType === "PICKUP" && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">
-                          🏠 Retirada
-                        </span>
-                      )}
-                      {(order.orderType === "DINE_IN" || !order.orderType) && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                          🍽️ Balcão
-                        </span>
-                      )}
+      {/* Driver cards */}
+      {loading ? (
+        <div className="grid md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-44 rounded-2xl bg-gray-100 animate-pulse" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="py-20 text-center text-gray-400">
+          <Bike size={48} className="mx-auto mb-4 opacity-30" />
+          <p className="font-semibold text-lg">
+            {drivers.length === 0 ? "Nenhum entregador cadastrado" : "Nenhum entregador encontrado"}
+          </p>
+          {drivers.length === 0 && (
+            <button
+              onClick={() => setShowNovo(true)}
+              className="mt-4 px-5 py-2.5 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 transition"
+            >
+              + Cadastrar primeiro entregador
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4">
+          {filtered.map(d => {
+            const status = driverStatus(d);
+            return (
+              <div key={d.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
+                      {d.user.name.charAt(0).toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-primary font-black text-lg">
-                          R$ {Number(order.total).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {PAY_LABELS[order.paymentMethod] || order.paymentMethod}
-                        </p>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{d.user.name}</h3>
+                      <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                        <Phone size={11} /> {d.phone ?? "—"}
                       </div>
                     </div>
                   </div>
-
-                  {/* Body */}
-                  <div className="px-5 py-4 space-y-3">
-                    {/* Fees row */}
-                    {(Number(order.deliveryFee) > 0 || Number(order.driverFee) > 0) && (
-                      <div className="flex items-center gap-4 text-xs bg-blue-50 rounded-xl px-3 py-2">
-                        {Number(order.deliveryFee) > 0 && (
-                          <span className="text-blue-700">
-                            <strong>Taxa cliente:</strong> R$ {Number(order.deliveryFee).toFixed(2)}
-                          </span>
-                        )}
-                        {Number(order.driverFee) > 0 && (
-                          <span className="text-purple-700">
-                            <strong>Taxa entregador:</strong> R$ {Number(order.driverFee).toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Timing row */}
-                    {!HISTORY_STATUSES.has(order.status) && (
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        {order.confirmedAt && (
-                          <span className="flex items-center gap-1">
-                            <CheckCircle2 size={11} className="text-green-500" />
-                            Aceito às {new Date(order.confirmedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        )}
-                        {isDelivery && order.confirmedAt && (
-                          <span className="flex items-center gap-1">
-                            <Clock size={11} />
-                            Previsão: {estimatedDelivery(order)}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} />
-                          {elapsed}min
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Address */}
-                    {order.deliveryAddress && (
-                      <p className="text-xs text-gray-400 flex items-center gap-1">
-                        <MapPin size={11} /> {order.deliveryAddress}
-                      </p>
-                    )}
-
-                    {/* Notes */}
-                    {order.notes && (
-                      <p className="text-xs text-primary bg-primary/5 rounded-lg px-3 py-2">
-                        Obs: {order.notes}
-                      </p>
-                    )}
-
-                    {/* Items */}
-                    <div className="space-y-1">
-                      {items.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-700">
-                            <span className="font-bold text-primary">{item.quantity}x</span>{" "}
-                            {item.productName}
-                            {item.notes && <span className="text-gray-400 ml-2 text-xs">({item.notes})</span>}
-                          </span>
-                          <span className="text-gray-500 font-medium">
-                            R$ {Number(item.subtotal).toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="px-5 pb-4 flex flex-wrap items-center gap-2">
-                    {/* Status select */}
-                    <select
-                      value={order.status}
-                      onChange={(e) => updateStatus(order.id, e.target.value, (order as any).source)}
-                      className="border border-gray-200 focus:border-primary text-gray-700 px-3 py-2 rounded-xl outline-none text-sm font-medium"
-                    >
-                      <option value="PENDING">Pendente</option>
-                      <option value="CONFIRMED">Confirmado</option>
-                      <option value="PREPARING">Preparando</option>
-                      <option value="READY">Pronto</option>
-                      <option value="OUT_FOR_DELIVERY">Saiu entrega</option>
-                      <option value="DELIVERED">Finalizado</option>
-                      <option value="CANCELLED">Cancelado</option>
-                    </select>
-
-                    {/* Despachar para entrega */}
-                    {order.status === "READY" && (
-                      <button
-                        onClick={() => updateStatus(order.id, "OUT_FOR_DELIVERY", (order as any).source)}
-                        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
-                      >
-                        <Truck size={14} /> Despachar entrega
-                      </button>
-                    )}
-
-                    {/* Finalizar */}
-                    {(order.status === "OUT_FOR_DELIVERY" || order.status === "READY") && (
-                      <button
-                        onClick={() => {
-                          if (!confirm("Finalizar este pedido?")) return;
-                          updateStatus(order.id, "DELIVERED", (order as any).source);
-                        }}
-                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
-                      >
-                        <CheckCircle2 size={14} /> Finalizar
-                      </button>
-                    )}
-
-                    {/* Editar */}
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${STATUS_COLOR[status]}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} />
+                      {STATUS_LABEL[status]}
+                    </span>
                     <button
-                      onClick={() => setEditingOrder(order)}
-                      className="flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium transition ml-auto"
+                      onClick={() => setEditDriver(d)}
+                      className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-orange-100 text-gray-500 hover:text-orange-500 flex items-center justify-center transition"
+                      title="Editar"
                     >
-                      Editar
-                    </button>
-
-                    {/* Imprimir */}
-                    <button
-                      onClick={() => printOrder(order, companyName)}
-                      className="flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium transition"
-                    >
-                      <Printer size={14} /> Imprimir
+                      <Pencil size={14} />
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
-      {/* Edit modal */}
-      {editingOrder && (
-        <EditNotesModal
-          order={editingOrder}
-          onClose={() => setEditingOrder(null)}
-          onSaved={fetchOrders}
+                {(d.vehicleType || d.vehiclePlate) && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-4">
+                    <MapPin size={12} className="text-orange-400" />
+                    {[d.vehicleType, d.vehiclePlate].filter(Boolean).join(" — ")}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                    <div className="flex items-center justify-center gap-1 text-yellow-500 mb-0.5">
+                      <Star size={12} fill="currentColor" />
+                      <span className="text-sm font-bold text-gray-900">—</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Avaliação</p>
+                  </div>
+                  {/* FIX: agora mostra a contagem real de entregas finalizadas
+                      (vem de d._count.orders, preenchido pelo backend) */}
+                  <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <Package size={12} className="text-blue-400" />
+                      <span className="text-sm font-bold text-gray-900">{d._count?.orders ?? 0}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">Entregas</p>
+                  </div>
+                  {/* FIX: agora mostra o total real já pago em ganhos
+                      (vem de d.totalEarnings, preenchido pelo backend) */}
+                  <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <DollarSign size={12} className="text-green-500" />
+                      <span className="text-sm font-bold text-gray-900">
+                        {d.totalEarnings ? `R$ ${d.totalEarnings.toFixed(2)}` : "R$ 0,00"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">Ganhos</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showNovo && (
+        <NovoEntregadorModal onClose={() => setShowNovo(false)} onCreated={onCreated} />
+      )}
+      {editDriver && (
+        <EditarDriverModal
+          driver={editDriver}
+          onClose={() => setEditDriver(null)}
+          onUpdated={onUpdated}
         />
       )}
-      </div>{/* /p-6 md:p-8 */}
-    </main>
+    </div>
   );
 }

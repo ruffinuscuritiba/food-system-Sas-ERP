@@ -15,14 +15,43 @@ export class DriversService {
     private ordersService: OrdersService,
   ) {}
 
-  findAll(companyId: string) {
-    return this.prisma.driverProfile.findMany({
+  // FIX: agora retorna, para cada entregador, quantas entregas ele já
+  // finalizou (_count.orders, filtrado por status DELIVERED) e o total já
+  // pago em ganhos (totalEarnings, somando DriverEarning com status PAID).
+  // Antes o findAll não trazia nenhum desses dados — por isso a tela de
+  // entregadores mostrava sempre "—" nos cards de Entregas e Ganhos.
+  async findAll(companyId: string) {
+    const drivers = await this.prisma.driverProfile.findMany({
       where: { companyId },
       include: {
         user: { select: { id: true, name: true, email: true, isActive: true } },
+        _count: {
+          select: {
+            orders: { where: { status: 'DELIVERED' } },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Soma os ganhos já pagos de cada entregador numa única query agregada
+    // (evita N+1 — uma query só, não uma por entregador)
+    const earningsByDriver = await this.prisma.driverEarning.groupBy({
+      by: ['driverProfileId'],
+      where: { companyId, status: 'PAID' },
+      _sum: { driverAmount: true },
+    });
+    const earningsMap = new Map(
+      earningsByDriver.map((e) => [
+        e.driverProfileId,
+        Number(e._sum.driverAmount ?? 0),
+      ]),
+    );
+
+    return drivers.map((d) => ({
+      ...d,
+      totalEarnings: earningsMap.get(d.id) ?? 0,
+    }));
   }
 
   findOne(id: string, companyId: string) {

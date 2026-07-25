@@ -36,7 +36,6 @@ const SIZE_SUFFIX_MAP: [string, string[]][] = [
 function stripSizeSuffix(name: string): { baseName: string; sizeKey: string | null } {
   for (const [sizeKey, labels] of SIZE_SUFFIX_MAP) {
     for (const label of labels) {
-      // matches: "Calabresa Média", "Calabresa - Média", "Calabresa (Média)"
       const re = new RegExp(`[\\s\\-–()]+${label}[)]*$`, "i");
       if (re.test(name)) {
         return { baseName: name.replace(re, "").trim(), sizeKey };
@@ -49,8 +48,8 @@ function stripSizeSuffix(name: string): { baseName: string; sizeKey: string | nu
 // ── Normalized flavor (one entry per unique base name) ────────────────────────
 
 type NormalizedFlavor = {
-  displayName: string;                        // e.g. "Calabresa"
-  variants:    Record<string, FlavorVariant>; // sizeKey or "any" → original product
+  displayName: string;
+  variants:    Record<string, FlavorVariant>;
 };
 
 function buildNormalizedFlavors(flavors: Flavor[]): NormalizedFlavor[] {
@@ -93,15 +92,13 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
           { size: "EXTRA_GRANDE", label: "Extra Grande",price: 0 },
         ];
 
-  const [selectedSize,   setSelectedSize]   = useState<SizeOption>(sizeOptions[0]);
-  const [selectedNorms,  setSelectedNorms]  = useState<NormalizedFlavor[]>([]);
-  const [border,         setBorder]         = useState<Border | null>(null);
-  const [notes,          setNotes]          = useState("");
+  const [selectedSize,  setSelectedSize]  = useState<SizeOption>(sizeOptions[0]);
+  const [selectedNorms, setSelectedNorms] = useState<NormalizedFlavor[]>([]);
+  const [border,        setBorder]        = useState<Border | null>(null);
+  const [notes,         setNotes]         = useState("");
 
-  // maxFlavors from sizeConfig or fallback 2
   const maxFlavors = sizeConfigs?.[selectedSize.size]?.maxFlavors ?? 2;
 
-  // Deduplicated flavor list — computed once per flavors prop change
   const normalizedFlavors = useMemo(
     () => buildNormalizedFlavors(flavors),
     [flavors],
@@ -122,20 +119,24 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
   function changeSize(opt: SizeOption) {
     setSelectedSize(opt);
     const newMax = sizeConfigs?.[opt.size]?.maxFlavors ?? 2;
-    // trim flavors if new max is smaller
     setSelectedNorms(prev => prev.slice(0, newMax));
   }
 
-  // ── Price ────────────────────────────────────────────────────────────────────
+  // ── Price Calculation ───────────────────────────────────────────────────────
 
   const pizzaPrice = useMemo(() => {
-    const base =
-      selectedSize.price > 0
-        ? selectedSize.price
-        : Math.max(
-            ...selectedNorms.map(n => resolveVariant(n, selectedSize.size).price),
-            0,
-          );
+    let base = 0;
+
+    if (selectedSize.price > 0) {
+      base = selectedSize.price;
+    } else if (selectedNorms.length > 0) {
+      // Cobra pelo valor do sabor mais caro selecionado (Regra padrão)
+      base = Math.max(
+        ...selectedNorms.map(n => resolveVariant(n, selectedSize.size).price),
+        0
+      );
+    }
+
     return base + (border?.price ?? 0);
   }, [selectedNorms, border, selectedSize]);
 
@@ -144,19 +145,21 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
   function addPizza() {
     if (selectedNorms.length === 0) return;
     const resolved = selectedNorms.map(n => resolveVariant(n, selectedSize.size));
+    
     onAdd({
-      id:        `pizza-${Date.now()}`,
-      type:      "PIZZA",
-      size:      selectedSize.size,
-      sizeLabel: selectedSize.label,
-      flavors:   resolved,
+      id:         `pizza-${Date.now()}`,
+      type:       "PIZZA",
+      size:       selectedSize.size,
+      sizeLabel:  selectedSize.label,
+      flavors:    resolved,
       border,
       notes,
-      quantity:  1,
-      name:      selectedNorms.map(n => n.displayName).join(" / "),
-      price:     pizzaPrice,
+      quantity:   1,
+      name:       `Pizza ${selectedSize.label}: ${selectedNorms.map(n => n.displayName).join(" / ")}`,
+      price:      pizzaPrice,
       categoryId: resolved[0]?.id,
     });
+
     setSelectedNorms([]);
     setBorder(null);
     setNotes("");
@@ -174,37 +177,34 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
 
       {/* ── Tamanho ─────────────────────────────────────────────────────────── */}
       <div>
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-3">Tamanho</p>
-        <div
-          className={`grid gap-2 ${
-            sizeOptions.length <= 3
-              ? "grid-cols-3"
-              : sizeOptions.length === 4
-              ? "grid-cols-4"
-              : "grid-cols-5"
-          }`}
-        >
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-3">
+          1. Escolha o Tamanho
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           {sizeOptions.map(opt => {
             const sizeFlavors = sizeConfigs?.[opt.size]?.maxFlavors;
+            const isSelected = selectedSize.size === opt.size;
+
             return (
               <button
                 key={opt.size}
+                type="button"
                 onClick={() => changeSize(opt)}
-                className={`py-3 rounded-2xl font-bold text-sm transition text-center ${
-                  selectedSize.size === opt.size
-                    ? "bg-green-500 text-white"
-                    : "bg-[#161b2d] text-zinc-300 hover:bg-[#1d2336]"
+                className={`py-3 px-2 rounded-2xl font-bold text-sm transition text-center border ${
+                  isSelected
+                    ? "bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/20"
+                    : "bg-[#161b2d] border-[#1d2336] text-zinc-300 hover:bg-[#1d2336]"
                 }`}
               >
-                <span className="block">{opt.label}</span>
+                <span className="block leading-tight">{opt.label}</span>
                 {opt.price > 0 && (
-                  <span className="block text-xs font-normal opacity-80 mt-0.5">
+                  <span className="block text-xs font-normal opacity-90 mt-1">
                     {fmt(opt.price)}
                   </span>
                 )}
                 {sizeFlavors != null && (
-                  <span className="block text-xs font-normal opacity-60 mt-0.5">
-                    {sizeFlavors === 1 ? "1 sabor" : `até ${sizeFlavors} sabores`}
+                  <span className="block text-[10px] font-medium opacity-70 mt-0.5">
+                    {sizeFlavors === 1 ? "1 sabor" : `Até ${sizeFlavors} sabores`}
                   </span>
                 )}
               </button>
@@ -215,54 +215,54 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
 
       {/* ── Sabores ─────────────────────────────────────────────────────────── */}
       <div>
-        {/* Header + counter */}
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide">Sabores</p>
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide">
+            2. Escolha os Sabores
+          </p>
           <span
             className={`text-xs font-semibold px-2.5 py-1 rounded-full transition ${
               isComplete
-                ? "bg-green-500/20 text-green-400"
+                ? "bg-green-500/20 text-green-400 border border-green-500/30"
                 : selectedNorms.length > 0
-                ? "bg-amber-500/20 text-amber-400"
+                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
                 : "bg-zinc-800 text-zinc-500"
             }`}
           >
-            {selectedNorms.length} de {maxFlavors} sabor{maxFlavors !== 1 ? "es" : ""} selecionado{maxFlavors !== 1 ? "s" : ""}
+            {selectedNorms.length} de {maxFlavors} sabor{maxFlavors !== 1 ? "es" : ""}
           </span>
         </div>
 
-        {/* Status hint */}
+        {/* Dynamic status feedback */}
         {selectedNorms.length > 0 && !isComplete && (
-          <div className="mb-3 flex items-center gap-2 text-xs bg-amber-500/10 rounded-xl px-3 py-2.5">
-            <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+          <div className="mb-3 flex items-center gap-2 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
+            <CheckCircle2 size={14} className="text-amber-400 shrink-0" />
             <span>
-              <span className="text-green-400 font-semibold">
+              <span className="text-white font-semibold">
                 {selectedNorms.map(n => n.displayName).join(", ")}
               </span>
-              <span className="text-amber-400">
-                {" — "}Escolha mais{" "}
-                {remaining === 1 ? "1 sabor" : `${remaining} sabores`}
+              <span className="text-amber-400 font-medium">
+                {" — "}Escolha mais {remaining === 1 ? "1 sabor" : `${remaining} sabores`}
               </span>
             </span>
           </div>
         )}
 
         {isComplete && (
-          <div className="mb-3 flex items-center gap-2 text-xs bg-green-500/10 rounded-xl px-3 py-2.5">
+          <div className="mb-3 flex items-center gap-2 text-xs bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-2.5">
             <CheckCircle2 size={14} className="text-green-400 shrink-0" />
             <span className="text-green-400 font-semibold">
-              {selectedNorms.map(n => n.displayName).join(" / ")} — Pizza completa! ✓
+              {selectedNorms.map(n => n.displayName).join(" / ")} — Sabores selecionados! ✓
             </span>
           </div>
         )}
 
         {/* Flavor grid */}
         {normalizedFlavors.length === 0 ? (
-          <p className="text-zinc-500 text-sm py-4 text-center">
+          <p className="text-zinc-500 text-sm py-6 text-center bg-[#161b2d]/50 rounded-xl">
             Nenhum sabor cadastrado nesta categoria
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto scrollbar-hide pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 touch-pan-y">
             {normalizedFlavors.map(norm => {
               const selected  = selectedNorms.some(n => n.displayName === norm.displayName);
               const disabled  = !selected && isComplete;
@@ -272,23 +272,26 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
               return (
                 <button
                   key={norm.displayName}
+                  type="button"
                   onClick={() => toggleFlavor(norm)}
                   disabled={disabled}
-                  className={`p-3 rounded-xl text-left transition ${
+                  className={`p-3 rounded-xl text-left transition flex items-center justify-between border ${
                     selected
-                      ? "bg-green-500 text-white"
+                      ? "bg-green-500 border-green-500 text-white shadow-md shadow-green-500/10"
                       : disabled
-                      ? "bg-[#0c101d] text-zinc-600 cursor-not-allowed opacity-40"
-                      : "bg-[#161b2d] text-zinc-200 hover:bg-[#1d2336]"
+                      ? "bg-[#0c101d] border-transparent text-zinc-600 cursor-not-allowed opacity-40"
+                      : "bg-[#161b2d] border-[#1d2336] text-zinc-200 hover:bg-[#1d2336]"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 pr-2 min-w-0">
                     {selected && (
-                      <CheckCircle2 size={13} className="shrink-0 opacity-90" />
+                      <CheckCircle2 size={16} className="shrink-0 text-white" />
                     )}
-                    <p className="font-semibold text-sm leading-tight">{norm.displayName}</p>
+                    <span className="font-semibold text-sm truncate">{norm.displayName}</span>
                   </div>
-                  <p className="text-xs mt-0.5 opacity-70">{fmt(showPrice)}</p>
+                  <span className="text-xs font-mono font-semibold opacity-80 shrink-0">
+                    {fmt(showPrice)}
+                  </span>
                 </button>
               );
             })}
@@ -299,12 +302,17 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
       {/* ── Borda ───────────────────────────────────────────────────────────── */}
       {borders.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">Borda</p>
-          <div className="grid grid-cols-2 gap-2">
+          <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">
+            3. Borda Recheada (Opcional)
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <button
+              type="button"
               onClick={() => setBorder(null)}
-              className={`p-3 rounded-xl text-sm font-semibold transition ${
-                !border ? "bg-blue-600 text-white" : "bg-[#161b2d] text-zinc-300"
+              className={`p-3 rounded-xl text-sm font-semibold transition border ${
+                !border
+                  ? "bg-blue-600 border-blue-600 text-white"
+                  : "bg-[#161b2d] border-[#1d2336] text-zinc-300 hover:bg-[#1d2336]"
               }`}
             >
               Sem borda
@@ -312,13 +320,16 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
             {borders.map(b => (
               <button
                 key={b.id}
+                type="button"
                 onClick={() => setBorder(b)}
-                className={`p-3 rounded-xl text-sm transition text-left ${
-                  border?.id === b.id ? "bg-blue-600 text-white" : "bg-[#161b2d] text-zinc-300"
+                className={`p-3 rounded-xl text-sm transition text-left border ${
+                  border?.id === b.id
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "bg-[#161b2d] border-[#1d2336] text-zinc-300 hover:bg-[#1d2336]"
                 }`}
               >
-                <span className="font-semibold">{b.name}</span>
-                <span className="block text-xs opacity-75">+{fmt(b.price)}</span>
+                <span className="font-semibold block truncate">{b.name}</span>
+                <span className="block text-xs opacity-80">+{fmt(b.price)}</span>
               </button>
             ))}
           </div>
@@ -327,28 +338,31 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
 
       {/* ── Observações ─────────────────────────────────────────────────────── */}
       <div>
-        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">Observações</p>
+        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">
+          Observações
+        </p>
         <textarea
           value={notes}
           onChange={e => setNotes(e.target.value)}
           rows={2}
-          placeholder="Ex: sem cebola, massa fina..."
-          className="w-full bg-[#161b2d] border border-[#1d2336] rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none resize-none focus:border-blue-500"
+          placeholder="Ex: massa bem assada, sem cebola, cortar em 12 pedaços..."
+          className="w-full bg-[#161b2d] border border-[#1d2336] rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none resize-none focus:border-green-500 transition"
         />
       </div>
 
       {/* ── Total + Adicionar ────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between pt-2 border-t border-[#161b2d]">
+      <div className="flex items-center justify-between pt-4 border-t border-[#161b2d]">
         <div>
-          <p className="text-xs text-zinc-500">Total</p>
+          <p className="text-xs text-zinc-400 font-medium">Total da Pizza</p>
           <p className="text-2xl font-black text-green-400">{fmt(pizzaPrice)}</p>
         </div>
         <button
+          type="button"
           onClick={addPizza}
           disabled={selectedNorms.length === 0}
-          className="px-8 py-3.5 rounded-2xl bg-green-500 hover:bg-green-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm transition"
+          className="px-8 py-3.5 rounded-2xl bg-green-500 hover:bg-green-400 active:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm transition shadow-lg shadow-green-500/20"
         >
-          Adicionar
+          Adicionar ao Pedido
         </button>
       </div>
     </div>

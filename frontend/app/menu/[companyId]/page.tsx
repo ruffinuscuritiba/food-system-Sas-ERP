@@ -293,6 +293,11 @@ export default function MenuPage() {
   // Delivery zone state — populated after loadMenu; matched per neighborhood change
   const [deliveryZones, setDeliveryZones] = useState<{ id: string; name: string; neighborhood: string | null; clientFee: number }[]>([]);
   const [selectedZone, setSelectedZone] = useState<{ id: string; clientFee: number } | null>(null);
+  // Fallback manual: quando o bairro do cliente não está entre as zonas
+  // cadastradas, ele digita o nome livremente (sem taxa calculada — loja
+  // combina o valor/atendimento à parte). Sem isso, cliente fora das zonas
+  // cadastradas ficava travado sem conseguir prosseguir com o pedido.
+  const [manualNeighborhood, setManualNeighborhood] = useState(false);
 
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [flavorParts, setFlavorParts] = useState(2);
@@ -2103,7 +2108,7 @@ export default function MenuPage() {
               placeholder="Seu nome *"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             />
             <input
               placeholder="Telefone / WhatsApp *"
@@ -2116,7 +2121,7 @@ export default function MenuPage() {
                 setLoyaltyDiscount(0);
                 if (phone.length >= 8) fetchLoyaltyBalance(phone);
               }}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             />
 
             <label className="flex items-start gap-2.5 px-1 cursor-pointer">
@@ -2202,7 +2207,7 @@ export default function MenuPage() {
                   onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponMsg(null); setCouponDiscount(0); setCouponId(null); }}
                   onKeyDown={(e) => e.key === "Enter" && validateCoupon(couponCode)}
                   placeholder="CUPOM DE DESCONTO"
-                  className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 text-sm outline-none focus:border-orange-400 font-mono uppercase tracking-wider placeholder-gray-300"
+                  className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-900 text-sm outline-none focus:border-orange-400 font-mono uppercase tracking-wider placeholder-gray-300"
                 />
               </div>
               <button
@@ -2240,7 +2245,7 @@ export default function MenuPage() {
                 placeholder="Numero da mesa *"
                 value={tableNumber ?? ""}
                 onChange={(e) => setTableNumber(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                 inputMode="numeric"
               />
             )}
@@ -2260,7 +2265,7 @@ export default function MenuPage() {
                         streetDebounce.current = setTimeout(() => searchStreet(v), 500);
                       }}
                       onBlur={() => setTimeout(() => setStreetSuggestions([]), 200)}
-                      className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+                      className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
                       autoComplete="off"
                     />
                     {streetLoading && (
@@ -2271,7 +2276,7 @@ export default function MenuPage() {
                     placeholder="Nº"
                     value={form.number}
                     onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
-                    className="w-16 flex-shrink-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+                    className="w-16 flex-shrink-0 bg-white border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
                     inputMode="numeric"
                   />
                 </div>
@@ -2304,14 +2309,24 @@ export default function MenuPage() {
                   placeholder="Complemento (apto, bloco…)"
                   value={form.complement}
                   onChange={(e) => setForm((f) => ({ ...f, complement: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                 />
                 <div className="flex gap-2">
-                  {deliveryZones.length > 0 ? (
+                  {deliveryZones.length > 0 && !manualNeighborhood ? (
                     <select
                       value={form.neighborhood}
                       onChange={(e) => {
                         const nb = e.target.value;
+                        // "Meu bairro não está na lista" — sai do modo select e
+                        // abre um campo de texto livre. Sem isso, um cliente
+                        // cujo bairro não está entre as zonas cadastradas ficava
+                        // travado, sem nenhuma forma de prosseguir com o pedido.
+                        if (nb === "__OUTRO__") {
+                          setManualNeighborhood(true);
+                          setForm((f) => ({ ...f, neighborhood: "" }));
+                          setSelectedZone(null);
+                          return;
+                        }
                         setForm((f) => ({ ...f, neighborhood: nb }));
                         const zone = deliveryZones.find(z => (z.neighborhood || z.name || "").toLowerCase().trim() === nb.toLowerCase().trim()) ?? null;
                         setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
@@ -2324,20 +2339,37 @@ export default function MenuPage() {
                           {z.name || z.neighborhood} — R$ {Number(z.clientFee).toFixed(2).replace(".", ",")}
                         </option>
                       ))}
+                      <option value="__OUTRO__">Meu bairro não está na lista</option>
                     </select>
                   ) : (
-                    <input
-                      placeholder="Bairro *"
-                      value={form.neighborhood}
-                      onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
-                      className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
-                    />
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <input
+                        placeholder="Digite o nome do seu bairro *"
+                        value={form.neighborhood}
+                        onChange={(e) => setForm((f) => ({ ...f, neighborhood: e.target.value }))}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+                      />
+                      {deliveryZones.length > 0 && (
+                        <>
+                          <p className="text-[11px] text-amber-600 px-1">
+                            Bairro fora da área com taxa automática — a loja vai confirmar a taxa de entrega com você.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => { setManualNeighborhood(false); setForm((f) => ({ ...f, neighborhood: "" })); }}
+                            className="text-[11px] text-gray-400 hover:text-gray-600 px-1 text-left underline"
+                          >
+                            Voltar para a lista de bairros
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
                   <input
                     placeholder="UF"
                     value={form.state}
                     onChange={(e) => setForm((f) => ({ ...f, state: e.target.value.toUpperCase().slice(0, 2) }))}
-                    className="w-14 flex-shrink-0 border border-gray-200 rounded-xl px-2 py-3 text-gray-900 outline-none focus:border-primary text-sm text-center uppercase"
+                    className="w-14 flex-shrink-0 bg-white border border-gray-200 rounded-xl px-2 py-3 text-gray-900 outline-none focus:border-primary text-sm text-center uppercase"
                     maxLength={2}
                   />
                 </div>
@@ -2346,7 +2378,7 @@ export default function MenuPage() {
                     placeholder="Cidade *"
                     value={form.city}
                     onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                    className="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                    className="flex-1 min-w-0 bg-white border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                   />
                   <div className="relative w-24 flex-shrink-0">
                     <input
@@ -2358,7 +2390,7 @@ export default function MenuPage() {
                         setForm((f) => ({ ...f, zipcode: fmt }));
                         if (v.length === 8) fetchByCep(v);
                       }}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-3 text-gray-900 outline-none focus:border-primary text-sm"
                       inputMode="numeric"
                       maxLength={9}
                     />
@@ -2372,7 +2404,7 @@ export default function MenuPage() {
             <select
               value={form.paymentMethod}
               onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as CustomerForm["paymentMethod"] }))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             >
               <option value="PIX">PIX</option>
               <option value="CASH">Dinheiro</option>

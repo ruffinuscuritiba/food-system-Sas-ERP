@@ -25,6 +25,8 @@ interface Driver {
   };
   // computed stats (may be absent)
   _count?: { orders: number };
+  // FIX: total já pago em ganhos, vindo do backend (drivers.service.ts findAll)
+  totalEarnings?: number;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -357,7 +359,7 @@ export default function EntregadoresPage() {
         ))}
       </div>
 
-      {/* Search + Filter */}
+      {/* Search + Filter + Novo Entregador */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -383,6 +385,16 @@ export default function EntregadoresPage() {
             </button>
           ))}
         </div>
+        {/* FIX: botão "Novo Entregador" agora fica sempre visível aqui,
+            não só quando a lista está vazia. Antes era impossível cadastrar
+            um novo entregador se já existisse pelo menos um na lista. */}
+        <button
+          onClick={() => setShowNovo(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm transition whitespace-nowrap"
+        >
+          <Plus size={16} />
+          Novo Entregador
+        </button>
       </div>
 
       {/* Driver cards */}
@@ -455,6 +467,8 @@ export default function EntregadoresPage() {
                     </div>
                     <p className="text-xs text-gray-400">Avaliação</p>
                   </div>
+                  {/* FIX: agora mostra a contagem real de entregas finalizadas
+                      (vem de d._count.orders, preenchido pelo backend) */}
                   <div className="bg-gray-50 rounded-xl p-2.5 text-center">
                     <div className="flex items-center justify-center gap-1 mb-0.5">
                       <Package size={12} className="text-blue-400" />
@@ -462,10 +476,14 @@ export default function EntregadoresPage() {
                     </div>
                     <p className="text-xs text-gray-400">Entregas</p>
                   </div>
+                  {/* FIX: agora mostra o total real já pago em ganhos
+                      (vem de d.totalEarnings, preenchido pelo backend) */}
                   <div className="bg-gray-50 rounded-xl p-2.5 text-center">
                     <div className="flex items-center justify-center gap-1 mb-0.5">
                       <DollarSign size={12} className="text-green-500" />
-                      <span className="text-sm font-bold text-gray-900">—</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {d.totalEarnings ? `R$ ${d.totalEarnings.toFixed(2)}` : "R$ 0,00"}
+                      </span>
                     </div>
                     <p className="text-xs text-gray-400">Ganhos</p>
                   </div>

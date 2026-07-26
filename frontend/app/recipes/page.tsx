@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { ArrowLeft, BookOpen, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Loader2, Plus, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
@@ -16,6 +16,10 @@ export default function RecipesPage() {
   const [items, setItems] = useState<{ ingredientId: string; quantity: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // FIX: indica que já existe uma receita salva para o produto selecionado
+  // (controla o texto "Editando receita existente" e o loading da busca)
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [isEditingExisting, setIsEditingExisting] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   async function load() {
@@ -49,16 +53,42 @@ export default function RecipesPage() {
     p.name.toLowerCase().includes(productSearch.toLowerCase())
   );
 
-  function selectProduct(p: any) {
+  // FIX: ao selecionar um produto, busca no backend se ele já tem uma
+  // receita cadastrada (GET /recipes/:productId, que já existia mas nunca
+  // era chamado). Se existir, preenche os ingredientes para edição; se não
+  // existir, começa uma receita vazia (comportamento antigo).
+  async function selectProduct(p: any) {
     setSelectedProduct(p);
     setProductSearch(p.name);
     setShowProductList(false);
+    setItems([]);
+    setIsEditingExisting(false);
+    setLoadingRecipe(true);
+    try {
+      const res = await api.get(`/recipes/${p.id}`);
+      const recipe = res.data;
+      if (recipe && Array.isArray(recipe.items) && recipe.items.length > 0) {
+        setItems(
+          recipe.items.map((it: any) => ({
+            ingredientId: it.ingredientId,
+            quantity: String(it.quantity),
+          }))
+        );
+        setIsEditingExisting(true);
+      }
+    } catch {
+      // Sem receita cadastrada ainda para este produto — segue com lista vazia
+    } finally {
+      setLoadingRecipe(false);
+    }
   }
 
   function clearProduct() {
     setSelectedProduct(null);
     setProductSearch("");
     setShowProductList(false);
+    setItems([]);
+    setIsEditingExisting(false);
   }
 
   function addItem() {
@@ -88,7 +118,9 @@ export default function RecipesPage() {
         productId: selectedProduct.id,
         items: items.map((i) => ({ ingredientId: i.ingredientId, quantity: Number(i.quantity) })),
       });
-      toast.success("Receita salva com sucesso");
+      // FIX: o backend agora faz upsert (cria OU atualiza), então a mensagem
+      // reflete corretamente se foi uma edição ou um cadastro novo.
+      toast.success(isEditingExisting ? "Receita atualizada com sucesso" : "Receita salva com sucesso");
       setItems([]);
       clearProduct();
     } catch {
@@ -171,9 +203,17 @@ export default function RecipesPage() {
               </div>
             )}
 
-            {selectedProduct && (
-              <p className="mt-1.5 text-xs text-purple-600 font-medium">
-                ✓ {selectedProduct.name} selecionado
+            {/* FIX: indicador de carregamento enquanto busca a receita existente */}
+            {loadingRecipe && (
+              <p className="mt-1.5 text-xs text-gray-400 flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Verificando receita existente...
+              </p>
+            )}
+            {!loadingRecipe && selectedProduct && (
+              <p className={`mt-1.5 text-xs font-medium ${isEditingExisting ? "text-blue-600" : "text-purple-600"}`}>
+                {isEditingExisting
+                  ? `✎ Editando receita existente de ${selectedProduct.name}`
+                  : `✓ ${selectedProduct.name} selecionado — nova receita`}
               </p>
             )}
           </div>
@@ -187,7 +227,7 @@ export default function RecipesPage() {
               </button>
             </div>
             <div className="space-y-3">
-              {items.length === 0 && (
+              {items.length === 0 && !loadingRecipe && (
                 <p className="text-gray-400 text-sm text-center py-6 border border-dashed border-gray-300 rounded-xl">
                   Clique em "Adicionar ingrediente" para montar a receita
                 </p>
@@ -222,7 +262,7 @@ export default function RecipesPage() {
 
           <button onClick={saveRecipe} disabled={saving}
             className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition py-3 rounded-xl font-semibold text-white">
-            {saving ? "Salvando..." : "Salvar Receita"}
+            {saving ? "Salvando..." : (isEditingExisting ? "Atualizar Receita" : "Salvar Receita")}
           </button>
         </div>
       </div>

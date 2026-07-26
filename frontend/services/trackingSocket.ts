@@ -6,7 +6,7 @@ let _socket: Socket | null = null;
 export function getTrackingSocket(): Socket {
   if (!_socket) {
     _socket = io(`${socketBaseUrl}/tracking`, {
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
       autoConnect: false,
       auth: (cb) => {
         const token =

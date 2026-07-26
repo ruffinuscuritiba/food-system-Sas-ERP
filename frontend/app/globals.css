@@ -498,3 +498,11 @@ html[data-demo] aside .demo-nav-item.demo-active {
     inset 0  1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -2px 0 rgba(0, 0, 0, 0.30) !important;
 }
+/* FIX: no Windows com tema escuro, o navegador renderiza as opções de
+   <select> usando as cores do sistema operacional (texto claro em fundo
+   claro), ignorando o CSS do app. Isso força cor de texto escura e fundo
+   branco em todos os menus suspensos, independente do tema do SO. */
+select option {
+  color: #111827;
+  background-color: #ffffff;
+}

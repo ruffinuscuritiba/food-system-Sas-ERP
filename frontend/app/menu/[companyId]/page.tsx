@@ -390,6 +390,14 @@ export default function MenuPage() {
         if (cd?.name) setCompanyName(cd.name);
         if (cd?.id) setRealCompanyId(cd.id);
         if (cd?.whatsapp || cd?.phone) setCompanyWhatsapp(cd.whatsapp || cd.phone);
+        // FIX: metaPixelId e googleAnalyticsId são campos da tabela Company
+        // (não de CompanyTheme) — antes o código tentava ler esses valores
+        // de `themeRes` (endpoint /themes/:id), onde eles nunca existiram.
+        // Por isso o Meta Pixel nunca disparava, mesmo com o ID salvo nas
+        // configurações: o componente <MetaPixel> nunca era renderizado
+        // porque `metaPixelId` ficava sempre undefined.
+        if (cd?.metaPixelId) setMetaPixelId(cd.metaPixelId);
+        if (cd?.googleAnalyticsId) setGaId(cd.googleAnalyticsId);
         if (cd?.id) {
           fetch(`${apiBaseUrl}/whatsapp-ai/settings/public/assistant-name?companyId=${cd.id}`)
             .then((r) => (r.ok ? r.json() : null))
@@ -400,6 +408,8 @@ export default function MenuPage() {
 
       if (themeRes?.ok) {
         const td = await themeRes.json().catch(() => null);
+        // Mantido como fallback: se um dia o backend também passar a incluir
+        // esses campos na resposta de /themes/:id, continuam funcionando.
         if (td?.metaPixelId) setMetaPixelId(td.metaPixelId);
         if (td?.gaId) setGaId(td.gaId);
         if (td) {

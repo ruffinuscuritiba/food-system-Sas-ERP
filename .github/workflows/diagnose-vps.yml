@@ -1,0 +1,59 @@
+name: Diagnose VPS (read-only)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: Read-only inspection of VPS state
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect via SSH (no changes made)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          timeout: 30s
+          command_timeout: 120s
+          script: |
+            echo "===== docker ps -a ====="
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"
+
+            echo ""
+            echo "===== networks ====="
+            docker network ls
+
+            echo ""
+            echo "===== labels of any container with 'backend' or 'foodsaas' in name ====="
+            for c in $(docker ps -a --format "{{.Names}}" | grep -Ei 'backend|foodsaas'); do
+              echo "--- $c ---"
+              docker inspect "$c" --format '{{json .Config.Labels}}'
+              docker inspect "$c" --format 'Networks: {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+            done
+
+            echo ""
+            echo "===== /opt listing ====="
+            ls -la /opt 2>&1 || true
+
+            echo ""
+            echo "===== /opt/foodsaas-backend ====="
+            ls -la /opt/foodsaas-backend 2>&1 || echo "not found"
+            test -f /opt/foodsaas-backend/docker-compose.yml && echo "--- compose file (labels/networks only) ---" && grep -n -A3 -iE 'traefik|networks|external' /opt/foodsaas-backend/docker-compose.yml
+
+            echo ""
+            echo "===== /root listing ====="
+            ls -la /root 2>&1 || true
+
+            echo ""
+            echo "===== /root/food-system-Sas-ERP ====="
+            ls -la /root/food-system-Sas-ERP 2>&1 || echo "not found"
+            test -f /root/food-system-Sas-ERP/.env && echo ".env exists" || echo ".env MISSING"
+
+            echo ""
+            echo "===== traefik container labels (find router config) ====="
+            docker ps --format "{{.Names}}" | grep -i traefik | while read t; do
+              echo "--- $t ---"
+              docker inspect "$t" --format '{{json .Config.Labels}}'
+            done

@@ -43,6 +43,15 @@ export class CreateComplementDto {
   @IsOptional()
   multipleChoice?: boolean;
 
+  // FIX: o frontend envia esse campo ao criar/editar um grupo de
+  // complementos (existe na tabela Complement, com @default(true)), mas
+  // faltava aqui no DTO. Como o ValidationPipe global usa whitelist +
+  // forbidNonWhitelisted, qualquer campo não declarado aqui derruba a
+  // requisição inteira com 400 "property isActive should not exist".
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
   @IsInt()
   @Min(0)
   @IsOptional()

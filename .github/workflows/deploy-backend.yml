@@ -1,3 +1,30 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CD — Deploy automático do backend para o VPS Hostinger
+#
+# Dispara após qualquer push em `main` que toque arquivos do backend.
+# Faz SSH no VPS e recria o container a partir do projeto docker-compose
+# REAL de produção, em /opt/foodsaas-backend (NÃO usar /root ou qualquer
+# outro clone solto do repo — aquele diretório não tem labels do Traefik
+# nem está na rede `proxy`; usá-lo derruba o roteamento externo, como
+# aconteceu em 26/07/2026).
+#
+# O compose em /opt/foodsaas-backend builda direto do GitHub
+# (build.context: https://github.com/.../food-system-Sas-ERP.git#main:backend),
+# então não precisa de checkout/clone local — só docker compose build/up.
+# A porta 3001 do backend NÃO é publicada no host (só acessível via rede
+# Docker `proxy`, que o Traefik usa) — por isso o health check é feito
+# pelo domínio público, nunca por localhost:3001.
+#
+# Pré-requisito no VPS:
+#   - /opt/foodsaas-backend/docker-compose.yml (com labels Traefik + rede
+#     externa `proxy`) e /opt/foodsaas-backend/.env já configurados
+#
+# Secrets obrigatórios (Settings → Secrets → Actions no GitHub):
+#   VPS_HOST      → srv1747711.hstgr.cloud
+#   VPS_USER      → root
+#   VPS_SSH_KEY   → chave privada ed25519 (ver CLAUDE.md para instruções)
+# ─────────────────────────────────────────────────────────────────────────────
+
 name: Deploy Backend → VPS
 
 on:
@@ -7,6 +34,7 @@ on:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
 
+# Só um deploy por vez — cancela run anterior se já houver um em andamento
 concurrency:
   group: deploy-backend
   cancel-in-progress: true
@@ -29,34 +57,25 @@ jobs:
           script: |
             set -e
 
-            echo "▶ Atualizando repositório local..."
-            cd /root/food-system-Sas-ERP && git pull origin main --ff-only || {
-              echo "⚠️  Pull falhou, tentando recriar clone..."
-              cd /root && rm -rf food-system-Sas-ERP && \
-              git clone https://github.com/ruffinuscuritiba/food-system-Sas-ERP.git
-              cd food-system-Sas-ERP
-            }
+            echo "▶ Indo para o projeto real de produção..."
+            cd /opt/foodsaas-backend
 
-            echo "▶ Buildando imagem nova..."
-            cd /root/food-system-Sas-ERP && \
+            echo "▶ Buildando imagem nova (build context = GitHub main:backend)..."
             docker compose build backend
 
-            echo "▶ Recriando container com imagem nova..."
-            docker rm -f foodsaas-backend 2>/dev/null || true
-            docker run -d --name foodsaas-backend \
-              --network food-system-sas-erp_default \
-              -p 3001:3001 \
-              --env-file /root/food-system-Sas-ERP/.env \
-              food-system-sas-erp-backend:latest \
-              node dist/main
+            echo "▶ Recriando container via docker compose (preserva labels Traefik + rede proxy)..."
+            docker compose up -d --force-recreate backend
 
-            echo "▶ Conectando à rede proxy (Traefik )..."
-            docker network connect proxy foodsaas-backend 2>/dev/null || true
-
-            echo "▶ Aguardando health check..."
+            echo "▶ Aguardando app subir..."
             sleep 15
-            STATUS=$(curl -sf "http://localhost:3001/api/health" | grep -o '"status":"ok"' || echo "pending" )
-            echo "  Health: $STATUS"
+
+            echo "▶ Verificando saída externa via Traefik (não localhost — porta não é publicada)..."
+            for i in 1 2 3 4 5 6; do
+              STATUS=$(curl -sf "https://api.srv1747711.hstgr.cloud/api/health" | grep -o '"status":"ok"' || echo "pending")
+              echo "  Tentativa $i — Health: $STATUS"
+              if [ "$STATUS" != "pending" ]; then break; fi
+              sleep 10
+            done
 
             docker ps --filter "name=foodsaas-backend" --format "table {{.Names}}\t{{.Status}}"
             echo "✅ Deploy concluído!"

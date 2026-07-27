@@ -501,6 +501,13 @@ model Product {
   // Rótulo mostrado no card do cardápio digital: null | "DESTAQUE" | "NOVIDADE" | "RECOMENDADO"
   featuredLabel String?
 
+  // Quantos sabores de pizza este produto permite escolher no cardápio digital
+  // (1-4). Null = usa o padrão do tamanho selecionado (comportamento herdado
+  // da categoria). Controle explícito por produto — uma promoção de sabor
+  // único dentro de uma categoria que normalmente permite "meio a meio" não
+  // deve herdar esse limite maior, e vice-versa.
+  maxFlavors Int?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])

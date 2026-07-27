@@ -87,6 +87,11 @@ export class ProductsService {
 
         isFeatured: !!data.featuredLabel,
 
+        maxFlavors:
+          data.maxFlavors !== undefined && data.maxFlavors !== ''
+            ? parseInt(data.maxFlavors, 10)
+            : null,
+
         isActive: data.isActive ?? true,
 
         trackStock: data.trackStock ?? true,
@@ -200,6 +205,12 @@ export class ProductsService {
         ...(data.featuredLabel !== undefined && {
           featuredLabel: data.featuredLabel || null,
           isFeatured: !!data.featuredLabel,
+        }),
+        ...(data.maxFlavors !== undefined && {
+          maxFlavors:
+            data.maxFlavors === '' || data.maxFlavors === null
+              ? null
+              : parseInt(data.maxFlavors, 10),
         }),
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
         ...(data.imageZoom !== undefined && { imageZoom: Number(data.imageZoom) }),

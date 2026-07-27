@@ -132,4 +132,13 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   featuredLabel?: string;
+
+  // Quantos sabores de pizza este produto permite (1-4). Vazio/undefined =
+  // usa o padrão do tamanho/categoria (comportamento herdado).
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? parseInt(value, 10) : undefined,
+  )
+  @IsNumber()
+  maxFlavors?: number;
 }

@@ -5,7 +5,7 @@ on:
 
 jobs:
   diagnose:
-    name: Check logs right after live test order
+    name: Final sanity check after deploy
     runs-on: ubuntu-latest
     steps:
       - name: Inspect via SSH (no changes made)
@@ -16,7 +16,22 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           timeout: 30s
-          command_timeout: 120s
+          command_timeout: 60s
           script: |
-            echo "===== logs (5 min) — tudo, sem filtro ====="
-            docker logs foodsaas-backend-backend-1 --since 5m 2>&1 | tail -150
+            echo "===== marcador do fix (provisionConnection) no dist ====="
+            docker exec foodsaas-backend-backend-1 sh -c "grep -c 'provisionAmbiente' dist/modules/whatsapp-ai/whatsapp-ai.service.js"
+            echo ""
+            cat > /tmp/check.js << 'JSEOF'
+            const { PrismaClient } = require('@prisma/client');
+            const prisma = new PrismaClient();
+            async function main() {
+              const s = await prisma.whatsappAiSettings.findFirst({
+                where: { connection: { company: { name: { contains: 'Ruffinu', mode: 'insensitive' } }, isActive: true } },
+              });
+              console.log('aiProvider:', s?.aiProvider, ' aiModel:', s?.aiModel);
+            }
+            main().catch(e=>console.error(e)).finally(()=>prisma.$disconnect());
+            JSEOF
+            docker cp /tmp/check.js foodsaas-backend-backend-1:/app/check.js
+            docker exec -w /app foodsaas-backend-backend-1 node check.js
+            docker exec foodsaas-backend-backend-1 rm -f /app/check.js

@@ -5,10 +5,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  ShoppingCart, X, Plus, Minus, Trash2, ChevronRight,
+  ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, ChevronDown,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
   MapPin, Clock, Phone, Search, Copy, Timer, Eye, Sparkles,
-  Home, ClipboardList,
+  Home, ClipboardList, Pencil, ArrowLeft,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
@@ -172,6 +172,19 @@ type CartItem = {
   notes: string;
   flavors?: Product[];
   complements?: CartComplement[];
+  // Campos extras só para pizza — permitem reabrir o construtor pra edição
+  // sem precisar re-parsear o texto de `notes` (que é o que de fato viaja
+  // pro backend, esses campos ficam só no estado local do carrinho).
+  pizzaSize?: string;
+  borderId?: string | null;
+  customerNotes?: string;
+};
+
+type PizzaBorder = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sizes: { size: string; price: number }[];
 };
 
 type CustomerForm = {
@@ -283,6 +296,8 @@ export default function MenuPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [videoProduct, setVideoProduct] = useState<Product | null>(null);
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+  const vitrineRef = useRef<HTMLDivElement>(null);
   const [menuLayoutConfig, setMenuLayoutConfig] = useState<{
     layoutType?: string;
     buttonRadius?: string;
@@ -303,6 +318,17 @@ export default function MenuPage() {
   const [flavorParts, setFlavorParts] = useState(2);
   const [flavorSlots, setFlavorSlots] = useState<(Product | null)[]>([null, null]);
   const [flavorFilter, setFlavorFilter] = useState("");
+  // Picker de sabor em tela cheia (aberto ao tocar num slot) — null = fechado
+  const [flavorPickerSlot, setFlavorPickerSlot] = useState<number | null>(null);
+  // Dropdown do seletor de tamanho (visual — mesmo estado selectedPizzaSize)
+  const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false);
+  // Borda + Observações (novo — não existia no cardápio antes desta sessão)
+  const [pizzaBorders, setPizzaBorders] = useState<PizzaBorder[]>([]);
+  const [selectedBorderId, setSelectedBorderId] = useState<string | null>(null);
+  const [pizzaNotes, setPizzaNotes] = useState("");
+  // Quando preenchido, confirmFlavors atualiza o item existente em vez de
+  // criar um novo — usado pelo botão "Editar" da gaveta do carrinho.
+  const [editingCartKey, setEditingCartKey] = useState<string | null>(null);
 
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", orderType: initialTableNumber ? "DINE_IN" : "DELIVERY", paymentMethod: "PIX",
@@ -328,13 +354,14 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes, bordersRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/pizza-size-configs/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/delivery-config/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/company/layout/public?companyId=${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/pizza-borders/public?companyId=${companyId}`).catch(() => null),
       ]);
 
       if (!menuRes || !menuRes.ok) {
@@ -383,6 +410,12 @@ export default function MenuPage() {
       if (zonesRes?.ok) {
         const zd = await zonesRes.json().catch(() => []);
         if (Array.isArray(zd)) setDeliveryZones(zd.map((z: any) => ({ ...z, clientFee: Number(z.clientFee) })));
+      }
+
+      // Pizza borders (public — no auth)
+      if (bordersRes?.ok) {
+        const bd = await bordersRes.json().catch(() => []);
+        if (Array.isArray(bd)) setPizzaBorders(bd);
       }
 
       if (companyRes?.ok) {
@@ -446,6 +479,18 @@ export default function MenuPage() {
   }
 
   useEffect(() => { loadMenu(); }, [companyId]);
+
+  /* ── Carrossel do hero — avança sozinho a cada 5s entre os produtos em destaque/promoção ── */
+  useEffect(() => {
+    const id = setInterval(() => {
+      setHeroSlideIndex((i) => {
+        const count = products.filter((p) => (!!p.featuredLabel || discountPercent(p) !== null) && p.imageUrl).length;
+        if (count <= 1) return 0;
+        return (i + 1) % count;
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, [products]);
 
   /* ── QR Recovery promo — lê cookie qr_promo após menu carregar ── */
   useEffect(() => {
@@ -697,8 +742,22 @@ export default function MenuPage() {
     trackFunnelEvent("ADD_TO_CART");
   }
 
+  /** Pizza (categoria com allowMultipleFlavors ou nome contendo "pizza") — checagem por produto,
+   *  não pela aba ativa, pra funcionar igual em "Todos" e em categorias específicas. */
+  function isPizzaProduct(product: Product): boolean {
+    const cat = product.category as any;
+    if (!cat || cat.categoryType === "bebidas") return false;
+    return cat.allowMultipleFlavors === true || String(cat.name || "").toLowerCase().includes("pizza");
+  }
+
   async function addToCart(product: Product) {
     trackProductView(product.id);
+    // Toda pizza passa pelo construtor completo (tamanho/sabores/borda/observações)
+    // — unificado nesta sessão, não existe mais atalho de "adicionar direto".
+    if (isPizzaProduct(product)) {
+      openFlavorModal(product);
+      return;
+    }
     // Se o produto tem múltiplos tamanhos, pedir seleção de tamanho primeiro
     if (product.sizes && product.sizes.length > 1) {
       setSizeSelectProduct(product);
@@ -748,7 +807,34 @@ export default function MenuPage() {
     setFlavorParts(1);
     setFlavorSlots(product ? [product] : [null]);
     setFlavorFilter("");
+    setFlavorPickerSlot(null);
+    setSizeDropdownOpen(false);
+    setSelectedBorderId(null);
+    setPizzaNotes("");
+    setEditingCartKey(null);
     setShowFlavorModal(true);
+  }
+
+  /** Reabre o construtor com o estado de uma pizza já no carrinho, pra edição. */
+  function editPizzaItem(item: CartItem) {
+    if (!item.flavors || item.flavors.length === 0) return;
+    setSelectedPizzaSize(item.pizzaSize || "");
+    setFlavorParts(item.flavors.length);
+    setFlavorSlots(item.flavors);
+    setFlavorFilter("");
+    setFlavorPickerSlot(null);
+    setSizeDropdownOpen(false);
+    setSelectedBorderId(item.borderId ?? null);
+    setPizzaNotes(item.customerNotes || "");
+    setEditingCartKey(item.cartKey);
+    setShowFlavorModal(true);
+  }
+
+  /** Preço adicional da borda pro tamanho selecionado (ou o 1º preço cadastrado como fallback). */
+  function getBorderPrice(border: PizzaBorder | undefined, size?: string): number {
+    if (!border) return 0;
+    const match = size ? border.sizes.find((s) => s.size === size) : undefined;
+    return Number((match ?? border.sizes[0])?.price ?? 0);
   }
 
   function changeFlavorParts(n: number) {
@@ -856,7 +942,9 @@ export default function MenuPage() {
     }
     const uniqueIds = new Set(chosen.map((f) => f.id));
     if (uniqueIds.size < chosen.length) { toast.error("Cada sabor deve ser diferente"); return; }
-    const finalPrice = calcPizzaPrice(chosen, selectedPizzaSize || undefined);
+    const border = selectedBorderId ? pizzaBorders.find((b) => b.id === selectedBorderId) : undefined;
+    const borderPrice = getBorderPrice(border, selectedPizzaSize || undefined);
+    const finalPrice = calcPizzaPrice(chosen, selectedPizzaSize || undefined) + borderPrice;
     const base = chosen.reduce((best, f) => {
       const fPrice = selectedPizzaSize ? getProductSizePrice(f, selectedPizzaSize) : Number(f.salePrice);
       const bPrice = selectedPizzaSize ? getProductSizePrice(best, selectedPizzaSize) : Number(best.salePrice);
@@ -864,97 +952,144 @@ export default function MenuPage() {
     }, chosen[0]);
     const sizeLabel = selectedPizzaSize ? (SIZE_LABELS[selectedPizzaSize] || selectedPizzaSize) : "";
     const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
-    const noteText = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
+    const flavorNotes = chosen.map((f) => `${fraction} ${f.name}`).join(" | ");
+    // Borda e observações entram no mesmo texto que já viaja pro backend via
+    // `item.notes` (contrato existente, sem mudança de schema) — mesma técnica
+    // já usada pra composição de sabores.
+    const noteParts = [flavorNotes];
+    if (border) noteParts.push(`Borda: ${border.name}`);
+    if (pizzaNotes.trim()) noteParts.push(`Obs: ${pizzaNotes.trim()}`);
+    const noteText = noteParts.join(" | ");
     const composedName = chosen.length === 1
       ? `Pizza ${chosen[0].name}${sizeLabel ? ` (${sizeLabel})` : ""}`
       : `Pizza ${chosen.length} sabores${sizeLabel ? ` (${sizeLabel})` : ""}: ${chosen.map((f) => f.name).join(" + ")}`;
-    setCart((prev) => [...prev, {
-      cartKey: `pizza-${Date.now()}`,
+    const finalItem: CartItem = {
+      cartKey: editingCartKey || `pizza-${Date.now()}`,
       product: { ...base, name: composedName, salePrice: finalPrice as any },
       quantity: 1,
       notes: noteText,
       flavors: chosen,
-    }]);
+      pizzaSize: selectedPizzaSize || undefined,
+      borderId: selectedBorderId,
+      customerNotes: pizzaNotes.trim(),
+    };
+    setCart((prev) => {
+      if (editingCartKey) {
+        const existingQty = prev.find((i) => i.cartKey === editingCartKey)?.quantity ?? 1;
+        return prev.map((i) => i.cartKey === editingCartKey ? { ...finalItem, quantity: existingQty } : i);
+      }
+      return [...prev, finalItem];
+    });
     setShowFlavorModal(false);
-    toast.success("Pizza montada adicionada!");
+    setEditingCartKey(null);
+    toast.success(editingCartKey ? "Pizza atualizada!" : "Pizza montada adicionada!");
     trackFunnelEvent("ADD_TO_CART");
   }
 
   // ── Render helpers para o modal de pizza ──
+
+  /** Tamanho: dropdown estilizado (mesmo estado selectedPizzaSize, só troca a apresentação). */
   function renderSizeSelector() {
-    // Usa pizzaSizeConfigs como fonte de verdade (maxFlavors, labels, slices corretos)
     const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
     if (activeConfigs.length <= 1) return null;
+    const current = activeConfigs.find((c) => c.size === selectedPizzaSize);
     return (
-      <div className="mb-5">
+      <div className="mb-5 relative">
         <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Tamanho:</span>
-        <div className="flex flex-wrap gap-2">
-          {activeConfigs.map((cfg) => {
-            const label = cfg.label || SIZE_LABELS[cfg.size] || cfg.size;
-            const maxFlav = cfg.maxFlavors;
-            return (
-              <button key={cfg.size} onClick={() => {
-                setSelectedPizzaSize(cfg.size);
-                if (maxFlav && flavorParts > maxFlav) changeFlavorParts(maxFlav);
-              }}
-                className="flex-1 min-w-[80px] py-2 rounded-xl font-bold text-sm transition text-center"
-                style={selectedPizzaSize === cfg.size
-                  ? { background: theme.primaryColor, color: "#fff" }
-                  : { background: "var(--menu-surface-2)", color: "var(--menu-text-2)" }}>
-                {label}
-                <span className="block text-[10px] font-normal opacity-70">{cfg.slices} fatias · até {maxFlav} sab.</span>
-              </button>
-            );
-          })}
-        </div>
+        <button
+          onClick={() => setSizeDropdownOpen((v) => !v)}
+          className="w-full flex items-center justify-between border rounded-xl px-4 py-3 font-bold text-sm transition"
+          style={{ background: theme.primaryColor, color: "#fff", borderColor: theme.primaryColor }}
+        >
+          <span>
+            {current ? (current.label || SIZE_LABELS[current.size] || current.size) : "Selecione o tamanho"}
+            {current && <span className="ml-2 font-normal opacity-80 text-xs">{current.slices} fatias · até {current.maxFlavors} sab.</span>}
+          </span>
+          <ChevronDown size={18} className={`transition-transform ${sizeDropdownOpen ? "rotate-180" : ""}`} />
+        </button>
+        {sizeDropdownOpen && (
+          <div className="absolute z-10 mt-1 w-full rounded-xl border shadow-lg overflow-hidden" style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}>
+            {activeConfigs.map((cfg) => {
+              const label = cfg.label || SIZE_LABELS[cfg.size] || cfg.size;
+              const maxFlav = cfg.maxFlavors;
+              const isSelected = selectedPizzaSize === cfg.size;
+              return (
+                <button key={cfg.size} onClick={() => {
+                  setSelectedPizzaSize(cfg.size);
+                  if (maxFlav && flavorParts > maxFlav) changeFlavorParts(maxFlav);
+                  setSizeDropdownOpen(false);
+                }}
+                  className="w-full text-left px-4 py-3 text-sm transition"
+                  style={isSelected
+                    ? { background: "var(--menu-surface-2)", color: theme.primaryColor, fontWeight: 700 }
+                    : { color: "var(--menu-text)" }}>
+                  {label}
+                  <span className="block text-[11px] font-normal opacity-70">{cfg.slices} fatias · até {maxFlav} sab.</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         {!selectedPizzaSize && <p className="text-xs mt-1 text-red-500">Selecione um tamanho</p>}
       </div>
     );
   }
 
+  /** Qtde. de sabores: contador -/+ (mesma regra de limite já existente — some/desabilita no máximo). */
   function renderFlavorSelector() {
     const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
     if (activeConfigs.length > 1 && !selectedPizzaSize) return null;
+    const max = Math.max(1, sizeMaxFlavors ?? globalMaxFlavors);
+    const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
     return (
       <div>
-        <div className="flex items-center gap-2 mb-5">
-          <span className="text-sm shrink-0" style={{ color: "var(--menu-text-2)" }}>Sabores:</span>
-          {[1, 2, 3, 4].filter((n) => n <= Math.max(1, sizeMaxFlavors ?? globalMaxFlavors)).map((n) => (
-            <button key={n} onClick={() => changeFlavorParts(n)}
-              className="flex-1 py-2 rounded-xl font-bold text-sm transition"
-              style={flavorParts === n ? { background: theme.primaryColor, color: "#fff" } : { background: "var(--menu-surface-2)", color: "var(--menu-text)", border: "1px solid var(--menu-border)" }}>
-              {n === 1 ? "1 sab." : n === 2 ? "Meio" : n === 3 ? "3 sab." : "4 sab."}
+        <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Sabores:</span>
+        <div className="flex items-center justify-center gap-5 mb-5 rounded-xl py-3" style={{ background: "var(--menu-surface-2)" }}>
+          <button
+            onClick={() => flavorParts > 1 && changeFlavorParts(flavorParts - 1)}
+            disabled={flavorParts <= 1}
+            className="w-9 h-9 rounded-full flex items-center justify-center font-black transition disabled:opacity-30"
+            style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}
+          >
+            <Minus size={16} />
+          </button>
+          <span className="font-black text-base w-24 text-center" style={{ color: "var(--menu-text)" }}>
+            {flavorParts} {flavorParts === 1 ? "sabor" : "sabores"}
+          </span>
+          {max > 1 && (
+            <button
+              onClick={() => flavorParts < max && changeFlavorParts(flavorParts + 1)}
+              disabled={flavorParts >= max}
+              className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white transition disabled:opacity-30"
+              style={{ background: theme.primaryColor }}
+            >
+              <Plus size={16} />
             </button>
-          ))}
+          )}
         </div>
-        <input
-          value={flavorFilter}
-          onChange={(e) => setFlavorFilter(e.target.value)}
-          placeholder="Filtrar sabores..."
-          className="w-full border rounded-xl px-4 py-2.5 text-sm mb-4 focus:outline-none"
-          style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
-        />
-        <div className="space-y-3 mb-5">
+        <div className="space-y-2.5 mb-5">
           {Array.from({ length: flavorParts }).map((_, i) => {
-            const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
+            const slot = flavorSlots[i];
             return (
-              <div key={i} className="flex items-center gap-3">
-                <span className="text-xs font-black w-8 text-center rounded-lg py-1 shrink-0" style={{ color: "var(--menu-text-2)", background: "var(--menu-surface-2)" }}>{fraction}</span>
-                <select
-                  value={flavorSlots[i]?.id || ""}
-                  onChange={(e) => setFlavorSlot(i, products.find((p) => p.id === e.target.value) || null)}
-                  className="flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                  style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
-                >
-                  <option value="">— Sabor {i + 1} —</option>
-                  {products
-                    .filter((p) => !flavorFilter || p.name.toLowerCase().includes(flavorFilter.toLowerCase()))
-                    .filter((p) => !flavorSlots.some((s, si) => si !== i && s?.id === p.id))
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>{p.name} — R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}</option>
-                    ))}
-                </select>
-              </div>
+              <button
+                key={i}
+                onClick={() => setFlavorPickerSlot(i)}
+                className="w-full flex items-center gap-3 border rounded-xl px-3 py-3 text-left transition hover:opacity-90"
+                style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)" }}
+              >
+                <span className="text-[11px] font-black w-8 text-center rounded-lg py-1 shrink-0" style={{ color: "var(--menu-text-2)", background: "var(--menu-surface)" }}>{fraction}</span>
+                {slot ? (
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-semibold text-sm truncate" style={{ color: "var(--menu-text)" }}>{slot.name}</span>
+                    <span className="block text-xs" style={{ color: theme.primaryColor }}>
+                      R$ {(selectedPizzaSize ? getProductSizePrice(slot, selectedPizzaSize) : Number(slot.salePrice)).toFixed(2)}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex-1 text-sm font-semibold" style={{ color: "var(--menu-text-2)" }}>Escolher sabor {i + 1}</span>
+                )}
+                <ChevronRight size={16} style={{ color: "var(--menu-text-2)" }} />
+              </button>
             );
           })}
         </div>
@@ -974,6 +1109,136 @@ export default function MenuPage() {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  /** Picker de sabor em tela cheia (busca + agrupado por categoria) — aberto ao tocar um slot. */
+  function renderFlavorPickerOverlay() {
+    if (flavorPickerSlot === null) return null;
+    const slotIndex = flavorPickerSlot;
+    const term = flavorFilter.toLowerCase();
+    const eligible = products.filter((p) => {
+      if (!p.name.toLowerCase().includes(term) && !(p.description || "").toLowerCase().includes(term)) return false;
+      if (flavorSlots.some((s, si) => si !== slotIndex && s?.id === p.id)) return false;
+      return true;
+    });
+    // Agrupa pelos mesmos nomes de categoria já usados nas abas do cardápio
+    const byCategory = new Map<string, Product[]>();
+    for (const p of eligible) {
+      const catName = (p.category?.name?.trim() || "Outros").toUpperCase();
+      if (!byCategory.has(catName)) byCategory.set(catName, []);
+      byCategory.get(catName)!.push(p);
+    }
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" data-menu-theme={menuThemeMode}>
+        <div className="absolute inset-0 bg-black/50" onClick={() => setFlavorPickerSlot(null)} />
+        <div className="relative rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]" style={{ background: "var(--menu-surface)" }}>
+          <div className="flex items-center gap-3 px-5 pt-5 pb-3 shrink-0">
+            <button onClick={() => setFlavorPickerSlot(null)} style={{ color: "var(--menu-text-2)" }}>
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-lg font-black flex-1" style={{ color: "var(--menu-text)" }}>Selecione um sabor</h2>
+          </div>
+          <div className="px-5 pb-3 shrink-0">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--menu-text-2)" }} />
+              <input
+                autoFocus
+                value={flavorFilter}
+                onChange={(e) => setFlavorFilter(e.target.value)}
+                placeholder="Pesquisar sabor..."
+                className="w-full border rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none"
+                style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-4">
+            {byCategory.size === 0 ? (
+              <p className="text-sm text-center py-8" style={{ color: "var(--menu-text-2)" }}>Nenhum sabor encontrado</p>
+            ) : Array.from(byCategory.entries()).map(([catName, items]) => (
+              <div key={catName}>
+                <p className="text-xs font-black uppercase tracking-wide mb-2" style={{ color: theme.primaryColor }}>{catName}</p>
+                <div className="space-y-2">
+                  {items.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setFlavorSlot(slotIndex, p); setFlavorPickerSlot(null); setFlavorFilter(""); }}
+                      className="w-full flex items-center gap-3 border rounded-xl p-2.5 text-left transition hover:opacity-90"
+                      style={{ borderColor: "var(--menu-border)" }}
+                    >
+                      <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style={{ background: "var(--menu-surface-2)" }}>
+                        {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-lg">🍕</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate" style={{ color: "var(--menu-text)" }}>{p.name}</p>
+                        {p.description && <p className="text-xs truncate" style={{ color: "var(--menu-text-2)" }}>{p.description}</p>}
+                      </div>
+                      <span className="text-sm font-black shrink-0" style={{ color: theme.primaryColor }}>
+                        R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /** Borda + Observações — não existia no cardápio antes desta sessão. */
+  function renderBorderAndNotesSection() {
+    const activeBorders = pizzaBorders.filter((b) => b.isActive);
+    return (
+      <div>
+        {activeBorders.length > 0 && (
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold" style={{ color: "var(--menu-text)" }}>Bordas</span>
+              <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500 text-white">Opcional</span>
+            </div>
+            <div className="space-y-2">
+              {activeBorders.map((b) => {
+                const price = getBorderPrice(b, selectedPizzaSize || undefined);
+                const isSelected = selectedBorderId === b.id;
+                return (
+                  <button
+                    key={b.id}
+                    onClick={() => setSelectedBorderId(isSelected ? null : b.id)}
+                    className="w-full flex items-center justify-between border rounded-xl px-4 py-3 transition"
+                    style={isSelected
+                      ? { borderColor: theme.primaryColor, background: "var(--menu-surface-2)" }
+                      : { borderColor: "var(--menu-border)" }}
+                  >
+                    <span className="text-sm font-semibold" style={{ color: "var(--menu-text)" }}>{b.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-black" style={{ color: theme.primaryColor }}>+R$ {price.toFixed(2)}</span>
+                      <span
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white shrink-0"
+                        style={{ background: isSelected ? theme.primaryColor : "var(--menu-border)" }}
+                      >
+                        {isSelected ? <CheckCircle size={14} /> : <Plus size={14} />}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div className="mb-1">
+          <span className="text-sm font-semibold block mb-2" style={{ color: "var(--menu-text)" }}>Observações</span>
+          <textarea
+            value={pizzaNotes}
+            onChange={(e) => setPizzaNotes(e.target.value)}
+            placeholder="Ex: sem cebola, borda bem passada..."
+            rows={3}
+            className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none resize-none"
+            style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)", color: "var(--menu-text)" }}
+          />
+        </div>
       </div>
     );
   }
@@ -1406,6 +1671,7 @@ export default function MenuPage() {
     const extra = products.filter(p => p.isActive && !inCart.has(p.id) && !featured.some(f => f.id === p.id) && isUpsellCat(p));
     return [...featured, ...extra].slice(0, 4);
   })();
+  const orderBumpIsBeverage = orderBumpProducts.some(p => p.category?.categoryType === "bebidas");
   const showFeatured = blockVisible("featured") && featuredProducts.length > 0;
   const featuredBeforeCategories = blockOrder("featured") < blockOrder("categories");
   // Estilo "App" — categorias em avatar circular + cards de produto full-bleed
@@ -1423,53 +1689,97 @@ export default function MenuPage() {
       {gaId && <GoogleAnalytics gaId={gaId} />}
       <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} assistantName={assistantName} />
 
-      {/* ─── Header ────────────────────────────────────────────────────────────── */}
-      {blockVisible("banner") && (
-      <header className="relative text-white pb-24 sm:pb-16 overflow-hidden" style={{ minHeight: 180 }}>
-        {/* Banner image or solid color */}
-        {theme.bannerUrl ? (
-          <>
-            <img
-              src={theme.bannerUrl}
-              alt="banner"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%)" }} />
-          </>
-        ) : (
-          <div className="absolute inset-0" style={{ background: theme.primaryColor }} />
-        )}
-
-        {/* Content */}
-        <div className="relative z-10 max-w-2xl mx-auto px-4 pt-8">
-          <div className="flex items-center gap-4">
-            {theme.logoUrl && (
+      {/* ─── Header / Hero com carrossel de promoções ─────────────────────────────── */}
+      {blockVisible("banner") && (() => {
+        const promoSlides = featuredProducts.filter((p) => !!p.imageUrl);
+        const activeSlide = promoSlides.length > 0 ? promoSlides[heroSlideIndex % promoSlides.length] : null;
+        return (
+        <header className="relative text-white pb-24 sm:pb-16 overflow-hidden" style={{ minHeight: 180 }}>
+          {/* Banner image (carrossel quando há promoções, senão banner estático/cor sólida) */}
+          {activeSlide ? (
+            <>
+              {promoSlides.map((slide, idx) => (
+                <img
+                  key={slide.id}
+                  src={slide.imageUrl!}
+                  alt={slide.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+                  style={{ opacity: idx === heroSlideIndex % promoSlides.length ? 1 : 0 }}
+                />
+              ))}
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.7) 100%)" }} />
+            </>
+          ) : theme.bannerUrl ? (
+            <>
               <img
-                src={theme.logoUrl}
-                alt="logo"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0"
+                src={theme.bannerUrl}
+                alt="banner"
+                className="absolute inset-0 w-full h-full object-cover"
               />
-            )}
-            <div>
-              <h1 className="text-3xl font-black tracking-tight drop-shadow">{companyName}</h1>
-              {tableNumber && (
-                <span className="inline-block mt-1 bg-white/25 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  Mesa {tableNumber}
-                </span>
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%)" }} />
+            </>
+          ) : (
+            <div className="absolute inset-0" style={{ background: theme.primaryColor }} />
+          )}
+
+          {/* Chamada da promoção do slide ativo + CTA central */}
+          {activeSlide && (
+            <div className="relative z-10 max-w-2xl mx-auto px-4 pt-6 text-center">
+              <p className="text-2xl font-black drop-shadow">{activeSlide.name}</p>
+              {discountPercent(activeSlide) ? (
+                <p className="text-sm mt-1 text-white/90 drop-shadow">-{discountPercent(activeSlide)}% hoje</p>
+              ) : activeSlide.featuredLabel ? (
+                <p className="text-sm mt-1 text-white/90 drop-shadow uppercase tracking-wide">{FEATURED_LABEL_STYLES[activeSlide.featuredLabel]?.text}</p>
+              ) : null}
+              <button
+                onClick={() => vitrineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="mt-3 px-6 py-2.5 rounded-full font-black text-sm shadow-lg transition hover:opacity-90"
+                style={{ background: "#fff", color: theme.primaryColor }}
+              >
+                Ver Cardápio
+              </button>
+              {promoSlides.length > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-3">
+                  {promoSlides.map((_, idx) => (
+                    <span key={idx} className="rounded-full transition-all"
+                      style={{ width: idx === heroSlideIndex % promoSlides.length ? 16 : 6, height: 6, background: idx === heroSlideIndex % promoSlides.length ? "#fff" : "rgba(255,255,255,0.5)" }} />
+                  ))}
+                </div>
               )}
             </div>
+          )}
+
+          {/* Identidade da loja (logo/nome/mesa/status) */}
+          <div className="relative z-10 max-w-2xl mx-auto px-4 pt-8">
+            <div className="flex items-center gap-4">
+              {theme.logoUrl && (
+                <img
+                  src={theme.logoUrl}
+                  alt="logo"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0"
+                />
+              )}
+              <div>
+                <h1 className="text-3xl font-black tracking-tight drop-shadow">{companyName}</h1>
+                {tableNumber && (
+                  <span className="inline-block mt-1 bg-white/25 text-white text-xs font-bold px-3 py-1 rounded-full">
+                    Mesa {tableNumber}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-white/80 text-xs">
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {isStoreOpenNow(businessHours) ? "Aberto agora" : "Fechado no momento"}
+              </span>
+              <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
+            </div>
           </div>
-          <div className="flex items-center gap-4 mt-3 text-white/80 text-xs">
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              {isStoreOpenNow(businessHours) ? "Aberto agora" : "Fechado no momento"}
-            </span>
-            <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
-          </div>
-        </div>
-      </header>
-      )} {/* end blockVisible("banner") */}
+        </header>
+        );
+      })()} {/* end blockVisible("banner") */}
 
       {/* ─── Destaques (featured block — before categories) ─────────────────────── */}
       {showFeatured && featuredBeforeCategories && (
@@ -1502,7 +1812,7 @@ export default function MenuPage() {
       </div>
 
       {/* ─── Categorias + Busca ─────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 border-b shadow-sm mt-4" style={{ background: "var(--menu-bg)", borderColor: "var(--menu-border)" }}>
+      <div ref={vitrineRef} className="sticky top-0 z-30 border-b shadow-sm mt-4" style={{ background: "var(--menu-bg)", borderColor: "var(--menu-border)" }}>
         <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto touch-pan-x scroll-smooth">
           {isAppStyle ? (
             <div className="flex gap-4 min-w-max">
@@ -1605,12 +1915,6 @@ export default function MenuPage() {
           const isBeverageCat =
             activeCatObj?.categoryType === "bebidas" ||
             activeCatObj?.name?.toLowerCase().includes("bebida");
-          const isPizzaCat = !isBeverageCat && (
-            activeCategory === "Todos"
-              ? false
-              : activeCatObj?.allowMultipleFlavors === true ||
-                activeCategory.toLowerCase().includes("pizza")
-          );
 
           // Beverage grid layout
           if (isBeverageCat) {
@@ -1718,21 +2022,23 @@ export default function MenuPage() {
                               <Eye size={14} />
                             </button>
                           )}
-                          {isPizzaCat && (
+                          {isPizzaProduct(product) ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); openFlavorModal(product); }}
-                              className="bg-white/15 text-white px-3 py-2 rounded-xl font-bold text-xs transition"
+                              className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
+                              style={{ backgroundColor: theme.primaryColor }}
                             >
-                              🍕 Meio a meio
+                              🍕 Montar Pizza
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                              className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
+                              style={{ backgroundColor: theme.primaryColor }}
+                            >
+                              <Plus size={14} /> Adicionar
                             </button>
                           )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                            className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
-                            style={{ backgroundColor: theme.primaryColor }}
-                          >
-                            <Plus size={14} /> Adicionar
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -1771,23 +2077,23 @@ export default function MenuPage() {
                             <Eye size={13} /> Vídeo
                           </button>
                         )}
-                        {isPizzaCat && (
+                        {isPizzaProduct(product) ? (
                           <button
                             onClick={() => openFlavorModal(product)}
-                            className="border hover:opacity-80 px-3 py-1.5 rounded-xl font-bold text-xs transition"
-                            style={{ borderColor: theme.primaryColor, color: theme.primaryColor }}
-                            title="Meio a meio"
+                            className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                            style={{ backgroundColor: theme.primaryColor }}
                           >
-                            🍕 Meio a meio
+                            🍕 Montar Pizza
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => addToCart(product)}
+                            className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                            style={{ backgroundColor: theme.primaryColor }}
+                          >
+                            <Plus size={14} /> Adicionar
                           </button>
                         )}
-                        <button
-                          onClick={() => addToCart(product)}
-                          className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
-                          style={{ backgroundColor: theme.primaryColor }}
-                        >
-                          <Plus size={14} /> Adicionar
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -1979,17 +2285,24 @@ export default function MenuPage() {
                       R$ {((Number(item.product.salePrice) + (item.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0)) * item.quantity).toFixed(2)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => updateQuantity(item.cartKey, -1)} className="p-1.5 rounded-lg transition hover:opacity-80" style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}>
-                      <Minus size={14} />
-                    </button>
-                    <span className="font-black w-5 text-center" style={{ color: "var(--menu-text)" }}>{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.cartKey, 1)} className="p-1.5 rounded-lg transition hover:opacity-80" style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}>
-                      <Plus size={14} />
-                    </button>
-                    <button onClick={() => setCart((p) => p.filter((i) => i.cartKey !== item.cartKey))} className="ml-1 text-red-400 hover:text-red-500">
-                      <Trash2 size={14} />
-                    </button>
+                  <div className="flex flex-col items-end gap-2">
+                    {item.flavors && item.flavors.length > 0 && (
+                      <button onClick={() => editPizzaItem(item)} className="flex items-center gap-1 text-xs font-bold transition hover:opacity-80" style={{ color: theme.primaryColor }}>
+                        <Pencil size={12} /> Editar
+                      </button>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => updateQuantity(item.cartKey, -1)} className="p-1.5 rounded-lg transition hover:opacity-80" style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}>
+                        <Minus size={14} />
+                      </button>
+                      <span className="font-black w-5 text-center" style={{ color: "var(--menu-text)" }}>{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.cartKey, 1)} className="p-1.5 rounded-lg transition hover:opacity-80" style={{ background: "var(--menu-border)", color: "var(--menu-text)" }}>
+                        <Plus size={14} />
+                      </button>
+                      <button onClick={() => setCart((p) => p.filter((i) => i.cartKey !== item.cartKey))} className="ml-1 text-red-400 hover:text-red-500">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1998,14 +2311,15 @@ export default function MenuPage() {
               {cart.length > 0 && orderBumpProducts.length > 0 && (
                 <div className="pt-3 mt-1 border-t border-dashed" style={{ borderColor: "var(--menu-border)" }}>
                   <p className="text-sm font-black mb-2.5 flex items-center gap-1.5" style={{ color: "var(--menu-text)" }}>
-                    <Sparkles size={15} style={{ color: theme.primaryColor }} /> Que tal adicionar?
+                    <Sparkles size={15} style={{ color: theme.primaryColor }} />
+                    {orderBumpIsBeverage ? "🥤 Que tal uma bebida?" : "✨ Sugestões pra você"}
                   </p>
                   <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
                     {orderBumpProducts.map((p) => (
                       <button
                         key={p.id}
                         onClick={() => addToCart(p)}
-                        className="shrink-0 w-32 text-left border rounded-2xl p-2.5 hover:shadow-md active:scale-95 transition"
+                        className="shrink-0 w-36 text-left border rounded-2xl p-2.5 hover:shadow-md active:scale-95 transition"
                         style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}
                       >
                         <div className="w-full aspect-square rounded-xl overflow-hidden mb-2 flex items-center justify-center" style={{ background: "var(--menu-surface-2)" }}>
@@ -2088,7 +2402,7 @@ export default function MenuPage() {
             <div className="overflow-y-auto flex-1 p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h2 className="text-xl font-black" style={{ color: "var(--menu-text)" }}>Montar Pizza</h2>
+                <h2 className="text-xl font-black" style={{ color: "var(--menu-text)" }}>{editingCartKey ? "Editar Pizza" : "Montar Pizza"}</h2>
                 <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
                   {theme.pizzaPricingMode === "HALF" ? "Preço = média dos sabores" : "Preço = sabor mais caro"}
                 </p>
@@ -2103,14 +2417,20 @@ export default function MenuPage() {
 
             {/* ── Seleção de sabores (só mostra depois de escolher tamanho, se houver) ── */}
             {renderFlavorSelector()}
+
+            {/* ── Borda + Observações (só depois de ao menos 1 sabor escolhido) ── */}
+            {flavorSlots.some(Boolean) && renderBorderAndNotesSection()}
             </div>{/* fim scroll area */}
             <div className="flex gap-3 p-6 pt-0 shrink-0 border-t" style={{ borderColor: "var(--menu-border)" }}>
               <button onClick={() => setShowFlavorModal(false)} className="flex-1 border hover:opacity-80 transition py-3 rounded-xl font-semibold text-sm" style={{ borderColor: "var(--menu-border)", color: "var(--menu-text-2)" }}>Cancelar</button>
-              <button onClick={confirmFlavors} className="flex-1 hover:opacity-90 transition py-3 rounded-xl font-bold text-sm text-white" style={{ background: theme.primaryColor }}>Adicionar</button>
+              <button onClick={confirmFlavors} className="flex-1 hover:opacity-90 transition py-3 rounded-xl font-bold text-sm text-white" style={{ background: theme.primaryColor }}>{editingCartKey ? "Salvar" : "Adicionar"}</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ─── Picker de sabor em tela cheia (aberto ao tocar num slot) ─────────────── */}
+      {renderFlavorPickerOverlay()}
 
       {/* ─── Checkout Modal ──────────────────────────────────────────────────────── */}
       {showCheckout && (

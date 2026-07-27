@@ -40,8 +40,8 @@ function EntregaInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+    <div className="h-full flex flex-col bg-gray-50">
+      <div className="shrink-0 bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-2 mb-1">
           <Bike size={17} className="text-primary" />
           <h1 className="text-sm font-bold text-gray-900">Entrega</h1>
@@ -69,7 +69,10 @@ function EntregaInner() {
         </div>
       </div>
 
-      <div className={activeTab === "area" ? "p-6" : ""}>
+      {/* Monitoramento gerencia a própria altura/scroll internamente (mapa
+          precisa de h-full real vindo do pai — min-h-screen antigo não
+          fornecia isso, então o mapa nunca esticava até o fim da tela). */}
+      <div className={`flex-1 min-h-0 ${activeTab === "monitoramento" ? "" : "overflow-y-auto"} ${activeTab === "area" ? "p-6" : ""}`}>
         {activeTab === "monitoramento" ? (
           <MonitoramentoTab />
         ) : activeTab === "entregador" ? (

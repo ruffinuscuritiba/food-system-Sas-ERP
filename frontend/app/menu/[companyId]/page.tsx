@@ -1789,9 +1789,13 @@ export default function MenuPage() {
     const isUpsellCat = (p: Product) =>
       p.category?.categoryType === "bebidas" ||
       /bebida|sobremesa|doce|drink|refri|suco|adicional/i.test(p.category?.name || "");
-    const featured = products.filter(p => p.isActive && !inCart.has(p.id) && !!p.featuredLabel);
-    const extra = products.filter(p => p.isActive && !inCart.has(p.id) && !featured.some(f => f.id === p.id) && isUpsellCat(p));
-    return [...featured, ...extra].slice(0, 4);
+    // Bebida sempre primeiro — "sugestões pra você" é o momento de oferecer um
+    // refrigerante (pedido explícito do usuário), não deixar itens em destaque
+    // ocuparem as 4 vagas antes de qualquer bebida aparecer.
+    const beverages = products.filter(p => p.isActive && !inCart.has(p.id) && p.category?.categoryType === "bebidas");
+    const featured = products.filter(p => p.isActive && !inCart.has(p.id) && !!p.featuredLabel && !beverages.some(b => b.id === p.id));
+    const extra = products.filter(p => p.isActive && !inCart.has(p.id) && isUpsellCat(p) && !beverages.some(b => b.id === p.id) && !featured.some(f => f.id === p.id));
+    return [...beverages, ...featured, ...extra].slice(0, 4);
   })();
   const orderBumpIsBeverage = orderBumpProducts.some(p => p.category?.categoryType === "bebidas");
   const showFeatured = blockVisible("featured") && featuredProducts.length > 0;
@@ -1811,57 +1815,88 @@ export default function MenuPage() {
       {gaId && <GoogleAnalytics gaId={gaId} />}
       <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} assistantName={assistantName} />
 
-      {/* ─── Header / Hero com carrossel de promoções ─────────────────────────────── */}
+      {/* ─── Header / Hero em tela cheia com carrossel de promoções ────────────────
+           Tela de entrada ocupa a viewport inteira (igual referência do
+           concorrente) — barra fina de identidade no topo + imagem grande
+           com a chamada da promoção, revelando o cardápio ao rolar/tocar
+           "Ver Cardápio". */}
       {blockVisible("banner") && (() => {
         const promoSlides = featuredProducts.filter((p) => !!p.imageUrl);
         const activeSlide = promoSlides.length > 0 ? promoSlides[heroSlideIndex % promoSlides.length] : null;
         return (
-        <header className="relative text-white pb-24 sm:pb-16 overflow-hidden" style={{ minHeight: 180 }}>
-          {/* Banner image (carrossel quando há promoções, senão banner estático/cor sólida) */}
-          {activeSlide ? (
-            <>
-              {promoSlides.map((slide, idx) => (
-                <img
-                  key={slide.id}
-                  src={slide.imageUrl!}
-                  alt={slide.name}
-                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
-                  style={{ opacity: idx === heroSlideIndex % promoSlides.length ? 1 : 0 }}
-                />
-              ))}
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.7) 100%)" }} />
-            </>
-          ) : theme.bannerUrl ? (
-            <>
+        <header className="relative flex flex-col text-white" style={{ minHeight: "100dvh" }}>
+          {/* Barra fina de identidade */}
+          <div className="relative z-10 flex items-center justify-center gap-3 px-4 py-4 shrink-0" style={{ background: "rgba(0,0,0,0.55)" }}>
+            {theme.logoUrl && (
               <img
-                src={theme.bannerUrl}
-                alt="banner"
-                className="absolute inset-0 w-full h-full object-cover"
+                src={theme.logoUrl}
+                alt="logo"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                className="w-9 h-9 rounded-full object-cover border border-white/30 shrink-0"
               />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%)" }} />
-            </>
-          ) : (
-            <div className="absolute inset-0" style={{ background: theme.primaryColor }} />
-          )}
+            )}
+            <span className="font-black text-lg tracking-tight drop-shadow truncate">{companyName}</span>
+            {tableNumber && (
+              <span className="shrink-0 bg-white/25 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                Mesa {tableNumber}
+              </span>
+            )}
+          </div>
 
-          {/* Chamada da promoção do slide ativo + CTA central */}
-          {activeSlide && (
-            <div className="relative z-10 max-w-2xl mx-auto px-4 pt-6 text-center">
-              <p className="text-2xl font-black drop-shadow">{activeSlide.name}</p>
-              {discountPercent(activeSlide) ? (
-                <p className="text-sm mt-1 text-white/90 drop-shadow">-{discountPercent(activeSlide)}% hoje</p>
-              ) : activeSlide.featuredLabel ? (
-                <p className="text-sm mt-1 text-white/90 drop-shadow uppercase tracking-wide">{FEATURED_LABEL_STYLES[activeSlide.featuredLabel]?.text}</p>
-              ) : null}
+          {/* Hero grande — preenche o resto da tela */}
+          <div className="relative flex-1 overflow-hidden flex items-center justify-center">
+            {/* Banner image (carrossel quando há promoções, senão banner estático/cor sólida) */}
+            {activeSlide ? (
+              <>
+                {promoSlides.map((slide, idx) => (
+                  <img
+                    key={slide.id}
+                    src={slide.imageUrl!}
+                    alt={slide.name}
+                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+                    style={{ opacity: idx === heroSlideIndex % promoSlides.length ? 1 : 0 }}
+                  />
+                ))}
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%)" }} />
+              </>
+            ) : theme.bannerUrl ? (
+              <>
+                <img
+                  src={theme.bannerUrl}
+                  alt="banner"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.6) 100%)" }} />
+              </>
+            ) : (
+              <div className="absolute inset-0" style={{ background: theme.primaryColor }} />
+            )}
+
+            {/* Chamada da promoção do slide ativo (ou saudação genérica) + CTA central */}
+            <div className="relative z-10 max-w-2xl mx-auto px-4 text-center">
+              {activeSlide ? (
+                <>
+                  <p className="text-3xl sm:text-4xl font-black drop-shadow leading-tight">{activeSlide.name}</p>
+                  {discountPercent(activeSlide) ? (
+                    <p className="text-base mt-2 text-white/90 drop-shadow">-{discountPercent(activeSlide)}% hoje</p>
+                  ) : activeSlide.featuredLabel ? (
+                    <p className="text-base mt-2 text-white/90 drop-shadow uppercase tracking-wide">{FEATURED_LABEL_STYLES[activeSlide.featuredLabel]?.text}</p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-4xl font-black drop-shadow">
+                  {isStoreOpenNow(businessHours) ? "Aberto agora!" : "Fechado no momento"}
+                </p>
+              )}
               <button
                 onClick={() => vitrineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="mt-3 px-6 py-2.5 rounded-full font-black text-sm shadow-lg transition hover:opacity-90"
+                className="mt-6 px-8 py-3 rounded-full font-black text-base shadow-lg transition hover:opacity-90"
                 style={{ background: "#fff", color: theme.primaryColor }}
               >
                 Ver Cardápio
               </button>
               {promoSlides.length > 1 && (
-                <div className="flex items-center justify-center gap-1.5 mt-3">
+                <div className="flex items-center justify-center gap-1.5 mt-5">
                   {promoSlides.map((_, idx) => (
                     <span key={idx} className="rounded-full transition-all"
                       style={{ width: idx === heroSlideIndex % promoSlides.length ? 16 : 6, height: 6, background: idx === heroSlideIndex % promoSlides.length ? "#fff" : "rgba(255,255,255,0.5)" }} />
@@ -1869,39 +1904,19 @@ export default function MenuPage() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Identidade da loja (logo/nome/mesa/status) */}
-          <div className="relative z-10 max-w-2xl mx-auto px-4 pt-8">
-            <div className="flex items-center gap-4">
-              {theme.logoUrl && (
-                <img
-                  src={theme.logoUrl}
-                  alt="logo"
-                  onError={(e) => { e.currentTarget.style.display = "none"; }}
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30 shadow-lg shrink-0"
-                />
-              )}
-              <div>
-                <h1 className="text-3xl font-black tracking-tight drop-shadow">{companyName}</h1>
-                {tableNumber && (
-                  <span className="inline-block mt-1 bg-white/25 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    Mesa {tableNumber}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-4 mt-3 text-white/80 text-xs">
-              <span className="flex items-center gap-1">
-                <Clock size={12} />
-                {isStoreOpenNow(businessHours) ? "Aberto agora" : "Fechado no momento"}
-              </span>
-              <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
-            </div>
           </div>
         </header>
         );
       })()} {/* end blockVisible("banner") */}
+
+      {/* ─── Status da loja (aberto/fechado, delivery) — logo abaixo do hero ──────── */}
+      <div className="max-w-2xl mx-auto px-4 pt-4 flex items-center gap-4 text-xs" style={{ color: "var(--menu-text-2)" }}>
+        <span className="flex items-center gap-1">
+          <Clock size={12} />
+          {isStoreOpenNow(businessHours) ? "Aberto agora" : "Fechado no momento"}
+        </span>
+        <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
+      </div>
 
       {/* ─── Destaques (featured block — before categories) ─────────────────────── */}
       {showFeatured && featuredBeforeCategories && (
@@ -1915,8 +1930,8 @@ export default function MenuPage() {
         </div>
       )}
 
-      {/* ─── Painel flutuante sobre o header ───────────────────────────────────── */}
-      <div className="max-w-2xl mx-auto px-4 -mt-16 sm:-mt-10 relative z-20">
+      {/* ─── Painel do carrinho ─────────────────────────────────────────────────── */}
+      <div className="max-w-2xl mx-auto px-4 mt-4 relative z-20">
         <div className="rounded-2xl shadow-md px-5 py-4 flex items-center justify-between border" style={{ background: "var(--menu-surface)", borderColor: "var(--menu-border)" }}>
           <div>
             <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--menu-text-2)" }}>Seu pedido</p>

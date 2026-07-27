@@ -5,7 +5,7 @@ on:
 
 jobs:
   diagnose:
-    name: Verify compiled code contains notification logic
+    name: Check logs right after live test order
     runs-on: ubuntu-latest
     steps:
       - name: Inspect via SSH (no changes made)
@@ -18,11 +18,5 @@ jobs:
           timeout: 30s
           command_timeout: 120s
           script: |
-            echo "===== marcadores no dist/modules/orders/orders.service.js ====="
-            docker exec foodsaas-backend-backend-1 sh -c "grep -c 'Confirmação enviada' dist/modules/orders/orders.service.js; grep -c 'notifyStatusChange' dist/modules/orders/orders.service.js; grep -c 'orderNotificationService' dist/modules/orders/orders.service.js"
-            echo ""
-            echo "===== image build date ====="
-            docker inspect foodsaas-backend-backend-1 --format '{{.Created}}'
-            echo ""
-            echo "===== git commit atual no container (se disponivel) ====="
-            docker exec foodsaas-backend-backend-1 sh -c "cat dist/BUILD_ID 2>/dev/null || echo none"
+            echo "===== logs (5 min) — tudo, sem filtro ====="
+            docker logs foodsaas-backend-backend-1 --since 5m 2>&1 | tail -150

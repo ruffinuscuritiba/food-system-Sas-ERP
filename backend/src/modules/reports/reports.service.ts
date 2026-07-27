@@ -36,6 +36,13 @@ export interface ProductRanking {
   margin: number;
 }
 
+export interface CustomerStats {
+  total: number;
+  contacts: number;
+  active: number;
+  segments: { novos: number; recorrentes: number; fidelizados: number };
+}
+
 export interface ExecutiveKpis {
   revenue: number;
   revenueGrowth: number;
@@ -383,5 +390,41 @@ export class ReportsService {
         cashRevenue: r.byPaymentMethod['CASH'] ?? 0,
       },
     });
+  }
+
+  // Segmentação de clientes (aba Clientes) — baseada em Customer.orders, que
+  // cobre PDV/mesa/WhatsApp. Cardápio digital (OnlineOrder) não referencia
+  // Customer (só guarda nome/telefone soltos), então clientes que SÓ pediram
+  // pelo cardápio digital não entram aqui — limitação conhecida, mesma raiz
+  // do gap que existia em getRevenue antes de unificar Order+OnlineOrder.
+  async getCustomerStats(companyId: string): Promise<CustomerStats> {
+    const customers = await this.prisma.customer.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        _count: { select: { orders: true } },
+      },
+    });
+
+    const total = customers.length;
+    const contacts = customers.filter((c) => c._count.orders === 0).length;
+    const active = total - contacts;
+
+    let novos = 0,
+      recorrentes = 0,
+      fidelizados = 0;
+    for (const c of customers) {
+      if (c._count.orders === 0) continue;
+      if (c._count.orders === 1) novos++;
+      else if (c._count.orders <= 4) recorrentes++;
+      else fidelizados++;
+    }
+
+    return {
+      total,
+      contacts,
+      active,
+      segments: { novos, recorrentes, fidelizados },
+    };
   }
 }

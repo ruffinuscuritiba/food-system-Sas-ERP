@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag,
   Receipt, AlertTriangle, Bot, Send, RefreshCw,
-  BarChart2, Package, Bell, ChevronRight, X, Loader2, Utensils,
+  BarChart2, Package, Bell, ChevronRight, X, Loader2, Utensils, Users,
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -37,6 +37,13 @@ interface RevenueReport {
 interface ProductRanking {
   productId: string; productName: string; quantity: number;
   revenue: number; cmv: number; profit: number; margin: number;
+}
+
+interface CustomerStats {
+  total: number;
+  contacts: number;
+  active: number;
+  segments: { novos: number; recorrentes: number; fidelizados: number };
 }
 
 interface MenuAnalyticsSummary {
@@ -105,7 +112,7 @@ function KpiCard({ icon, label, value, growth, sub }: { icon: React.ReactNode; l
 
 export default function BIPage() {
   useNavKeyGuard("bi");
-  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "ia" | "alerts">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "clientes" | "ia" | "alerts">("dashboard");
   const [preset, setPreset] = useState<DatePreset>("month");
   const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()) });
 
@@ -113,6 +120,7 @@ export default function BIPage() {
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [products, setProducts] = useState<ProductRanking[]>([]);
   const [menuAnalytics, setMenuAnalytics] = useState<MenuAnalyticsSummary | null>(null);
+  const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -127,17 +135,19 @@ export default function BIPage() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiRes, revRes, productsRes, menuRes, alertRes] = await Promise.allSettled([
+      const [kpiRes, revRes, productsRes, menuRes, customersRes, alertRes] = await Promise.allSettled([
         api.get("/reports/executive"),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
         api.get(`/reports/products?from=${range.from}&to=${range.to}&limit=50`),
         api.get(`/menu-analytics/summary?from=${range.from}&to=${range.to}`),
+        api.get("/reports/customers"),
         api.get("/alerts?unread=false"),
       ]);
       if (kpiRes.status     === "fulfilled") setKpis(kpiRes.value.data);
       if (revRes.status     === "fulfilled") setRevenue(revRes.value.data);
       if (productsRes.status === "fulfilled") setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
       if (menuRes.status    === "fulfilled") setMenuAnalytics(menuRes.value.data);
+      if (customersRes.status === "fulfilled") setCustomerStats(customersRes.value.data);
       if (alertRes.status   === "fulfilled") setAlerts(alertRes.value.data ?? []);
     } catch {}
     setLoading(false);
@@ -173,6 +183,7 @@ export default function BIPage() {
     { key: "reports", label: "Relatórios", icon: <Receipt size={14} /> },
     { key: "produtos", label: "Produtos", icon: <Package size={14} /> },
     { key: "cardapio", label: "Cardápio", icon: <Utensils size={14} /> },
+    { key: "clientes", label: "Clientes", icon: <Users size={14} /> },
     { key: "ia", label: "Consultora IA", icon: <Bot size={14} /> },
     { key: "alerts", label: `Alertas ${alerts.filter(a => !a.read).length > 0 ? `(${alerts.filter(a => !a.read).length})` : ""}`, icon: <Bell size={14} /> },
   ] as const;
@@ -541,6 +552,94 @@ export default function BIPage() {
                 {(menuAnalytics?.topViewedProducts ?? []).length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-6">Sem dados no período</p>
                 )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Clientes Tab ── */}
+      {tab === "clientes" && (() => {
+        const c = customerStats;
+        const total = c?.total ?? 0;
+        const contactShare = total > 0 ? (c?.contacts ?? 0) / total : 0;
+        const activeShare = total > 0 ? (c?.active ?? 0) / total : 0;
+        const segTotal = (c?.segments.novos ?? 0) + (c?.segments.recorrentes ?? 0) + (c?.segments.fidelizados ?? 0);
+
+        const donutData = [
+          { name: "Contatos", value: c?.contacts ?? 0, color: "#3b82f6" },
+          { name: "Clientes", value: c?.active ?? 0, color: "#22c55e" },
+        ].filter((d) => d.value > 0);
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+              <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-1">Clientes Ativos</p>
+              <p className="text-4xl font-black text-gray-900">{c?.active ?? 0}</p>
+              <p className="text-sm text-gray-400 mt-1">de {total} contatos cadastrados no total</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5">
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <p className="font-bold text-gray-800 mb-1 text-sm">Base de Contatos</p>
+                <p className="text-xs text-gray-400 mb-3">Contatos são os que nunca pediram; clientes já pediram pelo menos 1 vez.</p>
+                <div className="flex items-center gap-5">
+                  {donutData.length > 0 && (
+                    <ResponsiveContainer width={140} height={130}>
+                      <PieChart>
+                        <Pie data={donutData} dataKey="value" nameKey="name" innerRadius={30} outerRadius={55} paddingAngle={2}>
+                          {donutData.map((d) => <Cell key={d.name} fill={d.color} />)}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                  <table className="text-sm flex-1">
+                    <tbody>
+                      <tr className="border-b border-gray-50">
+                        <td className="py-2 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" />Contatos</td>
+                        <td className="py-2 text-right font-bold">{c?.contacts ?? 0}</td>
+                        <td className="py-2 text-right text-gray-400 text-xs w-14">{pct(contactShare)}</td>
+                      </tr>
+                      <tr className="border-b border-gray-50">
+                        <td className="py-2 flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />Clientes</td>
+                        <td className="py-2 text-right font-bold">{c?.active ?? 0}</td>
+                        <td className="py-2 text-right text-gray-400 text-xs w-14">{pct(activeShare)}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 font-bold text-gray-800">Total</td>
+                        <td className="py-2 text-right font-black">{total}</td>
+                        <td className="py-2 text-right text-gray-400 text-xs w-14">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <p className="font-bold text-gray-800 mb-1 text-sm">Base de Clientes</p>
+                <p className="text-xs text-gray-400 mb-3">Categorização por número de pedidos.</p>
+                <div className="space-y-3">
+                  {[
+                    { label: "Novos (1 pedido)", value: c?.segments.novos ?? 0, color: "bg-blue-500" },
+                    { label: "Recorrentes (2-4 pedidos)", value: c?.segments.recorrentes ?? 0, color: "bg-amber-500" },
+                    { label: "Fidelizados (5+ pedidos)", value: c?.segments.fidelizados ?? 0, color: "bg-emerald-500" },
+                  ].map((s) => {
+                    const share = segTotal > 0 ? s.value / segTotal : 0;
+                    return (
+                      <div key={s.label}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600 font-medium">{s.label}</span>
+                          <span className="font-bold text-gray-900">{s.value} <span className="text-gray-400 font-normal">({pct(share)})</span></span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${s.color}`} style={{ width: `${share * 100}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {segTotal === 0 && <p className="text-sm text-gray-400 text-center py-4">Sem clientes com pedido ainda</p>}
+                </div>
               </div>
             </div>
           </div>

@@ -37,6 +37,11 @@ export class ReportsController {
     return this.reports.getRevenue(req.user.companyId, range);
   }
 
+  @Get('customers')
+  customers(@Req() req: any) {
+    return this.reports.getCustomerStats(req.user.companyId);
+  }
+
   @Get('products')
   products(
     @Req() req: any,

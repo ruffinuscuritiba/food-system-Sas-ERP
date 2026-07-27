@@ -31,8 +31,15 @@ export class PizzaBordersService {
     });
   }
 
-  /** Sem auth — consumido pelo cardápio digital público. */
-  findAllActive(companyId: string) {
+  /** Sem auth — consumido pelo cardápio digital público. Aceita slug ou ID real
+   *  (mesmo padrão de pizza-size-configs.service.ts findAll — o cardápio chama
+   *  esse endpoint com o companyId da URL, que pode ser o slug da loja). */
+  async findAllActive(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    const companyId = company?.id ?? slugOrId;
     return this.prisma.pizzaBorder.findMany({
       where: { companyId, isActive: true },
       include: { sizes: { orderBy: { size: 'asc' } } },

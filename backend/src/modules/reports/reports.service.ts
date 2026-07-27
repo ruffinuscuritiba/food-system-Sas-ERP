@@ -60,26 +60,65 @@ function toNum(d: Decimal | null | undefined): number {
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
+  // Une Order (PDV/mesa/WhatsApp) + OnlineOrder (cardápio digital/totem) —
+  // relatórios que só olhavam Order subestimavam o faturamento real sempre
+  // que a loja recebe pedido pelo link do cardápio (o canal mais comum).
   async getRevenue(
     companyId: string,
     range: DateRange,
   ): Promise<RevenueReport> {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        companyId,
-        createdAt: { gte: range.from, lte: range.to },
-        status: { not: 'CANCELLED' },
-      },
-      include: { items: true },
-    });
+    const [orders, onlineOrders] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          companyId,
+          createdAt: { gte: range.from, lte: range.to },
+          status: { not: 'CANCELLED' },
+        },
+        include: { items: true },
+      }),
+      this.prisma.onlineOrder.findMany({
+        where: {
+          companyId,
+          createdAt: { gte: range.from, lte: range.to },
+          orderStatus: { not: 'CANCELED' },
+        },
+      }),
+    ]);
 
-    const cancelled = await this.prisma.order.count({
-      where: {
-        companyId,
-        createdAt: { gte: range.from, lte: range.to },
-        status: 'CANCELLED',
-      },
-    });
+    const [cancelledOrders, cancelledOnline] = await Promise.all([
+      this.prisma.order.count({
+        where: {
+          companyId,
+          createdAt: { gte: range.from, lte: range.to },
+          status: 'CANCELLED',
+        },
+      }),
+      this.prisma.onlineOrder.count({
+        where: {
+          companyId,
+          createdAt: { gte: range.from, lte: range.to },
+          orderStatus: 'CANCELED',
+        },
+      }),
+    ]);
+
+    // CMV de OnlineOrder não é gravado por item (items é JSON, não OrderItem
+    // relacional) — aproxima via Product.costPrice atual, mesma lógica usada
+    // em outros lugares do painel que precisam de uma estimativa de CMV para
+    // pedidos online.
+    const onlineProductIds = new Set<string>();
+    for (const o of onlineOrders) {
+      const items = Array.isArray(o.items) ? (o.items as any[]) : [];
+      for (const it of items) if (it?.productId) onlineProductIds.add(it.productId);
+    }
+    const costByProductId = new Map<string, number>();
+    if (onlineProductIds.size > 0) {
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: [...onlineProductIds] }, companyId },
+        select: { id: true, costPrice: true },
+      });
+      products.forEach((p) => costByProductId.set(p.id, toNum(p.costPrice)));
+    }
 
     let totalRevenue = 0,
       totalCmv = 0;
@@ -90,32 +129,51 @@ export class ReportsService {
       { revenue: number; cmv: number; profit: number; orders: number }
     > = {};
 
-    for (const order of orders) {
-      const rev = toNum(order.total);
-      const cmv = order.items.reduce((s, i) => s + toNum(i.cmv), 0);
+    const bump = (
+      rev: number,
+      cmv: number,
+      paymentMethod: string,
+      orderType: string | null,
+      createdAt: Date,
+    ) => {
       totalRevenue += rev;
       totalCmv += cmv;
 
-      const pm = order.paymentMethod;
-      byPaymentMethod[pm] = (byPaymentMethod[pm] || 0) + rev;
+      byPaymentMethod[paymentMethod] =
+        (byPaymentMethod[paymentMethod] || 0) + rev;
 
-      const type = order.orderType as string | null;
-      if (type === 'DELIVERY') byType.delivery += rev;
-      else if (type === 'PICKUP') byType.pickup += rev;
+      if (orderType === 'DELIVERY') byType.delivery += rev;
+      else if (orderType === 'PICKUP') byType.pickup += rev;
       else byType.dineIn += rev;
 
-      const day = order.createdAt.toISOString().slice(0, 10);
+      const day = createdAt.toISOString().slice(0, 10);
       if (!dailyMap[day])
         dailyMap[day] = { revenue: 0, cmv: 0, profit: 0, orders: 0 };
       dailyMap[day].revenue += rev;
       dailyMap[day].cmv += cmv;
       dailyMap[day].profit += rev - cmv;
       dailyMap[day].orders += 1;
+    };
+
+    for (const order of orders) {
+      const rev = toNum(order.total);
+      const cmv = order.items.reduce((s, i) => s + toNum(i.cmv), 0);
+      bump(rev, cmv, order.paymentMethod, order.orderType, order.createdAt);
+    }
+
+    for (const o of onlineOrders) {
+      const rev = toNum(o.total);
+      const items = Array.isArray(o.items) ? (o.items as any[]) : [];
+      const cmv = items.reduce((s, it) => {
+        const unitCost = costByProductId.get(it?.productId) ?? 0;
+        return s + unitCost * Number(it?.quantity ?? 0);
+      }, 0);
+      bump(rev, cmv, o.paymentMethod, o.orderType, o.createdAt);
     }
 
     const grossProfit = totalRevenue - totalCmv;
     const grossMargin = totalRevenue > 0 ? grossProfit / totalRevenue : 0;
-    const orderCount = orders.length;
+    const orderCount = orders.length + onlineOrders.length;
     const avgTicket = orderCount > 0 ? totalRevenue / orderCount : 0;
 
     const dailySeries = Object.entries(dailyMap)
@@ -129,7 +187,7 @@ export class ReportsService {
       grossMargin,
       orderCount,
       avgTicket,
-      cancelledCount: cancelled,
+      cancelledCount: cancelledOrders + cancelledOnline,
       byPaymentMethod,
       byType,
       dailySeries,
@@ -141,21 +199,50 @@ export class ReportsService {
     range: DateRange,
     limit = 10,
   ): Promise<ProductRanking[]> {
-    const items = await this.prisma.orderItem.findMany({
-      where: {
-        companyId,
-        createdAt: { gte: range.from, lte: range.to },
-        order: { status: { not: 'CANCELLED' } },
-      },
-    });
+    const [items, onlineOrders] = await Promise.all([
+      this.prisma.orderItem.findMany({
+        where: {
+          companyId,
+          createdAt: { gte: range.from, lte: range.to },
+          order: { status: { not: 'CANCELLED' } },
+        },
+      }),
+      this.prisma.onlineOrder.findMany({
+        where: {
+          companyId,
+          createdAt: { gte: range.from, lte: range.to },
+          orderStatus: { not: 'CANCELED' },
+        },
+        select: { items: true },
+      }),
+    ]);
+
+    const onlineProductIds = new Set<string>();
+    for (const o of onlineOrders) {
+      const raw = Array.isArray(o.items) ? (o.items as any[]) : [];
+      for (const it of raw) if (it?.productId) onlineProductIds.add(it.productId);
+    }
+    const costByProductId = new Map<string, number>();
+    if (onlineProductIds.size > 0) {
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: [...onlineProductIds] }, companyId },
+        select: { id: true, costPrice: true },
+      });
+      products.forEach((p) => costByProductId.set(p.id, toNum(p.costPrice)));
+    }
 
     const map: Record<string, ProductRanking> = {};
-    for (const item of items) {
-      const key = item.productId;
-      if (!map[key]) {
-        map[key] = {
-          productId: key,
-          productName: item.productName,
+    const add = (
+      productId: string,
+      productName: string,
+      quantity: number,
+      revenue: number,
+      cmv: number,
+    ) => {
+      if (!map[productId]) {
+        map[productId] = {
+          productId,
+          productName,
           quantity: 0,
           revenue: 0,
           cmv: 0,
@@ -163,12 +250,31 @@ export class ReportsService {
           margin: 0,
         };
       }
-      const rev = toNum(item.subtotal);
-      const cmv = toNum(item.cmv);
-      map[key].quantity += Number(item.quantity);
-      map[key].revenue += rev;
-      map[key].cmv += cmv;
-      map[key].profit += rev - cmv;
+      map[productId].quantity += quantity;
+      map[productId].revenue += revenue;
+      map[productId].cmv += cmv;
+      map[productId].profit += revenue - cmv;
+    };
+
+    for (const item of items) {
+      add(
+        item.productId,
+        item.productName,
+        Number(item.quantity),
+        toNum(item.subtotal),
+        toNum(item.cmv),
+      );
+    }
+
+    for (const o of onlineOrders) {
+      const raw = Array.isArray(o.items) ? (o.items as any[]) : [];
+      for (const it of raw) {
+        if (!it?.productId) continue;
+        const quantity = Number(it.quantity ?? 0);
+        const revenue = Number(it.unitPrice ?? 0) * quantity;
+        const cmv = (costByProductId.get(it.productId) ?? 0) * quantity;
+        add(it.productId, it.productName ?? 'Produto', quantity, revenue, cmv);
+      }
     }
 
     return Object.values(map)

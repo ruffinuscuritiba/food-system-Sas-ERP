@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  PieChart, Pie, Legend,
 } from "recharts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,15 +53,6 @@ interface CashStatus {
   difference?: number | null;
   closedByName?: string | null;
   closedAt?: string | null;
-}
-
-interface Order {
-  id: string;
-  total: number;
-  status: string;
-  paymentMethod: string;
-  createdAt: string;
-  orderType?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -681,68 +673,105 @@ function TabExtrato({ records, summary, cash, onAdd, onRefresh }: TabExtratoProp
 
 // ── Tab: Relatório ────────────────────────────────────────────────────────────
 
+interface RevenueReport {
+  totalRevenue: number;
+  totalCmv: number;
+  grossProfit: number;
+  grossMargin: number;
+  orderCount: number;
+  avgTicket: number;
+  cancelledCount: number;
+  byPaymentMethod: Record<string, number>;
+  byType: { delivery: number; dineIn: number; pickup: number };
+  dailySeries: { date: string; revenue: number; cmv: number; profit: number; orders: number }[];
+}
+
+const PAYMENT_PIE_COLORS: Record<string, string> = {
+  PIX: "#22c55e",
+  CREDIT_CARD: "#3b82f6",
+  DEBIT_CARD: "#a855f7",
+  CASH: "#f59e0b",
+  TRANSFER: "#6b7280",
+};
+const PAYMENT_PIE_LABELS: Record<string, string> = {
+  PIX: "PIX",
+  CREDIT_CARD: "Crédito",
+  DEBIT_CARD: "Débito",
+  CASH: "Dinheiro",
+  TRANSFER: "Transferência",
+};
+
+const TYPE_PIE_COLORS: Record<string, string> = {
+  Entrega: "#3b82f6",
+  Retirada: "#22c55e",
+  Balcão: "#f59e0b",
+};
+
 function TabRelatorio({
-  orders,
   summary,
 }: {
-  orders: Order[];
   summary: FinancialSummary | null;
 }) {
   const [period, setPeriod] = useState<"dia" | "semana" | "mes">("mes");
+  const [report, setReport] = useState<RevenueReport | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const now = new Date();
-  const periodStart =
-    period === "mes"
-      ? new Date(now.getFullYear(), now.getMonth(), 1)
-      : period === "semana"
-      ? new Date(now.getTime() - 7 * 86400000)
-      : new Date(now.getTime() - 86400000);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const now = new Date();
+    const from =
+      period === "mes"
+        ? new Date(now.getFullYear(), now.getMonth(), 1)
+        : period === "semana"
+        ? new Date(now.getTime() - 7 * 86400000)
+        : new Date(now.getTime() - 86400000);
 
-  const filtered = orders.filter((o) => new Date(o.createdAt) >= periodStart);
-  const delivered = filtered.filter(
-    (o) => o.status === "DELIVERED" || o.status === "COMPLETED"
-  );
+    api
+      .get("/reports/revenue", { params: { from: from.toISOString(), to: now.toISOString() } })
+      .then((r) => { if (!cancelled) setReport(r.data); })
+      .catch(() => { if (!cancelled) setReport(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-  const grossRevenue = delivered.reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const pixRevenue = delivered
-    .filter((o) => o.paymentMethod === "PIX")
-    .reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const cardRevenue = delivered
-    .filter((o) => o.paymentMethod === "CREDIT_CARD")
-    .reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const debitRevenue = delivered
-    .filter((o) => o.paymentMethod === "DEBIT_CARD")
-    .reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const cashRevenue = delivered
-    .filter((o) => o.paymentMethod === "CASH")
-    .reduce((s, o) => s + Number(o.total ?? 0), 0);
-  const transferRevenue = delivered
-    .filter((o) => o.paymentMethod === "TRANSFER")
-    .reduce((s, o) => s + Number(o.total ?? 0), 0);
+    return () => { cancelled = true; };
+  }, [period]);
 
-  const taxPix =
-    pixRevenue * 0.005 +
-    delivered.filter((o) => o.paymentMethod === "PIX").length * 0.4;
-  const taxCard = cardRevenue * 0.0399;
+  const grossRevenue = report?.totalRevenue ?? 0;
+  const byPaymentMethod = report?.byPaymentMethod ?? {};
   const totalExpenses = summary?.exits ?? 0;
+
+  const pixRevenue = byPaymentMethod.PIX ?? 0;
+  const cardRevenue = byPaymentMethod.CREDIT_CARD ?? 0;
+  const debitRevenue = byPaymentMethod.DEBIT_CARD ?? 0;
+
+  // Estimativa de taxas — percentual aproximado, não substitui o extrato real do gateway.
+  const taxPix = pixRevenue * 0.005;
+  const taxCard = (cardRevenue + debitRevenue) * 0.0399;
   const netRevenue = grossRevenue - taxPix - taxCard - totalExpenses;
 
-  // Weekly chart
+  const paymentPieData = Object.entries(byPaymentMethod)
+    .filter(([, value]) => value > 0)
+    .map(([method, value]) => ({
+      name: PAYMENT_PIE_LABELS[method] ?? method,
+      key: method,
+      value,
+    }));
+
+  const typePieData = [
+    { name: "Entrega", value: report?.byType?.delivery ?? 0 },
+    { name: "Retirada", value: report?.byType?.pickup ?? 0 },
+    { name: "Balcão", value: report?.byType?.dineIn ?? 0 },
+  ].filter((d) => d.value > 0);
+
+  // Últimos 7 dias a partir da série diária real do backend
+  const dailyMap = new Map((report?.dailySeries ?? []).map((d) => [d.date, d]));
+  const now = new Date();
   const chartData = Array.from({ length: 7 }, (_, i) => {
     const day = new Date(now.getTime() - (6 - i) * 86400000);
+    const iso = day.toISOString().slice(0, 10);
     const dayStr = day.toLocaleDateString("pt-BR", { weekday: "short" });
-    const dayTotal = orders
-      .filter((o) => {
-        const d = new Date(o.createdAt);
-        return (
-          d.toDateString() === day.toDateString() &&
-          (o.status === "DELIVERED" || o.status === "COMPLETED")
-        );
-      })
-      .reduce((s, o) => s + Number(o.total ?? 0), 0);
-    return { day: dayStr, value: dayTotal };
+    return { day: dayStr, value: dailyMap.get(iso)?.revenue ?? 0 };
   });
-
   const maxChart = Math.max(...chartData.map((d) => d.value), 1);
 
   return (
@@ -751,11 +780,11 @@ function TabRelatorio({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-1">
-            Faturamento Online
+            Faturamento Total
           </p>
           <p className="text-4xl font-black text-gray-900">R$ {fmt(grossRevenue)}</p>
           <p className="text-sm text-gray-400 mt-1">
-            {delivered.length} pedidos entregues
+            {loading ? "Carregando…" : `${report?.orderCount ?? 0} pedidos (PDV + cardápio digital)`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -785,9 +814,15 @@ function TabRelatorio({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           {
-            label: "Receitas manuais",
-            value: summary?.entries ?? 0,
-            color: "text-green-600",
+            label: "Ticket médio",
+            value: report?.avgTicket ?? 0,
+            color: "text-primary",
+          },
+          {
+            label: "Margem bruta",
+            value: null,
+            display: `${((report?.grossMargin ?? 0) * 100).toFixed(1)}%`,
+            color: "text-gray-900",
           },
           {
             label: "Despesas registradas",
@@ -795,14 +830,10 @@ function TabRelatorio({
             color: "text-red-500",
           },
           {
-            label: "Saldo financeiro",
-            value: summary?.balance ?? 0,
-            color: (summary?.balance ?? 0) >= 0 ? "text-gray-900" : "text-red-500",
-          },
-          {
-            label: "Ticket médio",
-            value: summary?.ticketAverage ?? 0,
-            color: "text-primary",
+            label: "Pedidos cancelados",
+            value: null,
+            display: String(report?.cancelledCount ?? 0),
+            color: "text-red-500",
           },
         ].map((k) => (
           <div
@@ -810,7 +841,9 @@ function TabRelatorio({
             className="border border-gray-100 bg-white rounded-2xl p-4 shadow-sm"
           >
             <p className="text-xs text-gray-400 mb-1">{k.label}</p>
-            <p className={`font-black text-lg ${k.color}`}>R$ {fmt(Number(k.value))}</p>
+            <p className={`font-black text-lg ${k.color}`}>
+              {k.display ?? `R$ ${fmt(Number(k.value))}`}
+            </p>
           </div>
         ))}
       </div>
@@ -856,6 +889,69 @@ function TabRelatorio({
         </ResponsiveContainer>
       </div>
 
+      {/* Pizzas: forma de pagamento + tipo de pedido */}
+      <div className="grid lg:grid-cols-2 gap-5">
+        <div className="border border-gray-100 rounded-2xl bg-white shadow-sm p-5">
+          <p className="font-bold text-gray-800 mb-1">Formas de pagamento</p>
+          <p className="text-xs text-gray-400 mb-3">
+            Distribuição do faturamento por método no período.
+          </p>
+          {paymentPieData.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">Sem dados no período.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={paymentPieData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={45}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                >
+                  {paymentPieData.map((entry) => (
+                    <Cell key={entry.key} fill={PAYMENT_PIE_COLORS[entry.key] ?? "#9ca3af"} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => `R$ ${fmt(v)}`} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="border border-gray-100 rounded-2xl bg-white shadow-sm p-5">
+          <p className="font-bold text-gray-800 mb-1">Tipos de pedido</p>
+          <p className="text-xs text-gray-400 mb-3">
+            Entrega, retirada ou balcão/mesa no período.
+          </p>
+          {typePieData.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">Sem dados no período.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={typePieData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={45}
+                  outerRadius={80}
+                  paddingAngle={2}
+                  label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                >
+                  {typePieData.map((entry) => (
+                    <Cell key={entry.name} fill={TYPE_PIE_COLORS[entry.name] ?? "#9ca3af"} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => `R$ ${fmt(v)}`} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
       {/* Revenue breakdown */}
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Receita por método */}
@@ -863,22 +959,18 @@ function TabRelatorio({
           <div className="px-5 py-4 border-b border-gray-100">
             <p className="font-bold text-gray-800">Receita por forma de pagamento</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Pedidos entregues no período selecionado.
+              PDV + cardápio digital, no período selecionado.
             </p>
           </div>
-          {[
-            { label: "PIX", value: pixRevenue },
-            { label: "Cartão de Crédito", value: cardRevenue },
-            { label: "Cartão de Débito", value: debitRevenue },
-            { label: "Dinheiro", value: cashRevenue },
-            { label: "Transferência", value: transferRevenue },
-          ].map((row) => (
+          {Object.keys(PAYMENT_PIE_LABELS).map((method) => (
             <div
-              key={row.label}
+              key={method}
               className="flex justify-between items-center px-5 py-3 border-b border-gray-50 hover:bg-gray-50 transition text-sm"
             >
-              <span className="text-primary font-medium">{row.label}</span>
-              <span className="font-bold text-gray-800">R$ {fmt(row.value)}</span>
+              <span className="text-primary font-medium">{PAYMENT_PIE_LABELS[method]}</span>
+              <span className="font-bold text-gray-800">
+                R$ {fmt(byPaymentMethod[method] ?? 0)}
+              </span>
             </div>
           ))}
           <div className="flex justify-between items-center px-5 py-4 bg-gray-50 text-sm font-black">
@@ -892,13 +984,13 @@ function TabRelatorio({
           <div className="px-5 py-4 border-b border-gray-100">
             <p className="font-bold text-gray-800">Resultado financeiro</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Deduções sobre a receita bruta de vendas.
+              Deduções estimadas sobre a receita bruta de vendas.
             </p>
           </div>
           {[
             { label: "Receita Bruta", value: grossRevenue, positive: true },
-            { label: "Taxas PIX", value: -taxPix, positive: false },
-            { label: "Taxas Cartão", value: -taxCard, positive: false },
+            { label: "Taxas PIX (estimado)", value: -taxPix, positive: false },
+            { label: "Taxas Cartão (estimado)", value: -taxCard, positive: false },
             { label: "Despesas registradas", value: -totalExpenses, positive: false },
           ].map((row) => (
             <div
@@ -1522,7 +1614,6 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function FinanceiroPage() {
   const [tab, setTab] = useState<Tab>("extrato");
-  const [orders, setOrders] = useState<Order[]>([]);
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [cash, setCash] = useState<CashStatus | null>(null);
@@ -1532,16 +1623,12 @@ export default function FinanceiroPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [ordersRes, recordsRes, summaryRes, cashRes] = await Promise.allSettled([
-        api.get("/orders"),
+      const [recordsRes, summaryRes, cashRes] = await Promise.allSettled([
         api.get("/financial"),
         api.get("/financial/summary"),
         api.get("/cash/current"),
       ]);
 
-      if (ordersRes.status === "fulfilled") {
-        setOrders(Array.isArray(ordersRes.value.data) ? ordersRes.value.data : []);
-      }
       if (recordsRes.status === "fulfilled") {
         setRecords(Array.isArray(recordsRes.value.data) ? recordsRes.value.data : []);
       }
@@ -1630,7 +1717,7 @@ export default function FinanceiroPage() {
               <TabCaixa cash={cash} onRefresh={load} />
             )}
             {tab === "relatorio" && (
-              <TabRelatorio orders={orders} summary={summary} />
+              <TabRelatorio summary={summary} />
             )}
             {tab === "configuracoes" && <TabConfiguracoes />}
           </>

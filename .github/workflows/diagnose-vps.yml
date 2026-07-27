@@ -5,7 +5,7 @@ on:
 
 jobs:
   diagnose:
-    name: Read-only inspection of VPS state
+    name: Read-only inspection of cash reconciliation data
     runs-on: ubuntu-latest
     steps:
       - name: Inspect via SSH (no changes made)
@@ -18,42 +18,83 @@ jobs:
           timeout: 30s
           command_timeout: 120s
           script: |
-            echo "===== docker ps -a ====="
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}"
+            set -e
+            cat > /tmp/cash_audit.js << 'JSEOF'
+            const { PrismaClient } = require('@prisma/client');
+            const prisma = new PrismaClient();
 
-            echo ""
-            echo "===== networks ====="
-            docker network ls
+            async function main() {
+              const company = await prisma.company.findFirst({
+                where: { name: { contains: 'Ruffinu', mode: 'insensitive' } },
+                select: { id: true, name: true },
+              });
+              if (!company) { console.log('Empresa não encontrada'); return; }
+              console.log('Empresa:', company.name, company.id);
 
-            echo ""
-            echo "===== labels of any container with 'backend' or 'foodsaas' in name ====="
-            for c in $(docker ps -a --format "{{.Names}}" | grep -Ei 'backend|foodsaas'); do
-              echo "--- $c ---"
-              docker inspect "$c" --format '{{json .Config.Labels}}'
-              docker inspect "$c" --format 'Networks: {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
-            done
+              const cashes = await prisma.cash.findMany({
+                where: { companyId: company.id },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+              });
 
-            echo ""
-            echo "===== /opt listing ====="
-            ls -la /opt 2>&1 || true
+              for (const c of cashes) {
+                console.log('\n--- Cash', c.id, '---');
+                console.log('  isOpen:', c.isOpen, ' createdAt:', c.createdAt, ' closedAt:', c.closedAt);
+                console.log('  openingValue:', c.openingValue.toString(), ' entries:', c.entries.toString(), ' exits:', c.exits.toString(), ' balance:', c.balance.toString());
+                console.log('  declaredValue:', c.declaredValue?.toString(), ' systemValue:', c.systemValue?.toString(), ' difference:', c.difference?.toString());
 
-            echo ""
-            echo "===== /opt/foodsaas-backend ====="
-            ls -la /opt/foodsaas-backend 2>&1 || echo "not found"
-            test -f /opt/foodsaas-backend/docker-compose.yml && echo "--- compose file (labels/networks only) ---" && grep -n -A3 -iE 'traefik|networks|external' /opt/foodsaas-backend/docker-compose.yml
+                const cashOrders = await prisma.order.findMany({
+                  where: { cashId: c.id, paymentMethod: 'CASH' },
+                  select: { id: true, number: true, status: true, total: true, confirmedAt: true, cancelledAt: true, createdAt: true },
+                  orderBy: { createdAt: 'asc' },
+                });
+                const confirmedTotal = cashOrders
+                  .filter(o => !['PENDING', 'CANCELLED'].includes(o.status))
+                  .reduce((s, o) => s + Number(o.total), 0);
+                console.log('  Pedidos CASH vinculados a este caixa:', cashOrders.length, ' soma (nao pendente/cancelado):', confirmedTotal.toFixed(2));
 
-            echo ""
-            echo "===== /root listing ====="
-            ls -la /root 2>&1 || true
+                // Pedidos cujo confirmedAt é DEPOIS do caixa já ter sido fechado
+                // (candidato a bug: cash.updateMany com isOpen:true não bate mais nada)
+                if (c.closedAt) {
+                  const lateConfirm = cashOrders.filter(o => o.confirmedAt && new Date(o.confirmedAt) > new Date(c.closedAt));
+                  if (lateConfirm.length) {
+                    console.log('  ⚠ Pedidos confirmados APÓS o fechamento deste caixa (possível perda de crédito):');
+                    for (const o of lateConfirm) {
+                      console.log('    #', o.number, ' total:', o.total.toString(), ' confirmedAt:', o.confirmedAt, ' status:', o.status);
+                    }
+                  }
+                }
+              }
 
-            echo ""
-            echo "===== /root/food-system-Sas-ERP ====="
-            ls -la /root/food-system-Sas-ERP 2>&1 || echo "not found"
-            test -f /root/food-system-Sas-ERP/.env && echo ".env exists" || echo ".env MISSING"
+              // Pedidos CASH sem cashId nenhum (não deveriam existir para canal PDV)
+              const orphanCash = await prisma.order.findMany({
+                where: { companyId: company.id, paymentMethod: 'CASH', cashId: null, status: { notIn: ['PENDING', 'CANCELLED'] } },
+                select: { id: true, number: true, total: true, channel: true, createdAt: true, confirmedAt: true },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+              });
+              console.log('\n--- Pedidos CASH confirmados SEM cashId (', orphanCash.length, ') ---');
+              for (const o of orphanCash) {
+                console.log('  #', o.number, ' total:', o.total.toString(), ' channel:', o.channel, ' createdAt:', o.createdAt);
+              }
 
-            echo ""
-            echo "===== traefik container labels (find router config) ====="
-            docker ps --format "{{.Names}}" | grep -i traefik | while read t; do
-              echo "--- $t ---"
-              docker inspect "$t" --format '{{json .Config.Labels}}'
-            done
+              // OnlineOrder pagos em dinheiro (cardápio digital / totem) — nunca têm cashId hoje
+              const onlineCash = await prisma.onlineOrder.findMany({
+                where: { companyId: company.id, paymentMethod: 'CASH', orderStatus: { not: 'CANCELED' } },
+                select: { id: true, total: true, orderStatus: true, createdAt: true, channel: true },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+              });
+              const onlineCashSum = onlineCash.reduce((s, o) => s + Number(o.total), 0);
+              console.log('\n--- OnlineOrder pagos em CASH (cardápio/totem), últimos', onlineCash.length, '— soma:', onlineCashSum.toFixed(2), '---');
+              for (const o of onlineCash) {
+                console.log('  ', o.id, ' total:', o.total.toString(), ' status:', o.orderStatus, ' channel:', o.channel, ' createdAt:', o.createdAt);
+              }
+            }
+
+            main().catch(e => console.error(e)).finally(() => prisma.$disconnect());
+            JSEOF
+            docker cp /tmp/cash_audit.js foodsaas-backend-backend-1:/tmp/cash_audit.js
+            docker exec foodsaas-backend-backend-1 node /tmp/cash_audit.js
+            docker exec foodsaas-backend-backend-1 rm -f /tmp/cash_audit.js
+            rm -f /tmp/cash_audit.js

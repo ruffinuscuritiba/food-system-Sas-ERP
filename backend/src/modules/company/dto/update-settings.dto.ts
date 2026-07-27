@@ -31,6 +31,7 @@ export class UpdateCompanySettingsDto {
 
   @IsString()
   @IsOptional()
+  @Length(1, 60, { message: 'Slug deve ter entre 1 e 60 caracteres' })
   @Matches(/^[a-z0-9-]+$/, { message: 'Slug deve conter apenas letras minúsculas, dígitos e hífens' })
   slug?: string;
 

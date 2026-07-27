@@ -345,9 +345,21 @@ export function LojaTab({ client, endpoint = "/company/settings", skipAuthCheck 
               </span>
               <input
                 type="text"
+                maxLength={60}
                 className="w-full pl-[52px] pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={str(data.slug)}
-                onChange={(e) => patch("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                onChange={(e) => {
+                  let raw = e.target.value;
+                  // Se o usuário colar o link completo do cardápio (ex: copiado do
+                  // modal "QR Code e Links") em vez de digitar só o slug, extrai o
+                  // último segmento do caminho antes de sanitizar — sem isso, a URL
+                  // inteira vira lixo colado (já aconteceu 2x, ver CLAUDE.md item 157).
+                  if (/https?:\/\//i.test(raw) || raw.includes("/")) {
+                    const segments = raw.split("/").filter(Boolean);
+                    raw = segments[segments.length - 1] || raw;
+                  }
+                  patch("slug", raw.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 60));
+                }}
                 placeholder="nome-da-loja"
               />
             </div>

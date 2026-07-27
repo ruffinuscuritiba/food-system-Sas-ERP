@@ -31,6 +31,15 @@ export class PizzaBordersService {
     });
   }
 
+  /** Sem auth — consumido pelo cardápio digital público. */
+  findAllActive(companyId: string) {
+    return this.prisma.pizzaBorder.findMany({
+      where: { companyId, isActive: true },
+      include: { sizes: { orderBy: { size: 'asc' } } },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
   async create(companyId: string, dto: CreateBorderDto) {
     const last = await this.prisma.pizzaBorder.findFirst({
       where: { companyId },

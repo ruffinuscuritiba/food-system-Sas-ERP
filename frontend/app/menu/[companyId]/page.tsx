@@ -177,6 +177,7 @@ type CartItem = {
   // pro backend, esses campos ficam só no estado local do carrinho).
   pizzaSize?: string;
   borderId?: string | null;
+  borderName?: string;
   customerNotes?: string;
 };
 
@@ -256,6 +257,11 @@ export default function MenuPage() {
   const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [companyName, setCompanyName] = useState("Cardápio");
+  // Cidade/UF da loja — usado pra "ancorar" a busca de rua no Nominatim (sem
+  // isso, ruas comuns/residenciais digitadas sem contexto de cidade quase
+  // sempre voltam 0 resultados, mesmo a rua existindo no OpenStreetMap).
+  const [companyCity, setCompanyCity] = useState<string | null>(null);
+  const [companyState, setCompanyState] = useState<string | null>(null);
   const [companyWhatsapp, setCompanyWhatsapp] = useState<string | undefined>(undefined);
   const [assistantName, setAssistantName] = useState<string | undefined>(undefined);
   const [orderSent, setOrderSent] = useState(false);
@@ -423,6 +429,8 @@ export default function MenuPage() {
         if (cd?.name) setCompanyName(cd.name);
         if (cd?.id) setRealCompanyId(cd.id);
         if (cd?.whatsapp || cd?.phone) setCompanyWhatsapp(cd.whatsapp || cd.phone);
+        if (cd?.city) setCompanyCity(cd.city);
+        if (cd?.state) setCompanyState(cd.state);
         // FIX: metaPixelId e googleAnalyticsId são campos da tabela Company
         // (não de CompanyTheme) — antes o código tentava ler esses valores
         // de `themeRes` (endpoint /themes/:id), onde eles nunca existiram.
@@ -850,6 +858,33 @@ export default function MenuPage() {
     setFlavorSlots((prev) => prev.map((s, i) => i === index ? product : s));
   }
 
+  /** Acha a zona de entrega cadastrada que corresponde a um bairro (match exato, depois parcial). */
+  function matchDeliveryZone(neighborhood: string) {
+    if (!neighborhood) return null;
+    const target = neighborhood.toLowerCase().trim();
+    return deliveryZones.find(z => (z.neighborhood || z.name || "").toLowerCase().trim() === target)
+      ?? deliveryZones.find(z => {
+        const zn = (z.neighborhood || z.name || "").toLowerCase().trim();
+        return zn.includes(target) || target.includes(zn);
+      }) ?? null;
+  }
+
+  /** Aplica o bairro encontrado (por CEP ou busca de rua) ao formulário — se
+   *  bater com uma zona cadastrada, seleciona ela normalmente (dropdown); se
+   *  não bater com nenhuma, cai pro campo de texto livre em vez de deixar o
+   *  <select> mostrar em branco silenciosamente (bug: o valor ficava salvo no
+   *  estado, mas o <select> só realça uma opção com match exato de string). */
+  function applyResolvedNeighborhood(neighborhood: string) {
+    const zone = matchDeliveryZone(neighborhood);
+    setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
+    if (zone) {
+      setManualNeighborhood(false);
+      return zone.neighborhood || zone.name || neighborhood;
+    }
+    if (neighborhood && deliveryZones.length > 0) setManualNeighborhood(true);
+    return neighborhood;
+  }
+
   async function fetchByCep(cep: string) {
     const clean = cep.replace(/\D/g, '');
     if (clean.length !== 8) return;
@@ -859,22 +894,11 @@ export default function MenuPage() {
       if (!r.ok) return;
       const d = await r.json();
       if (d.erro) return;
-      const newNeighborhood = d.bairro || "";
-      // Buscar zona de entrega — match exato ou parcial pelo bairro do CEP
-      let zone = newNeighborhood
-        ? deliveryZones.find(z => {
-            const zn = (z.neighborhood || z.name || "").toLowerCase().trim();
-            return zn === newNeighborhood.toLowerCase().trim();
-          }) ?? deliveryZones.find(z => {
-            const zn = (z.neighborhood || z.name || "").toLowerCase().trim();
-            return zn.includes(newNeighborhood.toLowerCase().trim()) || newNeighborhood.toLowerCase().trim().includes(zn);
-          }) ?? null
-        : null;
-      setSelectedZone(zone ? { id: zone.id, clientFee: zone.clientFee } : null);
+      const resolvedNeighborhood = applyResolvedNeighborhood(d.bairro || "");
       setForm((f) => ({
         ...f,
         street: d.logradouro || f.street,
-        neighborhood: zone ? (zone.neighborhood || zone.name || newNeighborhood) : newNeighborhood || f.neighborhood,
+        neighborhood: resolvedNeighborhood || f.neighborhood,
         city: d.localidade || f.city,
         state: d.uf || f.state,
       }));
@@ -886,14 +910,32 @@ export default function MenuPage() {
     if (query.length < 5) { setStreetSuggestions([]); return; }
     setStreetLoading(true);
     try {
-      const q = encodeURIComponent(query + ', Brasil');
+      // Ancora a busca na cidade/UF da loja — sem isso, ruas comuns/residenciais
+      // digitadas sem contexto de cidade quase sempre voltam 0 resultados no
+      // Nominatim, mesmo a rua existindo (confirmado testando direto na API).
+      const locationHint = [companyCity, companyState].filter(Boolean).join(', ');
+      const q = encodeURIComponent(`${query}${locationHint ? `, ${locationHint}` : ''}, Brasil`);
       const r = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${q}&countrycodes=br&addressdetails=1&limit=6`,
         { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'FoodSaaS-ERP/1.0' } }
       );
       if (!r.ok) return;
-      const data = await r.json();
-      setStreetSuggestions(data.filter((i: any) => i.address?.road));
+      let data = await r.json();
+      let results = data.filter((i: any) => i.address?.road);
+      // Fallback: se a busca ancorada não achar nada (ex: cidade não bate com o
+      // que o OSM tem indexado), tenta de novo sem a cidade antes de desistir.
+      if (results.length === 0 && locationHint) {
+        const qFallback = encodeURIComponent(`${query}, Brasil`);
+        const rFallback = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${qFallback}&countrycodes=br&addressdetails=1&limit=6`,
+          { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'FoodSaaS-ERP/1.0' } }
+        );
+        if (rFallback.ok) {
+          data = await rFallback.json();
+          results = data.filter((i: any) => i.address?.road);
+        }
+      }
+      setStreetSuggestions(results);
     } catch { /* silent */ }
     finally { setStreetLoading(false); }
   }
@@ -902,10 +944,12 @@ export default function MenuPage() {
     const addr = item.address;
     const stateIso: string = addr['ISO3166-2-lvl4'] ?? '';
     const stateCode = stateIso.length >= 2 ? stateIso.slice(-2) : (addr.state ?? '');
+    const geocodedNeighborhood = addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? '';
+    const resolvedNeighborhood = geocodedNeighborhood ? applyResolvedNeighborhood(geocodedNeighborhood) : '';
     setForm((f) => ({
       ...f,
       street: addr.road ?? addr.pedestrian ?? addr.footway ?? f.street,
-      neighborhood: addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? f.neighborhood,
+      neighborhood: resolvedNeighborhood || f.neighborhood,
       city: addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? f.city,
       state: stateCode.toUpperCase().slice(0, 2) || f.state,
       zipcode: addr.postcode ?? f.zipcode,
@@ -971,6 +1015,7 @@ export default function MenuPage() {
       flavors: chosen,
       pizzaSize: selectedPizzaSize || undefined,
       borderId: selectedBorderId,
+      borderName: border?.name,
       customerNotes: pizzaNotes.trim(),
     };
     setCart((prev) => {
@@ -984,6 +1029,10 @@ export default function MenuPage() {
     setEditingCartKey(null);
     toast.success(editingCartKey ? "Pizza atualizada!" : "Pizza montada adicionada!");
     trackFunnelEvent("ADD_TO_CART");
+    // Depois de montar/editar a pizza, cai direto no resumo do pedido — mostra
+    // a sugestão de bebida/acompanhamento e a lista do que já foi escolhido,
+    // em vez de fechar silenciosamente e deixar o cliente procurar o carrinho.
+    setShowCart(true);
   }
 
   // ── Render helpers para o modal de pizza ──
@@ -2268,8 +2317,18 @@ export default function MenuPage() {
                 <div key={item.cartKey} className="flex items-center gap-4 rounded-xl p-4 border" style={{ background: "var(--menu-surface-2)", borderColor: "var(--menu-border)" }}>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm" style={{ color: "var(--menu-text)" }}>{item.product.name}</p>
-                    {item.notes && item.flavors && (
-                      <p className="text-xs mt-0.5" style={{ color: theme.primaryColor }}>{item.notes}</p>
+                    {item.flavors && item.flavors.length > 0 && (
+                      <div className="mt-0.5">
+                        <p className="text-xs" style={{ color: theme.primaryColor }}>
+                          {item.flavors.map((f) => f.name).join(" + ")}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
+                          Borda: {item.borderName || "Nenhuma"}
+                        </p>
+                        {item.customerNotes && (
+                          <p className="text-xs italic mt-0.5" style={{ color: "var(--menu-text-2)" }}>Obs: {item.customerNotes}</p>
+                        )}
+                      </div>
                     )}
                     {item.complements && item.complements.length > 0 && (
                       <ul className="mt-1 space-y-0.5">

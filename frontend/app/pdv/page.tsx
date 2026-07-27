@@ -282,6 +282,21 @@ export default function PDVPage() {
   const [orderStats, setOrderStats] = useState({ ativos: 0, emRota: 0, finalizados: 0 });
 
   const searchRef = useRef<HTMLInputElement>(null);
+  // Agente de impressão físico online = ele já recebeu o job automaticamente
+  // (orders.service.ts enqueuePrintJobs, disparado na criação do pedido) —
+  // abrir pop-up de impressão automática aqui também imprimiria 2x.
+  const agentOnlineRef = useRef(false);
+
+  useEffect(() => {
+    const checkAgent = () => {
+      api.get<{ online: boolean }>("/printers/agent/status")
+        .then((r) => { agentOnlineRef.current = !!r.data.online; })
+        .catch(() => { agentOnlineRef.current = false; });
+    };
+    checkAgent();
+    const agentTimer = setInterval(checkAgent, 30_000);
+    return () => clearInterval(agentTimer);
+  }, []);
 
   const [showTrocarMesa, setShowTrocarMesa]     = useState(false);
   const [tables, setTables]                     = useState<any[]>([]);
@@ -728,7 +743,10 @@ export default function PDVPage() {
       }
 
       // Impressão automática: monta ticket a partir do carrinho local (sem novo GET)
-      try {
+      // Pula o pop-up se o Agente de Impressão físico já está online — o
+      // backend já enfileirou o job real pra ele na criação do pedido, então
+      // abrir pop-up aqui também imprimiria o mesmo pedido 2x.
+      if (!agentOnlineRef.current) try {
         const catTypeById = new Map(categories.map(c => [c.id, c.categoryType ?? "normal"]));
         PrintRouterService.printAll(
           {

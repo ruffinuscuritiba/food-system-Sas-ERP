@@ -286,6 +286,12 @@ model Company {
   // JSON: {useAssistant, autoPrint, autoAccept, showCNPJ, showCategory, showDescription, pizzaItemFormat, addonGrouping}
   printingSettings     Json?
 
+  // Token dedicado do Printer Agent (.exe) — NUNCA expira, diferente do JWT
+  // de sessão do usuário (7 dias) que era usado antes como "chave de
+  // ativação" e derrubava o agente silenciosamente depois de uma semana.
+  // Gerado sob demanda na 1ª vez que a tela de Impressão pede o token.
+  printerAgentToken    String? @unique
+
   // ── Segmento e layout ─────────────────────────────────────────────────────
   // Nicho do negócio — usado para seed automático na criação da conta
   businessSegment  String @default("RESTAURANTE")

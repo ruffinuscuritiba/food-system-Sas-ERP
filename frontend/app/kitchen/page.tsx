@@ -33,6 +33,10 @@ export default function KitchenPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const printedOrders = useRef<any[]>([]);
   const containerRef  = useRef<any>(null);
+  // Agente de impressão físico online = ele já recebeu o job automaticamente
+  // (orders.service.ts enqueuePrintJobs, disparado na criação do pedido) —
+  // abrir pop-up aqui também imprimiria o mesmo pedido 2x.
+  const agentOnlineRef = useRef(false);
 
   async function loadOrders() {
     // Adapter Item 4 — Caminho 2: lista unificada PDV + Cardápio Digital
@@ -54,6 +58,7 @@ export default function KitchenPage() {
   }
 
   async function printKitchenOrder(order: any) {
+    if (agentOnlineRef.current) return; // agente já imprimiu via fila real
     const result = await PrintRouterService.printAll(order, { companyName: "Cozinha", sectors: ["KITCHEN", "BAR", "PIZZARIA", "LANCHONETE"] });
     if (result.blockedSectors.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -64,6 +69,17 @@ export default function KitchenPage() {
       );
     }
   }
+
+  useEffect(() => {
+    const checkAgent = () => {
+      api.get<{ online: boolean }>("/printers/agent/status")
+        .then((r) => { agentOnlineRef.current = !!r.data.online; })
+        .catch(() => { agentOnlineRef.current = false; });
+    };
+    checkAgent();
+    const agentTimer = setInterval(checkAgent, 30_000);
+    return () => clearInterval(agentTimer);
+  }, []);
 
   useEffect(() => {
     loadOrders();

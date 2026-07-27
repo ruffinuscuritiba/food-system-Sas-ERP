@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '@/database/prisma.service';
 import { CreatePrinterDto } from './dto/create-printer.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
@@ -16,6 +17,26 @@ const AGENT_ONLINE_TTL_MS = 90_000; // 90s — agent pings every 30s
 @Injectable()
 export class PrintersService {
   constructor(private prisma: PrismaService) {}
+
+  // ── Token dedicado do agente (nunca expira) ─────────────────────────────────
+  // Gerado sob demanda na 1ª vez que a tela de Impressão pede a "chave de
+  // ativação" — antes esse texto era o JWT de sessão do admin (expira em 7
+  // dias), fazendo o agente parar de autenticar sozinho depois de uma semana.
+
+  async getOrCreateAgentToken(companyId: string): Promise<string> {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { printerAgentToken: true },
+    });
+    if (company?.printerAgentToken) return company.printerAgentToken;
+
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.company.update({
+      where: { id: companyId },
+      data: { printerAgentToken: token },
+    });
+    return token;
+  }
 
   // ── Agent heartbeat (no DB write, zero latency) ────────────────────────────
 
@@ -124,32 +145,6 @@ export class PrintersService {
       where: { id, companyId },
     });
     if (!job) throw new NotFoundException('Job não encontrado');
-    return this.prisma.printerJob.update({
-      where: { id },
-      data: {
-        status,
-        ...(status === 'PRINTED' ? { printedAt: new Date() } : {}),
-        ...(failReason ? { failReason, attempts: { increment: 1 } } : {}),
-      },
-    });
-  }
-
-  // ── Agent job polling (the agent calls this to find work) ─────────────────
-
-  async getPendingJobs(companyId: string) {
-    return this.prisma.printerJob.findMany({
-      where: { companyId, status: 'PENDING' },
-      include: { printer: { select: { name: true, connectionType: true, address: true } } },
-      orderBy: { createdAt: 'asc' },
-      take: 50,
-    });
-  }
-
-  async claimJob(id: string, companyId: string, status: PrintJobStatus, failReason?: string) {
-    const job = await this.prisma.printerJob.findFirst({
-      where: { id, companyId, status: 'PENDING' },
-    });
-    if (!job) throw new NotFoundException('Job não encontrado ou já processado');
     return this.prisma.printerJob.update({
       where: { id },
       data: {

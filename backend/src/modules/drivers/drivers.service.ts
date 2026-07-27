@@ -185,6 +185,22 @@ export class DriversService {
     });
   }
 
+  // Self-service: entregador liga/desliga a própria disponibilidade. Sem
+  // isso, isAvailable nasce true (default do schema) e nunca muda sozinho —
+  // o painel do admin (Entregadores/Rastreamento) mostrava todo entregador
+  // como "Online"/"Disponível" pra sempre, mesmo sem estar de fato
+  // trabalhando, porque só um ADMIN editando manualmente mudava o campo.
+  async setMyAvailability(userId: string, isAvailable: boolean) {
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+    return this.prisma.driverProfile.update({
+      where: { id: profile.id },
+      data: { isAvailable },
+    });
+  }
+
   async availableOrders(userId: string) {
     const profile = await this.prisma.driverProfile.findUnique({
       where: { userId },

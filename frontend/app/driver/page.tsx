@@ -42,6 +42,7 @@ export default function DriverHome() {
   const [loading, setLoading] = useState(true);
   const [gpsActive, setGpsActive] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [togglingAvailability, setTogglingAvailability] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const lastEmitRef = useRef<number>(0);
@@ -134,6 +135,23 @@ export default function DriverHome() {
       }
     };
   }, [profile?.id, gpsActive, activeOrders]);
+
+  async function toggleAvailability() {
+    if (!profile || togglingAvailability) return;
+    const next = !profile.isAvailable;
+    setTogglingAvailability(true);
+    // Otimista — a maioria dos entregadores checa isso no meio de uma corrida
+    setProfile((p) => (p ? { ...p, isAvailable: next } : p));
+    try {
+      await api.patch("/drivers/me/availability", { isAvailable: next });
+      toast.success(next ? "Você está online — recebendo pedidos" : "Você ficou offline");
+    } catch {
+      setProfile((p) => (p ? { ...p, isAvailable: !next } : p));
+      toast.error("Erro ao atualizar status");
+    } finally {
+      setTogglingAvailability(false);
+    }
+  }
 
   async function handlePickedUp(orderId: string) {
     setActionLoading(`pickup-${orderId}`);
@@ -229,13 +247,28 @@ export default function DriverHome() {
               <p className="text-[10px] text-gray-400 uppercase tracking-wide">Placa</p>
               <p className="text-sm font-semibold text-gray-700 mt-0.5">{profile.vehiclePlate ?? "—"}</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+            <button
+              onClick={toggleAvailability}
+              disabled={togglingAvailability}
+              className="bg-gray-50 rounded-xl p-2.5 text-center hover:bg-gray-100 transition disabled:opacity-60"
+            >
               <p className="text-[10px] text-gray-400 uppercase tracking-wide">Status</p>
               <p className={`text-sm font-semibold mt-0.5 ${profile.isAvailable ? "text-green-600" : "text-red-500"}`}>
-                {profile.isAvailable ? "Online" : "Offline"}
+                {togglingAvailability ? "..." : profile.isAvailable ? "Online" : "Offline"}
               </p>
-            </div>
+            </button>
           </div>
+          <button
+            onClick={toggleAvailability}
+            disabled={togglingAvailability}
+            className={`w-full mt-3 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
+              profile.isAvailable
+                ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                : "bg-green-500 text-white hover:bg-green-600"
+            }`}
+          >
+            {profile.isAvailable ? "Ficar Offline" : "Ficar Online"}
+          </button>
         </div>
       )}
 

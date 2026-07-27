@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag,
   Receipt, AlertTriangle, Bot, Send, RefreshCw,
-  BarChart2, Package, Bell, ChevronRight, X, Loader2,
+  BarChart2, Package, Bell, ChevronRight, X, Loader2, Utensils,
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -37,6 +37,16 @@ interface RevenueReport {
 interface ProductRanking {
   productId: string; productName: string; quantity: number;
   revenue: number; cmv: number; profit: number; margin: number;
+}
+
+interface MenuAnalyticsSummary {
+  totalMenuViews: number;
+  totalProductViews: number;
+  topViewedProducts: { productId: string; name: string; imageUrl: string | null; salePrice: number; views: number }[];
+  funnel: {
+    visitors: number; productViews: number; addToCart: number;
+    checkoutStart: number; purchases: number; conversionRate: number;
+  };
 }
 
 interface Alert { id: string; type: string; severity: string; title: string; message: string; read: boolean; createdAt: string; }
@@ -95,13 +105,14 @@ function KpiCard({ icon, label, value, growth, sub }: { icon: React.ReactNode; l
 
 export default function BIPage() {
   useNavKeyGuard("bi");
-  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "ia" | "alerts">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "ia" | "alerts">("dashboard");
   const [preset, setPreset] = useState<DatePreset>("month");
   const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()) });
 
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [products, setProducts] = useState<ProductRanking[]>([]);
+  const [menuAnalytics, setMenuAnalytics] = useState<MenuAnalyticsSummary | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -116,15 +127,17 @@ export default function BIPage() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiRes, revRes, productsRes, alertRes] = await Promise.allSettled([
+      const [kpiRes, revRes, productsRes, menuRes, alertRes] = await Promise.allSettled([
         api.get("/reports/executive"),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
         api.get(`/reports/products?from=${range.from}&to=${range.to}&limit=50`),
+        api.get(`/menu-analytics/summary?from=${range.from}&to=${range.to}`),
         api.get("/alerts?unread=false"),
       ]);
       if (kpiRes.status     === "fulfilled") setKpis(kpiRes.value.data);
       if (revRes.status     === "fulfilled") setRevenue(revRes.value.data);
       if (productsRes.status === "fulfilled") setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
+      if (menuRes.status    === "fulfilled") setMenuAnalytics(menuRes.value.data);
       if (alertRes.status   === "fulfilled") setAlerts(alertRes.value.data ?? []);
     } catch {}
     setLoading(false);
@@ -159,6 +172,7 @@ export default function BIPage() {
     { key: "dashboard", label: "Dashboard", icon: <BarChart2 size={14} /> },
     { key: "reports", label: "Relatórios", icon: <Receipt size={14} /> },
     { key: "produtos", label: "Produtos", icon: <Package size={14} /> },
+    { key: "cardapio", label: "Cardápio", icon: <Utensils size={14} /> },
     { key: "ia", label: "Consultora IA", icon: <Bot size={14} /> },
     { key: "alerts", label: `Alertas ${alerts.filter(a => !a.read).length > 0 ? `(${alerts.filter(a => !a.read).length})` : ""}`, icon: <Bell size={14} /> },
   ] as const;
@@ -465,6 +479,68 @@ export default function BIPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Cardápio Tab (funil de conversão) ── */}
+      {tab === "cardapio" && (() => {
+        const f = menuAnalytics?.funnel;
+        const steps = [
+          { label: "Visitantes", value: f?.visitors ?? 0 },
+          { label: "Visualizações de Produto", value: f?.productViews ?? 0 },
+          { label: "Adições ao Carrinho", value: f?.addToCart ?? 0 },
+          { label: "Início de Checkout", value: f?.checkoutStart ?? 0 },
+          { label: "Compras Realizadas", value: f?.purchases ?? 0 },
+        ];
+        const base = steps[0].value || 1;
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <p className="font-bold text-gray-800 text-sm">Conversão do cardápio digital</p>
+                <p className="text-2xl font-black text-emerald-600">{pct(f?.conversionRate ?? 0)}</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {steps.map((s, i) => {
+                  const share = base > 0 ? s.value / base : 0;
+                  return (
+                    <div key={s.label} className="text-center">
+                      <p className="text-2xl font-black text-gray-900">{s.value}</p>
+                      <p className="text-xs text-gray-400 mt-1 mb-2">{s.label}</p>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full"
+                          style={{ width: `${Math.min(100, share * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">{pct(share)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="font-bold text-gray-800 text-sm">Produtos mais visualizados</p>
+                <p className="text-xs text-gray-400 mt-0.5">Cliques no cardápio digital no período.</p>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {(menuAnalytics?.topViewedProducts ?? []).map((p, i) => (
+                  <div key={p.productId} className="flex items-center gap-3 px-5 py-3">
+                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-black flex items-center justify-center shrink-0">{i + 1}</span>
+                    <span className="flex-1 text-sm text-gray-700 font-medium truncate">{p.name}</span>
+                    <span className="text-xs text-gray-400">{fmt(p.salePrice)}</span>
+                    <span className="text-sm font-bold text-gray-900 w-16 text-right">{p.views} views</span>
+                  </div>
+                ))}
+                {(menuAnalytics?.topViewedProducts ?? []).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-6">Sem dados no período</p>
+                )}
               </div>
             </div>
           </div>

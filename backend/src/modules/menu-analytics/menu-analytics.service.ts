@@ -3,7 +3,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { CompanyService } from '@/modules/company/company.service';
 
-const VALID_TYPES = ['MENU_VIEW', 'PRODUCT_VIEW'];
+const VALID_TYPES = [
+  'MENU_VIEW',
+  'PRODUCT_VIEW',
+  'ADD_TO_CART',
+  'CHECKOUT_START',
+];
 
 @Injectable()
 export class MenuAnalyticsService {
@@ -28,9 +33,32 @@ export class MenuAnalyticsService {
   }
 
   async getSummary(companyId: string, from: Date, to: Date) {
-    const [totalMenuViews, productViewEvents] = await Promise.all([
+    const [
+      totalMenuViews,
+      totalProductViewCount,
+      totalAddToCart,
+      totalCheckoutStart,
+      totalPurchases,
+      productViewEvents,
+    ] = await Promise.all([
       this.prisma.menuAnalyticsEvent.count({
         where: { companyId, type: 'MENU_VIEW', createdAt: { gte: from, lte: to } },
+      }),
+      this.prisma.menuAnalyticsEvent.count({
+        where: { companyId, type: 'PRODUCT_VIEW', createdAt: { gte: from, lte: to } },
+      }),
+      this.prisma.menuAnalyticsEvent.count({
+        where: { companyId, type: 'ADD_TO_CART', createdAt: { gte: from, lte: to } },
+      }),
+      this.prisma.menuAnalyticsEvent.count({
+        where: { companyId, type: 'CHECKOUT_START', createdAt: { gte: from, lte: to } },
+      }),
+      this.prisma.onlineOrder.count({
+        where: {
+          companyId,
+          orderStatus: { not: 'CANCELED' },
+          createdAt: { gte: from, lte: to },
+        },
       }),
       this.prisma.menuAnalyticsEvent.findMany({
         where: {
@@ -42,6 +70,15 @@ export class MenuAnalyticsService {
         select: { productId: true },
       }),
     ]);
+
+    const funnel = {
+      visitors: totalMenuViews,
+      productViews: totalProductViewCount,
+      addToCart: totalAddToCart,
+      checkoutStart: totalCheckoutStart,
+      purchases: totalPurchases,
+      conversionRate: totalMenuViews > 0 ? totalPurchases / totalMenuViews : 0,
+    };
 
     const counts = new Map<string, number>();
     for (const event of productViewEvents) {
@@ -79,6 +116,7 @@ export class MenuAnalyticsService {
       totalMenuViews,
       totalProductViews: productViewEvents.length,
       topViewedProducts,
+      funnel,
     };
   }
 }

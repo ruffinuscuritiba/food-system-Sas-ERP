@@ -5,7 +5,7 @@ on:
 
 jobs:
   diagnose:
-    name: Read-only inspection of cash reconciliation data
+    name: Read-only inspection of WhatsApp AI state
     runs-on: ubuntu-latest
     steps:
       - name: Inspect via SSH (no changes made)
@@ -19,113 +19,90 @@ jobs:
           command_timeout: 120s
           script: |
             set -e
-            cat > /tmp/cash_audit.js << 'JSEOF'
+            cat > /tmp/wa_audit.js << 'JSEOF'
             const { PrismaClient } = require('@prisma/client');
             const prisma = new PrismaClient();
 
             async function main() {
               const company = await prisma.company.findFirst({
                 where: { name: { contains: 'Ruffinu', mode: 'insensitive' } },
-                select: { id: true, name: true },
+                select: { id: true, name: true, businessHours: true },
               });
               if (!company) { console.log('Empresa não encontrada'); return; }
               console.log('Empresa:', company.name, company.id);
+              console.log('businessHours:', JSON.stringify(company.businessHours));
 
-              const cashes = await prisma.cash.findMany({
+              const connections = await prisma.whatsappConnection.findMany({
                 where: { companyId: company.id },
                 orderBy: { createdAt: 'desc' },
-                take: 5,
               });
+              console.log('\n--- WhatsappConnection (', connections.length, ') ---');
+              for (const c of connections) {
+                console.log('  id:', c.id, ' provider:', c.provider, ' isActive:', c.isActive, ' instanceName:', c.instanceName, ' createdAt:', c.createdAt);
 
-              for (const c of cashes) {
-                console.log('\n--- Cash', c.id, '---');
-                console.log('  isOpen:', c.isOpen, ' createdAt:', c.createdAt, ' closedAt:', c.closedAt);
-                console.log('  openingValue:', c.openingValue.toString(), ' entries:', c.entries.toString(), ' exits:', c.exits.toString(), ' balance:', c.balance.toString());
-                console.log('  declaredValue:', c.declaredValue?.toString(), ' systemValue:', c.systemValue?.toString(), ' difference:', c.difference?.toString());
-
-                const cashOrders = await prisma.order.findMany({
-                  where: { cashId: c.id, paymentMethod: 'CASH' },
-                  select: { id: true, number: true, status: true, total: true, confirmedAt: true, cancelledAt: true, createdAt: true },
-                  orderBy: { createdAt: 'asc' },
+                const settings = await prisma.whatsappAiSettings.findUnique({
+                  where: { connectionId: c.id },
                 });
-                const confirmedTotal = cashOrders
-                  .filter(o => !['PENDING', 'CANCELLED'].includes(o.status))
-                  .reduce((s, o) => s + Number(o.total), 0);
-                console.log('  Pedidos CASH vinculados a este caixa:', cashOrders.length, ' soma (nao pendente/cancelado):', confirmedTotal.toFixed(2));
-
-                // Pedidos cujo confirmedAt é DEPOIS do caixa já ter sido fechado
-                // (candidato a bug: cash.updateMany com isOpen:true não bate mais nada)
-                if (c.closedAt) {
-                  const lateConfirm = cashOrders.filter(o => o.confirmedAt && new Date(o.confirmedAt) > new Date(c.closedAt));
-                  if (lateConfirm.length) {
-                    console.log('  ⚠ Pedidos confirmados APÓS o fechamento deste caixa (possível perda de crédito):');
-                    for (const o of lateConfirm) {
-                      console.log('    #', o.number, ' total:', o.total.toString(), ' confirmedAt:', o.confirmedAt, ' status:', o.status);
-                    }
-                  }
+                if (!settings) {
+                  console.log('    ⚠ SEM WhatsappAiSettings (settings=null)');
+                } else {
+                  console.log('    settings: aiProvider=', settings.aiProvider, ' mode=', settings.mode, ' isActive=', settings.isActive,
+                    ' businessHoursStart=', settings.businessHoursStart, ' businessHoursEnd=', settings.businessHoursEnd,
+                    ' businessHoursDays=', settings.businessHoursDays);
                 }
               }
 
-              // Pedidos CASH sem cashId nenhum (não deveriam existir para canal PDV)
-              const orphanCash = await prisma.order.findMany({
-                where: { companyId: company.id, paymentMethod: 'CASH', cashId: null, status: { notIn: ['PENDING', 'CANCELLED'] } },
-                select: { id: true, number: true, total: true, channel: true, createdAt: true, confirmedAt: true },
+              // Últimas conversas e se estão em modo HUMAN (bloqueia resposta da IA)
+              const conversations = await prisma.whatsappConversation.findMany({
+                where: { companyId: company.id },
+                orderBy: { updatedAt: 'desc' },
+                take: 10,
+              });
+              console.log('\n--- Últimas 10 WhatsappConversation ---');
+              for (const conv of conversations) {
+                console.log('  id:', conv.id, ' customerPhone:', conv.customerPhone, ' mode:', conv.mode, ' aiDisabled:', conv.aiDisabled, ' lastMessageAt:', conv.lastMessageAt, ' updatedAt:', conv.updatedAt);
+              }
+
+              // Últimas mensagens (USER vs ASSISTANT) — ver se USER manda e ASSISTANT nunca responde
+              const messages = await prisma.whatsappMessage.findMany({
+                where: { conversation: { companyId: company.id } },
                 orderBy: { createdAt: 'desc' },
                 take: 20,
+                select: { role: true, content: true, createdAt: true, conversationId: true },
               });
-              console.log('\n--- Pedidos CASH confirmados SEM cashId (', orphanCash.length, ') ---');
-              for (const o of orphanCash) {
-                console.log('  #', o.number, ' total:', o.total.toString(), ' channel:', o.channel, ' createdAt:', o.createdAt);
+              console.log('\n--- Últimas 20 WhatsappMessage (qualquer conversa) ---');
+              for (const m of messages) {
+                const preview = (m.content || '').slice(0, 60).replace(/\n/g, ' ');
+                console.log('  ', m.createdAt.toISOString(), ' role:', m.role, ' conv:', m.conversationId, ' :', preview);
               }
 
-              // OnlineOrder pagos em dinheiro (cardápio digital / totem) — nunca têm cashId hoje
-              const onlineCash = await prisma.onlineOrder.findMany({
-                where: { companyId: company.id, paymentMethod: 'CASH', orderStatus: { not: 'CANCELED' } },
-                select: { id: true, total: true, orderStatus: true, createdAt: true, channel: true },
-                orderBy: { createdAt: 'desc' },
-                take: 20,
-              });
-              const onlineCashSum = onlineCash.reduce((s, o) => s + Number(o.total), 0);
-              console.log('\n--- OnlineOrder pagos em CASH (cardápio/totem), últimos', onlineCash.length, '— soma:', onlineCashSum.toFixed(2), '---');
-              for (const o of onlineCash) {
-                console.log('  ', o.id, ' total:', o.total.toString(), ' status:', o.orderStatus, ' channel:', o.channel, ' createdAt:', o.createdAt);
-              }
+              console.log('\n--- Env vars relevantes (presença, nunca valor) ---');
+              console.log('  EVOLUTION_API_URL set:', !!process.env.EVOLUTION_API_URL);
+              console.log('  EVOLUTION_API_KEY set:', !!process.env.EVOLUTION_API_KEY);
+              console.log('  EVOLUTION_INSTANCE_NAME:', process.env.EVOLUTION_INSTANCE_NAME || '(vazio)');
+              console.log('  ANTHROPIC_API_KEY set:', !!process.env.ANTHROPIC_API_KEY);
+              console.log('  GEMINI_API_KEY set:', !!process.env.GEMINI_API_KEY);
 
-              // Pedidos CASH que ficaram PENDING (nunca confirmados) — hipótese:
-              // cliente pagou em dinheiro no balcão, mas a confirmação falhou
-              // silenciosamente (ex: estoque insuficiente) e o toast de erro
-              // passou despercebido — a venda nunca creditou o caixa.
-              const stuckPending = await prisma.order.findMany({
-                where: { companyId: company.id, paymentMethod: 'CASH', status: 'PENDING' },
-                select: { id: true, number: true, total: true, channel: true, createdAt: true, cashId: true },
-                orderBy: { createdAt: 'desc' },
-                take: 30,
+              // Pedidos recentes — pra checar se updateKitchenStatus deveria ter notificado
+              const recentOrders = await prisma.order.findMany({
+                where: { companyId: company.id, status: { in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'] } },
+                orderBy: { updatedAt: 'desc' },
+                take: 5,
+                select: { id: true, number: true, status: true, customerPhone: true, channel: true, updatedAt: true },
               });
-              const stuckSum = stuckPending.reduce((s, o) => s + Number(o.total), 0);
-              console.log('\n--- Pedidos CASH travados em PENDING (nunca confirmados),', stuckPending.length, '— soma:', stuckSum.toFixed(2), '---');
-              for (const o of stuckPending) {
-                console.log('  #', o.number, ' total:', o.total.toString(), ' channel:', o.channel, ' cashId:', o.cashId, ' createdAt:', o.createdAt);
-              }
-
-              // Pedidos com pagamento dividido ("Pgto dividido" nas notes) — hipótese:
-              // Order.paymentMethod só reflete o método do 1º split, então se o
-              // dinheiro não for o primeiro, a parte em dinheiro nunca credita o
-              // caixa (ou o inverso: credita o total inteiro por engano).
-              const splitOrders = await prisma.order.findMany({
-                where: { companyId: company.id, notes: { contains: 'Pgto dividido' } },
-                select: { id: true, number: true, total: true, paymentMethod: true, status: true, notes: true, createdAt: true, cashId: true },
-                orderBy: { createdAt: 'desc' },
-                take: 30,
-              });
-              console.log('\n--- Pedidos com pagamento dividido (', splitOrders.length, ') ---');
-              for (const o of splitOrders) {
-                console.log('  #', o.number, ' total:', o.total.toString(), ' paymentMethod(1o split):', o.paymentMethod, ' status:', o.status, ' cashId:', o.cashId, ' notes:', o.notes, ' createdAt:', o.createdAt);
+              console.log('\n--- Últimos 5 pedidos com status mudado (candidatos a notificação) ---');
+              for (const o of recentOrders) {
+                console.log('  #', o.number, ' status:', o.status, ' customerPhone:', o.customerPhone, ' channel:', o.channel, ' updatedAt:', o.updatedAt);
               }
             }
 
             main().catch(e => console.error(e)).finally(() => prisma.$disconnect());
             JSEOF
-            docker cp /tmp/cash_audit.js foodsaas-backend-backend-1:/app/cash_audit.js
-            docker exec -w /app foodsaas-backend-backend-1 node cash_audit.js
-            docker exec foodsaas-backend-backend-1 rm -f /app/cash_audit.js
-            rm -f /tmp/cash_audit.js
+            docker cp /tmp/wa_audit.js foodsaas-backend-backend-1:/app/wa_audit.js
+            docker exec -w /app foodsaas-backend-backend-1 node wa_audit.js
+            docker exec foodsaas-backend-backend-1 rm -f /app/wa_audit.js
+            rm -f /tmp/wa_audit.js
+
+            echo ""
+            echo "===== logs recentes do backend (filtrando whatsapp/AI/erro) ====="
+            docker logs foodsaas-backend-backend-1 --since 2h 2>&1 | grep -iE "whatsapp|\[ai\]|\[wh\]|evolution|error" | tail -80 || echo "(sem match)"

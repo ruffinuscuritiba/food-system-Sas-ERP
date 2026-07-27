@@ -94,7 +94,7 @@ jobs:
 
             main().catch(e => console.error(e)).finally(() => prisma.$disconnect());
             JSEOF
-            docker cp /tmp/cash_audit.js foodsaas-backend-backend-1:/tmp/cash_audit.js
-            docker exec foodsaas-backend-backend-1 node /tmp/cash_audit.js
-            docker exec foodsaas-backend-backend-1 rm -f /tmp/cash_audit.js
+            docker cp /tmp/cash_audit.js foodsaas-backend-backend-1:/app/cash_audit.js
+            docker exec -w /app foodsaas-backend-backend-1 node cash_audit.js
+            docker exec foodsaas-backend-backend-1 rm -f /app/cash_audit.js
             rm -f /tmp/cash_audit.js

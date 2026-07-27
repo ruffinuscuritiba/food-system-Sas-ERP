@@ -252,12 +252,21 @@ const FEATURED_LABEL_OPTIONS: { value: string; label: string }[] = [
   { value: "RECOMENDADO", label: "Recomendado" },
 ];
 
+const MAX_FLAVORS_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Padrão do tamanho" },
+  { value: "1", label: "1 sabor (trava, sem meio a meio)" },
+  { value: "2", label: "Até 2 sabores" },
+  { value: "3", label: "Até 3 sabores" },
+  { value: "4", label: "Até 4 sabores" },
+];
+
 const emptyForm = () => ({
   name: "", description: "", sku: "", barcode: "",
   categoryId: "", unit: "", weight: "",
   costPrice: 0, profitMargin: 0, salePrice: 0,
   originalPrice: 0,
   featuredLabel: "" as string,
+  maxFlavors: "" as string,
   imageUrl: null as string | null,
   imageZoom: 100 as number,
   videoUrl: "" as string,
@@ -424,6 +433,7 @@ export default function ProductsPage() {
 
       if (form.originalPrice > 0) fd.append("originalPrice", String(form.originalPrice));
       if (form.featuredLabel) fd.append("featuredLabel", form.featuredLabel);
+      if (form.maxFlavors) fd.append("maxFlavors", form.maxFlavors);
 
       // Image: send as imageUrl (base64) — not as file attachment
       if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
@@ -459,6 +469,7 @@ export default function ProductsPage() {
       salePrice:   Number(product.salePrice)   || 0,
       originalPrice: Number(product.originalPrice) || 0,
       featuredLabel: product.featuredLabel || "",
+      maxFlavors:  product.maxFlavors != null ? String(product.maxFlavors) : "",
       imageUrl:    product.imageUrl    || null,
       imageZoom:   product.imageZoom   ?? 100,
       videoUrl:    product.videoUrl    || "",
@@ -507,6 +518,7 @@ export default function ProductsPage() {
 
       fd.append("originalPrice", editForm.originalPrice > 0 ? String(editForm.originalPrice) : "");
       fd.append("featuredLabel", editForm.featuredLabel || "");
+      fd.append("maxFlavors", editForm.maxFlavors || "");
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
       fd.append("imageZoom", String(editForm.imageZoom));
@@ -668,6 +680,24 @@ export default function ProductsPage() {
                   <p className="text-[11px] text-gray-400 mt-1">Mostra um rótulo colorido no card do cardápio digital.</p>
                 </div>
               </div>
+
+              {isFormPizza && (
+                <div className="mb-5">
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Sabores permitidos</label>
+                  <select
+                    value={form.maxFlavors}
+                    onChange={(e) => setForm({ ...form, maxFlavors: e.target.value })}
+                    className={inp}
+                  >
+                    {MAX_FLAVORS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Trava em 1 sabor pula a borda do construtor e usa os Complementos já cadastrados pro produto.
+                  </p>
+                </div>
+              )}
 
               {/* Pizza toggle */}
               <div className="mb-4">
@@ -953,6 +983,24 @@ export default function ProductsPage() {
                   </select>
                 </div>
               </div>
+
+              {isEditPizza && (
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Sabores permitidos</label>
+                  <select
+                    value={editForm.maxFlavors}
+                    onChange={(e) => setEditForm({ ...editForm, maxFlavors: e.target.value })}
+                    className={inp}
+                  >
+                    {MAX_FLAVORS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Trava em 1 sabor pula a borda do construtor e usa os Complementos já cadastrados pro produto.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Imagem</label>

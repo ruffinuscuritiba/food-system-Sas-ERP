@@ -29,6 +29,10 @@ type Product = {
   sizes?: { size: string; price: number }[];
   category?: { name: string; categoryType?: string; displayColumns?: number; sortOrder?: number };
   isActive: boolean;
+  // Sabores permitidos no construtor de pizza (1-4). Null/undefined = usa o
+  // padrão do tamanho/categoria — controle explícito por produto, cadastrado
+  // em /products, sobrepõe a herança de categoria.
+  maxFlavors?: number | null;
 };
 
 /** Returns the minimum price across sizes (or salePrice when no sizes) */
@@ -771,6 +775,26 @@ export default function MenuPage() {
     return String(product.category?.name || "").toLowerCase().includes("combo");
   }
 
+  /** Sabores permitidos no construtor pra este produto especificamente —
+   *  respeita o campo do cadastro (Product.maxFlavors) quando preenchido;
+   *  sem valor cadastrado, cai no padrão herdado da categoria "combo" (1) ou
+   *  no limite do tamanho selecionado. */
+  function getStepperMaxFlavors(product: Product | null | undefined, sizeDefaultMax: number): number {
+    if (!product) return sizeDefaultMax;
+    if (typeof product.maxFlavors === "number" && product.maxFlavors >= 1) return product.maxFlavors;
+    return isComboProduct(product) ? 1 : sizeDefaultMax;
+  }
+
+  /** Produto travado em exatamente 1 sabor — pula a seção de Borda do
+   *  construtor e usa os Complementos já cadastrados em vez dela. Um
+   *  maxFlavors explícito no cadastro sempre vence a herança de categoria
+   *  (ex: um combo específico pode liberar 2 sabores, outro ficar em 1). */
+  function isLockedSingleFlavorProduct(product: Product | null | undefined): boolean {
+    if (!product) return false;
+    if (typeof product.maxFlavors === "number") return product.maxFlavors === 1;
+    return isComboProduct(product);
+  }
+
   async function addToCart(product: Product) {
     trackProductView(product.id);
     // Toda pizza passa pelo construtor completo (tamanho/sabores/borda/observações)
@@ -1034,7 +1058,7 @@ export default function MenuPage() {
     // Combo (ex: "Combos Promocionais") — antes de entrar no carrinho, busca os
     // complementos já cadastrados pra ele (ex: grupo "Bordas" por categoria)
     // em vez de considerar a pizza pronta direto.
-    if (isComboProduct(chosen[0]) && !editingCartKey) {
+    if (isLockedSingleFlavorProduct(chosen[0]) && !editingCartKey) {
       setShowFlavorModal(false);
       fetchComplementsForPendingItem(finalItem, chosen[0].id);
       return;
@@ -1135,10 +1159,9 @@ export default function MenuPage() {
   function renderFlavorSelector() {
     const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
     if (activeConfigs.length > 1 && !selectedPizzaSize) return null;
-    // Combo é composição fixa (1 pizza + bebida etc.) — trava em 1 sabor só,
-    // mesmo que o tamanho escolhido permitisse "meio a meio" numa pizza de verdade.
-    const isCombo = flavorSlots[0] ? isComboProduct(flavorSlots[0]) : false;
-    const max = isCombo ? 1 : Math.max(1, sizeMaxFlavors ?? globalMaxFlavors);
+    // Sabores permitidos — respeita o cadastro do produto (Product.maxFlavors)
+    // quando preenchido; senão cai no padrão herdado (combo=1 / tamanho normal).
+    const max = getStepperMaxFlavors(flavorSlots[0], Math.max(1, sizeMaxFlavors ?? globalMaxFlavors));
     const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
     return (
       <div>
@@ -2380,7 +2403,7 @@ export default function MenuPage() {
                         <p className="text-xs" style={{ color: theme.primaryColor }}>
                           {item.flavors.map((f) => f.name).join(" + ")}
                         </p>
-                        {!isComboProduct(item.flavors[0]) && (
+                        {!isLockedSingleFlavorProduct(item.flavors[0]) && (
                           <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
                             Borda: {item.borderName || "Nenhuma"}
                           </p>
@@ -2541,7 +2564,7 @@ export default function MenuPage() {
                  Combo pula a lista de bordas daqui — ele já usa o grupo de
                  Complementos cadastrado pra categoria (evita duplicar a mesma
                  escolha em 2 lugares diferentes). */}
-            {flavorSlots.some(Boolean) && renderBorderAndNotesSection(flavorSlots[0] ? isComboProduct(flavorSlots[0]) : false)}
+            {flavorSlots.some(Boolean) && renderBorderAndNotesSection(isLockedSingleFlavorProduct(flavorSlots[0]))}
             </div>{/* fim scroll area */}
             <div className="flex gap-3 p-6 pt-0 shrink-0 border-t" style={{ borderColor: "var(--menu-border)" }}>
               <button onClick={() => setShowFlavorModal(false)} className="flex-1 border hover:opacity-80 transition py-3 rounded-xl font-semibold text-sm" style={{ borderColor: "var(--menu-border)", color: "var(--menu-text-2)" }}>Cancelar</button>

@@ -24,6 +24,21 @@ import { PrintJobStatus } from '@prisma/client';
 export class PrintersController {
   constructor(private service: PrintersService) {}
 
+  // ── Agent heartbeat (Printer Agent .exe) ─────────────────────────────────
+  // agentPing/getAgentStatus já existiam no service (item 115) mas nunca
+  // tinham rota registrada — o agente físico mandava o ping e caía em 404,
+  // então o painel nunca sabia que ele estava vivo (sempre "Desconectado").
+
+  @Post('agent/heartbeat')
+  agentHeartbeat(@Request() req: any) {
+    return this.service.agentPing(req.user.companyId);
+  }
+
+  @Get('agent/status')
+  agentStatus(@Request() req: any) {
+    return this.service.getAgentStatus(req.user.companyId);
+  }
+
   // ── Printers ───────────────────────────────────────────────────────────────
 
   @Get()

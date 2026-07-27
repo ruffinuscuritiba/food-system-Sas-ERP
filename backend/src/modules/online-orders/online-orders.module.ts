@@ -6,6 +6,7 @@ import { DeliveryConfigModule } from '@/modules/delivery-config/delivery-config.
 import { QrCampaignsModule } from '@/modules/qr-campaigns/qr-campaigns.module';
 import { StockModule } from '@/modules/stock/stock.module';
 import { WhatsappAiModule } from '@/modules/whatsapp-ai/whatsapp-ai.module';
+import { PrintersModule } from '@/modules/printers/printers.module';
 import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 
@@ -18,6 +19,7 @@ import { OnlineOrdersController } from './online-orders.controller';
     QrCampaignsModule,
     StockModule,
     WhatsappAiModule,
+    PrintersModule,
   ],
   controllers: [OnlineOrdersController],
   providers: [OnlineOrdersService],

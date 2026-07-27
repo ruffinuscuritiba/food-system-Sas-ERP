@@ -90,6 +90,22 @@ jobs:
               for (const o of onlineCash) {
                 console.log('  ', o.id, ' total:', o.total.toString(), ' status:', o.orderStatus, ' channel:', o.channel, ' createdAt:', o.createdAt);
               }
+
+              // Pedidos CASH que ficaram PENDING (nunca confirmados) — hipótese:
+              // cliente pagou em dinheiro no balcão, mas a confirmação falhou
+              // silenciosamente (ex: estoque insuficiente) e o toast de erro
+              // passou despercebido — a venda nunca creditou o caixa.
+              const stuckPending = await prisma.order.findMany({
+                where: { companyId: company.id, paymentMethod: 'CASH', status: 'PENDING' },
+                select: { id: true, number: true, total: true, channel: true, createdAt: true, cashId: true },
+                orderBy: { createdAt: 'desc' },
+                take: 30,
+              });
+              const stuckSum = stuckPending.reduce((s, o) => s + Number(o.total), 0);
+              console.log('\n--- Pedidos CASH travados em PENDING (nunca confirmados),', stuckPending.length, '— soma:', stuckSum.toFixed(2), '---');
+              for (const o of stuckPending) {
+                console.log('  #', o.number, ' total:', o.total.toString(), ' channel:', o.channel, ' cashId:', o.cashId, ' createdAt:', o.createdAt);
+              }
             }
 
             main().catch(e => console.error(e)).finally(() => prisma.$disconnect());

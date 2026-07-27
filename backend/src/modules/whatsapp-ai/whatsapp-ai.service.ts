@@ -411,6 +411,37 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       },
     });
 
+    // Cria WhatsappAiSettings JÁ com o provider certo pro ambiente (mesma
+    // lógica do self-healing em _processIncomingWithConnection). Sem isso
+    // existe uma janela entre o provisionamento e a 1ª mensagem em que outro
+    // fluxo (ex: tela de Configurar IA carregando com valores em branco) pode
+    // criar a settings com os defaults puros do schema (GEMINI + modelo
+    // depreciado) antes do self-healing ter chance de agir — loja real nasce
+    // no motor fraco até alguém notar e corrigir manualmente.
+    const provisionCompany = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { email: true },
+    });
+    const provisionAmbiente = this.detectAmbiente(
+      provisionCompany?.email,
+      companyId,
+    );
+    const provisionProvider =
+      provisionAmbiente === 'CLIENTE_REAL' ? 'CLAUDE' : 'ANTHROPIC';
+    await this.prisma.whatsappAiSettings.upsert({
+      where: { connectionId: conn.id },
+      update: {},
+      create: {
+        connectionId: conn.id,
+        companyId,
+        aiProvider: provisionProvider,
+        aiModel:
+          provisionProvider === 'CLAUDE'
+            ? 'claude-haiku-4-5-20251001'
+            : 'gemini-2.0-flash',
+      },
+    });
+
     // Register webhook so Evolution notifies us of messages
     if (backendUrl) {
       const webhookUrl = `${backendUrl}/api/whatsapp-ai/webhook/${conn.id}`;

@@ -5,10 +5,10 @@ on:
 
 jobs:
   diagnose:
-    name: Read-only inspection of WhatsApp AI state
+    name: Fix Ruffinu's aiProvider + check notification logs
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect via SSH (no changes made)
+      - name: Inspect + targeted fix via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -19,90 +19,40 @@ jobs:
           command_timeout: 120s
           script: |
             set -e
-            cat > /tmp/wa_audit.js << 'JSEOF'
+            cat > /tmp/wa_fix.js << 'JSEOF'
             const { PrismaClient } = require('@prisma/client');
             const prisma = new PrismaClient();
 
             async function main() {
               const company = await prisma.company.findFirst({
                 where: { name: { contains: 'Ruffinu', mode: 'insensitive' } },
-                select: { id: true, name: true, businessHours: true },
+                select: { id: true, name: true },
               });
               if (!company) { console.log('Empresa não encontrada'); return; }
-              console.log('Empresa:', company.name, company.id);
-              console.log('businessHours:', JSON.stringify(company.businessHours));
 
-              const connections = await prisma.whatsappConnection.findMany({
-                where: { companyId: company.id },
+              const conn = await prisma.whatsappConnection.findFirst({
+                where: { companyId: company.id, isActive: true },
                 orderBy: { createdAt: 'desc' },
               });
-              console.log('\n--- WhatsappConnection (', connections.length, ') ---');
-              for (const c of connections) {
-                console.log('  id:', c.id, ' provider:', c.provider, ' isActive:', c.isActive, ' instanceName:', c.instanceName, ' createdAt:', c.createdAt);
+              if (!conn) { console.log('Conexão ativa não encontrada'); return; }
 
-                const settings = await prisma.whatsappAiSettings.findUnique({
-                  where: { connectionId: c.id },
-                });
-                if (!settings) {
-                  console.log('    ⚠ SEM WhatsappAiSettings (settings=null)');
-                } else {
-                  console.log('    settings: aiProvider=', settings.aiProvider, ' mode=', settings.mode, ' isActive=', settings.isActive,
-                    ' businessHoursStart=', settings.businessHoursStart, ' businessHoursEnd=', settings.businessHoursEnd,
-                    ' businessHoursDays=', settings.businessHoursDays);
-                }
-              }
+              const before = await prisma.whatsappAiSettings.findUnique({ where: { connectionId: conn.id } });
+              console.log('ANTES: aiProvider=', before?.aiProvider, ' aiModel=', before?.aiModel);
 
-              // Últimas conversas e se estão em modo HUMAN (bloqueia resposta da IA)
-              const conversations = await prisma.whatsappConversation.findMany({
-                where: { companyId: company.id },
-                orderBy: { updatedAt: 'desc' },
-                take: 10,
+              const updated = await prisma.whatsappAiSettings.update({
+                where: { connectionId: conn.id },
+                data: { aiProvider: 'CLAUDE', aiModel: 'claude-haiku-4-5-20251001' },
               });
-              console.log('\n--- Últimas 10 WhatsappConversation ---');
-              for (const conv of conversations) {
-                console.log('  id:', conv.id, ' customerPhone:', conv.customerPhone, ' mode:', conv.mode, ' aiDisabled:', conv.aiDisabled, ' lastMessageAt:', conv.lastMessageAt, ' updatedAt:', conv.updatedAt);
-              }
-
-              // Últimas mensagens (USER vs ASSISTANT) — ver se USER manda e ASSISTANT nunca responde
-              const messages = await prisma.whatsappMessage.findMany({
-                where: { conversation: { companyId: company.id } },
-                orderBy: { createdAt: 'desc' },
-                take: 20,
-                select: { role: true, content: true, createdAt: true, conversationId: true },
-              });
-              console.log('\n--- Últimas 20 WhatsappMessage (qualquer conversa) ---');
-              for (const m of messages) {
-                const preview = (m.content || '').slice(0, 60).replace(/\n/g, ' ');
-                console.log('  ', m.createdAt.toISOString(), ' role:', m.role, ' conv:', m.conversationId, ' :', preview);
-              }
-
-              console.log('\n--- Env vars relevantes (presença, nunca valor) ---');
-              console.log('  EVOLUTION_API_URL set:', !!process.env.EVOLUTION_API_URL);
-              console.log('  EVOLUTION_API_KEY set:', !!process.env.EVOLUTION_API_KEY);
-              console.log('  EVOLUTION_INSTANCE_NAME:', process.env.EVOLUTION_INSTANCE_NAME || '(vazio)');
-              console.log('  ANTHROPIC_API_KEY set:', !!process.env.ANTHROPIC_API_KEY);
-              console.log('  GEMINI_API_KEY set:', !!process.env.GEMINI_API_KEY);
-
-              // Pedidos recentes — pra checar se updateKitchenStatus deveria ter notificado
-              const recentOrders = await prisma.order.findMany({
-                where: { companyId: company.id, status: { in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'] } },
-                orderBy: { updatedAt: 'desc' },
-                take: 5,
-                select: { id: true, number: true, status: true, customerPhone: true, channel: true, updatedAt: true },
-              });
-              console.log('\n--- Últimos 5 pedidos com status mudado (candidatos a notificação) ---');
-              for (const o of recentOrders) {
-                console.log('  #', o.number, ' status:', o.status, ' customerPhone:', o.customerPhone, ' channel:', o.channel, ' updatedAt:', o.updatedAt);
-              }
+              console.log('DEPOIS: aiProvider=', updated.aiProvider, ' aiModel=', updated.aiModel);
             }
 
             main().catch(e => console.error(e)).finally(() => prisma.$disconnect());
             JSEOF
-            docker cp /tmp/wa_audit.js foodsaas-backend-backend-1:/app/wa_audit.js
-            docker exec -w /app foodsaas-backend-backend-1 node wa_audit.js
-            docker exec foodsaas-backend-backend-1 rm -f /app/wa_audit.js
-            rm -f /tmp/wa_audit.js
+            docker cp /tmp/wa_fix.js foodsaas-backend-backend-1:/app/wa_fix.js
+            docker exec -w /app foodsaas-backend-backend-1 node wa_fix.js
+            docker exec foodsaas-backend-backend-1 rm -f /app/wa_fix.js
+            rm -f /tmp/wa_fix.js
 
             echo ""
-            echo "===== logs recentes do backend (filtrando whatsapp/AI/erro) ====="
-            docker logs foodsaas-backend-backend-1 --since 2h 2>&1 | grep -iE "whatsapp|\[ai\]|\[wh\]|evolution|error" | tail -80 || echo "(sem match)"
+            echo "===== logs (24h) — notificação de status de pedido ====="
+            docker logs foodsaas-backend-backend-1 --since 24h 2>&1 | grep -iE "notificad|Confirmação enviada|dispatch error|Evolution dispatch|OrderNotificationService|sem conexão whatsapp ativa" | tail -60 || echo "(sem match)"

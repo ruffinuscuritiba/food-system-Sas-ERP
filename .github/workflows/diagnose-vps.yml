@@ -5,7 +5,7 @@ on:
 
 jobs:
   diagnose:
-    name: Final sanity check after deploy
+    name: Check AI test reply content
     runs-on: ubuntu-latest
     steps:
       - name: Inspect via SSH (no changes made)
@@ -18,20 +18,29 @@ jobs:
           timeout: 30s
           command_timeout: 60s
           script: |
-            echo "===== marcador do fix (provisionConnection) no dist ====="
-            docker exec foodsaas-backend-backend-1 sh -c "grep -c 'provisionAmbiente' dist/modules/whatsapp-ai/whatsapp-ai.service.js"
-            echo ""
-            cat > /tmp/check.js << 'JSEOF'
+            cat > /tmp/check2.js << 'JSEOF'
             const { PrismaClient } = require('@prisma/client');
             const prisma = new PrismaClient();
             async function main() {
-              const s = await prisma.whatsappAiSettings.findFirst({
-                where: { connection: { company: { name: { contains: 'Ruffinu', mode: 'insensitive' } }, isActive: true } },
+              const conv = await prisma.whatsappConversation.findFirst({
+                where: { customerPhone: { contains: '41999997777' } },
+                orderBy: { updatedAt: 'desc' },
               });
-              console.log('aiProvider:', s?.aiProvider, ' aiModel:', s?.aiModel);
+              if (!conv) { console.log('conversa nao encontrada'); return; }
+              console.log('conv.id:', conv.id, 'mode:', conv.mode);
+              const msgs = await prisma.whatsappMessage.findMany({
+                where: { conversationId: conv.id },
+                orderBy: { createdAt: 'desc' },
+                take: 4,
+              });
+              for (const m of msgs) console.log(m.role, '|', m.content);
             }
             main().catch(e=>console.error(e)).finally(()=>prisma.$disconnect());
             JSEOF
-            docker cp /tmp/check.js foodsaas-backend-backend-1:/app/check.js
-            docker exec -w /app foodsaas-backend-backend-1 node check.js
-            docker exec foodsaas-backend-backend-1 rm -f /app/check.js
+            docker cp /tmp/check2.js foodsaas-backend-backend-1:/app/check2.js
+            docker exec -w /app foodsaas-backend-backend-1 node check2.js
+            docker exec foodsaas-backend-backend-1 rm -f /app/check2.js
+
+            echo ""
+            echo "===== logs recentes (2 min) ====="
+            docker logs foodsaas-backend-backend-1 --since 2m 2>&1 | tail -40

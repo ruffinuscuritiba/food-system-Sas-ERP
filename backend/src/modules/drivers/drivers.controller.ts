@@ -16,6 +16,7 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { RequiredModule } from '@/common/decorators/required-module.decorator';
 import { DriversService } from './drivers.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 
 @Controller('drivers')
 @UseGuards(JwtAuthGuard)
@@ -62,6 +63,11 @@ export class DriversController {
   @Patch('me/location')
   updateMyLocation(@Body() body: UpdateLocationDto, @Req() req: any) {
     return this.service.updateMyLocation(req.user.userId, body.lat, body.lng);
+  }
+
+  @Patch('me/availability')
+  updateMyAvailability(@Body() body: UpdateAvailabilityDto, @Req() req: any) {
+    return this.service.setMyAvailability(req.user.userId, body.isAvailable);
   }
 
   @Post('me/accept/:orderId')

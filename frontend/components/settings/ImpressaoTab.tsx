@@ -271,7 +271,12 @@ export default function ImpressaoTab() {
 
   useEffect(() => {
     setOs(detectOS());
-    setToken(localStorage.getItem("token") ?? "");
+    // Token dedicado do agente — nunca expira, diferente do JWT de sessão
+    // (7 dias) que era usado antes e derrubava o agente silenciosamente.
+    api
+      .get<{ token: string }>("/printers/agent-token")
+      .then((res) => setToken(res.data.token))
+      .catch(() => toast.error("Erro ao carregar chave de ativação"));
   }, []);
 
   useEffect(() => {

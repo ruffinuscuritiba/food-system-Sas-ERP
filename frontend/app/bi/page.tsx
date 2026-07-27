@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from "recharts";
 import { api } from "@/services/api";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
@@ -32,6 +32,11 @@ interface RevenueReport {
   orderCount: number; avgTicket: number; cancelledCount: number;
   byPaymentMethod: Record<string, number>;
   dailySeries: { date: string; revenue: number; cmv: number; profit: number; orders: number }[];
+}
+
+interface ProductRanking {
+  productId: string; productName: string; quantity: number;
+  revenue: number; cmv: number; profit: number; margin: number;
 }
 
 interface Alert { id: string; type: string; severity: string; title: string; message: string; read: boolean; createdAt: string; }
@@ -90,12 +95,13 @@ function KpiCard({ icon, label, value, growth, sub }: { icon: React.ReactNode; l
 
 export default function BIPage() {
   useNavKeyGuard("bi");
-  const [tab, setTab] = useState<"dashboard" | "reports" | "ia" | "alerts">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "ia" | "alerts">("dashboard");
   const [preset, setPreset] = useState<DatePreset>("month");
   const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()) });
 
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
+  const [products, setProducts] = useState<ProductRanking[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -110,14 +116,16 @@ export default function BIPage() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiRes, revRes, alertRes] = await Promise.allSettled([
+      const [kpiRes, revRes, productsRes, alertRes] = await Promise.allSettled([
         api.get("/reports/executive"),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
+        api.get(`/reports/products?from=${range.from}&to=${range.to}&limit=50`),
         api.get("/alerts?unread=false"),
       ]);
-      if (kpiRes.status   === "fulfilled") setKpis(kpiRes.value.data);
-      if (revRes.status   === "fulfilled") setRevenue(revRes.value.data);
-      if (alertRes.status === "fulfilled") setAlerts(alertRes.value.data ?? []);
+      if (kpiRes.status     === "fulfilled") setKpis(kpiRes.value.data);
+      if (revRes.status     === "fulfilled") setRevenue(revRes.value.data);
+      if (productsRes.status === "fulfilled") setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
+      if (alertRes.status   === "fulfilled") setAlerts(alertRes.value.data ?? []);
     } catch {}
     setLoading(false);
   }, [range.from, range.to]);
@@ -150,6 +158,7 @@ export default function BIPage() {
   const TABS = [
     { key: "dashboard", label: "Dashboard", icon: <BarChart2 size={14} /> },
     { key: "reports", label: "Relatórios", icon: <Receipt size={14} /> },
+    { key: "produtos", label: "Produtos", icon: <Package size={14} /> },
     { key: "ia", label: "Consultora IA", icon: <Bot size={14} /> },
     { key: "alerts", label: `Alertas ${alerts.filter(a => !a.read).length > 0 ? `(${alerts.filter(a => !a.read).length})` : ""}`, icon: <Bell size={14} /> },
   ] as const;
@@ -337,6 +346,130 @@ export default function BIPage() {
           </div>
         </div>
       )}
+
+      {/* ── Produtos Tab ── */}
+      {tab === "produtos" && (() => {
+        const sorted = [...products].sort((a, b) => b.revenue - a.revenue);
+        const totalRevenue = sorted.reduce((s, p) => s + p.revenue, 0);
+        let running = 0;
+        const classified = sorted.map((p) => {
+          running += p.revenue;
+          const cumShare = totalRevenue > 0 ? running / totalRevenue : 0;
+          const tier: "campeao" | "promissor" | "baixo" =
+            cumShare <= 0.6 ? "campeao" : cumShare <= 0.85 ? "promissor" : "baixo";
+          return { ...p, tier };
+        });
+        const campeoes = classified.filter((p) => p.tier === "campeao");
+        const promissores = classified.filter((p) => p.tier === "promissor");
+        const baixoResultado = classified.filter((p) => p.tier === "baixo");
+        const campeoesShare = totalRevenue > 0 ? campeoes.reduce((s, p) => s + p.revenue, 0) / totalRevenue : 0;
+
+        const pieData = [
+          { name: "Campeões", value: campeoes.reduce((s, p) => s + p.revenue, 0), color: "#22c55e" },
+          { name: "Promissores", value: promissores.reduce((s, p) => s + p.revenue, 0), color: "#3b82f6" },
+          { name: "Baixo Resultado", value: baixoResultado.reduce((s, p) => s + p.revenue, 0), color: "#f59e0b" },
+        ].filter((d) => d.value > 0);
+
+        const ProductList = ({ items, emptyLabel }: { items: typeof classified; emptyLabel: string }) => (
+          <div className="space-y-2">
+            {items.length === 0 && <p className="text-xs text-gray-400 text-center py-4">{emptyLabel}</p>}
+            {items.slice(0, 8).map((p) => (
+              <div key={p.productId} className="flex items-center justify-between gap-2 text-sm">
+                <span className="truncate text-gray-700 font-medium flex-1">{p.productName}</span>
+                <span className="font-bold text-gray-900 whitespace-nowrap">{fmt(p.revenue)}</span>
+              </div>
+            ))}
+          </div>
+        );
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-wrap items-center gap-6">
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-bold mb-1">Produtos Campeões</p>
+                <p className="text-3xl font-black text-emerald-600">{pct(campeoesShare)}</p>
+                <p className="text-xs text-gray-400 mt-1">das vendas do período</p>
+              </div>
+              {pieData.length > 0 && (
+                <ResponsiveContainer width={180} height={140}>
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={35} outerRadius={60} paddingAngle={2}>
+                      {pieData.map((d) => <Cell key={d.name} fill={d.color} />)}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => fmt(v)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+              <div className="flex flex-col gap-1.5 text-xs">
+                {pieData.map((d) => (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+                    <span className="text-gray-600">{d.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <p className="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Produtos Campeões
+                </p>
+                <ProductList items={campeoes} emptyLabel="Sem dados no período" />
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <p className="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" /> Produtos Promissores
+                </p>
+                <ProductList items={promissores} emptyLabel="Sem dados no período" />
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <p className="font-bold text-gray-800 mb-3 text-sm flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" /> Baixo Resultado
+                </p>
+                <ProductList items={baixoResultado} emptyLabel="Sem dados no período" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="font-bold text-gray-800 text-sm">Todos os Produtos</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                      <th className="px-5 py-3 font-semibold">Produto</th>
+                      <th className="px-5 py-3 font-semibold text-right">Qtd</th>
+                      <th className="px-5 py-3 font-semibold text-right">Venda Total</th>
+                      <th className="px-5 py-3 font-semibold text-right">CMV</th>
+                      <th className="px-5 py-3 font-semibold text-right">Margem</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classified.map((p) => (
+                      <tr key={p.productId} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="px-5 py-3 text-gray-700 font-medium">{p.productName}</td>
+                        <td className="px-5 py-3 text-right text-gray-600">{p.quantity}</td>
+                        <td className="px-5 py-3 text-right font-bold text-gray-900">{fmt(p.revenue)}</td>
+                        <td className="px-5 py-3 text-right text-gray-500">{fmt(p.cmv)}</td>
+                        <td className="px-5 py-3 text-right">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.margin > 0.4 ? "bg-emerald-100 text-emerald-700" : p.margin > 0.2 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>
+                            {pct(p.margin)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {classified.length === 0 && (
+                      <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">Sem dados no período</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── IA Tab ── */}
       {tab === "ia" && (

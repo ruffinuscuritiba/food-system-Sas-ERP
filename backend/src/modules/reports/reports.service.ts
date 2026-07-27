@@ -392,31 +392,58 @@ export class ReportsService {
     });
   }
 
-  // Segmentação de clientes (aba Clientes) — baseada em Customer.orders, que
-  // cobre PDV/mesa/WhatsApp. Cardápio digital (OnlineOrder) não referencia
-  // Customer (só guarda nome/telefone soltos), então clientes que SÓ pediram
-  // pelo cardápio digital não entram aqui — limitação conhecida, mesma raiz
-  // do gap que existia em getRevenue antes de unificar Order+OnlineOrder.
+  // Segmentação de clientes (aba Clientes). Order.customerId praticamente
+  // nunca é preenchido na prática (PDV/mesa/WhatsApp salvam customerPhone
+  // como texto solto, sem popular a FK) — contar por Customer.orders (relação)
+  // subestimava TUDO pra "nunca pediu". Conta de verdade por telefone
+  // normalizado (últimos 8 dígitos, ignora DDI/DDD/hífen/formatação), cruzando
+  // Customer.phone com Order.customerPhone e OnlineOrder.customerPhone.
   async getCustomerStats(companyId: string): Promise<CustomerStats> {
-    const customers = await this.prisma.customer.findMany({
-      where: { companyId },
-      select: {
-        id: true,
-        _count: { select: { orders: true } },
-      },
-    });
+    const normalize = (phone: string | null | undefined): string | null => {
+      if (!phone) return null;
+      const digits = phone.replace(/\D/g, '');
+      return digits.length >= 8 ? digits.slice(-8) : null;
+    };
+
+    const [customers, orders, onlineOrders] = await Promise.all([
+      this.prisma.customer.findMany({
+        where: { companyId },
+        select: { id: true, phone: true },
+      }),
+      this.prisma.order.findMany({
+        where: { companyId, customerPhone: { not: null } },
+        select: { customerPhone: true },
+      }),
+      this.prisma.onlineOrder.findMany({
+        where: { companyId },
+        select: { customerPhone: true },
+      }),
+    ]);
+
+    const orderCountByPhone = new Map<string, number>();
+    for (const o of [...orders, ...onlineOrders]) {
+      const key = normalize(o.customerPhone);
+      if (!key) continue;
+      orderCountByPhone.set(key, (orderCountByPhone.get(key) ?? 0) + 1);
+    }
 
     const total = customers.length;
-    const contacts = customers.filter((c) => c._count.orders === 0).length;
-    const active = total - contacts;
-
-    let novos = 0,
+    let contacts = 0,
+      active = 0,
+      novos = 0,
       recorrentes = 0,
       fidelizados = 0;
+
     for (const c of customers) {
-      if (c._count.orders === 0) continue;
-      if (c._count.orders === 1) novos++;
-      else if (c._count.orders <= 4) recorrentes++;
+      const key = normalize(c.phone);
+      const count = key ? orderCountByPhone.get(key) ?? 0 : 0;
+      if (count === 0) {
+        contacts++;
+        continue;
+      }
+      active++;
+      if (count === 1) novos++;
+      else if (count <= 4) recorrentes++;
       else fidelizados++;
     }
 

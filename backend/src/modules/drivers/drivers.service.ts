@@ -7,12 +7,14 @@ import {
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
+import { SocketGateway } from '@/socket/socket.gateway';
 
 @Injectable()
 export class DriversService {
   constructor(
     private prisma: PrismaService,
     private ordersService: OrdersService,
+    private socketGateway: SocketGateway,
   ) {}
 
   // FIX: agora retorna, para cada entregador, quantas entregas ele já
@@ -143,6 +145,14 @@ export class DriversService {
     });
   }
 
+  // Cobre 2 casos com o mesmo endpoint (o painel usa o mesmo seletor de
+  // entregador nos dois): (1) despacho inicial — pedido READY sem
+  // entregador, assume + avança pra OUT_FOR_DELIVERY (dispara estoque/
+  // notificação via OrdersService, como sempre fez); (2) reatribuição —
+  // pedido já tem um entregador (normalmente já OUT_FOR_DELIVERY), só troca
+  // quem está levando, SEM re-rodar a máquina de status/estoque/WhatsApp
+  // (já rodou na 1ª atribuição — repetir mandaria "saiu para entrega" de
+  // novo pro cliente e tentaria consumir estoque uma 2ª vez).
   async assignOrder(
     orderId: string,
     driverId: string,
@@ -159,19 +169,33 @@ export class DriversService {
     });
     if (!order) throw new NotFoundException('Pedido não encontrado');
 
-    // Persist driver assignment fields outside the status transaction
+    const isInitialDispatch =
+      order.driverId === null && order.status === OrderStatus.READY;
+
     await this.prisma.order.update({
       where: { id: orderId },
       data: { driverId, assignedAt: new Date() },
     });
 
-    // Delegate status transition via OrdersService (stock, socket, loyalty, audit)
-    return this.ordersService.updateStatus(
-      orderId,
-      OrderStatus.OUT_FOR_DELIVERY,
-      userId,
-      companyId,
-    );
+    if (isInitialDispatch) {
+      // Delegate status transition via OrdersService (stock, socket, loyalty, audit)
+      return this.ordersService.updateStatus(
+        orderId,
+        OrderStatus.OUT_FOR_DELIVERY,
+        userId,
+        companyId,
+      );
+    }
+
+    // Reatribuição: só avisa quem está olhando o rastreamento em tempo real.
+    this.socketGateway.emitOrderStatusChanged(orderId, {
+      status: order.status,
+      source: 'PDV',
+    });
+    return this.prisma.order.findFirst({
+      where: { id: orderId },
+      include: { customer: true },
+    });
   }
 
   async updateMyLocation(userId: string, lat: number, lng: number) {

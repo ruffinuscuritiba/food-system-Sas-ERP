@@ -1086,6 +1086,7 @@ export class OrdersService {
         take: 200,
         include: {
           customer: true,
+          driver: { include: { user: { select: { name: true } } } },
           items: {
             include: {
               selectedComplements: true,
@@ -1137,6 +1138,8 @@ export class OrdersService {
       total: Number(o.total),
       paymentMethod: o.paymentMethod ?? null,
       notes: o.notes ?? null,
+      driverId: o.driverId ?? null,
+      driverName: o.driver?.user?.name ?? null,
       items: (o.items ?? []).map((it: any) => ({
         productName: it.productName,
         quantity: it.quantity,

@@ -43,6 +43,8 @@ type Order = {
   paymentMethod: string;
   deliveryFee: number;
   driverFee?: number;
+  driverId?: string | null;
+  driverName?: string | null;
   total: number;
   status: string;
   orderType?: string;
@@ -51,6 +53,8 @@ type Order = {
   createdAt?: string;
   confirmedAt?: string;
 };
+
+type DriverOption = { id: string; name: string };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -212,6 +216,8 @@ export default function OrdersPage() {
   const [companyName, setCompanyName] = useState("Restaurante");
   const [showHistory, setShowHistory] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [drivers, setDrivers] = useState<DriverOption[]>([]);
+  const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
   const { user } = useAuthStore();
 
   const fetchOrders = useCallback(async () => {
@@ -225,6 +231,36 @@ export default function OrdersPage() {
       setLoading(false);
     }
   }, []);
+
+  // Só usado se o módulo "delivery" estiver ativo pro tenant — falha
+  // silenciosa (fica lista vazia, o seletor de entregador não aparece).
+  async function fetchDrivers() {
+    try {
+      const res = await api.get("/drivers");
+      const list: any[] = Array.isArray(res.data) ? res.data : [];
+      setDrivers(
+        list
+          .filter((d) => d.user?.isActive)
+          .map((d) => ({ id: d.id, name: d.user.name })),
+      );
+    } catch {
+      // sem módulo delivery ou sem entregador cadastrado — normal, ignora
+    }
+  }
+
+  async function assignDriver(orderId: string, driverId: string) {
+    if (!driverId) return;
+    setAssigningOrderId(orderId);
+    try {
+      await api.post("/drivers/assign", { orderId, driverId });
+      toast.success("Entregador atualizado");
+      fetchOrders();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Erro ao atribuir entregador");
+    } finally {
+      setAssigningOrderId(null);
+    }
+  }
 
   async function fetchCompany() {
     if (!user?.companyId) return;
@@ -249,6 +285,7 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
     fetchCompany();
+    fetchDrivers();
     socket.connect();
     socket.on("orderCreated", fetchOrders);
     socket.on("kitchenUpdate", fetchOrders);
@@ -497,14 +534,50 @@ export default function OrdersPage() {
                       <option value="CANCELLED">Cancelado</option>
                     </select>
 
-                    {/* Despachar para entrega */}
-                    {order.status === "READY" && (
+                    {/* Despachar para entrega — pedido de delivery pronto, sem entregador ainda */}
+                    {order.status === "READY" && isDelivery && drivers.length > 0 && (
+                      <select
+                        disabled={assigningOrderId === order.id}
+                        defaultValue=""
+                        onChange={(e) => e.target.value && assignDriver(order.id, e.target.value)}
+                        className="border border-purple-200 bg-purple-50 text-purple-700 px-3 py-2 rounded-xl outline-none text-sm font-bold disabled:opacity-60"
+                      >
+                        <option value="" disabled>🛵 Despachar com...</option>
+                        {drivers.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* Fallback: sem entregador cadastrado, ou pedido não é delivery — despacha sem atribuir ninguém */}
+                    {order.status === "READY" && (!isDelivery || drivers.length === 0) && (
                       <button
                         onClick={() => updateStatus(order.id, "OUT_FOR_DELIVERY", (order as any).source)}
                         className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
                       >
                         <Truck size={14} /> Despachar entrega
                       </button>
+                    )}
+
+                    {/* Entregador já em rota — mostra quem está e permite trocar */}
+                    {order.status === "OUT_FOR_DELIVERY" && isDelivery && drivers.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <Truck size={12} className="text-purple-500" />
+                          {order.driverName ?? "Sem entregador"}
+                        </span>
+                        <select
+                          disabled={assigningOrderId === order.id}
+                          value={order.driverId ?? ""}
+                          onChange={(e) => e.target.value && assignDriver(order.id, e.target.value)}
+                          className="border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg outline-none text-xs font-medium disabled:opacity-60"
+                        >
+                          <option value="" disabled>Trocar...</option>
+                          {drivers.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     )}
 
                     {/* Finalizar */}

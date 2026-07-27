@@ -5,7 +5,7 @@ on:
 
 jobs:
   diagnose:
-    name: Check notification logs (72h) + order timestamps
+    name: Check invalid-phone notification rejections
     runs-on: ubuntu-latest
     steps:
       - name: Inspect via SSH (no changes made)
@@ -18,8 +18,5 @@ jobs:
           timeout: 30s
           command_timeout: 120s
           script: |
-            echo "===== logs (72h) — notificação de status de pedido ====="
-            docker logs foodsaas-backend-backend-1 --since 72h 2>&1 | grep -iE "notificad|Confirmação enviada|dispatch error|Evolution dispatch|OrderNotificationService|sem conexão whatsapp ativa|findActiveConnection" | tail -100 || echo "(sem match)"
-            echo ""
-            echo "===== timestamp atual do container (pra calibrar janela) ====="
-            docker exec foodsaas-backend-backend-1 date -u
+            echo "===== logs (72h) — telefone invalido / notificacao ====="
+            docker logs foodsaas-backend-backend-1 --since 72h 2>&1 | grep -iE "inv[aá]lido|telefone|OrderNotification" | tail -60 || echo "(sem match)"

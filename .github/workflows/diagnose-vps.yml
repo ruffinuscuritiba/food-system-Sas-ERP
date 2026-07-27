@@ -106,6 +106,21 @@ jobs:
               for (const o of stuckPending) {
                 console.log('  #', o.number, ' total:', o.total.toString(), ' channel:', o.channel, ' cashId:', o.cashId, ' createdAt:', o.createdAt);
               }
+
+              // Pedidos com pagamento dividido ("Pgto dividido" nas notes) — hipótese:
+              // Order.paymentMethod só reflete o método do 1º split, então se o
+              // dinheiro não for o primeiro, a parte em dinheiro nunca credita o
+              // caixa (ou o inverso: credita o total inteiro por engano).
+              const splitOrders = await prisma.order.findMany({
+                where: { companyId: company.id, notes: { contains: 'Pgto dividido' } },
+                select: { id: true, number: true, total: true, paymentMethod: true, status: true, notes: true, createdAt: true, cashId: true },
+                orderBy: { createdAt: 'desc' },
+                take: 30,
+              });
+              console.log('\n--- Pedidos com pagamento dividido (', splitOrders.length, ') ---');
+              for (const o of splitOrders) {
+                console.log('  #', o.number, ' total:', o.total.toString(), ' paymentMethod(1o split):', o.paymentMethod, ' status:', o.status, ' cashId:', o.cashId, ' notes:', o.notes, ' createdAt:', o.createdAt);
+              }
             }
 
             main().catch(e => console.error(e)).finally(() => prisma.$disconnect());

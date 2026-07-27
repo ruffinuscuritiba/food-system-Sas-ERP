@@ -43,6 +43,23 @@ export interface CustomerStats {
   segments: { novos: number; recorrentes: number; fidelizados: number };
 }
 
+export interface FeedbackStats {
+  totalRequested: number;
+  totalResponded: number;
+  responseRate: number;
+  positive: number;
+  negative: number;
+  satisfactionRate: number;
+  recent: {
+    id: string;
+    customerName: string | null;
+    responseText: string | null;
+    sentiment: string | null;
+    respondedAt: string | null;
+    createdAt: string;
+  }[];
+}
+
 export interface ExecutiveKpis {
   revenue: number;
   revenueGrowth: number;
@@ -452,6 +469,56 @@ export class ReportsService {
       contacts,
       active,
       segments: { novos, recorrentes, fidelizados },
+    };
+  }
+
+  // Qualidade (aba Qualidade) — a plataforma não coleta nota 1-5, só
+  // sentimento (POSITIVE/NEGATIVE) via classificação por palavra-chave da
+  // resposta do cliente ao pedido de feedback pós-entrega (WhatsApp). Por
+  // isso "satisfactionRate" é % de respostas positivas, não uma média de
+  // estrelas — evita fabricar uma nota que o sistema não mede de verdade.
+  async getFeedbackStats(companyId: string): Promise<FeedbackStats> {
+    const [totalRequested, responded, positive, negative, recent] =
+      await Promise.all([
+        this.prisma.deliveryFeedback.count({ where: { companyId } }),
+        this.prisma.deliveryFeedback.count({
+          where: { companyId, respondedAt: { not: null } },
+        }),
+        this.prisma.deliveryFeedback.count({
+          where: { companyId, sentiment: 'POSITIVE' },
+        }),
+        this.prisma.deliveryFeedback.count({
+          where: { companyId, sentiment: 'NEGATIVE' },
+        }),
+        this.prisma.deliveryFeedback.findMany({
+          where: { companyId, respondedAt: { not: null } },
+          orderBy: { respondedAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            customerName: true,
+            responseText: true,
+            sentiment: true,
+            respondedAt: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+    const sentimentTotal = positive + negative;
+
+    return {
+      totalRequested,
+      totalResponded: responded,
+      responseRate: totalRequested > 0 ? responded / totalRequested : 0,
+      positive,
+      negative,
+      satisfactionRate: sentimentTotal > 0 ? positive / sentimentTotal : 0,
+      recent: recent.map((r) => ({
+        ...r,
+        respondedAt: r.respondedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+      })),
     };
   }
 }

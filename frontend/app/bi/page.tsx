@@ -5,6 +5,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag,
   Receipt, AlertTriangle, Bot, Send, RefreshCw,
   BarChart2, Package, Bell, ChevronRight, X, Loader2, Utensils, Users,
+  Star, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -44,6 +45,19 @@ interface CustomerStats {
   contacts: number;
   active: number;
   segments: { novos: number; recorrentes: number; fidelizados: number };
+}
+
+interface FeedbackStats {
+  totalRequested: number;
+  totalResponded: number;
+  responseRate: number;
+  positive: number;
+  negative: number;
+  satisfactionRate: number;
+  recent: {
+    id: string; customerName: string | null; responseText: string | null;
+    sentiment: string | null; respondedAt: string | null; createdAt: string;
+  }[];
 }
 
 interface MenuAnalyticsSummary {
@@ -112,7 +126,7 @@ function KpiCard({ icon, label, value, growth, sub }: { icon: React.ReactNode; l
 
 export default function BIPage() {
   useNavKeyGuard("bi");
-  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "clientes" | "ia" | "alerts">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "clientes" | "qualidade" | "ia" | "alerts">("dashboard");
   const [preset, setPreset] = useState<DatePreset>("month");
   const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()) });
 
@@ -121,6 +135,7 @@ export default function BIPage() {
   const [products, setProducts] = useState<ProductRanking[]>([]);
   const [menuAnalytics, setMenuAnalytics] = useState<MenuAnalyticsSummary | null>(null);
   const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
+  const [feedbackStats, setFeedbackStats] = useState<FeedbackStats | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -135,12 +150,13 @@ export default function BIPage() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiRes, revRes, productsRes, menuRes, customersRes, alertRes] = await Promise.allSettled([
+      const [kpiRes, revRes, productsRes, menuRes, customersRes, feedbackRes, alertRes] = await Promise.allSettled([
         api.get("/reports/executive"),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
         api.get(`/reports/products?from=${range.from}&to=${range.to}&limit=50`),
         api.get(`/menu-analytics/summary?from=${range.from}&to=${range.to}`),
         api.get("/reports/customers"),
+        api.get("/reports/feedback"),
         api.get("/alerts?unread=false"),
       ]);
       if (kpiRes.status     === "fulfilled") setKpis(kpiRes.value.data);
@@ -148,6 +164,7 @@ export default function BIPage() {
       if (productsRes.status === "fulfilled") setProducts(Array.isArray(productsRes.value.data) ? productsRes.value.data : []);
       if (menuRes.status    === "fulfilled") setMenuAnalytics(menuRes.value.data);
       if (customersRes.status === "fulfilled") setCustomerStats(customersRes.value.data);
+      if (feedbackRes.status === "fulfilled") setFeedbackStats(feedbackRes.value.data);
       if (alertRes.status   === "fulfilled") setAlerts(alertRes.value.data ?? []);
     } catch {}
     setLoading(false);
@@ -184,6 +201,7 @@ export default function BIPage() {
     { key: "produtos", label: "Produtos", icon: <Package size={14} /> },
     { key: "cardapio", label: "Cardápio", icon: <Utensils size={14} /> },
     { key: "clientes", label: "Clientes", icon: <Users size={14} /> },
+    { key: "qualidade", label: "Qualidade", icon: <Star size={14} /> },
     { key: "ia", label: "Consultora IA", icon: <Bot size={14} /> },
     { key: "alerts", label: `Alertas ${alerts.filter(a => !a.read).length > 0 ? `(${alerts.filter(a => !a.read).length})` : ""}`, icon: <Bell size={14} /> },
   ] as const;
@@ -640,6 +658,58 @@ export default function BIPage() {
                   })}
                   {segTotal === 0 && <p className="text-sm text-gray-400 text-center py-4">Sem clientes com pedido ainda</p>}
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Qualidade Tab ── */}
+      {tab === "qualidade" && (() => {
+        const q = feedbackStats;
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Satisfação</p>
+                <p className="text-2xl font-black text-emerald-600">{pct(q?.satisfactionRate ?? 0)}</p>
+                <p className="text-xs text-gray-400 mt-1">% de respostas positivas</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Taxa de Resposta</p>
+                <p className="text-2xl font-black text-gray-900">{pct(q?.responseRate ?? 0)}</p>
+                <p className="text-xs text-gray-400 mt-1">{q?.totalResponded ?? 0} de {q?.totalRequested ?? 0} pedidos</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1 flex items-center justify-center gap-1"><ThumbsUp size={12} className="text-emerald-500" /> Positivos</p>
+                <p className="text-2xl font-black text-emerald-600">{q?.positive ?? 0}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1 flex items-center justify-center gap-1"><ThumbsDown size={12} className="text-red-500" /> Negativos</p>
+                <p className="text-2xl font-black text-red-500">{q?.negative ?? 0}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="font-bold text-gray-800 text-sm">Feedbacks recentes</p>
+                <p className="text-xs text-gray-400 mt-0.5">Respostas dos clientes ao pedido de feedback pós-entrega (WhatsApp).</p>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+                {(q?.recent ?? []).map((f) => (
+                  <div key={f.id} className="px-5 py-3 flex items-start gap-3">
+                    <span className={`mt-0.5 shrink-0 ${f.sentiment === "POSITIVE" ? "text-emerald-500" : f.sentiment === "NEGATIVE" ? "text-red-500" : "text-gray-300"}`}>
+                      {f.sentiment === "POSITIVE" ? <ThumbsUp size={16} /> : f.sentiment === "NEGATIVE" ? <ThumbsDown size={16} /> : <Star size={16} />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-700">{f.responseText || "—"}</p>
+                      <p className="text-xs text-gray-400 mt-1">{f.customerName || "Cliente"} · {f.respondedAt ? new Date(f.respondedAt).toLocaleString("pt-BR") : ""}</p>
+                    </div>
+                  </div>
+                ))}
+                {(q?.recent ?? []).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-8">Nenhum feedback respondido ainda</p>
+                )}
               </div>
             </div>
           </div>

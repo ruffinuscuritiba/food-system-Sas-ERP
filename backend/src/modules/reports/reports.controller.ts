@@ -42,6 +42,11 @@ export class ReportsController {
     return this.reports.getCustomerStats(req.user.companyId);
   }
 
+  @Get('feedback')
+  feedback(@Req() req: any) {
+    return this.reports.getFeedbackStats(req.user.companyId);
+  }
+
   @Get('products')
   products(
     @Req() req: any,

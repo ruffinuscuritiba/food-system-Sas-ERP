@@ -12,6 +12,7 @@ import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 import { StockService } from '@/modules/stock/stock.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
+import { PrintersService } from '@/modules/printers/printers.service';
 import { normalizePhoneBr } from '@/common/utils/phone';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
@@ -71,6 +72,7 @@ export class OnlineOrdersService {
     private readonly stockService: StockService,
     @Optional() private readonly qrCampaigns?: QrCampaignsService,
     @Optional() private readonly whatsappAi?: WhatsappAiService,
+    @Optional() private readonly printersService?: PrintersService,
   ) {}
 
   /**
@@ -377,6 +379,13 @@ export class OnlineOrdersService {
               this.logger.warn(`[OnlineOrder] resumo WhatsApp falhou: ${e?.message}`),
             );
         }
+
+        // → Impressão automática via Printer Agent — mesma regra de
+        // orders.service.ts (PDV), que até aqui nunca disparava pra pedidos
+        // do cardápio digital/totem. Só enfileira se houver Agent online.
+        this.enqueuePrintJobs(dto.companyId, order, dto).catch((e: any) =>
+          this.logger.warn(`[OnlineOrder] falha ao enfileirar impressão: ${e?.message}`),
+        );
       } catch (err: any) {
         // Socket failure must never affect the already-created order
         this.logger.warn(`[OnlineOrder] socket emit failed: ${err?.message}`);
@@ -384,6 +393,93 @@ export class OnlineOrdersService {
     });
 
     return order;
+  }
+
+  /**
+   * Enfileira PrinterJob pro pedido do cardápio digital/totem — mesma regra
+   * de setores de orders.service.ts (categoryType "bebidas" → BAR, resto →
+   * KITCHEN, sempre gera COUNTER, gera DELIVERY se for entrega). Totem não
+   * gera COUNTER (pré-conta não faz sentido pro cliente que já está na loja
+   * — mesma regra já aplicada no PrintRouterService do frontend).
+   */
+  private async enqueuePrintJobs(
+    companyId: string,
+    order: { id: string; total: unknown; paymentMethod: string; orderType: string },
+    dto: CreateOnlineOrderDto,
+  ) {
+    if (!this.printersService) return;
+    if (!this.printersService.getAgentStatus(companyId).online) return;
+
+    const items = Array.isArray(dto.items) ? dto.items : [];
+    if (items.length === 0) return;
+
+    const productIds = items.map((it) => it.productId);
+    const [products, company] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, category: { select: { categoryType: true } } },
+      }),
+      this.prisma.company.findUnique({
+        where: { id: companyId },
+        select: { name: true },
+      }),
+    ]);
+    const typeMap = new Map(
+      products.map((p) => [p.id, p.category?.categoryType ?? 'normal']),
+    );
+
+    const kitchenItems: any[] = [];
+    const barItems: any[] = [];
+    for (const item of items) {
+      const bucket =
+        typeMap.get(item.productId) === 'bebidas' ? barItems : kitchenItems;
+      bucket.push({ quantity: item.quantity, name: item.productName });
+    }
+
+    const deliveryAddress = [dto.address, dto.addressNumber, dto.neighborhood, dto.city]
+      .filter(Boolean)
+      .join(', ');
+
+    const basePayload = {
+      companyName: company?.name,
+      orderNumber: order.id.slice(-6).toUpperCase(),
+      source: dto.channel === 'TOTEM' ? 'TOTEM' : 'ONLINE',
+      orderType: order.orderType,
+      time: new Date().toLocaleTimeString('pt-BR'),
+      total: Number(order.total),
+      paymentMethod: order.paymentMethod,
+      deliveryAddress,
+    };
+
+    const isTotem = dto.channel === 'TOTEM';
+    const sectorJobs: Array<{ role: 'KITCHEN' | 'BAR' | 'COUNTER' | 'DELIVERY'; items: any[] }> = [];
+    if (kitchenItems.length) sectorJobs.push({ role: 'KITCHEN', items: kitchenItems });
+    if (barItems.length) sectorJobs.push({ role: 'BAR', items: barItems });
+    if (!isTotem) sectorJobs.push({ role: 'COUNTER', items: [...kitchenItems, ...barItems] });
+    if (order.orderType === 'DELIVERY') {
+      sectorJobs.push({ role: 'DELIVERY', items: [...kitchenItems, ...barItems] });
+    }
+
+    for (const { role, items: sectorItems } of sectorJobs) {
+      const profiles = await this.prisma.printerProfile.findMany({
+        where: {
+          companyId,
+          role,
+          isActive: true,
+          printer: { isActive: true },
+        },
+        select: { printerId: true },
+      });
+      for (const profile of profiles) {
+        await this.printersService.enqueueJob({
+          companyId,
+          printerId: profile.printerId,
+          orderId: order.id,
+          template: role,
+          payload: { ...basePayload, template: role, items: sectorItems },
+        });
+      }
+    }
   }
 
   /**

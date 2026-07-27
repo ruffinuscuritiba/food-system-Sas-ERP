@@ -13,6 +13,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
+// Capacete estilizado com gradiente radial (efeito 3D/glossy) em vez do
+// emoji de moto plano. Mesma silhueta pros dois estados, só muda a cor.
+function helmetSvg(gradId: string, from: string, mid: string, to: string, visor: string) {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="${gradId}" cx="35%" cy="25%" r="80%">
+        <stop offset="0%" stop-color="${from}"/>
+        <stop offset="45%" stop-color="${mid}"/>
+        <stop offset="100%" stop-color="${to}"/>
+      </radialGradient>
+    </defs>
+    <path d="M2 14.5C2 8.15 6.7 3 12 3s10 5.15 10 11.5V16a1.5 1.5 0 0 1-1.5 1.5H3.5A1.5 1.5 0 0 1 2 16v-1.5Z" fill="url(#${gradId})" stroke="${to}" stroke-width="0.6"/>
+    <rect x="5.5" y="12.2" width="13" height="3.6" rx="1.8" fill="${visor}"/>
+    <rect x="6.3" y="12.8" width="4.2" height="1" rx="0.5" fill="#ffffff" opacity="0.55"/>
+  </svg>`;
+}
+
 const driverIcon = L.divIcon({
   html: `<div style="
     background:#f97316;
@@ -21,8 +38,7 @@ const driverIcon = L.divIcon({
     width:32px;height:32px;
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 8px rgba(0,0,0,.35);
-    font-size:15px;
-  ">🛵</div>`,
+  ">${helmetSvg("hgOrange", "#fff7ed", "#fb923c", "#c2410c", "#1e293b")}</div>`,
   className: "",
   iconSize: [32, 32],
   iconAnchor: [16, 16],
@@ -37,8 +53,7 @@ const idleIcon = L.divIcon({
     width:28px;height:28px;
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 6px rgba(0,0,0,.25);
-    font-size:13px;
-  ">🛵</div>`,
+  ">${helmetSvg("hgGray", "#f8fafc", "#cbd5e1", "#64748b", "#1e293b")}</div>`,
   className: "",
   iconSize: [28, 28],
   iconAnchor: [14, 14],

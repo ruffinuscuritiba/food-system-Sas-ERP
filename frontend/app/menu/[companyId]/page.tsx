@@ -508,6 +508,18 @@ export default function MenuPage() {
     }).catch(() => {});
   }
 
+  /* Funil de conversão do cardápio (aba Cardápio em /bi): visitantes →
+     visualizações → adições ao carrinho → início de checkout → compras. */
+  function trackFunnelEvent(type: "ADD_TO_CART" | "CHECKOUT_START") {
+    if (!realCompanyId) return;
+    fetch(`${apiBaseUrl}/menu-analytics/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ companyId: realCompanyId, type }),
+    }).catch(() => {});
+  }
+
   /* ── PIX countdown ────────────────────────────────────────────── */
   useEffect(() => {
     if (!showPixScreen || !pixData?.expiresAt) return;
@@ -682,6 +694,7 @@ export default function MenuPage() {
     toast.success(`${product.name} adicionado!`);
     trackPixelAddToCart(Number(product.salePrice), product.name);
     trackGAAddToCart(product.name, Number(product.salePrice));
+    trackFunnelEvent("ADD_TO_CART");
   }
 
   async function addToCart(product: Product) {
@@ -864,6 +877,7 @@ export default function MenuPage() {
     }]);
     setShowFlavorModal(false);
     toast.success("Pizza montada adicionada!");
+    trackFunnelEvent("ADD_TO_CART");
   }
 
   // ── Render helpers para o modal de pizza ──
@@ -2021,7 +2035,7 @@ export default function MenuPage() {
                 <span style={{ color: theme.primaryColor }}>R$ {cartTotal.toFixed(2)}</span>
               </div>
               <button
-                onClick={() => { setShowCart(false); setShowCheckout(true); }}
+                onClick={() => { setShowCart(false); setShowCheckout(true); trackFunnelEvent("CHECKOUT_START"); }}
                 disabled={cart.length === 0}
                 className="w-full hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition"
                 style={{ background: theme.primaryColor }}

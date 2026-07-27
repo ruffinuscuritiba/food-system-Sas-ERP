@@ -335,6 +335,10 @@ export default function MenuPage() {
   // Quando preenchido, confirmFlavors atualiza o item existente em vez de
   // criar um novo — usado pelo botão "Editar" da gaveta do carrinho.
   const [editingCartKey, setEditingCartKey] = useState<string | null>(null);
+  // Item de combo já montado (tamanho+1 sabor), aguardando a escolha dos
+  // complementos cadastrados (ex: grupo "Bordas" por categoria) antes de
+  // efetivamente entrar no carrinho.
+  const [pendingComboItem, setPendingComboItem] = useState<CartItem | null>(null);
 
   const [form, setForm] = useState<CustomerForm>({
     name: "", phone: "", orderType: initialTableNumber ? "DINE_IN" : "DELIVERY", paymentMethod: "PIX",
@@ -758,6 +762,15 @@ export default function MenuPage() {
     return cat.allowMultipleFlavors === true || String(cat.name || "").toLowerCase().includes("pizza");
   }
 
+  /** Combo (ex: "Combos Promocionais") — passa pela mesma categoria "pizza" com
+   *  allowMultipleFlavors=true, mas é uma composição FIXA (1 pizza + bebida etc),
+   *  não uma pizza customizável de múltiplos sabores. Trava em 1 sabor só e usa
+   *  o sistema de Complementos já cadastrado pra loja (ex: grupo "Bordas" por
+   *  categoria) em vez da seção de borda do construtor de pizza. */
+  function isComboProduct(product: Product): boolean {
+    return String(product.category?.name || "").toLowerCase().includes("combo");
+  }
+
   async function addToCart(product: Product) {
     trackProductView(product.id);
     // Toda pizza passa pelo construtor completo (tamanho/sabores/borda/observações)
@@ -1018,6 +1031,14 @@ export default function MenuPage() {
       borderName: border?.name,
       customerNotes: pizzaNotes.trim(),
     };
+    // Combo (ex: "Combos Promocionais") — antes de entrar no carrinho, busca os
+    // complementos já cadastrados pra ele (ex: grupo "Bordas" por categoria)
+    // em vez de considerar a pizza pronta direto.
+    if (isComboProduct(chosen[0]) && !editingCartKey) {
+      setShowFlavorModal(false);
+      fetchComplementsForPendingItem(finalItem, chosen[0].id);
+      return;
+    }
     setCart((prev) => {
       if (editingCartKey) {
         const existingQty = prev.find((i) => i.cartKey === editingCartKey)?.quantity ?? 1;
@@ -1033,6 +1054,32 @@ export default function MenuPage() {
     // a sugestão de bebida/acompanhamento e a lista do que já foi escolhido,
     // em vez de fechar silenciosamente e deixar o cliente procurar o carrinho.
     setShowCart(true);
+  }
+
+  /** Busca complementos do produto-base de um combo já montado (tamanho+1 sabor)
+   *  e só então efetiva a entrada no carrinho — sem complemento configurado,
+   *  adiciona direto igual antes. */
+  async function fetchComplementsForPendingItem(item: CartItem, productId: string) {
+    setCompLoading(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/complements/public/product/${productId}?companyId=${companyId}`);
+      const groups: ComplementGroup[] = res.ok ? await res.json() : [];
+      if (groups.length === 0) {
+        setCart((prev) => [...prev, item]);
+        setShowCart(true);
+        toast.success("Adicionado!");
+        trackFunnelEvent("ADD_TO_CART");
+        return;
+      }
+      setPendingComboItem(item);
+      setCompGroups(groups);
+      setCompProduct(item.product);
+    } catch {
+      setCart((prev) => [...prev, item]);
+      setShowCart(true);
+    } finally {
+      setCompLoading(false);
+    }
   }
 
   // ── Render helpers para o modal de pizza ──
@@ -1088,7 +1135,10 @@ export default function MenuPage() {
   function renderFlavorSelector() {
     const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
     if (activeConfigs.length > 1 && !selectedPizzaSize) return null;
-    const max = Math.max(1, sizeMaxFlavors ?? globalMaxFlavors);
+    // Combo é composição fixa (1 pizza + bebida etc.) — trava em 1 sabor só,
+    // mesmo que o tamanho escolhido permitisse "meio a meio" numa pizza de verdade.
+    const isCombo = flavorSlots[0] ? isComboProduct(flavorSlots[0]) : false;
+    const max = isCombo ? 1 : Math.max(1, sizeMaxFlavors ?? globalMaxFlavors);
     const fraction = flavorParts === 1 ? "inteiro" : flavorParts === 2 ? "1/2" : flavorParts === 3 ? "1/3" : "1/4";
     return (
       <div>
@@ -1238,8 +1288,8 @@ export default function MenuPage() {
   }
 
   /** Borda + Observações — não existia no cardápio antes desta sessão. */
-  function renderBorderAndNotesSection() {
-    const activeBorders = pizzaBorders.filter((b) => b.isActive);
+  function renderBorderAndNotesSection(skipBorders?: boolean) {
+    const activeBorders = skipBorders ? [] : pizzaBorders.filter((b) => b.isActive);
     return (
       <div>
         {activeBorders.length > 0 && (
@@ -2213,7 +2263,7 @@ export default function MenuPage() {
         groups={compGroups}
         loading={compLoading}
         theme="light"
-        onClose={() => { setCompProduct(null); setCompGroups([]); }}
+        onClose={() => { setCompProduct(null); setCompGroups([]); setPendingComboItem(null); }}
         onConfirm={(sel: SelectedComplement[]) => {
           if (!compProduct) return;
           const mapped: CartComplement[] = sel.map((s) => ({
@@ -2223,7 +2273,15 @@ export default function MenuPage() {
             price:              Number(s.price),
             quantity:           s.quantity,
           }));
-          addProductDirect(compProduct, mapped);
+          if (pendingComboItem) {
+            setCart((prev) => [...prev, { ...pendingComboItem, complements: mapped }]);
+            setShowCart(true);
+            toast.success("Adicionado!");
+            trackFunnelEvent("ADD_TO_CART");
+            setPendingComboItem(null);
+          } else {
+            addProductDirect(compProduct, mapped);
+          }
           setCompProduct(null);
           setCompGroups([]);
         }}
@@ -2322,9 +2380,11 @@ export default function MenuPage() {
                         <p className="text-xs" style={{ color: theme.primaryColor }}>
                           {item.flavors.map((f) => f.name).join(" + ")}
                         </p>
-                        <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
-                          Borda: {item.borderName || "Nenhuma"}
-                        </p>
+                        {!isComboProduct(item.flavors[0]) && (
+                          <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
+                            Borda: {item.borderName || "Nenhuma"}
+                          </p>
+                        )}
                         {item.customerNotes && (
                           <p className="text-xs italic mt-0.5" style={{ color: "var(--menu-text-2)" }}>Obs: {item.customerNotes}</p>
                         )}
@@ -2477,8 +2537,11 @@ export default function MenuPage() {
             {/* ── Seleção de sabores (só mostra depois de escolher tamanho, se houver) ── */}
             {renderFlavorSelector()}
 
-            {/* ── Borda + Observações (só depois de ao menos 1 sabor escolhido) ── */}
-            {flavorSlots.some(Boolean) && renderBorderAndNotesSection()}
+            {/* ── Borda + Observações (só depois de ao menos 1 sabor escolhido) ──
+                 Combo pula a lista de bordas daqui — ele já usa o grupo de
+                 Complementos cadastrado pra categoria (evita duplicar a mesma
+                 escolha em 2 lugares diferentes). */}
+            {flavorSlots.some(Boolean) && renderBorderAndNotesSection(flavorSlots[0] ? isComboProduct(flavorSlots[0]) : false)}
             </div>{/* fim scroll area */}
             <div className="flex gap-3 p-6 pt-0 shrink-0 border-t" style={{ borderColor: "var(--menu-border)" }}>
               <button onClick={() => setShowFlavorModal(false)} className="flex-1 border hover:opacity-80 transition py-3 rounded-xl font-semibold text-sm" style={{ borderColor: "var(--menu-border)", color: "var(--menu-text-2)" }}>Cancelar</button>

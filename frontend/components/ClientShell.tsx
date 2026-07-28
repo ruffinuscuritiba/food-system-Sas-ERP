@@ -45,6 +45,7 @@ import {
   ChevronDown,
   Bell,
   Volume2,
+  WifiOff,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -241,6 +242,9 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [orderAlerts, setOrderAlerts] = useState<
     { orderId: string; customerName?: string | null; total?: number | string; orderType?: string; at: number }[]
   >([]);
+  const [waFailureAlerts, setWaFailureAlerts] = useState<
+    { conversationId: string; customerPhone: string; customerName?: string | null; preview: string; at: number }[]
+  >([]);
   const humanAlertAudioRef = useRef<HTMLAudioElement>(null);
   const [audioBlocked, setAudioBlocked] = useState(false);
   // Preferência de som — por dispositivo (localStorage), não por empresa:
@@ -373,11 +377,24 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       });
     }
 
+    // Kely (ou o operador) tentou responder um cliente e o WhatsApp confirmou
+    // que a entrega falhou de verdade (não é só "IA lenta" — a mensagem
+    // simplesmente nunca chegou). Sem isso o operador só descobre quando o
+    // cliente reclama por outro canal.
+    function handleWaDeliveryFailed(data: { conversationId: string; customerPhone: string; customerName?: string | null; preview: string }) {
+      console.error("[alertas] evento whatsappDeliveryFailed recebido", data);
+      setWaFailureAlerts((prev) => {
+        const withoutDup = prev.filter((a) => a.conversationId !== data.conversationId);
+        return [...withoutDup, { ...data, at: Date.now() }];
+      });
+    }
+
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
     socket.on("humanHelpRequested", handleHumanHelp);
     socket.on("orderCreated", handleOrderCreated);
+    socket.on("whatsappDeliveryFailed", handleWaDeliveryFailed);
     return () => {
       clearInterval(reconnectTimer);
       socket.off("connect", handleConnect);
@@ -385,6 +402,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       socket.off("connect_error", handleConnectError);
       socket.off("humanHelpRequested", handleHumanHelp);
       socket.off("orderCreated", handleOrderCreated);
+      socket.off("whatsappDeliveryFailed", handleWaDeliveryFailed);
       // Não desconecta — outras páginas (kitchen/orders/tables) também
       // gerenciam o mesmo socket compartilhado.
     };
@@ -433,7 +451,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   // modos escolhíveis pelo operador: campainha (mp3) ou voz (fala o pedido
   // via Web Speech API, sem depender de nenhum arquivo de áudio novo).
   useEffect(() => {
-    const pendingCount = humanAlerts.length + orderAlerts.length;
+    const pendingCount = humanAlerts.length + orderAlerts.length + waFailureAlerts.length;
     if (pendingCount === 0) {
       const el = humanAlertAudioRef.current;
       if (el) { el.pause(); el.currentTime = 0; }
@@ -444,6 +462,8 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     const spokenLabel =
       humanAlerts.length > 0
         ? "Atenção! Cliente pediu atendimento humano."
+        : waFailureAlerts.length > 0
+        ? "Atenção! Uma mensagem não foi entregue no WhatsApp."
         : "Novo pedido! Olha o pedido.";
 
     let cancelled = false;
@@ -487,7 +507,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       timers.forEach(clearTimeout);
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
     };
-  }, [humanAlerts.length, orderAlerts.length, alertSoundMode]);
+  }, [humanAlerts.length, orderAlerts.length, waFailureAlerts.length, alertSoundMode]);
 
   function dismissOrderAlert(orderId: string) {
     setOrderAlerts((prev) => prev.filter((a) => a.orderId !== orderId));
@@ -495,6 +515,10 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   function dismissHumanAlert(conversationId: string) {
     setHumanAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
+  }
+
+  function dismissWaFailureAlert(conversationId: string) {
+    setWaFailureAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
   }
 
   useEffect(() => {
@@ -714,7 +738,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
       <Toaster position="top-right" />
       <audio ref={humanAlertAudioRef} src="/notification.mp3" preload="auto" />
 
-      {audioBlocked && (humanAlerts.length + orderAlerts.length > 0) && (
+      {audioBlocked && (humanAlerts.length + orderAlerts.length + waFailureAlerts.length > 0) && (
         <button
           type="button"
           onClick={(e) => {
@@ -763,8 +787,44 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
         </div>
       )}
 
+      {waFailureAlerts.length > 0 && (
+        <div className="fixed top-3 right-3 z-[9998] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: humanAlerts.length > 0 ? humanAlerts.length * 96 : 0 }}>
+          {waFailureAlerts.map((a) => (
+            <div
+              key={a.conversationId}
+              className="bg-orange-600 text-white rounded-xl shadow-2xl p-3.5 flex items-start gap-3 animate-pulse"
+            >
+              <WifiOff size={18} className="mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">Mensagem NÃO entregue no WhatsApp</p>
+                <p className="text-xs text-orange-100 truncate">
+                  {a.customerName || a.customerPhone} · {a.customerPhone}
+                </p>
+                <p className="text-xs text-orange-50 mt-1 line-clamp-2">"{a.preview}"</p>
+                <p className="text-[11px] text-orange-100 mt-1">Verifique a conexão do WhatsApp — a Kely tentou 2x e não conseguiu.</p>
+                <div className="flex gap-2 mt-2">
+                  <Link
+                    href="/whatsapp-ia"
+                    onClick={() => dismissWaFailureAlert(a.conversationId)}
+                    className="text-xs font-semibold bg-white text-orange-700 px-2.5 py-1 rounded-lg hover:bg-orange-50 transition"
+                  >
+                    Ver conexão
+                  </Link>
+                  <button
+                    onClick={() => dismissWaFailureAlert(a.conversationId)}
+                    className="text-xs font-semibold text-orange-100 px-2.5 py-1 rounded-lg hover:bg-orange-700 transition"
+                  >
+                    Dispensar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {orderAlerts.length > 0 && (
-        <div className="fixed top-3 right-3 z-[9999] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: humanAlerts.length > 0 ? humanAlerts.length * 96 : 0 }}>
+        <div className="fixed top-3 right-3 z-[9999] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: (humanAlerts.length * 96) + (waFailureAlerts.length * 108) }}>
           {orderAlerts.map((a) => (
             <div
               key={a.orderId}
@@ -876,7 +936,11 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
               // Module-based items unlocked by contracted modules
               const moduleItems = isMarketplace
                 ? activeSlugs
-                    .filter((slug) => MODULE_NAV[slug] && canSee(MODULE_NAV[slug].roles))
+                    // "whatsapp" fica de fora: já existe como "Configurar IA" fixo
+                    // na seção Atendimento (item 63 — sempre visível, sem gate de
+                    // módulo) — sem esse filtro, lojas com o módulo WhatsApp
+                    // contratado (a maioria das reais) viam o mesmo destino 2x.
+                    .filter((slug) => slug !== "whatsapp" && MODULE_NAV[slug] && canSee(MODULE_NAV[slug].roles))
                     .map((slug) => MODULE_NAV[slug])
                 : [];
               const hasActiveItem = [...visible, ...moduleItems].some((item) => currentHref === item.href);

@@ -57,7 +57,7 @@ type Conversation = {
   messages?: { role: string; content: string; createdAt: string }[];
 };
 
-type Message = { id: string; role: string; content: string; createdAt: string };
+type Message = { id: string; role: string; content: string; createdAt: string; deliveryFailed?: boolean };
 type Stats = {
   totalConversations: number; activeConversations: number;
   humanConversations: number; totalMessages: number; ordersCreated: number;
@@ -153,10 +153,18 @@ export default function WhatsappIaPage() {
     if (!selectedConv || !manualText.trim() || sending) return;
     setSending(true);
     try {
-      await api.post(`/whatsapp-ai/conversations/${selectedConv.id}/send`, { text: manualText.trim() });
+      const res = await api.post(`/whatsapp-ai/conversations/${selectedConv.id}/send`, { text: manualText.trim() });
       setManualText("");
       await loadMessages(selectedConv.id);
-      toast.success("Mensagem enviada");
+      // ok=false = a API respondeu normal mas o WhatsApp confirmou que a
+      // entrega falhou de verdade (instância desconectada, sessão expirada
+      // etc.) — sem esse check o toast de sucesso mentia mesmo quando o
+      // cliente nunca recebeu nada.
+      if (res.data?.ok === false) {
+        toast.error("Mensagem NÃO entregue — verifique a conexão do WhatsApp na aba Conexões.", { duration: 6000 });
+      } else {
+        toast.success("Mensagem enviada");
+      }
     } catch {
       toast.error("Falha ao enviar mensagem");
     } finally {
@@ -1414,11 +1422,18 @@ function ConversationsTab({ conversations, selectedConv, messages, manualText, s
                   <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                     msg.role === "USER"
                       ? "bg-slate-800 text-slate-200 rounded-bl-sm"
+                      : msg.deliveryFailed
+                      ? "bg-orange-900/50 border border-orange-600 text-white rounded-br-sm"
                       : msg.role === "ASSISTANT"
                       ? "bg-green-800/60 border border-green-700/40 text-white rounded-br-sm"
                       : "bg-slate-700/50 text-slate-400 text-xs italic"
                   }`}>
                     <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    {msg.deliveryFailed && (
+                      <p className="text-[10px] text-orange-300 font-bold mt-1 flex items-center gap-1">
+                        ⚠️ Não entregue — o cliente não recebeu esta mensagem
+                      </p>
+                    )}
                     <p className="text-[10px] opacity-40 mt-1 text-right">
                       {new Date(msg.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </p>

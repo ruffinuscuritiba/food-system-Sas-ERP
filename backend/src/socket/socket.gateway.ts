@@ -87,6 +87,26 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * A Kely (ou o operador) tentou responder um cliente no WhatsApp e o envio
+   * falhou de verdade (Evolution/Cloud API fora do ar, instância desconectada
+   * etc.) — mesmo após retry. Sem isso, a mensagem fica salva no banco como
+   * se tivesse sido enviada (aparece normal no painel de conversas) mas o
+   * cliente nunca recebe nada — o sintoma real era "a IA não responde" sem
+   * nenhum sinal visível pra equipe agir.
+   */
+  emitWhatsappDeliveryFailed(
+    companyId: string,
+    data: {
+      conversationId: string;
+      customerPhone: string;
+      customerName?: string | null;
+      preview: string;
+    },
+  ) {
+    this.server.to(`company:${companyId}`).emit('whatsappDeliveryFailed', data);
+  }
+
+  /**
    * Cliente público entra na room do próprio pedido para receber atualizações
    * de status em tempo real. Não precisa de token — orderId já é o "segredo".
    * Cliente conecta ao socket → emite 'joinOrder' com orderId → recebe

@@ -346,7 +346,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         role: m.role,
         parts: [{ text: m.text }],
       })),
-      generationConfig: { temperature: 0.75, maxOutputTokens: 1024 },
+      generationConfig: { temperature: 0.75, maxOutputTokens: 2048 },
     };
     const res = await fetch(url, {
       method: 'POST',
@@ -382,7 +382,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         cache_control: { type: 'ephemeral' },
         system: systemPrompt,
         messages: messages.map((m) => ({ role: m.role, content: m.text })),
-        max_tokens: 1024,
+        max_tokens: 2048,
       }),
       signal: AbortSignal.timeout(30_000),
     });

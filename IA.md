@@ -45,6 +45,8 @@ do zero de novo.
 
 7. **Teste de sanidade rápido**: mande uma mensagem de teste perguntando entrega+horário+pagamento numa tacada só (ex: "entregam no bairro X? que horas fecham? aceitam pix?"). Se a resposta não cobrir os 3 pontos, o motor fraco está ativo (item 6).
 
+8. **⚠️ O painel de conversas mostrar a resposta da Kely NÃO significa que o cliente recebeu de verdade** (bug real corrigido no item 179 do CLAUDE.md — 28/07/2026). Antes de assumir que "a Kely respondeu certo", cheque `WhatsappMessage.deliveryFailed` da(s) mensagem(ns) ASSISTANT mais recente(s) da conversa — se vier `true`, o envio falhou de verdade (Evolution/Cloud API rejeitou) mesmo a mensagem aparecendo normal no painel. `GET /whatsapp-ai/conversations/:id/messages` retorna esse campo. Se `deliveryFailed=true` em várias conversas recentes, é sinal forte de instância Evolution desconectada/sessão expirada — ver item 1/2 acima antes de qualquer outra investigação.
+
 ## 3. Onde cada coisa mora
 
 - **Backend WhatsApp IA**: `backend/src/modules/whatsapp-ai/` — `whatsapp-ai.service.ts` (lógica principal), `claude-cart.service.ts` (prompt + carrinho conversacional), `whatsapp-ai-prompt.service.ts` (prompt-mestre multi-ambiente).
@@ -61,6 +63,8 @@ do zero de novo.
 - **Bridge local (`kely-bridge` via PM2, `C:\Users\Ruffinus Pizzaria\Desktop\qr-scan\`)** é um fallback manual antigo, hoje parado — não usar sem confirmar que a Evolution API no VPS está indisponível primeiro (rodar os dois ao mesmo tempo = respostas duplicadas).
 - **Deploy do VPS não builda automaticamente** — `git push` sozinho não atualiza o backend rodando. Precisa `docker compose build --no-cache backend` manual no terminal do Hostinger (ver CLAUDE.md item 143). Frontend (Vercel) sim é automático.
 
+- **"Sem resposta" pode ser um envio que falhou silenciosamente, não a IA travada** (item 179 do CLAUDE.md, 28/07/2026): até essa correção, `saveMessage()` (grava no painel) rodava ANTES de `dispatchMessage()` (envio real) e o resultado do envio era descartado — E, causa mais funda, `sendEvolution`/`sendCloudApi` só logavam erro HTTP em vez de lançar, então nem esse resultado existia de verdade. Os dois foram corrigidos, mas se algum ponto novo de envio for adicionado no futuro sem passar pelo helper `sendAssistantReply()`, o mesmo bug pode voltar — sempre que adicionar um envio novo, usar esse helper em vez de chamar `dispatchMessage`/`saveMessage` direto.
+
 ---
 
-*Última atualização deste arquivo: 22/07/2026 (tarde) — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*
+*Última atualização deste arquivo: 28/07/2026 — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*

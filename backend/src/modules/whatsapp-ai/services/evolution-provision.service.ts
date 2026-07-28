@@ -101,7 +101,14 @@ export class EvolutionProvisionService {
         url: webhookUrl,
         webhookByEvents: false,
         webhookBase64: false,
-        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+        // MESSAGES_UPDATE = status real de entrega (PENDING->SERVER_ACK->
+        // DELIVERY_ACK->READ, ou ERROR). Sem isso, o único sinal que temos
+        // ao enviar é o HTTP 201 com status:"PENDING" -- que só confirma que
+        // a Evolution ACEITOU enfileirar, nunca que o WhatsApp de fato
+        // entregou. Achado real: 3 mensagens confirmadas "PENDING" na hora
+        // do envio nunca chegaram no celular do cliente, e o sistema nunca
+        // soube porque não escutava esse evento.
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'MESSAGES_UPDATE'],
       },
     });
   }

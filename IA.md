@@ -16,11 +16,11 @@ do zero de novo.
 | Item | Valor |
 |---|---|
 | Evolution API URL | `https://evolution-api-j9ur.srv1747711.hstgr.cloud` |
-| Instância Evolution ativa | `kely-cmq7d3dx-mr5aakwk` |
-| WhatsappConnection.id (banco) | `cmr5aaozs002ualnbvo5whlpu` |
+| Instância Evolution ativa | `ruffinu-s-cmq7d3dx-ms569mw6` (reconectada via QR em 28/07/2026 ~21:32 UTC — a `kely-cmq7d3dx-mr5aakwk` documentada antes já não existe mais) |
+| WhatsappConnection.id (banco) | `cms569qw9008emlh76kpuh161` |
 | Empresa "plataforma" (Kely vende o sistema) | `cmq7d3dxs0006gw5pabsljy87` — nome de exibição "Ruffinu's Pizzaria", login `platform@foodsaas.internal` |
 | Número de WhatsApp do dono (avisos) | `5567991753455` (`NOTIFY_WHATSAPP_NUMBER`) |
-| Número que atende a Ruffinu's Pizzaria | `41987397797` — conexão `cmrmn2csj000p4dch7pmvre0m`, `aiProvider=CLAUDE` |
+| Número que atende a Ruffinu's Pizzaria | `5541987397797` — conexão `cms569qw9008emlh76kpuh161` (recém-reconectada), `aiProvider=CLAUDE`, `mode=AUTO` |
 | Número que vende o FoodSaaS (SaaS) | `41988729370` — empresa **`Mestra Gestão Digital`** (`cmrf983h6000auqph3fmrrp21`, CNPJ/endereço reais, já existia arquivada de sessão anterior, restaurada em 22/07/2026) = `PLATFORM_SELLER_COMPANY_ID` (era o default hardcoded o tempo todo). **Ainda falta conectar via QR** — empresa existe e tem usuário ativo, mas não tem `WhatsappConnection` ainda (precisa escanear o QR com o celular físico do número). ⚠️ Uma "R FoodSaaS - Vendas" foi criada por engano numa sessão e já foi **apagada** — não recriar. |
 | Provider de IA ativo (Kely) | `CLAUDE` (motor completo "Carol", `claude-cart.service.ts`) — modelo `claude-haiku-4-5-20251001`, fallback automático Gemini `gemini-2.0-flash` dentro do próprio motor |
 
@@ -65,6 +65,12 @@ do zero de novo.
 
 - **"Sem resposta" pode ser um envio que falhou silenciosamente, não a IA travada** (item 179 do CLAUDE.md, 28/07/2026): até essa correção, `saveMessage()` (grava no painel) rodava ANTES de `dispatchMessage()` (envio real) e o resultado do envio era descartado — E, causa mais funda, `sendEvolution`/`sendCloudApi` só logavam erro HTTP em vez de lançar, então nem esse resultado existia de verdade. Os dois foram corrigidos, mas se algum ponto novo de envio for adicionado no futuro sem passar pelo helper `sendAssistantReply()`, o mesmo bug pode voltar — sempre que adicionar um envio novo, usar esse helper em vez de chamar `dispatchMessage`/`saveMessage` direto.
 
+- **`deliveryFailed:false` no banco NÃO é garantia de entrega real** (achado 28/07/2026, mesmo dia da correção acima — logo depois de ir pro ar): cliente real (Daniele) mandou "Oiee hoje está tá de quanto?" às 18:01 — o banco registrou a resposta da Kely como enviada (`deliveryFailed:false`), mas ela **nunca chegou no WhatsApp real** da cliente (confirmado por print do celular do dono, 18 min de silêncio até ele responder manualmente, pedido perdido). Causa provável: a instância Evolution tinha sido reconectada via QR pouco antes (nome de instância mudou, ver item 1) e uma sessão Baileys recém-linkada pode ficar instável por um tempo — a API da Evolution aceita o pedido de envio (por isso `deliveryFailed` fica `false`, é só um check de `res.ok` HTTP) mas a entrega real pro WhatsApp pode falhar silenciosamente numa camada que nosso código não enxerga. `GET /whatsapp-ai/connections/:id/qr` retornando `state:"open"` também não é garantia total — só confirma que a Evolution *acha* que está conectada. **Ação que resolveu**: desconectar e reconectar via QR de novo (nova instância `ruffinu-s-cmq7d3dx-ms569mw6`, ver item 1) — depois da reconexão nova, testes de sanidade via webhook responderam normal. Se o padrão se repetir (banco diz "entregue" mas cliente real não recebe), o próximo passo é olhar os logs do container Evolution direto no VPS (não só o estado reportado pela API), não assumir que reconectar de novo sempre resolve.
+
+- **`businessHoursInfo` (texto que a Carol usa pra responder "que horas vocês fecham") usava o campo ERRADO** (achado e corrigido 28/07/2026, `whatsapp-ai.service.ts`): existem 2 fontes de horário — `Company.businessHours` (editável em `/configuracoes`, fonte real, usada pelo *gate* que decide se responde ou manda "fora do horário") e `WhatsappAiSettings.businessHoursStart/End` (campo legado, "08:00"–"22:00" hardcoded como default, quase nunca reflete o horário real). O *gate* (`isBusinessHours`) já priorizava `Company.businessHours` desde o item 108, mas o TEXTO informativo que a Carol usa dentro da conversa (`businessHoursInfo`, `runClaudeStructuredResponse`) sempre montava a frase só com o campo legado — por isso a Kely respondia "atendemos das 08h às 22h" pra Ruffinu's Pizzaria, mesmo o horário real cadastrado sendo 18h–23h15. Corrigido: novo helper `buildBusinessHoursInfo()` busca `Company.businessHours` e monta o texto a partir dele (mesma prioridade do gate), só cai no campo legado se a empresa não tiver preenchido o horário centralizado. **Requer rebuild do VPS pra entrar em produção** (ver item abaixo) — só commit/push não é suficiente.
+
+- **Deploy do VPS não builda automaticamente** — reforçando: qualquer fix de backend (como o `businessHoursInfo` acima) só chega em produção depois de `docker compose build --no-cache backend` manual no terminal Hostinger (CLAUDE.md item 143). Verificar sempre se há fix de backend pendente de deploy antes de assumir que "já foi corrigido".
+
 ---
 
-*Última atualização deste arquivo: 28/07/2026 — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*
+*Última atualização deste arquivo: 28/07/2026 21:35 UTC — mantenha a data acima em dia sempre que revisar/corrigir algo aqui.*

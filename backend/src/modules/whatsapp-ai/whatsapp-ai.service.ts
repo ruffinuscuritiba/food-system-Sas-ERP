@@ -597,13 +597,13 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     });
     if (!conv) throw new NotFoundException('Conversa não encontrada');
 
-    await this.saveMessage(id, companyId, 'ASSISTANT', text);
-    await this.dispatchMessage(
+    const sent = await this.sendAssistantReply(
       conv.connection as unknown as WaConnection,
-      conv.customerPhone,
+      conv,
+      companyId,
       text,
     );
-    return { ok: true };
+    return { ok: sent };
   }
 
   // ── HEALTH ─────────────────────────────────────────────────────────────────
@@ -1080,8 +1080,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
           ? `\n\n📋 Enquanto isso, dá pra ver nosso cardápio aqui: ${frontendUrl.replace(/\/$/, '')}/menu/${companyRow.slug}`
           : '';
       const msg = `${prefix}${hoursLine}${menuLine}`;
-      await this.saveMessage(conv.id, connection.companyId, 'ASSISTANT', msg);
-      await this.dispatchMessage(connection, phone, msg);
+      await this.sendAssistantReply(connection, conv, connection.companyId, msg);
       return;
     }
 
@@ -1108,8 +1107,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         );
         const msg =
           '👤 Você foi transferido para um atendente humano. Aguarde um momento...';
-        await this.saveMessage(conv.id, connection.companyId, 'ASSISTANT', msg);
-        await this.dispatchMessage(connection, phone, msg);
+        await this.sendAssistantReply(connection, conv, connection.companyId, msg);
         return;
       }
     }
@@ -1122,13 +1120,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       );
       const fallback =
         'Desculpe, tive um problema temporário. Pode repetir sua mensagem?';
-      await this.saveMessage(
-        conv.id,
-        connection.companyId,
-        'ASSISTANT',
-        fallback,
-      );
-      await this.dispatchMessage(connection, phone, fallback);
+      await this.sendAssistantReply(connection, conv, connection.companyId, fallback);
     }
   }
 
@@ -1442,8 +1434,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       );
       const emptyFallback =
         'Desculpe, não consegui processar sua mensagem agora. Pode tentar de novo em instantes? 🙏';
-      await this.saveMessage(conv.id, companyId, 'ASSISTANT', emptyFallback);
-      await this.dispatchMessage(connection, conv.customerPhone, emptyFallback);
+      await this.sendAssistantReply(connection, conv, companyId, emptyFallback);
       return;
     }
 
@@ -1497,10 +1488,13 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         }
       }
 
-      await this.saveMessage(conv.id, companyId, 'ASSISTANT', reply);
-      const sDelay = settings.typingDelay ?? 0;
-      if (sDelay > 0) await new Promise((r) => setTimeout(r, sDelay));
-      await this.dispatchMessage(connection, conv.customerPhone, reply);
+      await this.sendAssistantReply(
+        connection,
+        conv,
+        companyId,
+        reply,
+        settings.typingDelay ?? 0,
+      );
       return;
     }
 
@@ -1607,10 +1601,13 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     }
 
     if (cleanText) {
-      await this.saveMessage(conv.id, companyId, 'ASSISTANT', cleanText);
-      const delay = settings.typingDelay ?? 0;
-      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-      await this.dispatchMessage(connection, conv.customerPhone, cleanText);
+      await this.sendAssistantReply(
+        connection,
+        conv,
+        companyId,
+        cleanText,
+        settings.typingDelay ?? 0,
+      );
     }
   }
 
@@ -1748,8 +1745,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       else log.error(`[AI] ClaudeCartService error. conv=${conv.id}: ${msg}`);
       const fallback =
         'Desculpe, tive um problema temporário. Pode repetir sua mensagem? 🙏';
-      await this.saveMessage(conv.id, companyId, 'ASSISTANT', fallback);
-      await this.dispatchMessage(connection, conv.customerPhone, fallback);
+      await this.sendAssistantReply(connection, conv, companyId, fallback);
       return;
     }
 
@@ -1846,12 +1842,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
               const pixMsg = pix.mock
                 ? `Aqui está o seu Pix Copia e Cola:\n\`${pix.pixCopyPaste}\`\n\n⏱ Expira em ${PIX_EXPIRATION_MINUTES} minutos. Após o pagamento seu pedido será confirmado automaticamente!`
                 : `Aqui está o seu Pix Copia e Cola 💸:\n\`${pix.pixCopyPaste}\`\n\n⏱ Expira em ${PIX_EXPIRATION_MINUTES} minutos. Assim que o pagamento for confirmado, já mandamos o status aqui!`;
-              await this.saveMessage(conv.id, companyId, 'ASSISTANT', pixMsg);
-              await this.dispatchMessage(
-                connection,
-                conv.customerPhone,
-                pixMsg,
-              );
+              await this.sendAssistantReply(connection, conv, companyId, pixMsg);
             } else if (metodo === 'credit_card' || metodo === 'debit_card') {
               const linkResult = await this.waPayment.createPaymentLink({
                 orderId,
@@ -1865,29 +1856,14 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
                   ? 'Cartão de Crédito'
                   : 'Cartão de Débito';
               const linkMsg = `Perfeito! Você pode realizar o pagamento com segurança através deste link oficial 🔒:\n\n${linkResult.paymentUrl}\n\nEssa é a forma de pagamento: *${methodLabel}*. Qualquer dúvida, é só falar! 😊`;
-              await this.saveMessage(conv.id, companyId, 'ASSISTANT', linkMsg);
-              await this.dispatchMessage(
-                connection,
-                conv.customerPhone,
-                linkMsg,
-              );
+              await this.sendAssistantReply(connection, conv, companyId, linkMsg);
             }
           } catch (payErr: unknown) {
             log.warn(
               `WaPayment error for order ${orderId}: ${(payErr as Error)?.message}`,
             );
             const fallbackMsg = `Seu pedido foi registrado! 🎉 Em breve enviaremos as instruções de pagamento.`;
-            await this.saveMessage(
-              conv.id,
-              companyId,
-              'ASSISTANT',
-              fallbackMsg,
-            );
-            await this.dispatchMessage(
-              connection,
-              conv.customerPhone,
-              fallbackMsg,
-            );
+            await this.sendAssistantReply(connection, conv, companyId, fallbackMsg);
           }
         }
       } catch (err: unknown) {
@@ -1937,10 +1913,13 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     }
 
     if (cleanReply) {
-      await this.saveMessage(conv.id, companyId, 'ASSISTANT', cleanReply);
-      const delay = settings.typingDelay ?? 0;
-      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
-      await this.dispatchMessage(connection, conv.customerPhone, cleanReply);
+      await this.sendAssistantReply(
+        connection,
+        conv,
+        companyId,
+        cleanReply,
+        settings.typingDelay ?? 0,
+      );
     }
   }
 
@@ -2024,6 +2003,59 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     return this.prisma.whatsappMessage.create({
       data: { conversationId, companyId, role, content },
     });
+  }
+
+  /**
+   * Envia uma resposta da IA (ou do operador) pro cliente e SÓ ENTÃO grava no
+   * banco — na ordem inversa de antes. Causa raiz do "a IA não responde":
+   * `saveMessage` rodava ANTES de `dispatchMessage`, e o retorno booleano de
+   * `dispatchMessage` (sucesso/falha real do envio via Evolution/Cloud API)
+   * era descartado — a mensagem sempre aparecia no painel de conversas como
+   * enviada, mesmo quando o WhatsApp nunca chegou no cliente de verdade
+   * (instância desconectada, sessão expirada, rede instável). Agora: tenta
+   * enviar, se falhar tenta mais 1x após um pequeno delay (blip transitório
+   * de rede é comum), grava com `deliveryFailed` refletindo o resultado real,
+   * e — se falhar de vez — dispara alerta em tempo real pro painel (mesmo
+   * mecanismo sonoro/banner já usado pra "cliente pediu humano").
+   */
+  private async sendAssistantReply(
+    connection: WaConnection,
+    conv: Pick<WaConversation, 'id' | 'customerPhone' | 'customerName'>,
+    companyId: string,
+    text: string,
+    typingDelayMs = 0,
+  ): Promise<boolean> {
+    if (typingDelayMs > 0) await new Promise((r) => setTimeout(r, typingDelayMs));
+
+    let sent = await this.dispatchMessage(connection, conv.customerPhone, text);
+    if (!sent) {
+      await new Promise((r) => setTimeout(r, 1500));
+      sent = await this.dispatchMessage(connection, conv.customerPhone, text);
+    }
+
+    await this.prisma.whatsappMessage.create({
+      data: {
+        conversationId: conv.id,
+        companyId,
+        role: 'ASSISTANT',
+        content: text,
+        deliveryFailed: !sent,
+      },
+    });
+
+    if (!sent) {
+      log.error(
+        `[WA] FALHA DEFINITIVA DE ENTREGA conv=${conv.id} phone=${conv.customerPhone} — cliente NÃO recebeu: "${text.slice(0, 80)}..."`,
+      );
+      this.socketGateway?.emitWhatsappDeliveryFailed(companyId, {
+        conversationId: conv.id,
+        customerPhone: conv.customerPhone,
+        customerName: conv.customerName ?? null,
+        preview: text.slice(0, 120),
+      });
+    }
+
+    return sent;
   }
 
   async sendOrderNotification(params: {
@@ -2675,10 +2707,10 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       });
       if (conv?.customerPhone) {
         const msg = `✅ Pagamento confirmado! Seu pedido #${orderId.slice(-6).toUpperCase()} está em preparo. Avisaremos quando estiver pronto! 🍕`;
-        await this.saveMessage(conv.id, companyId, 'ASSISTANT', msg);
-        await this.dispatchMessage(
+        await this.sendAssistantReply(
           conv.connection as unknown as WaConnection,
-          conv.customerPhone,
+          conv,
+          companyId,
           msg,
         );
       }

@@ -1932,6 +1932,7 @@ model WhatsappMessage {
   role           String   // USER | ASSISTANT | SYSTEM
   content        String   @db.Text
   externalId     String?
+  deliveryFailed Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   @@index([conversationId])

@@ -1854,13 +1854,30 @@ export default function MenuPage() {
             {activeSlide ? (
               <>
                 {promoSlides.map((slide, idx) => (
-                  <img
+                  <div
                     key={slide.id}
-                    src={slide.imageUrl!}
-                    alt={slide.name}
-                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+                    className="absolute inset-0 transition-opacity duration-700"
                     style={{ opacity: idx === heroSlideIndex % promoSlides.length ? 1 : 0 }}
-                  />
+                  >
+                    {/* Camada de fundo desfocada (cobre 100% da tela, pode cortar
+                        sem problema — é só decoração) + imagem completa por cima
+                        em object-contain, nunca cortando o texto/produto que às
+                        vezes já vem "queimado" na própria arte promocional. Sem
+                        isso, fotos quadradas/paisagem esticadas com object-cover
+                        numa tela de celular bem mais alta que larga cortavam
+                        metade da imagem, dando a impressão de "zoom estourado". */}
+                    <img
+                      src={slide.imageUrl!}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-70"
+                    />
+                    <img
+                      src={slide.imageUrl!}
+                      alt={slide.name}
+                      className="absolute inset-0 w-full h-full object-contain"
+                    />
+                  </div>
                 ))}
                 <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%)" }} />
               </>

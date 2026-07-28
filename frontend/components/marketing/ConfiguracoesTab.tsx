@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
-import { BarChart3, Loader2 } from "lucide-react";
+import { BarChart3, Loader2, Star } from "lucide-react";
 
 /** Rastreamento & Analytics — movido de Configurações → Aparência (não tinha
  *  nada a ver com tema visual). metaPixelId/googleAnalyticsId são campos de
@@ -21,6 +21,9 @@ export default function ConfiguracoesTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [googleReviewUrl, setGoogleReviewUrl] = useState("");
+  const [savingReview, setSavingReview] = useState(false);
+
   useEffect(() => {
     api.get("/company/settings")
       .then((r) => {
@@ -29,6 +32,7 @@ export default function ConfiguracoesTab() {
           googleAnalyticsId: r.data?.googleAnalyticsId ?? "",
           googleTagManagerId: r.data?.googleTagManagerId ?? "",
         });
+        setGoogleReviewUrl(r.data?.googleReviewUrl ?? "");
       })
       .catch(() => toast.error("Erro ao carregar configurações."))
       .finally(() => setLoading(false));
@@ -48,6 +52,21 @@ export default function ConfiguracoesTab() {
       toast.error("Erro ao salvar rastreamento.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveReviewUrl() {
+    if (isDemo) { toast.error("Ação bloqueada na demonstração."); return; }
+    setSavingReview(true);
+    try {
+      await api.patch("/company/settings", {
+        googleReviewUrl: googleReviewUrl || null,
+      });
+      toast.success("Link de avaliação atualizado!");
+    } catch {
+      toast.error("Erro ao salvar o link de avaliação.");
+    } finally {
+      setSavingReview(false);
     }
   }
 
@@ -134,6 +153,43 @@ export default function ConfiguracoesTab() {
             className="w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gray-900 hover:bg-gray-800 transition disabled:opacity-60"
           >
             {saving ? "Salvando..." : "Salvar Rastreamento"}
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-2xl p-5 border border-gray-200 bg-white shadow-sm mt-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Star size={16} className="text-primary" />
+          <h2 className="text-base font-bold text-gray-900">Link de Avaliação do Google</h2>
+        </div>
+        <p className="text-gray-500 text-xs mb-4">
+          Link que a Kely (IA) manda pro cliente pedir avaliação depois de um pedido entregue com feedback positivo — nunca envia se o cliente reclamar de algo.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-800">Link de avaliação</label>
+            <p className="text-gray-500 text-xs mb-2">
+              No Google Maps ou Google Meu Negócio, busque sua loja → "Pedir avaliações" → copie o link e cole aqui.
+            </p>
+            <input
+              value={googleReviewUrl}
+              onChange={(e) => setGoogleReviewUrl(e.target.value)}
+              placeholder="https://g.page/r/.../review"
+              className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-primary placeholder-gray-400 font-mono"
+            />
+          </div>
+          {googleReviewUrl && (
+            <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
+              <span className="w-2 h-2 bg-amber-500 rounded-full shrink-0" />
+              Link ativo: <span className="font-mono text-amber-600 truncate">{googleReviewUrl}</span>
+            </div>
+          )}
+          <button
+            onClick={saveReviewUrl}
+            disabled={savingReview}
+            className="w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gray-900 hover:bg-gray-800 transition disabled:opacity-60"
+          >
+            {savingReview ? "Salvando..." : "Salvar Link de Avaliação"}
           </button>
         </div>
       </section>

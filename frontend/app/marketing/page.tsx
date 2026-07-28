@@ -29,7 +29,7 @@ const TABS = [
   { id: "cupons", label: "Cupons", icon: Ticket, desc: "Cupons de desconto manuais — criar, listar e desativar" },
   { id: "digital", label: "Marketing Digital", icon: Megaphone, desc: "Gerador de campanhas de texto com IA" },
   { id: "trafego", label: "Tráfego Pago", icon: TrendingUp, desc: "Produtos mais vistos e mais vendidos, pronto pra anúncio" },
-  { id: "configuracoes", label: "Configurações", icon: Settings, desc: "Meta Pixel e Google Analytics (GA4) do cardápio público" },
+  { id: "configuracoes", label: "Configurações", icon: Settings, desc: "Meta Pixel, GA4, GTM e o link de avaliação do Google que a IA envia" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];

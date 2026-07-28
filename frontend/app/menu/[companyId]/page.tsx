@@ -818,7 +818,7 @@ export default function MenuPage() {
     // Busca complementos do produto via endpoint público (multiempresa por query)
     setCompLoading(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/complements/public/product/${product.id}?companyId=${companyId}`);
+      const res = await fetch(`${apiBaseUrl}/complements/public/product/${product.id}?companyId=${realCompanyId || companyId}`);
       const groups: ComplementGroup[] = res.ok ? await res.json() : [];
       if (groups.length === 0) {
         addProductDirect(product);
@@ -1015,6 +1015,14 @@ export default function MenuPage() {
     ? Math.max(...pizzaSizeConfigs.filter((c) => c.isActive).map((c) => c.maxFlavors))
     : 4;
 
+  // Regra vem do CADASTRO DO PRODUTO, não da config global de tamanhos da
+  // loja: só exige/mostra seleção de tamanho quando o(s) produto(s) no
+  // construtor realmente têm mais de 1 ProductSize cadastrado (ex: pizza de
+  // sabor único, com Pequena/Média/Grande). Um combo de preço fixo sem
+  // tamanho nenhum (`sizes: []`) nunca deve pedir isso — mesma checagem que
+  // já existia isolada dentro de confirmFlavors, agora compartilhada.
+  const needsSizeSelection = flavorSlots.some((f) => f?.sizes && f.sizes.length > 1);
+
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
     if (chosen.length < 1) { toast.error("Selecione ao menos 1 sabor"); return; }
@@ -1089,7 +1097,7 @@ export default function MenuPage() {
   async function fetchComplementsForPendingItem(item: CartItem, productId: string) {
     setCompLoading(true);
     try {
-      const res = await fetch(`${apiBaseUrl}/complements/public/product/${productId}?companyId=${companyId}`);
+      const res = await fetch(`${apiBaseUrl}/complements/public/product/${productId}?companyId=${realCompanyId || companyId}`);
       const groups: ComplementGroup[] = res.ok ? await res.json() : [];
       if (groups.length === 0) {
         setCart((prev) => [...prev, item]);
@@ -1113,6 +1121,7 @@ export default function MenuPage() {
 
   /** Tamanho: dropdown estilizado (mesmo estado selectedPizzaSize, só troca a apresentação). */
   function renderSizeSelector() {
+    if (!needsSizeSelection) return null;
     const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
     if (activeConfigs.length <= 1) return null;
     const current = activeConfigs.find((c) => c.size === selectedPizzaSize);
@@ -1160,8 +1169,7 @@ export default function MenuPage() {
 
   /** Qtde. de sabores: contador -/+ (mesma regra de limite já existente — some/desabilita no máximo). */
   function renderFlavorSelector() {
-    const activeConfigs = pizzaSizeConfigs.filter(c => c.isActive);
-    if (activeConfigs.length > 1 && !selectedPizzaSize) return null;
+    if (needsSizeSelection && !selectedPizzaSize) return null;
     // Sabores permitidos — respeita o cadastro do produto (Product.maxFlavors)
     // quando preenchido; senão cai no padrão herdado (combo=1 / tamanho normal).
     const max = getStepperMaxFlavors(flavorSlots[0], Math.max(1, sizeMaxFlavors ?? globalMaxFlavors));

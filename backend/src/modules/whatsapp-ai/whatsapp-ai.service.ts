@@ -202,6 +202,43 @@ const DAY_LABELS_PT = [
 ];
 
 /**
+ * Texto de horário de funcionamento pro prompt da Carol (usado durante a
+ * conversa normal, dentro do horário — diferente da mensagem de "fechado").
+ * Prioriza Company.businessHours (fonte real, editável em /configuracoes)
+ * sobre WhatsappAiSettings.businessHoursStart/End (campo legado) — mesma
+ * prioridade já usada em isBusinessHours(), pra nunca informar um horário
+ * de fechamento diferente do que realmente vale pro gate de atendimento.
+ */
+function buildBusinessHoursInfo(
+  settings: WaSettings,
+  companyHours?: Record<string, CompanyBusinessHoursDay> | null,
+): string {
+  if (companyHours && typeof companyHours === 'object') {
+    const openDays = DAY_LABELS_PT
+      .map((label, idx) => ({ label, cfg: companyHours[String(idx)] }))
+      .filter((d) => d.cfg?.isOpen);
+    if (openDays.length > 0) {
+      const uniqueRanges = new Set(
+        openDays.map((d) => `${d.cfg!.open}-${d.cfg!.close}`),
+      );
+      if (uniqueRanges.size === 1) {
+        const [open, close] = [...uniqueRanges][0].split('-');
+        const daysLabel =
+          openDays.length === 7
+            ? 'todos os dias'
+            : openDays.map((d) => d.label).join(', ');
+        return `Horário de atendimento: ${daysLabel}, das ${open} às ${close} (horário de Brasília).`;
+      }
+      const lines = openDays.map(
+        (d) => `${d.label}: ${d.cfg!.open} às ${d.cfg!.close}`,
+      );
+      return `Horário de atendimento (horário de Brasília):\n${lines.join('\n')}`;
+    }
+  }
+  return `Horário de atendimento: ${settings.businessHoursStart ?? '08:00'} às ${settings.businessHoursEnd ?? '22:00'} (horário de Brasília). Dias: ${settings.businessDays ?? '1,2,3,4,5,6'}.`;
+}
+
+/**
  * Linha com o horário de hoje (ou aviso de dia fechado), pra deixar a
  * mensagem de "fora do horário" útil em vez de só repetir "estamos fechados"
  * pra toda pergunta (inclusive "quais os horários?").
@@ -1720,7 +1757,17 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       /* bordas opcionais */
     }
 
-    const businessHoursInfo = `Horário de atendimento: ${settings.businessHoursStart ?? '08:00'} às ${settings.businessHoursEnd ?? '22:00'} (horário de Brasília). Dias: ${settings.businessDays ?? '1,2,3,4,5,6'}.`;
+    const companyHoursRow = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { businessHours: true },
+    });
+    const businessHoursInfo = buildBusinessHoursInfo(
+      settings,
+      companyHoursRow?.businessHours as
+        | Record<string, CompanyBusinessHoursDay>
+        | null
+        | undefined,
+    );
     const paymentInfo =
       'Formas de pagamento aceitas: PIX (pagamento automático via link), Cartão de Crédito (link seguro), Cartão de Débito (link seguro).';
 

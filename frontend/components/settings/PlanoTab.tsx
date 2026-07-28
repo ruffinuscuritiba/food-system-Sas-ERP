@@ -85,7 +85,7 @@ const ANALYTICS_TOOLS: AnalyticsTool[] = [
     subtitle:   "Ferramenta de rastreamento de eventos",
     icon:       <GtmIcon />,
     iconBg:     "bg-blue-50",
-    configPath: "/configuracoes?tab=aparencia",
+    configPath: "/marketing?tab=configuracoes",
     fieldKey:   "googleTagManagerId",
     description: "Gerencie todos os seus scripts de rastreamento (GA4, Pixel, etc.) em um único lugar, sem precisar editar código.",
     howToGet:   "Acesse tagmanager.google.com → crie uma conta → copie o ID do contêiner (ex: GTM-XXXXXXX).",

@@ -214,6 +214,7 @@ export class CompanyService {
         sidebarConfig: true,
         metaPixelId: true,
         googleAnalyticsId: true,
+        googleTagManagerId: true,
       },
     });
     if (!company) throw new NotFoundException('Empresa não encontrada');
@@ -329,6 +330,7 @@ export class CompanyService {
         }),
         ...(dto.metaPixelId !== undefined && { metaPixelId: dto.metaPixelId }),
         ...(dto.googleAnalyticsId !== undefined && { googleAnalyticsId: dto.googleAnalyticsId }),
+        ...(dto.googleTagManagerId !== undefined && { googleTagManagerId: dto.googleTagManagerId }),
       },
       select: {
         id: true,
@@ -380,6 +382,7 @@ export class CompanyService {
         sidebarConfig: true,
         metaPixelId: true,
         googleAnalyticsId: true,
+        googleTagManagerId: true,
       },
     });
   }

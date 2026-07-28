@@ -13,9 +13,10 @@ export default function ConfiguracoesTab() {
   const { user } = useAuthStore();
   const isDemo = user?.role === "DEMO";
 
-  const [analytics, setAnalytics] = useState<{ metaPixelId: string; googleAnalyticsId: string }>({
+  const [analytics, setAnalytics] = useState<{ metaPixelId: string; googleAnalyticsId: string; googleTagManagerId: string }>({
     metaPixelId: "",
     googleAnalyticsId: "",
+    googleTagManagerId: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,6 +27,7 @@ export default function ConfiguracoesTab() {
         setAnalytics({
           metaPixelId: r.data?.metaPixelId ?? "",
           googleAnalyticsId: r.data?.googleAnalyticsId ?? "",
+          googleTagManagerId: r.data?.googleTagManagerId ?? "",
         });
       })
       .catch(() => toast.error("Erro ao carregar configurações."))
@@ -39,6 +41,7 @@ export default function ConfiguracoesTab() {
       await api.patch("/company/settings", {
         metaPixelId: analytics.metaPixelId || null,
         googleAnalyticsId: analytics.googleAnalyticsId || null,
+        googleTagManagerId: analytics.googleTagManagerId || null,
       });
       toast.success("Rastreamento atualizado!");
     } catch {
@@ -68,6 +71,18 @@ export default function ConfiguracoesTab() {
         </p>
         <div className="space-y-4">
           <div>
+            <label className="block mb-1 text-sm font-medium text-gray-800">Google Tag Manager (Container ID)</label>
+            <p className="text-gray-500 text-xs mb-2">
+              Ex: <span className="font-mono">GTM-XXXXXXX</span> — encontre em tagmanager.google.com, no topo do espaço de trabalho. Cole só o ID do contêiner aqui — não precisa colar o script/código.
+            </p>
+            <input
+              value={analytics.googleTagManagerId}
+              onChange={(e) => setAnalytics({ ...analytics, googleTagManagerId: e.target.value })}
+              placeholder="GTM-XXXXXXX"
+              className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-primary placeholder-gray-400 font-mono"
+            />
+          </div>
+          <div>
             <label className="block mb-1 text-sm font-medium text-gray-800">Meta Pixel ID</label>
             <p className="text-gray-500 text-xs mb-2">
               Ex: <span className="font-mono">1234567890123456</span> — encontre no Gerenciador de Eventos do Facebook
@@ -91,8 +106,14 @@ export default function ConfiguracoesTab() {
               className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-primary placeholder-gray-400 font-mono"
             />
           </div>
-          {(analytics.metaPixelId || analytics.googleAnalyticsId) && (
+          {(analytics.googleTagManagerId || analytics.metaPixelId || analytics.googleAnalyticsId) && (
             <div className="space-y-1.5">
+              {analytics.googleTagManagerId && (
+                <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full shrink-0" />
+                  GTM: <span className="font-mono text-indigo-500">{analytics.googleTagManagerId}</span>
+                </div>
+              )}
               {analytics.metaPixelId && (
                 <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />

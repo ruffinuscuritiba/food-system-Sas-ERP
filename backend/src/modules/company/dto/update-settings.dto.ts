@@ -236,4 +236,8 @@ export class UpdateCompanySettingsDto {
   @IsString()
   @IsOptional()
   googleAnalyticsId?: string | null;
+
+  @IsString()
+  @IsOptional()
+  googleTagManagerId?: string | null;
 }

@@ -107,6 +107,25 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Cliente mandou mensagem no WhatsApp — dispara em TODA mensagem recebida
+   * (não só quando pede humano), pra quem está no painel poder acompanhar a
+   * conversa em tempo real e decidir se quer assumir, mesmo sem estar com a
+   * aba de Conversas aberta. Pedido explícito do usuário após 2 clientes
+   * reais ficarem sem resposta sem que ninguém percebesse a tempo.
+   */
+  emitWhatsappCustomerMessage(
+    companyId: string,
+    data: {
+      conversationId: string;
+      customerPhone: string;
+      customerName?: string | null;
+      preview: string;
+    },
+  ) {
+    this.server.to(`company:${companyId}`).emit('whatsappCustomerMessage', data);
+  }
+
+  /**
    * Cliente público entra na room do próprio pedido para receber atualizações
    * de status em tempo real. Não precisa de token — orderId já é o "segredo".
    * Cliente conecta ao socket → emite 'joinOrder' com orderId → recebe

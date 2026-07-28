@@ -1014,6 +1014,17 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       data: { lastMessageAt: new Date(), customerName: name },
     });
 
+    // Notifica o painel em tempo real que o cliente está conversando —
+    // independente de pedir humano ou não — pra quem estiver logado poder
+    // acompanhar e assumir se quiser, sem precisar estar com a aba de
+    // Conversas aberta o tempo todo.
+    this.socketGateway?.emitWhatsappCustomerMessage(connection.companyId, {
+      conversationId: conv.id,
+      customerPhone: phone,
+      customerName: name,
+      preview: text.slice(0, 140),
+    });
+
     // Resposta à pergunta "como foi a pizza?" pós-entrega — intercepta ANTES
     // de qualquer gate de IA (mode/aiDisabled/horário), pois não é uma
     // conversa de pedido: é o cliente respondendo um pedido de feedback.

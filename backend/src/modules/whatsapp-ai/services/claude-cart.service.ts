@@ -402,25 +402,38 @@ ${cartJson}
       return null;
     };
 
+    // Remove markdown code fence (```json ... ```) que o modelo às vezes
+    // inclui mesmo com instrução de "só JSON" — sem isso, os dois tryParse
+    // abaixo falham e o fallback (antes desta correção) mandava o bloco
+    // ```json{...}``` bruto pro cliente no WhatsApp.
+    const unfenced = rawText
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/, '')
+      .trim();
+
     // Tentativa 1: parse direto
-    const direct = tryParse(rawText.trim());
+    const direct = tryParse(unfenced);
     if (direct) return direct;
 
     // Tentativa 2: extrair bloco JSON do texto
-    const match = rawText.match(/\{[\s\S]*\}/);
+    const match = unfenced.match(/\{[\s\S]*\}/);
     if (match) {
       const fromBlock = tryParse(match[0]);
       if (fromBlock) return fromBlock;
     }
 
-    // Fallback: preserva carrinho atual, usa texto bruto como resposta
+    // Fallback: preserva carrinho atual. NUNCA usa o texto bruto do modelo
+    // como resposta — se o JSON veio cortado/malformado (ex.: resposta longa
+    // estourou o limite de tokens no meio do cardápio), o texto bruto pode
+    // ser um JSON quebrado ou incompleto, e mandar isso pro cliente no
+    // WhatsApp é pior do que uma mensagem genérica de erro.
     this.log.warn(
-      `ClaudeCartService: resposta não parseável — raw: "${rawText.slice(0, 80)}"`,
+      `ClaudeCartService: resposta não parseável — raw: "${rawText.slice(0, 200)}"`,
     );
     return {
       resposta_para_o_cliente:
-        rawText.trim() ||
-        'Desculpa, tive um probleminha aqui! Pode repetir? 🙏',
+        'Desculpa, tive um probleminha para montar a resposta agora! Pode repetir sua pergunta? 🙏',
       status_carrinho: fallbackCart,
     };
   }

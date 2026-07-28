@@ -135,7 +135,12 @@ export class ClaudeCartService {
         cache_control: { type: 'ephemeral' },
         system: systemPrompt,
         messages: params.conversationHistory,
-        max_tokens: 1024,
+        // 1024 truncava a resposta no meio do JSON quando o cliente pedia o
+        // cardápio completo (muitos sabores/tamanhos/preços) -- o corte
+        // quebrava o parse e o cliente recebia (ou, antes do fix de
+        // parseStructuredResponse, chegava a receber) uma mensagem de erro
+        // em vez do cardápio. 2048 dá margem real pra um cardápio grande.
+        max_tokens: 2048,
         temperature: 0.8,
       }),
       signal: AbortSignal.timeout(45_000),

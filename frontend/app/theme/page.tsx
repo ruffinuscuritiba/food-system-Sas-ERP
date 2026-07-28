@@ -67,11 +67,6 @@ export default function ThemePage() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [sidebarConfig, setSidebarConfig] = useState<Record<string, boolean>>({});
   const [savingSidebar, setSavingSidebar] = useState(false);
-  // metaPixelId/googleAnalyticsId são campos de Company, não de CompanyTheme —
-  // ficam fora do objeto `theme` (que só é enviado pra /themes/:id) para não
-  // quebrar o save com "Unknown argument" do Prisma.
-  const [analytics, setAnalytics] = useState<{ metaPixelId: string; googleAnalyticsId: string }>({ metaPixelId: "", googleAnalyticsId: "" });
-  const [savingAnalytics, setSavingAnalytics] = useState(false);
   const pdvThemeSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const themeRef = useRef<any>(null);
   useEffect(() => { themeRef.current = theme; }, [theme]);
@@ -79,33 +74,14 @@ export default function ThemePage() {
   useEffect(() => {
     if (companyId) loadTheme();
     setPdvTheme(loadPdvTheme());
-    // Carrega config atual da sidebar + analytics (mesmo endpoint, /company/settings)
+    // Carrega config atual da sidebar (mesmo endpoint, /company/settings) —
+    // metaPixelId/googleAnalyticsId saíram daqui, ver /marketing?tab=configuracoes.
     api.get("/company/settings")
       .then((r) => {
         if (r.data?.sidebarConfig) setSidebarConfig(r.data.sidebarConfig);
-        setAnalytics({
-          metaPixelId: r.data?.metaPixelId ?? "",
-          googleAnalyticsId: r.data?.googleAnalyticsId ?? "",
-        });
       })
       .catch(() => {});
   }, [companyId]);
-
-  async function saveAnalytics() {
-    if (isDemo) { demoBlock(); return; }
-    setSavingAnalytics(true);
-    try {
-      await api.patch("/company/settings", {
-        metaPixelId: analytics.metaPixelId || null,
-        googleAnalyticsId: analytics.googleAnalyticsId || null,
-      });
-      toast.success("Rastreamento atualizado!");
-    } catch {
-      toast.error("Erro ao salvar rastreamento.");
-    } finally {
-      setSavingAnalytics(false);
-    }
-  }
 
   function isSidebarItemOn(navKey: string) {
     return sidebarConfig[navKey] !== false; // default é true
@@ -461,22 +437,6 @@ export default function ThemePage() {
                     Adicionar ao carrinho
                   </button>
                 </div>
-                {(analytics.metaPixelId || analytics.googleAnalyticsId) && (
-                  <div className="mt-3 space-y-1.5">
-                    {analytics.metaPixelId && (
-                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-                        Meta Pixel: <span className="font-mono text-blue-400">{analytics.metaPixelId}</span>
-                      </div>
-                    )}
-                    {analytics.googleAnalyticsId && (
-                      <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 rounded-lg px-3 py-2">
-                        <span className="w-2 h-2 bg-primary rounded-full shrink-0" />
-                        GA4: <span className="font-mono text-primary">{analytics.googleAnalyticsId}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -511,47 +471,6 @@ export default function ThemePage() {
                     </div>
                   </label>
                 ))}
-              </div>
-            </section>
-
-            {/* Rastreamento & Analytics */}
-            <section className="rounded-2xl p-5 border border-gray-200 bg-gray-50">
-              <h2 className="text-base font-bold mb-1">Rastreamento & Analytics</h2>
-              <p className="text-gray-500 text-xs mb-4">
-                Configure as integrações de rastreamento para seu cardápio público.
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-1 text-sm font-medium">Meta Pixel ID</label>
-                  <p className="text-gray-500 text-xs mb-2">
-                    Ex: <span className="font-mono">1234567890123456</span> — encontre no Gerenciador de Eventos do Facebook
-                  </p>
-                  <input
-                    value={analytics.metaPixelId}
-                    onChange={(e) => setAnalytics({ ...analytics, metaPixelId: e.target.value })}
-                    placeholder="Cole aqui o Pixel ID do Meta"
-                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block mb-1 text-sm font-medium">Google Analytics ID (GA4)</label>
-                  <p className="text-gray-500 text-xs mb-2">
-                    Ex: <span className="font-mono">G-XXXXXXXXXX</span> — encontre em Admin → Fluxo de dados
-                  </p>
-                  <input
-                    value={analytics.googleAnalyticsId}
-                    onChange={(e) => setAnalytics({ ...analytics, googleAnalyticsId: e.target.value })}
-                    placeholder="G-XXXXXXXXXX"
-                    className="w-full bg-white border border-gray-300 rounded-xl px-4 py-2.5 text-gray-900 text-sm outline-none focus:border-red-500 placeholder-gray-400 font-mono"
-                  />
-                </div>
-                <button
-                  onClick={saveAnalytics}
-                  disabled={savingAnalytics}
-                  className="w-full py-2.5 rounded-xl font-bold text-sm text-white bg-gray-900 hover:bg-gray-800 transition disabled:opacity-60"
-                >
-                  {savingAnalytics ? "Salvando..." : "Salvar Rastreamento"}
-                </button>
               </div>
             </section>
           </div>

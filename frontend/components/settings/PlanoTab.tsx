@@ -96,7 +96,7 @@ const ANALYTICS_TOOLS: AnalyticsTool[] = [
     subtitle:   "Ferramenta de análise de dados",
     icon:       <Ga4Icon />,
     iconBg:     "bg-amber-50",
-    configPath: "/configuracoes?tab=aparencia",
+    configPath: "/marketing?tab=configuracoes",
     fieldKey:   "googleAnalyticsId",
     description: "Acompanhe visitantes, conversões e comportamento de usuários no seu cardápio digital e site.",
     howToGet:   "Acesse analytics.google.com → crie uma propriedade GA4 → copie o ID de medição (ex: G-XXXXXXXXXX).",
@@ -107,7 +107,7 @@ const ANALYTICS_TOOLS: AnalyticsTool[] = [
     subtitle:   "Ferramenta de rastreamento de eventos",
     icon:       <PixelIcon />,
     iconBg:     "bg-blue-50",
-    configPath: "/configuracoes?tab=aparencia",
+    configPath: "/marketing?tab=configuracoes",
     fieldKey:   "metaPixelId",
     description: "Rastreie conversões do cardápio digital, otimize anúncios no Facebook e Instagram e crie públicos personalizados.",
     howToGet:   "Acesse business.facebook.com → Gerenciador de Eventos → crie um Pixel → copie o ID numérico.",
@@ -1281,7 +1281,7 @@ function AnalyticsCard({
               <div className={`flex items-center gap-2 p-3 rounded-xl ${isActive ? "bg-emerald-50 border border-emerald-200" : "bg-amber-50 border border-amber-200"}`}>
                 {isActive
                   ? <><CheckCircle2 size={15} className="text-emerald-600 shrink-0"/><p className="text-xs text-emerald-700 font-semibold">Integração configurada e ativa</p></>
-                  : <><AlertTriangle size={15} className="text-amber-500 shrink-0"/><p className="text-xs text-amber-700">Cole o ID em <strong>Aparência → Analytics</strong> para ativar.</p></>
+                  : <><AlertTriangle size={15} className="text-amber-500 shrink-0"/><p className="text-xs text-amber-700">Cole o ID em <strong>Marketing → Configurações</strong> para ativar.</p></>
                 }
               </div>
             </div>
@@ -1542,7 +1542,7 @@ export default function PlanoTab() {
         <div className="mb-4">
           <h2 className="text-sm font-bold text-gray-900">Analytics e Marketing</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Integrações gratuitas — incluso em todos os planos. Cole seu ID em Aparência para ativar.
+            Integrações gratuitas — incluso em todos os planos. Cole seu ID em Marketing → Configurações para ativar.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

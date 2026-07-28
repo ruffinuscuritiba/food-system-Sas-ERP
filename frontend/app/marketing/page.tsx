@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { QrCode, Repeat, Ticket, Megaphone, TrendingUp, Loader2 } from "lucide-react";
+import { QrCode, Repeat, Ticket, Megaphone, TrendingUp, Loader2, Settings } from "lucide-react";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 function TabLoader() {
@@ -21,6 +21,7 @@ const ReengajamentoTab = dynamic(() => import("@/app/campanhas-recorrentes/page"
 const TrafegoPagoTab = dynamic(() => import("@/app/trafego-pago/page"), { ssr: false, loading: TabLoader });
 const CuponsTab = dynamic(() => import("@/components/marketing/CuponsTab"), { ssr: false, loading: TabLoader });
 const MarketingDigitalTab = dynamic(() => import("@/components/marketing/MarketingDigitalTab"), { ssr: false, loading: TabLoader });
+const ConfiguracoesTab = dynamic(() => import("@/components/marketing/ConfiguracoesTab"), { ssr: false, loading: TabLoader });
 
 const TABS = [
   { id: "qr", label: "QR Recuperação", icon: QrCode, desc: "Cupom de recuperação via QR Code impresso no ticket" },
@@ -28,6 +29,7 @@ const TABS = [
   { id: "cupons", label: "Cupons", icon: Ticket, desc: "Cupons de desconto manuais — criar, listar e desativar" },
   { id: "digital", label: "Marketing Digital", icon: Megaphone, desc: "Gerador de campanhas de texto com IA" },
   { id: "trafego", label: "Tráfego Pago", icon: TrendingUp, desc: "Produtos mais vistos e mais vendidos, pronto pra anúncio" },
+  { id: "configuracoes", label: "Configurações", icon: Settings, desc: "Meta Pixel e Google Analytics (GA4) do cardápio público" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -84,6 +86,8 @@ function MarketingInner() {
           <MarketingDigitalTab />
         ) : activeTab === "trafego" ? (
           <TrafegoPagoTab />
+        ) : activeTab === "configuracoes" ? (
+          <ConfiguracoesTab />
         ) : null}
       </div>
     </div>

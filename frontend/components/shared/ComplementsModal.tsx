@@ -146,6 +146,9 @@ export function ComplementsModal({
     optionOn:   isDark
       ? "bg-primary/20 border-primary text-white"
       : "bg-primary/10 border-primary text-gray-900",
+    optionDisabled: isDark
+      ? "bg-[#0c101d] border-[#1d2336] text-zinc-600 opacity-40 cursor-not-allowed"
+      : "bg-gray-50 border-gray-100 text-gray-300 opacity-60 cursor-not-allowed",
     cta:        "w-full rounded-2xl bg-primary hover:opacity-90 active:scale-[0.99] transition font-bold text-base text-white flex items-center justify-center gap-2 min-h-[56px]",
     closeBtn:   isDark ? "text-zinc-400 hover:text-white" : "text-gray-400 hover:text-gray-700",
     muted:      isDark ? "text-zinc-400" : "text-gray-500",
@@ -195,6 +198,10 @@ export function ComplementsModal({
             <div className="py-10 text-center text-sm opacity-60">Nenhum complemento.</div>
           ) : groups.map((group) => {
             const selected = selections[group.id] || [];
+            // Contador regressivo: quantos ainda faltam escolher neste grupo
+            // (ex.: "Escolha os 10 Sabores" começa em 10 e vai zerando a cada clique).
+            const hasCountdown = group.multipleChoice && group.maxOptions > 1;
+            const remaining = hasCountdown ? Math.max(0, group.maxOptions - selected.length) : null;
             return (
               <div key={group.id}>
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -204,21 +211,29 @@ export function ComplementsModal({
                   ) : (
                     <span className={cls.badgeOpt}>Opcional</span>
                   )}
-                  {group.maxOptions > 1 && (
-                    <span className={`text-[11px] ${cls.muted}`}>
-                      {selected.length}/{group.maxOptions}
-                    </span>
+                  {hasCountdown && (
+                    remaining === 0 ? (
+                      <span className="text-[11px] font-bold bg-emerald-500/15 text-emerald-500 px-2.5 py-0.5 rounded-full">
+                        ✓ Completo
+                      </span>
+                    ) : (
+                      <span className="text-[12px] font-bold bg-primary/15 text-primary px-2.5 py-0.5 rounded-full">
+                        Faltam {remaining}
+                      </span>
+                    )
                   )}
                 </div>
 
                 <div className="space-y-2">
                   {group.options.map((option) => {
                     const isSelected = selected.some((s) => s.complementOptionId === option.id);
+                    const disabledByMax = hasCountdown && !isSelected && remaining === 0;
                     return (
                       <button
                         key={option.id}
-                        onClick={() => toggleOption(group, option)}
-                        className={`${cls.optionBase} ${isSelected ? cls.optionOn : cls.optionOff}`}
+                        onClick={() => !disabledByMax && toggleOption(group, option)}
+                        disabled={disabledByMax}
+                        className={`${cls.optionBase} ${isSelected ? cls.optionOn : disabledByMax ? cls.optionDisabled : cls.optionOff}`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           {/* Radio/Checkbox visual */}

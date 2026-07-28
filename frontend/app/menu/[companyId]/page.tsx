@@ -13,6 +13,7 @@ import {
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
+import { GoogleTagManager, GoogleTagManagerNoScript } from "@/components/tracking/GoogleTagManager";
 import { ComplementsModal, ComplementGroup, SelectedComplement } from "@/components/shared/ComplementsModal";
 
 type Product = {
@@ -278,6 +279,7 @@ export default function MenuPage() {
   const [loyaltyPointsEarned, setLoyaltyPointsEarned] = useState(0);
   const [metaPixelId, setMetaPixelId] = useState<string | null>(null);
   const [gaId, setGaId] = useState<string | null>(null);
+  const [gtmId, setGtmId] = useState<string | null>(null);
   const [theme, setTheme] = useState<{
     primaryColor: string; logoUrl?: string | null; bannerUrl?: string | null;
     pizzaPricingMode?: string; darkMode?: boolean;
@@ -447,6 +449,7 @@ export default function MenuPage() {
         // porque `metaPixelId` ficava sempre undefined.
         if (cd?.metaPixelId) setMetaPixelId(cd.metaPixelId);
         if (cd?.googleAnalyticsId) setGaId(cd.googleAnalyticsId);
+        if (cd?.googleTagManagerId) setGtmId(cd.googleTagManagerId);
         if (cd?.id) {
           fetch(`${apiBaseUrl}/whatsapp-ai/settings/public/assistant-name?companyId=${cd.id}`)
             .then((r) => (r.ok ? r.json() : null))
@@ -1813,6 +1816,8 @@ export default function MenuPage() {
 
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}
       {gaId && <GoogleAnalytics gaId={gaId} />}
+      {gtmId && <GoogleTagManager containerId={gtmId} />}
+      {gtmId && <GoogleTagManagerNoScript containerId={gtmId} />}
       <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} assistantName={assistantName} />
 
       {/* ─── Header / Hero em tela cheia com carrossel de promoções ────────────────

@@ -231,8 +231,9 @@ model Company {
   printerProfiles PrinterProfile[]
   printerJobs     PrinterJob[]
 
-  metaPixelId       String?   // F9: Meta Pixel ID
-  googleAnalyticsId String?   // F10: GA4 Measurement ID
+  metaPixelId         String?   // F9: Meta Pixel ID
+  googleAnalyticsId   String?   // F10: GA4 Measurement ID
+  googleTagManagerId  String?   // GTM Container ID (ex: GTM-XXXXXXX)
 
   // ── Configurações centralizadas (Área de Configurações) ──────────────────
   whatsapp     String?

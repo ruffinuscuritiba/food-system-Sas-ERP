@@ -717,6 +717,17 @@ export class WhatsappAiService implements OnApplicationBootstrap {
   ) {
     const event: string = (body?.event as string) ?? '';
     const normalizedEvent = event.toLowerCase().replace(/[_-]/g, '.');
+
+    // Status real de entrega (PENDING/SERVER_ACK/DELIVERY_ACK/READ/ERROR) --
+    // achado real 28/07/2026: o HTTP 201 do envio só confirma "aceito na
+    // fila" (status:"PENDING"), nunca entrega de verdade. 3 mensagens reais
+    // ficaram PENDING pra sempre e o cliente nunca recebeu nada, sem
+    // NENHUM sinal no sistema porque esse evento nunca era escutado.
+    if (normalizedEvent === 'messages.update') {
+      await this.handleMessageStatusUpdate(connectionId, body?.data);
+      return { ok: true };
+    }
+
     if (
       !['messages.upsert', 'message', 'messages.set'].includes(normalizedEvent)
     ) {
@@ -800,6 +811,90 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       );
     }
     return { ok: true };
+  }
+
+  /**
+   * Processa MESSAGES_UPDATE (status de entrega de mensagens que NÓS enviamos
+   * -- fromMe:true). Correlaciona por telefone+conversa (não por externalId
+   * -- o campo existe no schema mas nunca foi populado no envio; corrigir
+   * isso é trabalho futuro. Aqui usamos a mensagem ASSISTANT mais recente da
+   * conversa nos últimos 5 min como "a que provavelmente esse update é sobre"
+   * -- impreciso em teoria, mas correto na prática (raramente há 2 respostas
+   * da Kely pro mesmo número em menos de 5 min sem resposta do cliente entre
+   * elas). Loga o payload cru na primeira leitura pra confirmar/ajustar o
+   * formato real do campo de status desta versão da Evolution.
+   */
+  private async handleMessageStatusUpdate(
+    connectionId: string,
+    data: unknown,
+  ): Promise<void> {
+    try {
+      const updates = Array.isArray(data) ? data : data ? [data] : [];
+      for (const raw of updates) {
+        const upd = raw as Record<string, unknown>;
+        const key = upd?.key as Record<string, unknown> | undefined;
+        const fromMe = (key?.fromMe as boolean) ?? false;
+        const remoteJid = (key?.remoteJid as string) ?? '';
+        if (!fromMe || !remoteJid) continue;
+
+        const statusRaw =
+          upd?.status ??
+          (upd?.update as Record<string, unknown> | undefined)?.status ??
+          null;
+        log.warn(
+          `[WH][status] connectionId=${connectionId} remoteJid=${remoteJid} statusRaw=${JSON.stringify(statusRaw)} payload=${JSON.stringify(upd).slice(0, 300)}`,
+        );
+
+        const statusStr = String(statusRaw ?? '').toUpperCase();
+        const isFailure =
+          statusStr === 'ERROR' ||
+          statusStr === 'FAILED' ||
+          statusRaw === 0 ||
+          statusRaw === -1;
+        if (!isFailure) continue;
+
+        const phone = remoteJid
+          .replace('@s.whatsapp.net', '')
+          .replace('@c.us', '');
+        const conv = await this.prisma.whatsappConversation.findUnique({
+          where: {
+            connectionId_customerPhone: { connectionId, customerPhone: phone },
+          },
+        });
+        if (!conv) continue;
+
+        const lastAssistantMsg = await this.prisma.whatsappMessage.findFirst({
+          where: {
+            conversationId: conv.id,
+            role: 'ASSISTANT',
+            createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (!lastAssistantMsg || lastAssistantMsg.deliveryFailed) continue;
+
+        await this.prisma.whatsappMessage.update({
+          where: { id: lastAssistantMsg.id },
+          data: { deliveryFailed: true },
+        });
+
+        const connection = await this.prisma.whatsappConnection.findUnique({
+          where: { id: connectionId },
+        });
+        if (connection) {
+          this.socketGateway?.emitWhatsappDeliveryFailed(connection.companyId, {
+            conversationId: conv.id,
+            customerPhone: phone,
+            customerName: conv.customerName,
+            preview: lastAssistantMsg.content.slice(0, 140),
+          });
+        }
+      }
+    } catch (e) {
+      log.warn(
+        `[WH][status] erro processando messages.update: ${(e as Error).message}`,
+      );
+    }
   }
 
   async handleCloudApiWebhook(

@@ -2187,7 +2187,7 @@ export default function MenuPage() {
                               className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
                               style={{ backgroundColor: theme.primaryColor }}
                             >
-                              🍕 Montar Pizza
+                              <Plus size={14} /> Adicionar
                             </button>
                           ) : (
                             <button
@@ -2242,7 +2242,7 @@ export default function MenuPage() {
                             className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
                             style={{ backgroundColor: theme.primaryColor }}
                           >
-                            🍕 Montar Pizza
+                            <Plus size={14} /> Adicionar
                           </button>
                         ) : (
                           <button

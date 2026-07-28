@@ -54,7 +54,14 @@ async function sendEvolution(
     body: JSON.stringify({ number: phone, text }),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) log.warn(`Evolution send failed: ${res.status}`);
+  if (!res.ok) {
+    // Causa raiz real do "painel mostra enviado mas o cliente não recebeu
+    // nada": esta função só LOGAVA o erro (instância desconectada, sessão
+    // expirada, apikey inválida etc.) e retornava normalmente — o chamador
+    // (dispatchMessage) nunca via a falha, então nunca contava como falha.
+    const body = await res.text().catch(() => '');
+    throw new Error(`Evolution send failed: ${res.status} ${body.slice(0, 200)}`);
+  }
 }
 
 /**
@@ -88,7 +95,10 @@ async function sendEvolutionMedia(
     }),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) log.warn(`Evolution media send failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Evolution media send failed: ${res.status} ${body.slice(0, 200)}`);
+  }
 }
 
 async function sendCloudApi(
@@ -112,7 +122,10 @@ async function sendCloudApi(
     }),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) log.warn(`Cloud API send failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Cloud API send failed: ${res.status} ${body.slice(0, 200)}`);
+  }
 }
 
 // ─── Business hours check ────────────────────────────────────────────────────

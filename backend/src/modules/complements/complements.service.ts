@@ -104,7 +104,19 @@ export class ComplementsService {
 
   // ── PUBLIC LIST (cardápio digital + PDV consomem este) ─────────────────────
 
-  async findByProduct(productId: string, companyId: string) {
+  async findByProduct(productId: string, slugOrCompanyId: string) {
+    // Endpoint público é chamado pelo cardápio digital com o companyId da URL,
+    // que pode ser o slug da loja (ex: "ruffinus-pizzaria") em vez do ID real
+    // — mesmo padrão já corrigido em pizza-borders/pizza-size-configs. Sem
+    // isso, o findFirst abaixo nunca casava e o endpoint sempre voltava [],
+    // fazendo o cardápio parecer "sem complemento cadastrado" mesmo com
+    // grupos reais configurados.
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrCompanyId }, { slug: slugOrCompanyId }] },
+      select: { id: true },
+    });
+    const companyId = company?.id ?? slugOrCompanyId;
+
     // 1. Resolve categoria do produto (escopo intermediário)
     const product = await this.prisma.product.findFirst({
       where: { id: productId, companyId },

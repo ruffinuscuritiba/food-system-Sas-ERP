@@ -70,6 +70,12 @@ export class DriversController {
     return this.service.setMyAvailability(req.user.userId, body.isAvailable);
   }
 
+  @Post('me/heartbeat')
+  @HttpCode(200)
+  heartbeat(@Req() req: any) {
+    return this.service.heartbeat(req.user.userId);
+  }
+
   @Post('me/accept/:orderId')
   @HttpCode(200)
   acceptOrder(@Param('orderId') orderId: string, @Req() req: any) {

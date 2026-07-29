@@ -13,6 +13,7 @@ import {
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
 import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components/tracking/GoogleAnalytics";
+import { getVideoEmbed } from "@/lib/utils";
 import { GoogleTagManager, GoogleTagManagerNoScript } from "@/components/tracking/GoogleTagManager";
 import { ComplementsModal, ComplementGroup, SelectedComplement } from "@/components/shared/ComplementsModal";
 
@@ -3014,9 +3015,10 @@ export default function MenuPage() {
 function MenuVideoModal({ product, onClose }: { product: { name: string; videoUrl?: string | null }; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const embed = getVideoEmbed(product.videoUrl);
 
   useEffect(() => {
-    if (!isMobile || !videoRef.current) return;
+    if (!isMobile || embed?.type !== "video" || !videoRef.current) return;
     const el = videoRef.current as any;
     const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.webkitEnterFullscreen;
     if (req) req.call(el).catch(() => {});
@@ -3038,14 +3040,18 @@ function MenuVideoModal({ product, onClose }: { product: { name: string; videoUr
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center px-2 pb-8">
-          <video
-            ref={videoRef}
-            src={product.videoUrl ?? ""}
-            controls
-            autoPlay
-            playsInline
-            className="w-full max-h-full rounded-2xl object-contain"
-          />
+          {embed?.type === "iframe" ? (
+            <iframe src={embed.src} allow="autoplay; fullscreen; encrypted-media" allowFullScreen className="w-full h-full max-h-full rounded-2xl border-0" />
+          ) : (
+            <video
+              ref={videoRef}
+              src={embed?.src ?? ""}
+              controls
+              autoPlay
+              playsInline
+              className="w-full max-h-full rounded-2xl object-contain"
+            />
+          )}
         </div>
       </div>
     );
@@ -3073,13 +3079,17 @@ function MenuVideoModal({ product, onClose }: { product: { name: string; videoUr
           </button>
         </div>
         <div className="p-3">
-          <video
-            ref={videoRef}
-            src={product.videoUrl ?? ""}
-            controls
-            autoPlay
-            className="w-full max-h-[65vh] rounded-2xl bg-black object-contain"
-          />
+          {embed?.type === "iframe" ? (
+            <iframe src={embed.src} allow="autoplay; fullscreen; encrypted-media" allowFullScreen className="w-full aspect-video rounded-2xl border-0 bg-black" />
+          ) : (
+            <video
+              ref={videoRef}
+              src={embed?.src ?? ""}
+              controls
+              autoPlay
+              className="w-full max-h-[65vh] rounded-2xl bg-black object-contain"
+            />
+          )}
         </div>
       </div>
     </div>

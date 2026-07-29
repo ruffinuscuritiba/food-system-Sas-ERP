@@ -33,6 +33,7 @@ import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
 import { printTicket } from "@/components/printing/printTicket";
 import type { QrPrintBlock } from "@/components/printing/printTicket";
 import { applyPdvVars, loadPdvTheme, type PdvThemeConfig } from "@/lib/pdv-theme";
+import { getVideoEmbed } from "@/lib/utils";
 
 
 interface Category {
@@ -1758,8 +1759,9 @@ function VideoEyeBtn({ product, onOpen }: { product: Product; onOpen: (p: Produc
 function VideoModal({ product, onClose }: { product: Product; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const embed = getVideoEmbed(product.videoUrl);
   useEffect(() => {
-    if (!isMobile || !videoRef.current) return;
+    if (!isMobile || embed?.type !== "video" || !videoRef.current) return;
     const el = videoRef.current as any;
     const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.webkitEnterFullscreen;
     if (req) req.call(el).catch(() => {});
@@ -1772,7 +1774,11 @@ function VideoModal({ product, onClose }: { product: Product; onClose: () => voi
           <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition ml-4 shrink-0"><X size={20} /></button>
         </div>
         <div className="flex-1 flex items-center justify-center px-2 pb-8">
-          <video ref={videoRef} src={product.videoUrl} controls autoPlay playsInline className="w-full max-h-full rounded-2xl object-contain" />
+          {embed?.type === "iframe" ? (
+            <iframe src={embed.src} allow="autoplay; fullscreen; encrypted-media" allowFullScreen className="w-full h-full max-h-full rounded-2xl border-0" />
+          ) : (
+            <video ref={videoRef} src={embed?.src} controls autoPlay playsInline className="w-full max-h-full rounded-2xl object-contain" />
+          )}
         </div>
       </div>
     );
@@ -1784,7 +1790,13 @@ function VideoModal({ product, onClose }: { product: Product; onClose: () => voi
           <div><p className="text-xs text-zinc-500 mb-0.5">Vídeo do produto</p><h3 className="font-bold text-white text-xl">{product.name}</h3></div>
           <button onClick={onClose} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition"><X size={20} /></button>
         </div>
-        <div className="p-3"><video ref={videoRef} src={product.videoUrl} controls autoPlay className="w-full max-h-[70vh] rounded-2xl bg-black object-contain" /></div>
+        <div className="p-3">
+          {embed?.type === "iframe" ? (
+            <iframe src={embed.src} allow="autoplay; fullscreen; encrypted-media" allowFullScreen className="w-full aspect-video rounded-2xl border-0 bg-black" />
+          ) : (
+            <video ref={videoRef} src={embed?.src} controls autoPlay className="w-full max-h-[70vh] rounded-2xl bg-black object-contain" />
+          )}
+        </div>
       </div>
     </div>
   );

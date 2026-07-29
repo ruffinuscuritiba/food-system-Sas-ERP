@@ -131,7 +131,7 @@ export default function RecipesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 p-8">
+    <main className="admin-page min-h-screen bg-gray-50 text-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
         <Link
           href="/"

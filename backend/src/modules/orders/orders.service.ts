@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
+import { LoyaltyMilestonesService } from '@/modules/loyalty-milestones/loyalty-milestones.service';
 
 import { OrderStatus, Prisma } from '@prisma/client';
 
@@ -78,6 +79,9 @@ export class OrdersService {
 
     @Optional()
     private onlineOrdersService?: OnlineOrdersService,
+
+    @Optional()
+    private loyaltyMilestones?: LoyaltyMilestonesService,
   ) {}
 
   async create(data: any) {
@@ -382,6 +386,21 @@ export class OrdersService {
         if (qr) console.log(`[QR] token=${qr.token} gerado para order=${order.id} source=${orderSource}`);
       } catch (e: any) {
         console.warn(`[QR] falha ao gerar cupom para order=${order.id}: ${e?.message}`);
+      }
+    });
+
+    // ── Cliente Fiel — detectar marco de N pedidos (fire-and-forget) ────────
+    setImmediate(async () => {
+      try {
+        if (!this.loyaltyMilestones) return;
+        const phone = order.customer?.phone ?? (data as any).customerPhone;
+        await this.loyaltyMilestones.checkAndRegisterMilestone(
+          data.companyId,
+          phone,
+          order.customer?.name ?? (data as any).customerName,
+        );
+      } catch (e: any) {
+        console.warn(`[ClienteFiel] falha ao checar marco para order=${order.id}: ${e?.message}`);
       }
     });
 

@@ -23,13 +23,15 @@ type Props = {
   total: number;
   onClose: () => void;
   orderDetails?: PdvOrderDetails;
+  /** Pedido em andamento no pai (POST /orders ainda não resolveu) — trava o botão pra evitar duplo-toque criando 2-3 pedidos/impressões. */
+  submitting?: boolean;
   onConfirm: (method: string, received: number, splits: SplitEntry[] | undefined, details: PdvOrderDetails) => void;
 };
 
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: Props) {
+export function PaymentModal({ open, total, onClose, orderDetails, submitting, onConfirm }: Props) {
   const [split, setSplit]     = useState(false);
   const [method, setMethod]   = useState("PIX");
   const [received, setReceived] = useState("");
@@ -89,7 +91,7 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
   }
 
   function handleConfirm() {
-    if (!isValid()) return;
+    if (!isValid() || submitting) return;
     if (split) {
       onConfirm("SPLIT", total, splits, details);
     } else {
@@ -276,10 +278,10 @@ export function PaymentModal({ open, total, onClose, orderDetails, onConfirm }: 
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!isValid()}
+            disabled={!isValid() || submitting}
             className="py-3.5 rounded-2xl bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm transition"
           >
-            Confirmar Pagamento
+            {submitting ? "Processando..." : "Confirmar Pagamento"}
           </button>
         </div>
       </div>

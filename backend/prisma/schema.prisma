@@ -711,6 +711,10 @@ model DriverProfile {
   vehicleType  String?
   vehiclePlate String?
   isAvailable  Boolean  @default(true)
+  // Última atividade real do entregador (heartbeat do app ou GPS) — "Online"
+  // no painel passa a exigir isAvailable=true E lastSeenAt recente, não só
+  // o toggle manual (que nasce true e nunca muda sozinho).
+  lastSeenAt   DateTime?
   currentLat   Float?
   currentLng   Float?
   companyId    String

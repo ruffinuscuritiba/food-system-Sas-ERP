@@ -15,6 +15,7 @@ interface Driver {
   vehicleType: string | null;
   vehiclePlate: string | null;
   isAvailable: boolean;
+  lastSeenAt?: string | null;
   companyId: string;
   createdAt: string;
   user: {
@@ -45,8 +46,19 @@ const STATUS_LABEL: Record<string, string> = {
   offline:"Offline",
 };
 
+// Janela de "recentemente ativo" — o app do entregador manda heartbeat a
+// cada 30s (foreground) e o GPS atualiza a cada ~5s enquanto em rota; 3 min
+// dá margem real pra rede instável sem deixar "Online" pra sempre.
+const ONLINE_WINDOW_MS = 3 * 60 * 1000;
+
 function driverStatus(d: Driver): "online" | "busy" | "offline" {
   if (!d.user.isActive) return "offline";
+  const recentlyActive =
+    !!d.lastSeenAt && Date.now() - new Date(d.lastSeenAt).getTime() < ONLINE_WINDOW_MS;
+  // Sem lastSeenAt (nunca abriu o app) ou fora da janela recente = offline,
+  // mesmo que isAvailable ainda esteja true (default do schema, nunca muda
+  // sozinho) -- achado real: entregador que nunca logou aparecia "Online".
+  if (!recentlyActive) return "offline";
   if (d.isAvailable) return "online";
   return "busy";
 }

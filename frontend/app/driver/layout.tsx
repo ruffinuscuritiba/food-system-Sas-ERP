@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Home, Package, DollarSign, History, User } from "lucide-react";
+import { api } from "@/services/api";
 
 const NAV = [
   { href: "/driver",          label: "Início",    icon: Home },
@@ -14,6 +16,16 @@ const NAV = [
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // Heartbeat — "Online" no painel do admin passa a exigir atividade real
+  // (app aberto nos últimos minutos), não só o toggle manual que nasce
+  // ligado. Roda em qualquer tela do app do entregador, não só na Home.
+  useEffect(() => {
+    const ping = () => api.post("/drivers/me/heartbeat").catch(() => {});
+    ping();
+    const id = setInterval(ping, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

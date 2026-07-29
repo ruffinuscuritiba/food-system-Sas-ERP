@@ -205,8 +205,26 @@ export class DriversService {
     if (!profile) throw new NotFoundException('Perfil não encontrado');
     return this.prisma.driverProfile.update({
       where: { id: profile.id },
-      data: { currentLat: lat, currentLng: lng },
+      data: { currentLat: lat, currentLng: lng, lastSeenAt: new Date() },
     });
+  }
+
+  // Heartbeat leve do app do entregador (chamado a cada ~30s enquanto o app
+  // está aberto, independente do GPS estar ativo) -- junto com o
+  // updateMyLocation acima, é o que faz "Online" no painel refletir
+  // atividade real, e não só o toggle manual isAvailable (que nasce true e
+  // nunca muda sozinho -- achado real: entregador que nunca abriu o app
+  // aparecia "Online" pra sempre).
+  async heartbeat(userId: string) {
+    const profile = await this.prisma.driverProfile.findUnique({
+      where: { userId },
+    });
+    if (!profile) throw new NotFoundException('Perfil não encontrado');
+    await this.prisma.driverProfile.update({
+      where: { id: profile.id },
+      data: { lastSeenAt: new Date() },
+    });
+    return { ok: true };
   }
 
   // Self-service: entregador liga/desliga a própria disponibilidade. Sem

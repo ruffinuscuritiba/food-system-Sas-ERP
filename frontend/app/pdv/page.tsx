@@ -125,7 +125,13 @@ function parseProductName(name: string): { baseName: string; sizeKey: string | n
       const w1 = content.split(/\s+/)[0];
       const w2 = content.split(/\s+/).slice(0, 2).join(" ");
       const sizeKey = SIZE_LABEL_TO_KEY[w2] ?? SIZE_LABEL_TO_KEY[w1] ?? null;
-      return { baseName: base, sizeKey };
+      // Só é variante de tamanho se o conteúdo dos parênteses for um tamanho
+      // de pizza reconhecido (pequena/média/grande/família/big/extra grande).
+      // Sem essa checagem, "Combo Festival de Esfihas (6 unid)" virava
+      // "Combo Festival de Esfihas" + sizeKey=null e se agrupava com as
+      // variantes de (3/10/20 unid) como se fossem tamanhos do mesmo produto
+      // — sobrava só a primeira na tela, as outras 3 sumiam sem erro nenhum.
+      if (sizeKey) return { baseName: base, sizeKey };
     }
   }
 

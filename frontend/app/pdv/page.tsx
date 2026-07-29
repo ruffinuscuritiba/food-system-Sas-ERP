@@ -252,6 +252,11 @@ export default function PDVPage() {
   const [complementSelections, setComplementSelections] = useState<Record<string, SelectedComplement[]>>({});
   const [complementLoading, setComplementLoading] = useState(false);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  // Trava síncrona (ref, não state) contra duplo-toque — o guard por `paymentSubmitting`
+  // sozinho tem uma janela de corrida: setState é assíncrono/batched, então 2 cliques a
+  // poucos ms de distância (comum em tela touch de PDV) podiam ler `paymentSubmitting`
+  // como false nos dois e criar 2-3 pedidos + 2-3 impressões pro mesmo fechamento.
+  const paymentLockRef = useRef(false);
   const [pdvOrderDetails, setPdvOrderDetails] = useState<PdvOrderDetails>({
     orderType: "DINE_IN",
     tableNumber: "",
@@ -660,7 +665,8 @@ export default function PDVPage() {
   }
 
   async function closePaidOrder(method: string, splits: { method: string; amount: string }[] | undefined, details: PdvOrderDetails) {
-    if (cart.length === 0 || paymentSubmitting) return;
+    if (cart.length === 0 || paymentLockRef.current) return;
+    paymentLockRef.current = true;
 
     const paymentMethod = splits?.[0]?.method || method;
     const serviceLabel =
@@ -823,6 +829,7 @@ export default function PDVPage() {
       toast.error(detail, { duration: 6000 });
     } finally {
       setPaymentSubmitting(false);
+      paymentLockRef.current = false;
     }
   }
 
@@ -845,7 +852,8 @@ export default function PDVPage() {
   async function launchToKitchen() {
     if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
     if (!pdvOrderDetails.tableNumber?.trim()) { toast.error("Informe o número da mesa"); return; }
-    if (paymentSubmitting) return;
+    if (paymentLockRef.current) return;
+    paymentLockRef.current = true;
 
     const orderItems = cart.map(({ product, qty, complements, unitPrice }) => ({
       productId: product.orderProductId || product.id,
@@ -862,7 +870,11 @@ export default function PDVPage() {
     }));
 
     const invalidItem = orderItems.find(i => !i.productId || i.productId.startsWith("pizza-"));
-    if (invalidItem) { toast.error("Item inválido no carrinho. Remova e adicione novamente."); return; }
+    if (invalidItem) {
+      toast.error("Item inválido no carrinho. Remova e adicione novamente.");
+      paymentLockRef.current = false;
+      return;
+    }
 
     setPaymentSubmitting(true);
     try {
@@ -896,6 +908,7 @@ export default function PDVPage() {
       toast.error(Array.isArray(message) ? message.join(" | ") : String(message), { duration: 6000 });
     } finally {
       setPaymentSubmitting(false);
+      paymentLockRef.current = false;
     }
   }
 
@@ -1699,7 +1712,8 @@ export default function PDVPage() {
       )}
 
       <PaymentModal open={showPayment} total={orderTotal} onClose={() => !paymentSubmitting && setShowPayment(false)}
-        orderDetails={pdvOrderDetails} onConfirm={(method, _received, splits, details) => closePaidOrder(method, splits, details)} />
+        orderDetails={pdvOrderDetails} submitting={paymentSubmitting}
+        onConfirm={(method, _received, splits, details) => closePaidOrder(method, splits, details)} />
 
       {pizzaProduct && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">

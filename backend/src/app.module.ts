@@ -52,6 +52,7 @@ import { LayoutTemplatesModule } from './modules/layout-templates/layout-templat
 import { WalletModule } from './modules/wallet/wallet.module';
 import { VisitsModule } from './modules/visits/visits.module';
 import { QrCampaignsModule } from './modules/qr-campaigns/qr-campaigns.module';
+import { LoyaltyMilestonesModule } from './modules/loyalty-milestones/loyalty-milestones.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { TotemModule } from './modules/totem/totem.module';
@@ -112,6 +113,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
     WalletModule,
     VisitsModule,
     QrCampaignsModule,
+    LoyaltyMilestonesModule,
     UploadModule,
     FiscalModule,
     TotemModule,

@@ -218,6 +218,9 @@ export default function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  // Trava contra clique duplo no botão Imprimir — sem isso, 2-3 cliques rápidos
+  // no mesmo pedido abrem 2-3 janelas de impressão (o pop-up não bloqueia o clique seguinte).
+  const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
   const { user } = useAuthStore();
 
   const fetchOrders = useCallback(async () => {
@@ -603,10 +606,19 @@ export default function OrdersPage() {
 
                     {/* Imprimir */}
                     <button
-                      onClick={() => printOrder(order, companyName)}
-                      className="flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium transition"
+                      disabled={printingOrderId === order.id}
+                      onClick={async () => {
+                        if (printingOrderId === order.id) return;
+                        setPrintingOrderId(order.id);
+                        try {
+                          await printOrder(order, companyName);
+                        } finally {
+                          setPrintingOrderId(null);
+                        }
+                      }}
+                      className="flex items-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Printer size={14} /> Imprimir
+                      <Printer size={14} /> {printingOrderId === order.id ? "Imprimindo..." : "Imprimir"}
                     </button>
                   </div>
                 </div>

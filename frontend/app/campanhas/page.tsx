@@ -6,7 +6,8 @@ import toast from "react-hot-toast"
 import {
   QrCode, Plus, ToggleLeft, ToggleRight, Trash2,
   TrendingUp, ScanLine, ShoppingBag, DollarSign, Percent,
-  ChevronDown, ChevronUp, Link2, Copy, Check, X, Download,
+  ChevronDown, ChevronUp, Link2, Copy, Check, X, Download, Printer,
+  Award, Gift, PartyPopper,
 } from "lucide-react"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -39,6 +40,23 @@ interface Metrics {
   avgTicket: number
 }
 
+// ─── Cliente Fiel (recompensa a cada N pedidos) ───────────────────────────────
+
+interface LoyaltyConfig {
+  ordersThreshold: number
+  rewardLabel: string
+  isActive: boolean
+}
+
+interface LoyaltyReward {
+  id: string
+  customerPhone: string
+  customerName: string | null
+  milestoneCount: number
+  rewardLabel: string
+  createdAt: string
+}
+
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<CampaignType, string> = {
@@ -65,8 +83,17 @@ export default function CampanhasPage() {
   const [submitting, setSubmitting] = useState(false)
   const [shareCampaign, setShareCampaign] = useState<Campaign | null>(null)
   const [shareLink, setShareLink]         = useState<string | null>(null)
+  const [shareToken, setShareToken]       = useState<string | null>(null)
   const [shareLoading, setShareLoading]   = useState(false)
   const [copied, setCopied]               = useState(false)
+  const [companyName, setCompanyName]     = useState("")
+
+  // Cliente Fiel
+  const [loyaltyConfig, setLoyaltyConfig]     = useState<LoyaltyConfig | null>(null)
+  const [loyaltyPending, setLoyaltyPending]   = useState<LoyaltyReward[]>([])
+  const [loyaltyForm, setLoyaltyForm]         = useState({ ordersThreshold: 10, rewardLabel: "1 Pizza Clássica Grátis", isActive: false })
+  const [loyaltySaving, setLoyaltySaving]     = useState(false)
+  const [showLoyaltyForm, setShowLoyaltyForm] = useState(false)
 
   const [form, setForm] = useState({
     name:             "",
@@ -94,9 +121,31 @@ export default function CampanhasPage() {
     } finally {
       setLoading(false)
     }
+    // Nome da loja para o cartaz impresso — best-effort, não bloqueia a tela
+    api.get<{ name?: string }>("/company/settings")
+      .then(r => setCompanyName(r.data?.name ?? ""))
+      .catch(() => {})
   }
 
-  useEffect(() => { loadAll() }, [])
+  async function loadLoyalty() {
+    try {
+      const [cfg, pending] = await Promise.all([
+        api.get<LoyaltyConfig>("/loyalty-milestones/config"),
+        api.get<LoyaltyReward[]>("/loyalty-milestones/pending"),
+      ])
+      setLoyaltyConfig(cfg.data)
+      setLoyaltyForm({
+        ordersThreshold: cfg.data.ordersThreshold,
+        rewardLabel: cfg.data.rewardLabel,
+        isActive: cfg.data.isActive,
+      })
+      setLoyaltyPending(pending.data)
+    } catch {
+      // best-effort — não trava a tela de campanhas por causa disso
+    }
+  }
+
+  useEffect(() => { loadAll(); loadLoyalty() }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -132,17 +181,93 @@ export default function CampanhasPage() {
   async function openShare(c: Campaign) {
     setShareCampaign(c)
     setShareLink(null)
+    setShareToken(null)
     setCopied(false)
     setShareLoading(true)
     try {
-      const { data } = await api.post<{ redirectUrl: string }>(`/qr-campaigns/${c.id}/manual-link`)
+      const { data } = await api.post<{ redirectUrl: string; token: string }>(`/qr-campaigns/${c.id}/manual-link`)
       setShareLink(data.redirectUrl)
+      setShareToken(data.token)
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? "Erro ao gerar link")
       setShareCampaign(null)
     } finally {
       setShareLoading(false)
     }
+  }
+
+  /**
+   * Abre um popup e imprime um cartaz A5 pronto pra colar em balcão/sacola de
+   * entrega (iFood/99Food) — separado do "Baixar QR Code" (que só baixa a
+   * imagem crua) pra não mexer nesse fluxo já existente.
+   */
+  function printPoster() {
+    if (!shareCampaign || !shareLink) return
+    const discountLine = shareCampaign.discountType === "FIXO"
+      ? `R$ ${Number(shareCampaign.discountValue).toFixed(2).replace(".", ",")} DE DESCONTO`
+      : `${shareCampaign.discountValue}% DE DESCONTO`
+    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=460x460&data=${encodeURIComponent(shareLink)}`
+    const store = companyName ? companyName.toUpperCase() : ""
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Cartaz — ${shareCampaign.name}</title>
+<style>
+  @page { size: A5; margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0; width: 148mm; height: 210mm;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(160deg, #ea580c 0%, #c2410c 100%);
+    color: #fff; display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between;
+    text-align: center; padding: 10mm 8mm;
+  }
+  .store   { font-size: 15px; font-weight: 800; letter-spacing: 2px; opacity: .92; }
+  .badge   { font-size: 13px; font-weight: 700; background: rgba(255,255,255,.18);
+             border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
+             padding: 4px 14px; margin-top: 6px; }
+  .headline { font-size: 34px; font-weight: 900; line-height: 1.15; margin-top: 14px; }
+  .discount { font-size: 46px; font-weight: 900; margin-top: 4px;
+              text-shadow: 0 3px 0 rgba(0,0,0,.15); }
+  .sub      { font-size: 16px; font-weight: 600; margin-top: 10px; opacity: .95; max-width: 105mm; }
+  .qrBox    { background: #fff; border-radius: 20px; padding: 14px; margin: 16px 0; }
+  .qrBox img { display: block; width: 55mm; height: 55mm; }
+  .code     { font-size: 13px; font-weight: 700; letter-spacing: 3px; opacity: .9; }
+  .cta      { font-size: 15px; font-weight: 700; }
+  .foot     { font-size: 10px; opacity: .75; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <div>
+    ${store ? `<div class="store">${store}</div>` : ""}
+    <div class="badge">ESCANEIE E GANHE</div>
+  </div>
+  <div>
+    <div class="headline">🎁 ${discountLine}</div>
+    <div class="sub">no seu primeiro pedido, direto pela nossa loja — sem taxa de app!</div>
+  </div>
+  <div class="qrBox"><img src="${qrImg}" /></div>
+  <div>
+    <div class="cta">📱 Aponte a câmera do celular para o QR Code</div>
+    <div class="code">CÓDIGO: ${shareToken ?? ""}</div>
+    <div class="foot">Desconto aplicado automaticamente no cadastro do 1º pedido</div>
+  </div>
+</body>
+</html>`
+
+    const w = window.open("", "_blank", "width=480,height=720")
+    if (!w) {
+      toast.error("Popup bloqueado — permita popups para imprimir o cartaz")
+      return
+    }
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    w.print()
   }
 
   async function copyLink() {
@@ -161,6 +286,35 @@ export default function CampanhasPage() {
       loadAll()
     } catch {
       toast.error("Erro ao remover campanha")
+    }
+  }
+
+  async function saveLoyaltyConfig(e: React.FormEvent) {
+    e.preventDefault()
+    if (loyaltyForm.ordersThreshold < 2) {
+      toast.error("O número de pedidos precisa ser pelo menos 2")
+      return
+    }
+    setLoyaltySaving(true)
+    try {
+      const { data } = await api.patch<LoyaltyConfig>("/loyalty-milestones/config", loyaltyForm)
+      setLoyaltyConfig(data)
+      toast.success("Programa Cliente Fiel salvo!")
+      setShowLoyaltyForm(false)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Erro ao salvar")
+    } finally {
+      setLoyaltySaving(false)
+    }
+  }
+
+  async function redeemMilestone(id: string) {
+    try {
+      await api.post(`/loyalty-milestones/${id}/redeem`)
+      setLoyaltyPending(prev => prev.filter(r => r.id !== id))
+      toast.success("Prêmio marcado como entregue!")
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Erro ao confirmar entrega")
     }
   }
 
@@ -398,6 +552,107 @@ export default function CampanhasPage() {
         "Link / QR" em cada campanha para compartilhar o mesmo cupom em redes sociais, WhatsApp ou cartaz impresso.
       </div>
 
+      {/* ── Cliente Fiel — recompensa a cada N pedidos ─────────────────────── */}
+      <div className="border rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+              <Award className="text-purple-600" size={20} />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900">Cliente Fiel</h2>
+              <p className="text-xs text-gray-500">
+                {loyaltyConfig?.isActive
+                  ? `Ativo — a cada ${loyaltyConfig.ordersThreshold} pedidos, o cliente ganha "${loyaltyConfig.rewardLabel}"`
+                  : "Desativado — configure abaixo para ativar"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowLoyaltyForm(v => !v)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold text-purple-700 border-purple-200 hover:bg-purple-50 transition"
+          >
+            {showLoyaltyForm ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            Configurar
+          </button>
+        </div>
+
+        {showLoyaltyForm && (
+          <form onSubmit={saveLoyaltyConfig} className="bg-gray-50 border rounded-2xl p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase">A cada quantos pedidos</label>
+                <input
+                  type="number" min={2} max={100} required
+                  value={loyaltyForm.ordersThreshold}
+                  onChange={e => setLoyaltyForm(f => ({ ...f, ordersThreshold: Number(e.target.value) }))}
+                  className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase">Recompensa</label>
+                <input
+                  required maxLength={100}
+                  value={loyaltyForm.rewardLabel}
+                  onChange={e => setLoyaltyForm(f => ({ ...f, rewardLabel: e.target.value }))}
+                  className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
+                  placeholder="Ex: 1 Pizza Clássica Grátis"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={loyaltyForm.isActive}
+                onChange={e => setLoyaltyForm(f => ({ ...f, isActive: e.target.checked }))}
+                className="rounded"
+              />
+              Programa ativo
+            </label>
+            <p className="text-xs text-gray-400">
+              O sistema soma pedidos do cardápio próprio, PDV e mesa por telefone do cliente. Ao bater o marco,
+              avisamos o cliente por WhatsApp (se configurado) e ele aparece na lista abaixo — a entrega do prêmio
+              é sempre manual no balcão, o sistema não aplica desconto nem produto grátis sozinho no carrinho.
+            </p>
+            <div className="flex justify-end">
+              <button type="submit" disabled={loyaltySaving}
+                className="px-6 py-2 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
+                {loyaltySaving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {loyaltyPending.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase">Prontos para resgatar ({loyaltyPending.length})</p>
+            {loyaltyPending.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-3 border rounded-xl p-3 bg-purple-50/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  <PartyPopper className="text-purple-500 shrink-0" size={18} />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800 text-sm truncate">
+                      {r.customerName || r.customerPhone}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Bateu {r.milestoneCount} pedidos · ganhou <strong>{r.rewardLabel}</strong>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => redeemMilestone(r.id)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition"
+                >
+                  <Gift size={14} /> Entregar prêmio
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 text-center py-2">Nenhum cliente pronto para resgatar no momento.</p>
+        )}
+      </div>
+
       {/* Modal de compartilhamento */}
       {shareCampaign && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShareCampaign(null)}>
@@ -446,8 +701,17 @@ export default function CampanhasPage() {
                 >
                   <Download size={14} /> Baixar QR Code (alta resolução)
                 </a>
+                <button
+                  type="button"
+                  onClick={printPoster}
+                  className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition"
+                >
+                  <Printer size={14} /> Imprimir Cartaz (com a frase de desconto)
+                </button>
                 <p className="text-xs text-gray-400 text-center">
                   Esse link pode ser escaneado por várias pessoas — não expira no primeiro uso.
+                  {shareCampaign.type === "RECUPERACAO_IFOOD" &&
+                    " Cole o cartaz na sacola/caixa das entregas do iFood/99Food enquanto a integração automática não está conectada."}
                 </p>
               </>
             ) : null}

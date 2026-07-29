@@ -337,6 +337,10 @@ model Company {
   // ── Campanhas recorrentes de WhatsApp (reengajamento com opt-in) ──────────
   whatsappCampaigns WhatsappCampaign[]
 
+  // ── Cliente Fiel (recompensa a cada N pedidos) ────────────────────────────
+  loyaltyMilestoneConfig  LoyaltyMilestoneConfig?
+  loyaltyMilestoneRewards LoyaltyMilestoneReward[]
+
   // ── Marketing Digital (limite diário de campanhas geradas por IA) ──────────
   aiCampaignGenerations AiCampaignGeneration[]
 
@@ -2370,4 +2374,42 @@ model WhatsappCampaignSend {
 
   @@index([campaignId])
   @@index([companyId, phone, sentAt])
+}
+
+// ─── Cliente Fiel — recompensa a cada N pedidos ─────────────────────────────
+// Diferente do LoyaltyAccount/PointTransaction (pontos/cashback por R$
+// gasto): isso é uma cartela por CONTAGEM DE PEDIDOS ("a cada 10 pedidos
+// ganha 1 pizza clássica"), configurável pelo dono da loja. Resgate é sempre
+// manual no balcão (nunca auto-aplica desconto/produto grátis no carrinho) —
+// o sistema só detecta o marco e avisa o operador; ver painel "Cliente Fiel"
+// em /campanhas.
+
+model LoyaltyMilestoneConfig {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  company         Company  @relation(fields: [companyId], references: [id])
+  ordersThreshold Int      @default(10)
+  rewardLabel     String   @default("1 Pizza Clássica Grátis")
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model LoyaltyMilestoneReward {
+  id             String    @id @default(cuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  customerPhone  String
+  customerName   String?
+  // Nº de pedidos do cliente no momento em que o marco foi batido (ex: 10, 20, 30…)
+  milestoneCount Int
+  rewardLabel    String
+  redeemed       Boolean   @default(false)
+  redeemedAt     DateTime?
+  redeemedByUserId String?
+  createdAt      DateTime  @default(now())
+
+  // Idempotência: nunca gerar 2 avisos pro mesmo cliente no mesmo marco
+  @@unique([companyId, customerPhone, milestoneCount])
+  @@index([companyId, redeemed])
 }

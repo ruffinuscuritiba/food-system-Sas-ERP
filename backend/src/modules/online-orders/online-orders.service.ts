@@ -10,6 +10,7 @@ import { SocketGateway } from '@/socket/socket.gateway';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
+import { LoyaltyMilestonesService } from '@/modules/loyalty-milestones/loyalty-milestones.service';
 import { StockService } from '@/modules/stock/stock.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { PrintersService } from '@/modules/printers/printers.service';
@@ -73,6 +74,7 @@ export class OnlineOrdersService {
     @Optional() private readonly qrCampaigns?: QrCampaignsService,
     @Optional() private readonly whatsappAi?: WhatsappAiService,
     @Optional() private readonly printersService?: PrintersService,
+    @Optional() private readonly loyaltyMilestones?: LoyaltyMilestonesService,
   ) {}
 
   /**
@@ -333,6 +335,15 @@ export class OnlineOrdersService {
               logger.warn(`[QR] falha ao gerar cupom: ${e?.message}`);
             }
           })();
+        }
+
+        // ── Cliente Fiel — detectar marco de N pedidos (fire-and-forget) ────
+        if (this.loyaltyMilestones) {
+          const loyaltyMilestones = this.loyaltyMilestones;
+          const logger = this.logger;
+          void loyaltyMilestones
+            .checkAndRegisterMilestone(dto.companyId, dto.customerPhone, dto.customerName)
+            .catch((e: any) => logger.warn(`[ClienteFiel] falha ao checar marco: ${e?.message}`));
         }
 
         // → New order confirmation email (fire-and-forget — never blocks the order)

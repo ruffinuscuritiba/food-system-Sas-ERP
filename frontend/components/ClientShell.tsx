@@ -793,13 +793,15 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                 </p>
                 <p className="text-xs text-red-50 mt-1 line-clamp-2">"{a.lastMessage}"</p>
                 <div className="flex gap-2 mt-2">
-                  <Link
-                    href="/whatsapp-ia"
+                  <a
+                    href={`https://wa.me/${a.customerPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={() => dismissHumanAlert(a.conversationId)}
                     className="text-xs font-semibold bg-white text-red-700 px-2.5 py-1 rounded-lg hover:bg-red-50 transition"
                   >
                     Atender agora
-                  </Link>
+                  </a>
                   <button
                     onClick={() => dismissHumanAlert(a.conversationId)}
                     className="text-xs font-semibold text-red-100 px-2.5 py-1 rounded-lg hover:bg-red-700 transition"
@@ -901,13 +903,15 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                 </p>
                 <p className="text-xs text-blue-50 mt-1 line-clamp-2">"{a.preview}"</p>
                 <div className="flex gap-2 mt-2">
-                  <Link
-                    href="/whatsapp-ia"
+                  <a
+                    href={`https://wa.me/${a.customerPhone}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={() => dismissChatAlert(a.conversationId)}
                     className="text-xs font-semibold bg-white text-blue-700 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition"
                   >
                     Ver conversa
-                  </Link>
+                  </a>
                   <button
                     onClick={() => dismissChatAlert(a.conversationId)}
                     className="text-xs font-semibold text-blue-100 px-2.5 py-1 rounded-lg hover:bg-blue-700 transition"

@@ -647,6 +647,18 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     });
     if (!conv) throw new NotFoundException('Conversa não encontrada');
 
+    // Operador escreveu manualmente -- a partir de agora a IA fica pausada
+    // nesta conversa (igual clicar "Assumir"), senão a Kely continua
+    // respondendo o cliente em paralelo a cada mensagem nova, brigando com
+    // o operador. Sem isso, só a PRIMEIRA mensagem manual "pausava" (nem
+    // isso -- não mudava mode nenhum), e a IA seguia respondendo sozinha.
+    if (conv.mode !== 'HUMAN') {
+      await this.prisma.whatsappConversation.update({
+        where: { id: conv.id },
+        data: { mode: 'HUMAN', status: 'TRANSFERRED' },
+      });
+    }
+
     const sent = await this.sendAssistantReply(
       conv.connection as unknown as WaConnection,
       conv,

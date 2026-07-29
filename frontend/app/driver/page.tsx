@@ -302,9 +302,25 @@ export default function DriverHome() {
               </div>
 
               {order.deliveryAddress && (
-                <div className="flex items-start gap-2 mb-3 text-sm text-gray-600">
-                  <MapPin size={14} className="shrink-0 mt-0.5 text-orange-400" />
-                  <span className="leading-tight">{order.deliveryAddress}</span>
+                <div className="mb-3">
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-2 text-sm text-blue-600 active:opacity-70"
+                  >
+                    <MapPin size={14} className="shrink-0 mt-0.5 text-orange-400" />
+                    <span className="leading-tight underline decoration-dotted">{order.deliveryAddress}</span>
+                  </a>
+                  <a
+                    href={`https://waze.com/ul?q=${encodeURIComponent(order.deliveryAddress)}&navigate=yes`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-sky-600 active:opacity-70"
+                  >
+                    <Navigation size={12} />
+                    Abrir no Waze
+                  </a>
                 </div>
               )}
 

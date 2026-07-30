@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 
 import { OrdersService } from './orders.service';
+import { UpdateOrderDetailsDto } from './dto/update-order-details.dto';
 
 // Definição manual do OrderStatus para evitar erro do Prisma
 export type OrderStatus =
@@ -131,6 +132,22 @@ export class OrdersController {
     @CompanyId() companyId: string,
   ) {
     return this.service.updateStatus(id, status, req.user.id, companyId);
+  }
+
+  /**
+   * Edita forma de pagamento e/ou converte retirada<->entrega DEPOIS do
+   * pedido criado (ex: cliente informou cartão mas pagou em dinheiro na
+   * retirada). Ajusta o caixa automaticamente quando necessário.
+   */
+  @Patch(':id/details')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER')
+  updateDetails(
+    @Param('id') id: string,
+    @Body() body: UpdateOrderDetailsDto,
+    @CompanyId() companyId: string,
+  ) {
+    return this.service.updateOrderDetails(id, companyId, body);
   }
 
   @Patch(':id/production-status')

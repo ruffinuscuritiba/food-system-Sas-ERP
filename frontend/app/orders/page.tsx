@@ -144,19 +144,50 @@ function EditNotesModal({
   onSaved: () => void;
 }) {
   const [notes, setNotes] = useState(order.notes || "");
+  const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod);
+  const [orderType, setOrderType] = useState(order.orderType || "PICKUP");
+  const [deliveryAddress, setDeliveryAddress] = useState(order.deliveryAddress || "");
+  const [neighborhood, setNeighborhood] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Depois de despachado/entregue não faz sentido converter o tipo (mudar
+  // pra "entrega" um pedido que já saiu como retirada, por ex.) — forma de
+  // pagamento continua editável em qualquer status, é o caso real que gerou
+  // esse pedido: cliente informou cartão e pagou em dinheiro na retirada.
+  const typeLocked = order.status === "OUT_FOR_DELIVERY" || order.status === "DELIVERED";
+  const convertingToDelivery = orderType === "DELIVERY" && order.orderType !== "DELIVERY";
+
   async function save() {
+    if (convertingToDelivery && !deliveryAddress.trim()) {
+      toast.error("Informe o endereço de entrega");
+      return;
+    }
     setSaving(true);
     try {
-      // Atualiza via status para manter o status atual (sem alterar) — notes é incluído no body
-      // Como não há endpoint PATCH /orders/:id genérico, usamos o status atual
-      await api.patch(`/orders/${order.id}/status`, { status: order.status, notes });
-      toast.success("Observações atualizadas");
+      if (notes !== (order.notes || "")) {
+        // Sem endpoint PATCH genérico pra notes ainda — reaproveita /status
+        // mantendo o status atual (não altera o fluxo da cozinha).
+        await api.patch(`/orders/${order.id}/status`, { status: order.status, notes });
+      }
+
+      const detailsChanged =
+        paymentMethod !== order.paymentMethod || orderType !== (order.orderType || "PICKUP");
+      if (detailsChanged) {
+        await api.patch(`/orders/${order.id}/details`, {
+          ...(paymentMethod !== order.paymentMethod && { paymentMethod }),
+          ...(orderType !== (order.orderType || "PICKUP") && { orderType }),
+          ...(convertingToDelivery && {
+            deliveryAddress: deliveryAddress.trim(),
+            neighborhood: neighborhood.trim() || undefined,
+          }),
+        });
+      }
+
+      toast.success("Pedido atualizado");
       onSaved();
       onClose();
-    } catch {
-      toast.error("Erro ao salvar");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Erro ao salvar");
     } finally {
       setSaving(false);
     }
@@ -164,12 +195,86 @@ function EditNotesModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-900">Editar Pedido</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
+              Forma de pagamento
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {Object.entries(PAY_LABELS).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setPaymentMethod(value)}
+                  className={`text-xs font-semibold py-2 rounded-lg border transition ${
+                    paymentMethod === value
+                      ? "bg-primary text-white border-primary"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
+              Tipo de pedido
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { value: "PICKUP", label: "Retirada" },
+                { value: "DELIVERY", label: "Entrega" },
+                { value: "DINE_IN", label: "Local" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={typeLocked}
+                  onClick={() => setOrderType(opt.value)}
+                  className={`text-xs font-semibold py-2 rounded-lg border transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                    orderType === opt.value
+                      ? "bg-primary text-white border-primary"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {typeLocked && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Pedido já despachado/entregue — tipo não pode mais ser trocado.
+              </p>
+            )}
+          </div>
+
+          {convertingToDelivery && (
+            <div className="space-y-2 bg-orange-50 border border-orange-100 rounded-xl p-3">
+              <p className="text-[11px] font-semibold text-orange-700">
+                Convertendo para entrega — a taxa é calculada automaticamente pelo bairro.
+              </p>
+              <input
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Endereço completo (rua, número)"
+                className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+              />
+              <input
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                placeholder="Bairro (pra calcular a taxa)"
+                className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
               Observações do pedido
@@ -177,7 +282,7 @@ function EditNotesModal({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={4}
+              rows={3}
               className="w-full border border-gray-200 focus:border-primary rounded-xl px-3 py-2.5 text-sm text-gray-900 outline-none resize-none"
               placeholder="Ex: sem cebola, ponto da carne..."
             />

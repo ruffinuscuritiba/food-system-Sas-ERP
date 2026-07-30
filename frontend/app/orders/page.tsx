@@ -41,6 +41,7 @@ type Order = {
   customerPhone?: string;
   deliveryAddress?: string;
   paymentMethod: string;
+  paymentStatus?: string | null;
   deliveryFee: number;
   driverFee?: number;
   driverId?: string | null;
@@ -550,6 +551,11 @@ export default function OrdersPage() {
                         <p className="text-xs text-gray-400">
                           {PAY_LABELS[order.paymentMethod] || order.paymentMethod}
                         </p>
+                        {order.paymentStatus === "APPROVED" ? (
+                          <p className="text-[10px] font-bold text-green-600 mt-0.5">✓ Já pago (online)</p>
+                        ) : order.paymentMethod !== "CASH" && order.paymentStatus ? (
+                          <p className="text-[10px] font-bold text-amber-600 mt-0.5">A receber</p>
+                        ) : null}
                       </div>
                     </div>
                   </div>

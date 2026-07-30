@@ -117,6 +117,7 @@ export class OrderNotificationService {
     customerPhone: string;
     customerName?: string;
     newStatus: OrderStatusKey;
+    orderType?: string;
   }): Promise<void> {
     const phone = formatPhoneInternational(params.customerPhone);
     if (!phone || phone.length < 10) {
@@ -138,7 +139,7 @@ export class OrderNotificationService {
     if (!connection) return;
 
     const shortId = params.orderId.slice(-6).toUpperCase();
-    const message = templateFn(shortId, params.customerName);
+    const message = templateFn(shortId, params.customerName, params.orderType);
 
     await this.dispatch(connection, phone, message);
     this.log.log(

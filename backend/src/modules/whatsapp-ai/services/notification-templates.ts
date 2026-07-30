@@ -57,7 +57,7 @@ Acompanhe pelo nosso sistema. Qualquer dúvida, é só chamar! 😊`;
 
 export const STATUS_TEMPLATES: Record<
   OrderStatusKey,
-  (orderId: string, name?: string) => string
+  (orderId: string, name?: string, orderType?: string) => string
 > = {
   CONFIRMED: (orderId, name) => {
     const g = name ? `Olá, *${name}*! ` : '';
@@ -69,8 +69,14 @@ export const STATUS_TEMPLATES: Record<
     return `${g}🍳 Seu pedido *#${orderId}* já está na cozinha sendo preparado com todo carinho!`;
   },
 
-  READY: (orderId, name) => {
+  // "Esperando no balcão" só faz sentido pra retirada/local -- um pedido de
+  // ENTREGA que fica PRONTO ainda não saiu pra rua, então avisar "vem
+  // buscar no balcão" é literalmente errado pro cliente de delivery.
+  READY: (orderId, name, orderType) => {
     const g = name ? `${name}, ` : '';
+    if (orderType === 'DELIVERY') {
+      return `${g}📦 Seu pedido *#${orderId}* está pronto! Já vamos despachar com o entregador.`;
+    }
     return `${g}🛍️ Seu pedido *#${orderId}* já está prontinho te esperando no balcão!`;
   },
 

@@ -977,6 +977,7 @@ export class OrdersService {
               customerPhone,
               customerName: customerName ?? undefined,
               newStatus: status as any,
+              orderType: order.orderType ?? undefined,
             });
           }
         } catch {
@@ -1329,6 +1330,11 @@ export class OrdersService {
         orderType: o.orderType ?? 'DELIVERY',
         total: Number(o.total),
         paymentMethod: o.paymentMethod ?? null,
+        // Pedido online paga via PIX/cartão pela própria plataforma (Mercado
+        // Pago) -- diferente do PDV, onde paymentMethod só descreve COMO vai
+        // pagar na entrega. Sem isso o operador não sabia se precisava
+        // cobrar na entrega ou se já estava quitado.
+        paymentStatus: o.paymentStatus ?? null,
         notes: o.notes ?? null,
         items: rawItems.map((it: any) => ({
           productName: it.productName,
@@ -1436,16 +1442,48 @@ export class OrdersService {
           try {
             const fullOrder = await this.prisma.onlineOrder.findUnique({
               where: { id },
-              select: { customerPhone: true, customerName: true },
             });
             if (!fullOrder?.customerPhone) return;
-            await this.orderNotificationService!.notifyStatusChange({
-              companyId,
-              orderId: id,
-              customerPhone: fullOrder.customerPhone,
-              customerName: fullOrder.customerName ?? undefined,
-              newStatus: status as any,
-            });
+
+            if (status === 'CONFIRMED') {
+              // Mesma mensagem rica do PDV (itens/subtotal/taxa/total/
+              // pagamento) -- antes, pedido online só recebia o "foi
+              // confirmado!" genérico de 1 linha, nunca o recibo detalhado.
+              const rawItems: any[] = Array.isArray(fullOrder.items)
+                ? (fullOrder.items as any[])
+                : [];
+              const address =
+                fullOrder.orderType === 'DELIVERY'
+                  ? [fullOrder.address, fullOrder.addressNumber, fullOrder.neighborhood]
+                      .filter(Boolean)
+                      .join(', ')
+                  : undefined;
+              await this.orderNotificationService!.notifyOrderConfirmed({
+                companyId,
+                orderId: id,
+                customerPhone: fullOrder.customerPhone,
+                customerName: fullOrder.customerName ?? undefined,
+                items: rawItems.map((i) => ({
+                  name: i.productName ?? i.name ?? 'Item',
+                  quantity: Number(i.quantity ?? 1),
+                  unitPrice: Number(i.unitPrice ?? i.price ?? 0),
+                })),
+                subtotal: Number(fullOrder.subtotal),
+                deliveryFee: Number(fullOrder.deliveryFee ?? 0),
+                total: Number(fullOrder.total),
+                paymentMethod: String(fullOrder.paymentMethod ?? 'PIX'),
+                address,
+              });
+            } else {
+              await this.orderNotificationService!.notifyStatusChange({
+                companyId,
+                orderId: id,
+                customerPhone: fullOrder.customerPhone,
+                customerName: fullOrder.customerName ?? undefined,
+                newStatus: status as any,
+                orderType: fullOrder.orderType ?? undefined,
+              });
+            }
           } catch {
             /* silent — nunca bloqueia o fluxo principal */
           }

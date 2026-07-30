@@ -1041,6 +1041,133 @@ export class OrdersService {
     return order;
   }
 
+  /**
+   * Edição pós-criação de forma de pagamento e/ou conversão retirada<->entrega.
+   * Cenário real que motivou isso: operador lançou o pedido como "cartão",
+   * cliente pagou em dinheiro na hora da retirada, e não havia como corrigir
+   * -- o caixa fechava sem contar esse dinheiro físico que realmente entrou.
+   *
+   * Ajusta o caixa pela DIFERENÇA entre o que already estava contado (se já
+   * passou por CONFIRMED e tem cashId) e o que deveria estar contado agora,
+   * cobrindo os 3 casos possíveis numa única conta: trocou só a forma de
+   * pagamento, trocou só o tipo (mudando o total pela taxa de entrega), ou
+   * os dois ao mesmo tempo.
+   */
+  async updateOrderDetails(
+    id: string,
+    companyId: string,
+    dto: {
+      paymentMethod?: string;
+      orderType?: string;
+      deliveryAddress?: string;
+      neighborhood?: string;
+    },
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({ where: { id, companyId } });
+      if (!order) throw new NotFoundException('Pedido não encontrado');
+      if (order.status === OrderStatus.CANCELLED) {
+        throw new ForbiddenException(
+          'Pedido cancelado não pode ser editado.',
+        );
+      }
+
+      const data: Record<string, any> = {};
+      let newTotal = Number(order.total);
+
+      // ── Conversão retirada <-> entrega ──────────────────────────────────
+      if (dto.orderType && dto.orderType !== order.orderType) {
+        if (
+          order.status === OrderStatus.OUT_FOR_DELIVERY ||
+          order.status === OrderStatus.DELIVERED
+        ) {
+          throw new ForbiddenException(
+            'Não é possível trocar o tipo de um pedido já despachado/entregue.',
+          );
+        }
+
+        let deliveryFee = 0;
+        let driverFee: number | null = null;
+        let deliveryZoneId: string | null = null;
+        let deliveryAddress: string | null = order.deliveryAddress;
+        let neighborhood: string | null = order.neighborhood;
+
+        if (dto.orderType === 'DELIVERY') {
+          if (!dto.deliveryAddress?.trim()) {
+            throw new ForbiddenException(
+              'Endereço de entrega é obrigatório para converter em entrega.',
+            );
+          }
+          deliveryAddress = dto.deliveryAddress.trim();
+          neighborhood = dto.neighborhood?.trim() || null;
+          if (neighborhood && this.deliveryConfigService) {
+            const zone = await this.deliveryConfigService.getFeeForNeighborhood(
+              companyId,
+              neighborhood,
+            );
+            if (zone) {
+              deliveryFee = Number(zone.clientFee);
+              driverFee = zone.driverShare != null ? Number(zone.driverShare) : null;
+              deliveryZoneId = zone.id;
+            }
+          }
+        } else {
+          deliveryAddress = null;
+          neighborhood = null;
+        }
+
+        newTotal = Number(order.subtotal) - Number(order.discount) + deliveryFee;
+        data.orderType = dto.orderType as any;
+        data.deliveryFee = deliveryFee;
+        data.driverFee = driverFee;
+        data.deliveryZoneId = deliveryZoneId;
+        data.deliveryAddress = deliveryAddress;
+        data.neighborhood = neighborhood;
+        data.total = newTotal;
+      }
+
+      // ── Troca de forma de pagamento ──────────────────────────────────────
+      const newPaymentMethod = dto.paymentMethod ?? order.paymentMethod;
+      if (dto.paymentMethod) {
+        data.paymentMethod = dto.paymentMethod as any;
+      }
+
+      // ── Reconciliação do caixa ───────────────────────────────────────────
+      // Só mexe se o pedido já passou por CONFIRMED (já teria afetado o
+      // caixa uma vez) e ainda está vinculado a uma sessão de caixa.
+      const alreadyHitCash = order.status !== OrderStatus.PENDING && !!order.cashId;
+      if (alreadyHitCash) {
+        const oldContribution =
+          order.paymentMethod === 'CASH' ? Number(order.total) : 0;
+        const newContribution =
+          newPaymentMethod === 'CASH' ? newTotal : 0;
+        const delta = newContribution - oldContribution;
+
+        if (delta > 0) {
+          await tx.cash.updateMany({
+            where: { id: order.cashId!, isOpen: true },
+            data: {
+              balance: { increment: delta },
+              entries: { increment: delta },
+            },
+          });
+        } else if (delta < 0) {
+          await tx.cash.updateMany({
+            where: { id: order.cashId!, isOpen: true },
+            data: {
+              balance: { decrement: -delta },
+              exits: { increment: -delta },
+            },
+          });
+        }
+      }
+
+      if (Object.keys(data).length === 0) return order;
+
+      return tx.order.update({ where: { id }, data });
+    });
+  }
+
   async dashboard(companyId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

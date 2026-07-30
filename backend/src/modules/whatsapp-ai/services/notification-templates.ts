@@ -27,20 +27,29 @@ export function tplOrderConfirmed(params: {
   name: string;
   orderId: string;
   items: string;
+  subtotal?: string;
+  deliveryFee?: string;
   total: string;
   payment: string;
   address: string;
 }): string {
   const greeting = params.name ? `Olá, *${params.name}*! ` : '';
+  // Só mostra o detalhamento Subtotal/Taxa quando há taxa de entrega — pedido
+  // de retirada/balcão (deliveryFee ausente) fica só com o Total, sem uma
+  // linha "Taxa de entrega: R$ 0,00" sem sentido.
+  const breakdown = params.deliveryFee
+    ? `Subtotal: ${params.subtotal}\nTaxa de entrega: ${params.deliveryFee}\n`
+    : '';
   return `${greeting}✅ *Pedido confirmado!*
 
 📋 *Pedido #${params.orderId}*
 ${params.items}
 
-💰 *Total:* ${params.total}
-💳 *Pagamento:* ${params.payment}
+${breakdown}💰 *Total: ${params.total}*
+💳 *Pagamento:* ${params.payment} ✓ Confirmado
 📍 *Entrega:* ${params.address}
 
+Obrigado pela preferência! 🍕
 Acompanhe pelo nosso sistema. Qualquer dúvida, é só chamar! 😊`;
 }
 
@@ -104,7 +113,12 @@ export function formatPhoneInternational(
 // ─── Formatação de itens do pedido ───────────────────────────────────────────
 
 export function formatOrderItems(
-  items: { name: string; quantity: number; unitPrice?: number }[],
+  items: {
+    name: string;
+    quantity: number;
+    unitPrice?: number;
+    complements?: { name: string; price: number }[];
+  }[],
 ): string {
   return items
     .slice(0, 10)
@@ -113,7 +127,14 @@ export function formatOrderItems(
         i.unitPrice != null
           ? ` — R$ ${(Number(i.unitPrice) * i.quantity).toFixed(2).replace('.', ',')}`
           : '';
-      return `  • ${i.quantity}x ${i.name}${price}`;
+      const line = `  • ${i.quantity}x ${i.name}${price}`;
+      const extras = (i.complements ?? [])
+        .map((c) => {
+          const p = c.price > 0 ? ` (R$ ${c.price.toFixed(2).replace('.', ',')})` : '';
+          return `     + ${c.name}${p}`;
+        })
+        .join('\n');
+      return extras ? `${line}\n${extras}` : line;
     })
     .join('\n');
 }

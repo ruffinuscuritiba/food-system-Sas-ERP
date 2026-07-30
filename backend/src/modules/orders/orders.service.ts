@@ -646,7 +646,7 @@ export class OrdersService {
       },
 
       include: {
-        items: true,
+        items: { include: { selectedComplements: true } },
         customer: true,
       },
     });
@@ -954,11 +954,17 @@ export class OrdersService {
               orderId: order.id,
               customerPhone,
               customerName: customerName ?? undefined,
-              items: order.items.map((i) => ({
-                name: (i as any).productName ?? 'Item',
+              items: order.items.map((i: any) => ({
+                name: i.productName ?? 'Item',
                 quantity: Number(i.quantity),
-                unitPrice: Number((i as any).unitPrice ?? 0),
+                unitPrice: Number(i.unitPrice ?? 0),
+                complements: (i.selectedComplements ?? []).map((c: any) => ({
+                  name: c.optionName,
+                  price: Number(c.price ?? 0),
+                })),
               })),
+              subtotal: Number(order.subtotal),
+              deliveryFee: Number(order.deliveryFee ?? 0),
               total: Number(order.total),
               paymentMethod: String(order.paymentMethod ?? 'PIX'),
               address: order.deliveryAddress ?? undefined,

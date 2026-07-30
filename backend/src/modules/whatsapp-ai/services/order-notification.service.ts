@@ -41,7 +41,14 @@ export class OrderNotificationService {
     orderId: string;
     customerPhone: string;
     customerName?: string;
-    items: { name: string; quantity: number; unitPrice?: number }[];
+    items: {
+      name: string;
+      quantity: number;
+      unitPrice?: number;
+      complements?: { name: string; price: number }[];
+    }[];
+    subtotal?: number;
+    deliveryFee?: number;
     total: number;
     paymentMethod: string;
     address?: string;
@@ -57,17 +64,36 @@ export class OrderNotificationService {
     const connection = await this.findActiveConnection(params.companyId);
     if (!connection) return;
 
+    const money = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
     const shortId = params.orderId.slice(-6).toUpperCase();
     const items = formatOrderItems(params.items);
-    const total = `R$ ${params.total.toFixed(2).replace('.', ',')}`;
+    const total = money(params.total);
+    const subtotal =
+      params.subtotal != null ? money(params.subtotal) : undefined;
+    const deliveryFee =
+      params.deliveryFee != null && params.deliveryFee > 0
+        ? money(params.deliveryFee)
+        : undefined;
     const payment =
       PAYMENT_LABELS[params.paymentMethod] ?? params.paymentMethod;
-    const address = params.address?.trim() || 'Retirada no balcão';
+    // Pedido de mesa/consumo local grava deliveryAddress como o literal
+    // "INTERNO" -- sem esse tratamento, a mensagem mostrava "Entrega:
+    // INTERNO" pro cliente, que não faz sentido nenhum fora do contexto
+    // interno do sistema.
+    const rawAddress = params.address?.trim();
+    const address =
+      !rawAddress || rawAddress.toUpperCase() === 'INTERNO'
+        ? rawAddress?.toUpperCase() === 'INTERNO'
+          ? 'Consumo no local'
+          : 'Retirada no balcão'
+        : rawAddress;
 
     const message = tplOrderConfirmed({
       name: params.customerName ?? '',
       orderId: shortId,
       items,
+      subtotal,
+      deliveryFee,
       total,
       payment,
       address,

@@ -23,13 +23,22 @@ export class DriversService {
   // Antes o findAll não trazia nenhum desses dados — por isso a tela de
   // entregadores mostrava sempre "—" nos cards de Entregas e Ganhos.
   async findAll(companyId: string) {
+    // "Entregas" no card é contagem DIÁRIA (zera todo dia) -- sem o filtro
+    // de data era um total acumulado desde sempre, e um entregador que
+    // entregou ontem continuava aparecendo com a mesma contagem hoje,
+    // como se tivesse entregue de novo sem ter saído pra rua.
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     const drivers = await this.prisma.driverProfile.findMany({
       where: { companyId },
       include: {
         user: { select: { id: true, name: true, email: true, isActive: true } },
         _count: {
           select: {
-            orders: { where: { status: 'DELIVERED' } },
+            orders: {
+              where: { status: 'DELIVERED', createdAt: { gte: startOfToday } },
+            },
           },
         },
       },

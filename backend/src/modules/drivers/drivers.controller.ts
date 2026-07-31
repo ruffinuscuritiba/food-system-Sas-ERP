@@ -134,6 +134,14 @@ export class DriversController {
 
   // ── Admin: earnings & payments ───────────────────────────────────────────
 
+  @Get(':id/deliveries-today')
+  @UseGuards(RolesGuard, ModuleGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
+  listTodayDeliveries(@Param('id') id: string, @Req() req: any) {
+    return this.service.listTodayDeliveries(id, req.user.companyId);
+  }
+
   @Get(':id/earnings')
   @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')

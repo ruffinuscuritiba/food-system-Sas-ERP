@@ -28,6 +28,7 @@ export default function Home() {
       totalSales: 0,
       totalOrders: 0,
       ticketAverage: 0,
+      weekSeries: [],
     });
 
   function logout() {
@@ -70,6 +71,8 @@ setSummary({
 
   ticketAverage:
     data.averageTicket || 0,
+
+  weekSeries: data.weekSeries || [],
 });
 
     } catch (error) {
@@ -124,6 +127,9 @@ setSummary({
 
       ticketAverage:
         data.averageTicket || 0,
+
+      weekSeries:
+        data.weekSeries || [],
     });
   },
 );
@@ -211,7 +217,7 @@ setSummary({
 
         </div>
 
-        <SalesChart />
+        <SalesChart data={summary.weekSeries} />
 
       </section>
 

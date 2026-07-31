@@ -8,6 +8,7 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
 import { SocketGateway } from '@/socket/socket.gateway';
+import { getStartOfTodayBrazil } from '@/common/utils/timezone';
 
 @Injectable()
 export class DriversService {
@@ -27,8 +28,17 @@ export class DriversService {
     // de data era um total acumulado desde sempre, e um entregador que
     // entregou ontem continuava aparecendo com a mesma contagem hoje,
     // como se tivesse entregue de novo sem ter saído pra rua.
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    //
+    // Dois fixes em cima do fix original: (1) `new Date(); setHours(0,0,0,0)`
+    // usa o fuso do CONTAINER (UTC no VPS), não o de Brasília — perto da
+    // meia-noite UTC (21h em Brasília) isso incluía/excluía pedidos do dia
+    // errado (achado real: "não dá pra saber se foi a de ontem que não
+    // zerou"); trocado por getStartOfTodayBrazil(). (2) o filtro era por
+    // `createdAt` (quando o PEDIDO foi criado), não por quando a entrega foi
+    // de fato concluída — um pedido criado ontem à noite e entregue já
+    // hoje de manhã nunca contava; trocado pra `deliveredAt`, o campo que
+    // realmente representa "quando essa entrega aconteceu".
+    const startOfToday = getStartOfTodayBrazil();
 
     const drivers = await this.prisma.driverProfile.findMany({
       where: { companyId },
@@ -37,7 +47,7 @@ export class DriversService {
         _count: {
           select: {
             orders: {
-              where: { status: 'DELIVERED', createdAt: { gte: startOfToday } },
+              where: { status: 'DELIVERED', deliveredAt: { gte: startOfToday } },
             },
           },
         },
@@ -81,6 +91,49 @@ export class DriversService {
         },
       },
     });
+  }
+
+  /**
+   * Lista de entregas concluídas HOJE por um entregador — alimenta o clique
+   * no número do card "Entregas" (antes só existia a contagem, sem jeito de
+   * abrir e conferir quais pedidos são, mesmo pedido de usuário real depois
+   * de ver a contagem parecer "errada"). Mesmo filtro/fuso de `findAll()`.
+   */
+  async listTodayDeliveries(driverId: string, companyId: string) {
+    const startOfToday = getStartOfTodayBrazil();
+    const orders = await this.prisma.order.findMany({
+      where: {
+        companyId,
+        driverId,
+        status: 'DELIVERED',
+        deliveredAt: { gte: startOfToday },
+      },
+      select: {
+        id: true,
+        number: true,
+        customerName: true,
+        customerPhone: true,
+        customer: { select: { name: true, phone: true } },
+        deliveryAddress: true,
+        total: true,
+        driverFee: true,
+        deliveredAt: true,
+        createdAt: true,
+      },
+      orderBy: { deliveredAt: 'desc' },
+    });
+
+    return orders.map((o) => ({
+      id: o.id,
+      number: o.number,
+      customerName: o.customerName ?? o.customer?.name ?? null,
+      customerPhone: o.customerPhone ?? o.customer?.phone ?? null,
+      deliveryAddress: o.deliveryAddress,
+      total: Number(o.total),
+      driverFee: o.driverFee != null ? Number(o.driverFee) : null,
+      deliveredAt: o.deliveredAt,
+      createdAt: o.createdAt,
+    }));
   }
 
   async create(companyId: string, data: any) {

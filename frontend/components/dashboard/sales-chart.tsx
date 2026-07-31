@@ -14,44 +14,24 @@ import {
   useState,
 } from "react";
 
-const data = [
-  {
-    name: "Seg",
-    vendas: 400,
-  },
+type SalesChartPoint = { name: string; vendas: number };
 
-  {
-    name: "Ter",
-    vendas: 700,
-  },
-
-  {
-    name: "Qua",
-    vendas: 500,
-  },
-
-  {
-    name: "Qui",
-    vendas: 900,
-  },
-
-  {
-    name: "Sex",
-    vendas: 1200,
-  },
-
-  {
-    name: "Sab",
-    vendas: 1800,
-  },
-
-  {
-    name: "Dom",
-    vendas: 1400,
-  },
+// Placeholder — só usado se o componente for montado sem prop `data`
+// (nunca deve acontecer em `/`, que sempre passa a série real vinda de
+// GET /orders/dashboard).
+const FALLBACK_DATA: SalesChartPoint[] = [
+  { name: "Seg", vendas: 0 },
+  { name: "Ter", vendas: 0 },
+  { name: "Qua", vendas: 0 },
+  { name: "Qui", vendas: 0 },
+  { name: "Sex", vendas: 0 },
+  { name: "Sab", vendas: 0 },
+  { name: "Dom", vendas: 0 },
 ];
 
-export function SalesChart() {
+export function SalesChart({ data }: { data?: SalesChartPoint[] }) {
+
+  const chartData = data && data.length > 0 ? data : FALLBACK_DATA;
 
   const [mounted, setMounted] =
     useState(false);
@@ -87,7 +67,7 @@ export function SalesChart() {
   height={350}
 >
 
-          <LineChart data={data}>
+          <LineChart data={chartData}>
 
             <XAxis dataKey="name" />
 

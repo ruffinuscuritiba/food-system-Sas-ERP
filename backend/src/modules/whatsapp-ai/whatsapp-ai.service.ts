@@ -34,6 +34,7 @@ import {
   PLATFORM_SELLER_COMPANY_ID,
   isMatrixCompany,
 } from '@/common/utils/matrix';
+import { formatPhoneInternational } from './services/notification-templates';
 
 const log = new Logger('WhatsappAiService');
 const PIX_EXPIRATION_MINUTES = 30;
@@ -2419,8 +2420,14 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       });
       if (!company?.googleReviewUrl) return;
 
-      const raw = params.customerPhone.replace(/\D/g, '');
-      if (!raw || raw.length < 8) return;
+      // formatPhoneInternational (não um replace(/\D/g,'') cru) — telefone
+      // digitado no checkout do cardápio digital vem sem DDI (ex: "41 99661
+      // 9528"), e mandar sem o "55" faz a Evolution API rejeitar o envio
+      // silenciosamente (dispatchMessage retorna false, DeliveryFeedback
+      // nunca é criado, sem log nem alerta — achado real: pedido "Eneias"
+      // nunca recebeu a pergunta de feedback/link do Google por causa disso).
+      const raw = formatPhoneInternational(params.customerPhone);
+      if (!raw || raw.length < 10) return;
 
       const connection = (await this.prisma.whatsappConnection.findFirst({
         where: { companyId: params.companyId, isActive: true },

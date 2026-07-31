@@ -257,13 +257,15 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   // Preferência de som — por dispositivo (localStorage), não por empresa:
   // o operador do balcão pode preferir campainha, enquanto a tela da cozinha
   // pode preferir a voz anunciando o pedido.
-  const [alertSoundMode, setAlertSoundMode] = useState<"bell" | "voice">(() => {
+  const [alertSoundMode, setAlertSoundMode] = useState<"bell" | "voice" | "muted">(() => {
     if (typeof window === "undefined") return "bell";
-    return localStorage.getItem("alert_sound_mode") === "voice" ? "voice" : "bell";
+    const saved = localStorage.getItem("alert_sound_mode");
+    return saved === "voice" || saved === "muted" ? saved : "bell";
   });
   const [soundMenuOpen, setSoundMenuOpen] = useState(false);
 
-  function previewAlertSound(mode: "bell" | "voice") {
+  function previewAlertSound(mode: "bell" | "voice" | "muted") {
+    if (mode === "muted") return;
     if (mode === "voice" && typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance("Novo pedido! Olha o pedido.");
@@ -278,7 +280,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     }
   }
 
-  function changeAlertSoundMode(mode: "bell" | "voice") {
+  function changeAlertSoundMode(mode: "bell" | "voice" | "muted") {
     setAlertSoundMode(mode);
     localStorage.setItem("alert_sound_mode", mode);
     setSoundMenuOpen(false);
@@ -496,6 +498,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
     function ringOnce() {
       if (cancelled) return;
+      if (alertSoundMode === "muted") return;
       if (alertSoundMode === "voice" && "speechSynthesis" in window) {
         const utter = new SpeechSynthesisUtterance(spokenLabel);
         utter.lang = "pt-BR";
@@ -762,9 +765,9 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
     // Wrapper White Label — aplica CompanyTheme via CSS variables em <html>
     <ThemeProvider>
       <Toaster position="top-right" />
-      <audio ref={humanAlertAudioRef} src="/notification.mp3" preload="auto" />
+      <audio ref={humanAlertAudioRef} src="/notification.wav" preload="auto" />
 
-      {audioBlocked && (humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length > 0) && (
+      {audioBlocked && alertSoundMode !== "muted" && (humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length > 0) && (
         <button
           type="button"
           onClick={(e) => {
@@ -1113,7 +1116,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
               <Volume2 size={13} />
               Som de Alerta
               <span className="ml-auto text-[10px] font-normal text-slate-400">
-                {alertSoundMode === "voice" ? "Voz" : "Campainha"}
+                {alertSoundMode === "voice" ? "Voz" : alertSoundMode === "muted" ? "Silenciado" : "Campainha"}
               </span>
               <ChevronDown size={12} className={`transition-transform ${soundMenuOpen ? "rotate-180" : ""}`} />
             </button>
@@ -1132,6 +1135,13 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                   className={`w-full text-left px-3.5 py-2.5 text-[12px] font-medium transition ${alertSoundMode === "voice" ? "bg-primary/10 text-primary" : "text-slate-300 hover:bg-slate-800"}`}
                 >
                   🗣️ Voz (fala o pedido)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeAlertSoundMode("muted")}
+                  className={`w-full text-left px-3.5 py-2.5 text-[12px] font-medium transition border-t border-slate-800 ${alertSoundMode === "muted" ? "bg-primary/10 text-primary" : "text-slate-300 hover:bg-slate-800"}`}
+                >
+                  🔇 Silenciar
                 </button>
               </div>
             )}

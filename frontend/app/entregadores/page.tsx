@@ -310,6 +310,106 @@ function EditarDriverModal({
   );
 }
 
+interface TodayDelivery {
+  id: string;
+  number: number | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  deliveryAddress: string | null;
+  total: number;
+  driverFee: number | null;
+  deliveredAt: string | null;
+  createdAt: string;
+}
+
+function fmtTime(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  } catch { return "—"; }
+}
+
+/**
+ * Lista de entregas concluídas hoje por um entregador — aberta ao clicar no
+ * número do card "Entregas". Antes só existia a contagem, sem jeito nenhum
+ * de conferir quais pedidos são (pedido explícito do usuário depois de
+ * desconfiar que a contagem estava errada/misturando dia anterior).
+ */
+function EntregasHojeModal({
+  driver,
+  onClose,
+}: {
+  driver: Driver;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<TodayDelivery[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.get(`/drivers/${driver.id}/deliveries-today`)
+      .then((res) => { if (!cancelled) setItems(Array.isArray(res.data) ? res.data : []); })
+      .catch(() => { if (!cancelled) toast.error("Erro ao carregar entregas de hoje"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [driver.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-blue-500" />
+            <h2 className="font-bold text-gray-900">Entregas de hoje — {driver.user.name}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-10 text-gray-400">
+              <Loader2 size={20} className="animate-spin mr-2" /> Carregando…
+            </div>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-10">Nenhuma entrega concluída hoje ainda.</p>
+          ) : (
+            <div className="space-y-3">
+              {items.map((it) => (
+                <div key={it.id} className="border border-gray-100 rounded-xl p-3.5 bg-gray-50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-gray-900">
+                      {it.number ? `Pedido #${it.number}` : `#${it.id.slice(-6).toUpperCase()}`}
+                    </span>
+                    <span className="text-xs text-gray-400">{fmtTime(it.deliveredAt)}</span>
+                  </div>
+                  {it.customerName && (
+                    <p className="text-sm text-gray-700">{it.customerName}</p>
+                  )}
+                  {it.deliveryAddress && (
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <MapPin size={11} className="text-orange-400 shrink-0" />
+                      {it.deliveryAddress}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between mt-2 text-xs">
+                    <span className="text-gray-500">Total: <span className="font-semibold text-gray-800">R$ {it.total.toFixed(2)}</span></span>
+                    {it.driverFee != null && (
+                      <span className="text-green-600 font-semibold">Repasse: R$ {it.driverFee.toFixed(2)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main page ─────────────────────────────────────────────────────────────── */
 export default function EntregadoresPage() {
   const [drivers, setDrivers]         = useState<Driver[]>([]);
@@ -318,6 +418,7 @@ export default function EntregadoresPage() {
   const [filter, setFilter]           = useState<"all"|"online"|"busy"|"offline">("all");
   const [showNovo, setShowNovo]       = useState(false);
   const [editDriver, setEditDriver]   = useState<Driver | null>(null);
+  const [deliveriesDriver, setDeliveriesDriver] = useState<Driver | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -480,14 +581,21 @@ export default function EntregadoresPage() {
                     <p className="text-xs text-gray-400">Avaliação</p>
                   </div>
                   {/* FIX: agora mostra a contagem real de entregas finalizadas
-                      (vem de d._count.orders, preenchido pelo backend) */}
-                  <div className="bg-gray-50 rounded-xl p-2.5 text-center">
+                      (vem de d._count.orders, preenchido pelo backend) —
+                      clicável, abre a lista de quais pedidos são (pedido do
+                      usuário depois de desconfiar da contagem parecer errada) */}
+                  <button
+                    type="button"
+                    onClick={() => setDeliveriesDriver(d)}
+                    disabled={!d._count?.orders}
+                    className="bg-gray-50 rounded-xl p-2.5 text-center hover:bg-gray-100 transition disabled:cursor-default disabled:hover:bg-gray-50"
+                  >
                     <div className="flex items-center justify-center gap-1 mb-0.5">
                       <Package size={12} className="text-blue-400" />
                       <span className="text-sm font-bold text-gray-900">{d._count?.orders ?? 0}</span>
                     </div>
                     <p className="text-xs text-gray-400">Entregas</p>
-                  </div>
+                  </button>
                   {/* FIX: agora mostra o total real já pago em ganhos
                       (vem de d.totalEarnings, preenchido pelo backend) */}
                   <div className="bg-gray-50 rounded-xl p-2.5 text-center">
@@ -514,6 +622,12 @@ export default function EntregadoresPage() {
           driver={editDriver}
           onClose={() => setEditDriver(null)}
           onUpdated={onUpdated}
+        />
+      )}
+      {deliveriesDriver && (
+        <EntregasHojeModal
+          driver={deliveriesDriver}
+          onClose={() => setDeliveriesDriver(null)}
         />
       )}
     </div>

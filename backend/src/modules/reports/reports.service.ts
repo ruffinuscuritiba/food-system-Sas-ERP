@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { toBrazilDateKey } from '@/common/utils/timezone';
 
 export interface DateRange {
   from: Date;
@@ -170,7 +171,7 @@ export class ReportsService {
       else if (orderType === 'PICKUP') byType.pickup += rev;
       else byType.dineIn += rev;
 
-      const day = createdAt.toISOString().slice(0, 10);
+      const day = toBrazilDateKey(createdAt);
       if (!dailyMap[day])
         dailyMap[day] = { revenue: 0, cmv: 0, profit: 0, orders: 0 };
       dailyMap[day].revenue += rev;

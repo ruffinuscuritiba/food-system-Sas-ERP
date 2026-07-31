@@ -32,3 +32,27 @@ export function toBrazilDateKey(d: Date): string {
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
+
+/**
+ * Início do dia (00:00:00 em Brasília) de uma string "YYYY-MM-DD" (ou
+ * qualquer valor Date-parseável — só a parte da data é usada). Não
+ * `new Date(dateStr)` puro: uma string data-only ("2026-07-30") é
+ * interpretada pelo JS como meia-noite UTC, 3h ANTES da meia-noite real de
+ * Brasília — um filtro de "dia inteiro" que usa isso perde as últimas 3h do
+ * dia comercial anterior sendo incluídas por engano.
+ */
+export function parseBrazilDateStart(dateStr: string): Date {
+  return new Date(`${dateStr.slice(0, 10)}T00:00:00-03:00`);
+}
+
+/**
+ * Fim do dia (23:59:59.999 em Brasília) de uma string "YYYY-MM-DD" — não
+ * `date.setUTCHours(23,59,59,999)` (fuso UTC), que corta as últimas 3h do
+ * dia comercial de Brasília (21h-24h — horário de pico de jantar de
+ * pizzaria) fora da janela "hoje"/"esse dia" (achado real: filtro de data
+ * "Personalizado" pro dia de ontem excluindo 1 de 3 pedidos reais feitos
+ * à noite).
+ */
+export function parseBrazilDateEnd(dateStr: string): Date {
+  return new Date(`${dateStr.slice(0, 10)}T23:59:59.999-03:00`);
+}

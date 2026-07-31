@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Bike, Plus, Phone, MapPin, Star, CheckCircle,
   XCircle, Search, Package, DollarSign, X, Eye, EyeOff,
-  Pencil, Loader2, ToggleLeft, ToggleRight,
+  Pencil, Loader2, ToggleLeft, ToggleRight, Receipt, CheckCheck,
 } from "lucide-react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
@@ -410,6 +410,242 @@ function EntregasHojeModal({
   );
 }
 
+interface DriverEarningRow {
+  id: string;
+  driverAmount: number;
+  customerFee: number;
+  status: "PENDING" | "PAID";
+  createdAt: string;
+  order: { id: string; createdAt: string; total: number; deliveryAddress: string | null } | null;
+}
+
+interface DriverPaymentRow {
+  id: string;
+  totalAmount: number;
+  status: "PENDING" | "PAID";
+  paidAt: string | null;
+  createdAt: string;
+}
+
+// Chave "YYYY-MM-DD" no fuso de Brasília (mesma técnica do backend
+// toBrazilDateKey) -- necessário pro agrupamento por dia ordenar certo;
+// "DD/MM/YYYY" (toLocaleDateString pt-BR puro) não ordena lexicograficamente.
+function brazilDateKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+function brazilDateLabel(key: string): string {
+  const [y, m, d] = key.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/**
+ * Histórico de entregas (agrupado por dia, pra decidir/conferir o
+ * pagamento) + fluxo de pagamento do entregador — pedido explícito do
+ * usuário: "puxar histórico de entregas para fazer o pagamento e ver
+ * quantas entregas foram feitas por dia/total". O backend (DriverEarning/
+ * DriverPayment) já existia e já era usado no app do PRÓPRIO entregador
+ * (/driver/earnings) — só não tinha nenhuma tela equivalente pro admin.
+ */
+function HistoricoPagamentoModal({
+  driver,
+  onClose,
+  onPaid,
+}: {
+  driver: Driver;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [earnings, setEarnings] = useState<DriverEarningRow[]>([]);
+  const [payments, setPayments] = useState<DriverPaymentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [closingPayment, setClosingPayment] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"resumo" | "pagamentos">("resumo");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [e, p] = await Promise.all([
+        api.get(`/drivers/${driver.id}/earnings`),
+        api.get(`/drivers/${driver.id}/payments`),
+      ]);
+      setEarnings(Array.isArray(e.data) ? e.data : []);
+      setPayments(Array.isArray(p.data) ? p.data : []);
+    } catch {
+      toast.error("Erro ao carregar histórico");
+    } finally {
+      setLoading(false);
+    }
+  }, [driver.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const pending = earnings.filter((e) => e.status === "PENDING");
+  const pendingTotal = pending.reduce((s, e) => s + Number(e.driverAmount), 0);
+  const paidTotal = earnings
+    .filter((e) => e.status === "PAID")
+    .reduce((s, e) => s + Number(e.driverAmount), 0);
+
+  // Agrupa TODAS as entregas (não só as pendentes) por dia -- responde
+  // "quantas entregas foram feitas por dia", não só o saldo a pagar.
+  const byDay = new Map<string, { count: number; total: number }>();
+  for (const e of earnings) {
+    const key = brazilDateKey(e.createdAt);
+    const cur = byDay.get(key) ?? { count: 0, total: 0 };
+    cur.count += 1;
+    cur.total += Number(e.driverAmount);
+    byDay.set(key, cur);
+  }
+  const dayRows = [...byDay.entries()]
+    .map(([date, v]) => ({ date, ...v }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  async function closePayment() {
+    setClosingPayment(true);
+    try {
+      await api.post(`/drivers/${driver.id}/payments`);
+      toast.success("Pagamento fechado! Confirme quando pagar de verdade.");
+      await load();
+      setTab("pagamentos");
+    } catch (e: any) {
+      const msg = e?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join("; ") : (msg || "Erro ao fechar pagamento"));
+    } finally {
+      setClosingPayment(false);
+    }
+  }
+
+  async function confirmPaid(paymentId: string) {
+    setPayingId(paymentId);
+    try {
+      await api.patch(`/drivers/payments/${paymentId}/pay`);
+      toast.success("Pagamento marcado como pago!");
+      await load();
+      onPaid();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Erro ao confirmar pagamento");
+    } finally {
+      setPayingId(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-2">
+            <Receipt size={16} className="text-green-600" />
+            <h2 className="font-bold text-gray-900">Histórico & Pagamento — {driver.user.name}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+            <X size={20} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-400">
+            <Loader2 size={20} className="animate-spin mr-2" /> Carregando…
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3 p-6 pb-3">
+              <div className="bg-yellow-50 rounded-xl p-3 text-center border border-yellow-100">
+                <p className="text-lg font-bold text-yellow-700">R$ {pendingTotal.toFixed(2)}</p>
+                <p className="text-[11px] text-yellow-600 font-medium">A pagar ({pending.length})</p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-3 text-center border border-green-100">
+                <p className="text-lg font-bold text-green-700">R$ {paidTotal.toFixed(2)}</p>
+                <p className="text-[11px] text-green-600 font-medium">Já pago</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                <p className="text-lg font-bold text-gray-800">{earnings.length}</p>
+                <p className="text-[11px] text-gray-500 font-medium">Entregas no total</p>
+              </div>
+            </div>
+
+            {pending.length > 0 && (
+              <div className="px-6 pb-4">
+                <button
+                  onClick={closePayment}
+                  disabled={closingPayment}
+                  className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-sm transition flex items-center justify-center gap-2"
+                >
+                  {closingPayment ? <Loader2 size={16} className="animate-spin" /> : <DollarSign size={16} />}
+                  Fechar pagamento de R$ {pendingTotal.toFixed(2)} ({pending.length} entrega{pending.length > 1 ? "s" : ""})
+                </button>
+              </div>
+            )}
+
+            <div className="px-6 flex gap-4 border-b border-gray-100">
+              <button
+                onClick={() => setTab("resumo")}
+                className={`pb-2 text-xs font-semibold border-b-2 transition ${tab === "resumo" ? "border-green-600 text-green-700" : "border-transparent text-gray-400"}`}
+              >
+                Entregas por dia
+              </button>
+              <button
+                onClick={() => setTab("pagamentos")}
+                className={`pb-2 text-xs font-semibold border-b-2 transition ${tab === "pagamentos" ? "border-green-600 text-green-700" : "border-transparent text-gray-400"}`}
+              >
+                Pagamentos ({payments.length})
+              </button>
+            </div>
+
+            <div className="p-6 pt-4">
+              {tab === "resumo" ? (
+                dayRows.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">Nenhuma entrega registrada ainda.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {dayRows.map((r) => (
+                      <div key={r.date} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                        <span className="text-sm font-medium text-gray-700">{brazilDateLabel(r.date)}</span>
+                        <span className="text-xs text-gray-500">{r.count} entrega{r.count > 1 ? "s" : ""}</span>
+                        <span className="text-sm font-bold text-gray-800">R$ {r.total.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : payments.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Nenhum pagamento fechado ainda.</p>
+              ) : (
+                <div className="space-y-2">
+                  {payments.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between px-3.5 py-3 rounded-xl bg-gray-50 border border-gray-100">
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">R$ {Number(p.totalAmount).toFixed(2)}</p>
+                        <p className="text-xs text-gray-400">
+                          {p.status === "PAID" && p.paidAt
+                            ? `Pago em ${new Date(p.paidAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+                            : `Fechado em ${new Date(p.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
+                        </p>
+                      </div>
+                      {p.status === "PAID" ? (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                          <CheckCheck size={12} /> Pago
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => confirmPaid(p.id)}
+                          disabled={payingId === p.id}
+                          className="text-xs font-bold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5"
+                        >
+                          {payingId === p.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
+                          Marcar como pago
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main page ─────────────────────────────────────────────────────────────── */
 export default function EntregadoresPage() {
   const [drivers, setDrivers]         = useState<Driver[]>([]);
@@ -419,6 +655,7 @@ export default function EntregadoresPage() {
   const [showNovo, setShowNovo]       = useState(false);
   const [editDriver, setEditDriver]   = useState<Driver | null>(null);
   const [deliveriesDriver, setDeliveriesDriver] = useState<Driver | null>(null);
+  const [historyDriver, setHistoryDriver] = useState<Driver | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -556,6 +793,13 @@ export default function EntregadoresPage() {
                       {STATUS_LABEL[status]}
                     </span>
                     <button
+                      onClick={() => setHistoryDriver(d)}
+                      className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-green-100 text-gray-500 hover:text-green-600 flex items-center justify-center transition"
+                      title="Histórico & Pagamento"
+                    >
+                      <Receipt size={14} />
+                    </button>
+                    <button
                       onClick={() => setEditDriver(d)}
                       className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-orange-100 text-gray-500 hover:text-orange-500 flex items-center justify-center transition"
                       title="Editar"
@@ -628,6 +872,13 @@ export default function EntregadoresPage() {
         <EntregasHojeModal
           driver={deliveriesDriver}
           onClose={() => setDeliveriesDriver(null)}
+        />
+      )}
+      {historyDriver && (
+        <HistoricoPagamentoModal
+          driver={historyDriver}
+          onClose={() => setHistoryDriver(null)}
+          onPaid={() => load()}
         />
       )}
     </div>

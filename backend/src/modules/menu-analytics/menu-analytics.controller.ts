@@ -11,6 +11,12 @@ import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { MenuAnalyticsService } from './menu-analytics.service';
+import {
+  getStartOfTodayBrazil,
+  parseBrazilDateStart,
+  parseBrazilDateEnd,
+  toBrazilDateKey,
+} from '@/common/utils/timezone';
 
 @Controller('menu-analytics')
 export class MenuAnalyticsController {
@@ -36,13 +42,13 @@ export class MenuAnalyticsController {
   ) {
     const range = {
       from: from
-        ? new Date(from)
+        ? parseBrazilDateStart(from)
         : (() => {
-            const d = new Date();
+            const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? new Date(to) : new Date(),
+      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.service.getSummary(req.user.companyId, range.from, range.to);
   }

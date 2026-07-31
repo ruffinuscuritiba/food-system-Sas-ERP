@@ -1,12 +1,12 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-
-function endOfDay(d: Date): Date {
-  const e = new Date(d);
-  e.setUTCHours(23, 59, 59, 999);
-  return e;
-}
+import {
+  getStartOfTodayBrazil,
+  parseBrazilDateStart,
+  parseBrazilDateEnd,
+  toBrazilDateKey,
+} from '@/common/utils/timezone';
 
 @UseGuards(JwtAuthGuard)
 @Controller('reports')
@@ -26,13 +26,13 @@ export class ReportsController {
   ) {
     const range = {
       from: from
-        ? new Date(from)
+        ? parseBrazilDateStart(from)
         : (() => {
-            const d = new Date();
+            const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: endOfDay(to ? new Date(to) : new Date()),
+      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.reports.getRevenue(req.user.companyId, range);
   }
@@ -56,13 +56,13 @@ export class ReportsController {
   ) {
     const range = {
       from: from
-        ? new Date(from)
+        ? parseBrazilDateStart(from)
         : (() => {
-            const d = new Date();
+            const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: endOfDay(to ? new Date(to) : new Date()),
+      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.reports.getProductRanking(
       req.user.companyId,

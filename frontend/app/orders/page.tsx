@@ -152,6 +152,16 @@ function EditNotesModal({
   const [neighborhood, setNeighborhood] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Nome/telefone do pedido -- snapshot próprio do Order, não o cadastro
+  // vinculado (Customer). Usa o valor cru (não o helper de exibição com
+  // fallback "Cliente sem cadastro"/"—"), senão o input nasceria com esse
+  // texto de placeholder como se fosse o nome/telefone de verdade.
+  const originalCustomerName = order.customerName || "";
+  const originalCustomerPhone = order.customerPhone || "";
+  const [editCustomerName, setEditCustomerName] = useState(originalCustomerName);
+  const [editCustomerPhone, setEditCustomerPhone] = useState(originalCustomerPhone);
+  const hasLinkedCustomer = !!order.customer;
+
   // Pagamento dividido (ex: "26 no dinheiro + 8 no PIX") -- mesma
   // capacidade que já existe na criação do pedido no PDV (PaymentModal),
   // só que não existia ainda pra CORRIGIR um pedido já criado.
@@ -216,8 +226,13 @@ function EditNotesModal({
         await api.patch(`/orders/${order.id}/status`, { status: order.status, notes: finalNotes });
       }
 
+      const nameChanged = editCustomerName.trim() !== originalCustomerName;
+      const phoneChanged = editCustomerPhone.trim() !== originalCustomerPhone;
       const detailsChanged =
-        finalPaymentMethod !== order.paymentMethod || orderType !== (order.orderType || "PICKUP");
+        finalPaymentMethod !== order.paymentMethod ||
+        orderType !== (order.orderType || "PICKUP") ||
+        nameChanged ||
+        phoneChanged;
       if (detailsChanged) {
         await api.patch(`/orders/${order.id}/details`, {
           ...(finalPaymentMethod !== order.paymentMethod && { paymentMethod: finalPaymentMethod }),
@@ -226,6 +241,8 @@ function EditNotesModal({
             deliveryAddress: deliveryAddress.trim(),
             neighborhood: neighborhood.trim() || undefined,
           }),
+          ...(nameChanged && { customerName: editCustomerName.trim() }),
+          ...(phoneChanged && { customerPhone: editCustomerPhone.trim() }),
         });
       }
 
@@ -394,10 +411,32 @@ function EditNotesModal({
               placeholder="Ex: sem cebola, ponto da carne..."
             />
           </div>
-          <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-500 space-y-1">
-            <p><strong>Cliente:</strong> {customerName(order)}</p>
-            <p><strong>Telefone:</strong> {customerPhone(order)}</p>
-            {order.deliveryAddress && <p><strong>Endereço:</strong> {order.deliveryAddress}</p>}
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
+              Cliente
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <input
+                value={editCustomerName}
+                onChange={(e) => setEditCustomerName(e.target.value)}
+                placeholder="Nome do cliente"
+                className="border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+              />
+              <input
+                value={editCustomerPhone}
+                onChange={(e) => setEditCustomerPhone(e.target.value)}
+                placeholder="Telefone"
+                className="border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+              />
+            </div>
+            {hasLinkedCustomer && (
+              <p className="text-[11px] text-gray-400 mt-1">
+                Este pedido está vinculado a um cadastro de cliente — editar aqui corrige só este pedido, não o cadastro.
+              </p>
+            )}
+            {order.deliveryAddress && (
+              <p className="text-xs text-gray-400 mt-2"><strong>Endereço:</strong> {order.deliveryAddress}</p>
+            )}
           </div>
         </div>
         <div className="px-5 py-4 border-t border-gray-100 flex gap-3">

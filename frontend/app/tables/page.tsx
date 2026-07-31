@@ -462,10 +462,11 @@ export default function TablesPage() {
               <p className="text-sm font-medium text-gray-700 mb-3">Forma de pagamento</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { value: "PIX",         label: "PIX" },
-                  { value: "CASH",        label: "Dinheiro" },
-                  { value: "CREDIT_CARD", label: "Crédito" },
-                  { value: "DEBIT_CARD",  label: "Débito" },
+                  { value: "PIX",          label: "PIX" },
+                  { value: "CASH",         label: "Dinheiro" },
+                  { value: "CREDIT_CARD",  label: "Crédito" },
+                  { value: "DEBIT_CARD",   label: "Débito" },
+                  { value: "MEAL_VOUCHER", label: "Vale-Refeição" },
                 ].map((opt) => (
                   <button
                     key={opt.value}

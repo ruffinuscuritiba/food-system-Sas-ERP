@@ -24,7 +24,7 @@ export class CreatePublicOrderDto {
   @IsOptional()
   orderType?: string;
 
-  @IsEnum(['PIX', 'CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'TRANSFER'])
+  @IsEnum(['PIX', 'CASH', 'CREDIT_CARD', 'DEBIT_CARD', 'TRANSFER', 'MEAL_VOUCHER'])
   @IsOptional()
   paymentMethod?: string;
 

@@ -54,6 +54,7 @@ interface CartItem {
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: "Dinheiro", PIX: "PIX", CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito",
+  MEAL_VOUCHER: "Vale-Refeição",
 };
 
 // ── Page ───────────────────────────────────────────────────────────────────────

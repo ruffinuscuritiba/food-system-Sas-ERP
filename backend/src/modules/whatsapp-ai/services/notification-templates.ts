@@ -152,5 +152,6 @@ export const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Dinheiro',
   CREDIT_CARD: 'Cartão de Crédito',
   DEBIT_CARD: 'Cartão de Débito',
+  MEAL_VOUCHER: 'Vale-Refeição',
   TRANSFER: 'Transferência',
 };

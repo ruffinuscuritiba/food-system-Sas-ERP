@@ -90,6 +90,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: "Dinheiro",
   CREDIT_CARD: "Cartão de Crédito",
   DEBIT_CARD: "Cartão de Débito",
+  MEAL_VOUCHER: "Vale-Refeição",
   TRANSFER: "Transferência",
 };
 
@@ -691,6 +692,7 @@ const PAYMENT_PIE_COLORS: Record<string, string> = {
   CREDIT_CARD: "#3b82f6",
   DEBIT_CARD: "#a855f7",
   CASH: "#f59e0b",
+  MEAL_VOUCHER: "#ec4899",
   TRANSFER: "#6b7280",
 };
 const PAYMENT_PIE_LABELS: Record<string, string> = {
@@ -698,6 +700,7 @@ const PAYMENT_PIE_LABELS: Record<string, string> = {
   CREDIT_CARD: "Crédito",
   DEBIT_CARD: "Débito",
   CASH: "Dinheiro",
+  MEAL_VOUCHER: "Vale-Refeição",
   TRANSFER: "Transferência",
 };
 

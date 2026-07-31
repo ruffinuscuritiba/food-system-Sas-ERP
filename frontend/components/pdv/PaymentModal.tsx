@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { X, CreditCard, Banknote, QrCode, SplitSquareHorizontal, Plus, Minus } from "lucide-react";
+import { X, CreditCard, Banknote, QrCode, Ticket, SplitSquareHorizontal, Plus, Minus } from "lucide-react";
 import { OrderDetailsForm, OrderDetails } from "@/components/shared/OrderDetailsForm";
 
 const METHODS = [
-  { value: "PIX",         label: "PIX",            icon: <QrCode     size={16} /> },
-  { value: "CASH",        label: "Dinheiro",        icon: <Banknote   size={16} /> },
-  { value: "CREDIT_CARD", label: "Crédito",         icon: <CreditCard size={16} /> },
-  { value: "DEBIT_CARD",  label: "Débito",          icon: <CreditCard size={16} /> },
-  { value: "TRANSFER",    label: "Transferência",   icon: <Banknote   size={16} /> },
+  { value: "PIX",          label: "PIX",             icon: <QrCode     size={16} /> },
+  { value: "CASH",         label: "Dinheiro",        icon: <Banknote   size={16} /> },
+  { value: "CREDIT_CARD",  label: "Crédito",         icon: <CreditCard size={16} /> },
+  { value: "DEBIT_CARD",   label: "Débito",          icon: <CreditCard size={16} /> },
+  { value: "MEAL_VOUCHER", label: "Vale-Refeição",   icon: <Ticket     size={16} /> },
+  { value: "TRANSFER",     label: "Transferência",   icon: <Banknote   size={16} /> },
 ];
 
 type SplitEntry = { method: string; amount: string };

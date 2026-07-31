@@ -175,4 +175,72 @@ export class PrintersService {
       },
     });
   }
+
+  /**
+   * Enfileira um job por setor (KITCHEN/BAR/COUNTER/DELIVERY), resolvendo o
+   * PrinterProfile de cada papel — mas nunca manda 2+ tickets do MESMO
+   * pedido pra UMA MESMA impressora física. Loja com 1 impressora só e os 4
+   * papéis cadastrados apontando todos pra ela (setup comum) recebia 3
+   * tickets idênticos por pedido de entrega (KITCHEN+COUNTER+DELIVERY no
+   * mesmo rolo) — aqui agrupamos por printerId e, quando 2+ setores
+   * resolvem pro mesmo printerId, mantemos só o ticket mais completo
+   * (DELIVERY/COUNTER já trazem todos os itens do pedido; KITCHEN/BAR só o
+   * subconjunto do próprio setor). Lojas com impressoras físicas separadas
+   * por setor não são afetadas — cada papel resolve pra um printerId
+   * diferente e todos os tickets saem normalmente.
+   */
+  async enqueueSectorJobs(
+    companyId: string,
+    orderId: string | undefined,
+    sectorJobs: Array<{
+      role: 'KITCHEN' | 'BAR' | 'COUNTER' | 'DELIVERY';
+      items: any[];
+    }>,
+    basePayload: Record<string, any>,
+  ): Promise<void> {
+    if (sectorJobs.length === 0) return;
+
+    const roles = [...new Set(sectorJobs.map((j) => j.role))];
+    const profiles = await this.prisma.printerProfile.findMany({
+      where: {
+        companyId,
+        role: { in: roles },
+        isActive: true,
+        printer: { isActive: true },
+      },
+      select: { printerId: true, role: true },
+    });
+
+    const byPrinter = new Map<
+      string,
+      Array<{ role: string; items: any[] }>
+    >();
+    for (const profile of profiles) {
+      const job = sectorJobs.find((j) => j.role === profile.role);
+      if (!job) continue;
+      const list = byPrinter.get(profile.printerId) ?? [];
+      list.push(job);
+      byPrinter.set(profile.printerId, list);
+    }
+
+    const PRIORITY: Record<string, number> = {
+      DELIVERY: 0,
+      COUNTER: 1,
+      KITCHEN: 2,
+      BAR: 3,
+    };
+
+    for (const [printerId, jobs] of byPrinter) {
+      const chosen = jobs
+        .slice()
+        .sort((a, b) => (PRIORITY[a.role] ?? 9) - (PRIORITY[b.role] ?? 9))[0];
+      await this.enqueueJob({
+        companyId,
+        printerId,
+        orderId,
+        template: chosen.role,
+        payload: { ...basePayload, template: chosen.role, items: chosen.items },
+      });
+    }
+  }
 }

@@ -422,9 +422,11 @@ export class OrdersService {
   /**
    * Classifica os itens do pedido por setor (mesma regra do
    * frontend/components/printing/PrintRouterService.ts: categoryType
-   * "bebidas" → BAR, demais → KITCHEN) e enfileira um PrinterJob por
-   * impressora ativa em cada papel (KITCHEN/BAR/COUNTER/DELIVERY).
-   * Mantenha as duas regras em sincronia caso uma mude.
+   * "bebidas" → BAR, demais → KITCHEN) e delega o enfileiramento pro
+   * PrintersService.enqueueSectorJobs — que já deduplica por impressora
+   * física (loja com 1 impressora só nunca recebe 2-3 tickets do mesmo
+   * pedido, ver comentário lá). Mantenha as duas regras em sincronia caso
+   * uma mude.
    */
   private async enqueuePrintJobs(
     companyId: string,
@@ -479,26 +481,12 @@ export class OrdersService {
       sectorJobs.push({ role: 'DELIVERY', items: [...kitchenItems, ...barItems] });
     }
 
-    for (const { role, items } of sectorJobs) {
-      const profiles = await this.prisma.printerProfile.findMany({
-        where: {
-          companyId,
-          role,
-          isActive: true,
-          printer: { isActive: true },
-        },
-        select: { printerId: true },
-      });
-      for (const profile of profiles) {
-        await this.printersService.enqueueJob({
-          companyId,
-          printerId: profile.printerId,
-          orderId: order.id,
-          template: role,
-          payload: { ...basePayload, template: role, items },
-        });
-      }
-    }
+    await this.printersService.enqueueSectorJobs(
+      companyId,
+      order.id,
+      sectorJobs,
+      basePayload,
+    );
 
     // Notify all connected printer agents in real time
     if (this.printersGateway) {

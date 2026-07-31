@@ -45,7 +45,8 @@ const STATUS_PT: Record<string, { label: string; color: string }> = {
 
 const PAY_LABELS: Record<string, string> = {
   PIX: "PIX", CASH: "Dinheiro",
-  CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito", TRANSFER: "Transferência",
+  CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito", MEAL_VOUCHER: "Vale-Refeição",
+  TRANSFER: "Transferência",
 };
 
 function fmtDate(iso: string) {

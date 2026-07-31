@@ -411,7 +411,11 @@ export class OnlineOrdersService {
    * de setores de orders.service.ts (categoryType "bebidas" → BAR, resto →
    * KITCHEN, sempre gera COUNTER, gera DELIVERY se for entrega). Totem não
    * gera COUNTER (pré-conta não faz sentido pro cliente que já está na loja
-   * — mesma regra já aplicada no PrintRouterService do frontend).
+   * — mesma regra já aplicada no PrintRouterService do frontend). O
+   * enfileiramento em si delega pro PrintersService.enqueueSectorJobs, que
+   * deduplica por impressora física — loja com 1 impressora só (perfis
+   * KITCHEN/COUNTER/DELIVERY todos apontando pra ela) recebe só 1 ticket
+   * por pedido, não 3.
    */
   private async enqueuePrintJobs(
     companyId: string,
@@ -471,26 +475,12 @@ export class OnlineOrdersService {
       sectorJobs.push({ role: 'DELIVERY', items: [...kitchenItems, ...barItems] });
     }
 
-    for (const { role, items: sectorItems } of sectorJobs) {
-      const profiles = await this.prisma.printerProfile.findMany({
-        where: {
-          companyId,
-          role,
-          isActive: true,
-          printer: { isActive: true },
-        },
-        select: { printerId: true },
-      });
-      for (const profile of profiles) {
-        await this.printersService.enqueueJob({
-          companyId,
-          printerId: profile.printerId,
-          orderId: order.id,
-          template: role,
-          payload: { ...basePayload, template: role, items: sectorItems },
-        });
-      }
-    }
+    await this.printersService.enqueueSectorJobs(
+      companyId,
+      order.id,
+      sectorJobs,
+      basePayload,
+    );
   }
 
   /**

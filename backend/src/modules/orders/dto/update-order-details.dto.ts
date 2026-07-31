@@ -37,4 +37,12 @@ export class UpdateOrderDetailsDto {
   @IsOptional()
   @IsString()
   neighborhood?: string;
+
+  @IsOptional()
+  @IsString()
+  customerName?: string;
+
+  @IsOptional()
+  @IsString()
+  customerPhone?: string;
 }

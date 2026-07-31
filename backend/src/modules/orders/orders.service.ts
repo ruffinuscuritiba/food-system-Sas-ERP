@@ -1085,6 +1085,8 @@ export class OrdersService {
       orderType?: string;
       deliveryAddress?: string;
       neighborhood?: string;
+      customerName?: string;
+      customerPhone?: string;
     },
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -1098,6 +1100,16 @@ export class OrdersService {
 
       const data: Record<string, any> = {};
       let newTotal = Number(order.total);
+
+      // ── Nome/telefone do cliente ──────────────────────────────────────
+      // Snapshot no pedido — cliente informou errado na hora, ou pedido
+      // veio do WhatsApp sem telefone capturado corretamente.
+      if (dto.customerName !== undefined) {
+        data.customerName = dto.customerName.trim() || null;
+      }
+      if (dto.customerPhone !== undefined) {
+        data.customerPhone = dto.customerPhone.trim() || null;
+      }
 
       // ── Conversão retirada <-> entrega ──────────────────────────────────
       if (dto.orderType && dto.orderType !== order.orderType) {

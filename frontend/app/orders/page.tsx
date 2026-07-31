@@ -71,7 +71,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 const PAY_LABELS: Record<string, string> = {
   PIX: "PIX", CASH: "Dinheiro", CREDIT_CARD: "Crédito",
-  DEBIT_CARD: "Débito", TRANSFER: "Transferência",
+  DEBIT_CARD: "Débito", MEAL_VOUCHER: "Vale-Refeição", TRANSFER: "Transferência",
 };
 
 const HISTORY_STATUSES = new Set(["DELIVERED", "CANCELLED"]);

@@ -54,15 +54,16 @@ const DEFAULT_SETTINGS: PrintingSettings = {
   pizzaItemFormat: "compact",
   addonGrouping:   true,
   printMode:         "ALL",
-  printPaymentTypes: ["PIX", "CREDIT_CARD", "DEBIT_CARD", "TRANSFER"],
+  printPaymentTypes: ["PIX", "CREDIT_CARD", "DEBIT_CARD", "MEAL_VOUCHER", "TRANSFER"],
 };
 
 export const PAYMENT_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: "CASH",        label: "Dinheiro" },
-  { value: "PIX",         label: "PIX" },
-  { value: "CREDIT_CARD", label: "Cartão de Crédito" },
-  { value: "DEBIT_CARD",  label: "Cartão de Débito" },
-  { value: "TRANSFER",    label: "Transferência" },
+  { value: "CASH",         label: "Dinheiro" },
+  { value: "PIX",          label: "PIX" },
+  { value: "CREDIT_CARD",  label: "Cartão de Crédito" },
+  { value: "DEBIT_CARD",   label: "Cartão de Débito" },
+  { value: "MEAL_VOUCHER", label: "Vale-Refeição" },
+  { value: "TRANSFER",     label: "Transferência" },
 ];
 
 interface PrinterRecord {

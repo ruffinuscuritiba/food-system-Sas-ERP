@@ -342,7 +342,7 @@ export default function BIPage() {
               <div className="space-y-3">
                 {Object.entries(revenue.byPaymentMethod).sort(([, a], [, b]) => b - a).map(([method, value]) => {
                   const pctVal = revenue.totalRevenue > 0 ? value / revenue.totalRevenue : 0;
-                  const labels: Record<string, string> = { PIX: "Pix", CASH: "Dinheiro", CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito", TRANSFER: "Transferência" };
+                  const labels: Record<string, string> = { PIX: "Pix", CASH: "Dinheiro", CREDIT_CARD: "Crédito", DEBIT_CARD: "Débito", MEAL_VOUCHER: "Vale-Refeição", TRANSFER: "Transferência" };
                   return (
                     <div key={method}>
                       <div className="flex justify-between text-sm mb-1">

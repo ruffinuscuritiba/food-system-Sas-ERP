@@ -131,11 +131,12 @@ export function printTicket(html: string): boolean {
 // ── Helpers shared by builders ────────────────────────────────────────────────
 
 export const PAY_LABELS: Record<string, string> = {
-  PIX:         "PIX",
-  CASH:        "Dinheiro",
-  CREDIT_CARD: "Cartão de Crédito",
-  DEBIT_CARD:  "Cartão de Débito",
-  TRANSFER:    "Transferência",
+  PIX:          "PIX",
+  CASH:         "Dinheiro",
+  CREDIT_CARD:  "Cartão de Crédito",
+  DEBIT_CARD:   "Cartão de Débito",
+  MEAL_VOUCHER: "Vale-Refeição",
+  TRANSFER:     "Transferência",
 };
 
 export const TYPE_LABELS: Record<string, string> = {

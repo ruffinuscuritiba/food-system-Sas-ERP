@@ -65,6 +65,7 @@ enum PaymentMethod {
   CREDIT_CARD
   DEBIT_CARD
   TRANSFER
+  MEAL_VOUCHER
 }
 
 enum OrderType {

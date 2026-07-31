@@ -128,7 +128,7 @@ export default function KitchenPage() {
 
   return (
     <>
-      <audio ref={audioRef} src="/notification.mp3" />
+      <audio ref={audioRef} src="/notification.wav" />
       <button
         onClick={() => setSoundEnabled(s => !s)}
         title={soundEnabled ? "Silenciar alertas" : "Ativar alertas"}

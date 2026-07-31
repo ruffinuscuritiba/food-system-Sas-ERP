@@ -981,11 +981,28 @@ export default function MenuPage() {
     finally { setStreetLoading(false); }
   }
 
-  function selectStreetSuggestion(item: any) {
+  async function selectStreetSuggestion(item: any) {
     const addr = item.address;
     const stateIso: string = addr['ISO3166-2-lvl4'] ?? '';
     const stateCode = stateIso.length >= 2 ? stateIso.slice(-2) : (addr.state ?? '');
-    const geocodedNeighborhood = addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? '';
+    let geocodedNeighborhood = addr.suburb ?? addr.neighbourhood ?? addr.quarter ?? '';
+    const postcode = String(addr.postcode ?? '').replace(/\D/g, '');
+
+    // Nominatim/OSM frequentemente devolve o CEP mas não a tag de bairro
+    // (cobertura inconsistente pra ruas menores no Brasil — confirmado: CEP
+    // preenchia, bairro ficava vazio). Quando isso acontece, usa o CEP que
+    // o Nominatim já achou pra completar o bairro via ViaCEP (dado bem mais
+    // completo pro Brasil) em vez de deixar o campo esperando digitação manual.
+    if (!geocodedNeighborhood && postcode.length === 8) {
+      try {
+        const r = await fetch(`https://viacep.com.br/ws/${postcode}/json/`);
+        if (r.ok) {
+          const d = await r.json();
+          if (!d.erro && d.bairro) geocodedNeighborhood = d.bairro;
+        }
+      } catch { /* silent — mantém só o que o Nominatim já deu */ }
+    }
+
     const resolvedNeighborhood = geocodedNeighborhood ? applyResolvedNeighborhood(geocodedNeighborhood) : '';
     setForm((f) => ({
       ...f,

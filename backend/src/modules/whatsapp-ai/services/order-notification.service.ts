@@ -8,6 +8,13 @@ import {
   formatOrderItems,
   PAYMENT_LABELS,
 } from './notification-templates';
+import { ReceiptImageService, ReceiptItem } from './receipt-image.service';
+
+const TYPE_LABELS: Record<string, string> = {
+  DELIVERY: 'DELIVERY',
+  PICKUP: 'RETIRADA',
+  DINE_IN: 'BALCÃO',
+};
 
 /**
  * OrderNotificationService
@@ -28,23 +35,32 @@ import {
 export class OrderNotificationService {
   private readonly log = new Logger('OrderNotificationService');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly receiptImageService: ReceiptImageService,
+  ) {}
 
   // ── 1. Confirmação completa de pedido ────────────────────────────────────────
 
   /**
-   * Envia mensagem detalhada de confirmação quando um pedido é fechado.
-   * Inclui: número, itens, total, pagamento e endereço.
+   * Envia a confirmação de pedido fechado. Tenta primeiro um cupom em
+   * imagem (fundo creme, visual de recibo impresso — WhatsApp não permite
+   * cor de fundo em mensagem de texto, só mídia); se a geração/envio da
+   * imagem falhar por qualquer motivo (provider sem suporte a mídia, erro
+   * de render, falha de rede), cai automaticamente pra mensagem de texto
+   * já validada em produção — nunca deixa o cliente sem nenhuma confirmação.
    */
   async notifyOrderConfirmed(params: {
     companyId: string;
     orderId: string;
     customerPhone: string;
     customerName?: string;
+    orderType?: string;
     items: {
       name: string;
       quantity: number;
       unitPrice?: number;
+      categoryType?: string | null;
       complements?: { name: string; price: number }[];
     }[];
     subtotal?: number;
@@ -87,8 +103,11 @@ export class OrderNotificationService {
           ? 'Consumo no local'
           : 'Retirada no balcão'
         : rawAddress;
+    const isDelivery = !!rawAddress && rawAddress.toUpperCase() !== 'INTERNO';
 
-    const message = tplOrderConfirmed({
+    // Fallback de texto — sempre calculado, usado se a imagem falhar por
+    // qualquer razão (nunca deixa o pedido sem confirmação nenhuma).
+    const textMessage = tplOrderConfirmed({
       name: params.customerName ?? '',
       orderId: shortId,
       items,
@@ -99,8 +118,67 @@ export class OrderNotificationService {
       address,
     });
 
-    await this.dispatch(connection, phone, message);
-    this.log.log(`Confirmação enviada — order #${shortId} → ${phone}`);
+    try {
+      const company = await this.prisma.company.findUnique({
+        where: { id: params.companyId },
+        select: {
+          name: true,
+          cnpj: true,
+          street: true,
+          streetNumber: true,
+          neighborhood: true,
+          city: true,
+          slug: true,
+        },
+      });
+      const addressLine = [company?.street, company?.streetNumber, company?.neighborhood]
+        .filter(Boolean)
+        .join(', ');
+
+      const receiptItems: ReceiptItem[] = params.items.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        categoryType: i.categoryType ?? null,
+        complements: i.complements,
+      }));
+
+      const png = await this.receiptImageService.render({
+        companyName: company?.name ?? 'Pedido',
+        cnpj: company?.cnpj ?? null,
+        addressLine: addressLine || null,
+        orderId: shortId,
+        orderTypeLabel: TYPE_LABELS[params.orderType ?? ''] ?? (isDelivery ? 'DELIVERY' : 'BALCÃO'),
+        createdAt: new Date(),
+        customerName: params.customerName ?? null,
+        deliveryAddress: isDelivery ? rawAddress ?? null : null,
+        items: receiptItems,
+        subtotalLabel: subtotal ?? null,
+        deliveryFeeLabel: deliveryFee ?? null,
+        totalLabel: total,
+        paymentLabel: payment,
+        websiteFooter: company?.slug ? `foodsaas.com.br/menu/${company.slug}` : null,
+      });
+
+      const dataUrl = `data:image/png;base64,${png.toString('base64')}`;
+      const sent = await this.dispatchMedia(connection, phone, dataUrl, '');
+      if (sent) {
+        this.log.log(`Confirmação (imagem) enviada — order #${shortId} → ${phone}`);
+        return;
+      }
+      this.log.warn(
+        `notifyOrderConfirmed: envio da imagem falhou, caindo pro texto — order #${shortId}`,
+      );
+    } catch (err: any) {
+      this.log.warn(
+        `notifyOrderConfirmed: falha ao gerar cupom-imagem, caindo pro texto (order #${shortId}): ${err?.message}`,
+      );
+    }
+
+    const sentText = await this.dispatch(connection, phone, textMessage);
+    this.log.log(
+      `Confirmação (texto${sentText ? '' : ' — FALHOU'}) — order #${shortId} → ${phone}`,
+    );
   }
 
   // ── 2. Gatilho de mudança de status ─────────────────────────────────────────
@@ -141,9 +219,9 @@ export class OrderNotificationService {
     const shortId = params.orderId.slice(-6).toUpperCase();
     const message = templateFn(shortId, params.customerName, params.orderType);
 
-    await this.dispatch(connection, phone, message);
+    const sent = await this.dispatch(connection, phone, message);
     this.log.log(
-      `Status "${params.newStatus}" notificado — order #${shortId} → ${phone}`,
+      `Status "${params.newStatus}"${sent ? '' : ' — FALHOU'} — order #${shortId} → ${phone}`,
     );
   }
 
@@ -169,7 +247,7 @@ export class OrderNotificationService {
     connection: any,
     phone: string,
     text: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       if (
         connection.provider === 'EVOLUTION' &&
@@ -186,7 +264,11 @@ export class OrderNotificationService {
           body: JSON.stringify({ number: phone, text }),
           signal: AbortSignal.timeout(15_000),
         });
-        if (!res.ok) this.log.warn(`Evolution dispatch HTTP ${res.status}`);
+        if (!res.ok) {
+          this.log.warn(`Evolution dispatch HTTP ${res.status}`);
+          return false;
+        }
+        return true;
       } else if (
         connection.provider === 'CLOUD_API' &&
         connection.phoneNumberId
@@ -206,14 +288,74 @@ export class OrderNotificationService {
           }),
           signal: AbortSignal.timeout(15_000),
         });
-        if (!res.ok) this.log.warn(`Cloud API dispatch HTTP ${res.status}`);
-      } else {
-        this.log.warn(
-          `dispatch: provider "${connection.provider}" não suportado ou incompleto`,
-        );
+        if (!res.ok) {
+          this.log.warn(`Cloud API dispatch HTTP ${res.status}`);
+          return false;
+        }
+        return true;
       }
+      this.log.warn(
+        `dispatch: provider "${connection.provider}" não suportado ou incompleto`,
+      );
+      return false;
     } catch (err: any) {
       this.log.warn(`dispatch error: ${err?.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Envia uma imagem (data URL base64) como mídia. Só suportado no provider
+   * EVOLUTION hoje — Cloud API (Meta) exige upload prévio pra media ID, que
+   * não implementamos aqui; o caller já cai pro texto automaticamente
+   * quando isso retorna false.
+   */
+  private async dispatchMedia(
+    connection: any,
+    phone: string,
+    imageDataUrl: string,
+    caption: string,
+  ): Promise<boolean> {
+    try {
+      if (
+        connection.provider !== 'EVOLUTION' ||
+        !connection.apiUrl ||
+        !connection.instanceName
+      ) {
+        this.log.warn(
+          `dispatchMedia: provider "${connection.provider}" não suporta mídia aqui`,
+        );
+        return false;
+      }
+      const media = imageDataUrl.startsWith('data:')
+        ? imageDataUrl.split(',').slice(1).join(',')
+        : imageDataUrl;
+      const url = `${String(connection.apiUrl).replace(/\/$/, '')}/message/sendMedia/${connection.instanceName}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: connection.apiToken ?? '',
+        },
+        body: JSON.stringify({
+          number: phone,
+          mediatype: 'image',
+          mimetype: 'image/png',
+          media,
+          caption,
+          fileName: 'pedido.png',
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        this.log.warn(`dispatchMedia Evolution HTTP ${res.status}: ${body.slice(0, 200)}`);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      this.log.warn(`dispatchMedia error: ${err?.message}`);
+      return false;
     }
   }
 }

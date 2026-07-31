@@ -27,6 +27,8 @@ import { DeliveryConfigService } from '../delivery-config/delivery-config.servic
 import { PrintersService } from '../printers/printers.service';
 import { PrintersGateway } from '../printers/printers.gateway';
 import { OnlineOrdersService } from '../online-orders/online-orders.service';
+import { ReportsService } from '../reports/reports.service';
+import { getStartOfTodayBrazil, toBrazilDateKey } from '@/common/utils/timezone';
 
 // Números BR ganharam o 9º dígito móvel em 2016 — clientes/atendentes ainda
 // digitam sem ele por hábito ("67 9688-3803" em vez de "67 9 9688-3803").
@@ -44,6 +46,29 @@ function buildPhoneCandidates(rawDigits: string): string[] {
     candidates.add(rawDigits.slice(0, 4) + rawDigits.slice(5));
   }
   return [...candidates];
+}
+
+const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+
+/**
+ * Preenche os 7 dias entre `weekAgo` e hoje com o valor real de vendas
+ * (0 pro dia que não teve nenhum pedido) — `dailySeries` do ReportsService
+ * só tem entrada pros dias que tiveram pedido, então sem esse fill o
+ * gráfico "Fluxo de Caixa" pularia dias vazios em vez de mostrar R$ 0.
+ */
+function buildWeekSeries(
+  weekAgo: Date,
+  dailySeries: { date: string; revenue: number }[],
+): { name: string; vendas: number }[] {
+  const byDate = new Map(dailySeries.map((d) => [d.date, d.revenue]));
+  const days: { name: string; vendas: number }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekAgo);
+    d.setDate(d.getDate() + i);
+    const key = toBrazilDateKey(d);
+    days.push({ name: WEEKDAY_LABELS[d.getDay()], vendas: byDate.get(key) ?? 0 });
+  }
+  return days;
 }
 
 @Injectable()
@@ -82,6 +107,9 @@ export class OrdersService {
 
     @Optional()
     private loyaltyMilestones?: LoyaltyMilestonesService,
+
+    @Optional()
+    private reportsService?: ReportsService,
   ) {}
 
   async create(data: any) {
@@ -634,7 +662,12 @@ export class OrdersService {
       },
 
       include: {
-        items: { include: { selectedComplements: true } },
+        items: {
+          include: {
+            selectedComplements: true,
+            product: { include: { category: { select: { categoryType: true } } } },
+          },
+        },
         customer: true,
       },
     });
@@ -942,10 +975,12 @@ export class OrdersService {
               orderId: order.id,
               customerPhone,
               customerName: customerName ?? undefined,
+              orderType: (order as any).orderType ?? undefined,
               items: order.items.map((i: any) => ({
                 name: i.productName ?? 'Item',
                 quantity: Number(i.quantity),
                 unitPrice: Number(i.unitPrice ?? 0),
+                categoryType: i.product?.category?.categoryType ?? null,
                 complements: (i.selectedComplements ?? []).map((c: any) => ({
                   name: c.optionName,
                   price: Number(c.price ?? 0),
@@ -1157,30 +1192,61 @@ export class OrdersService {
     });
   }
 
+  /**
+   * KPIs do dashboard (hoje). Unifica Order (PDV/mesa/WhatsApp) + OnlineOrder
+   * (cardápio digital/totem) via ReportsService.getRevenue — antes essa
+   * função só consultava `Order`, então toda loja que recebe pedido pelo
+   * cardápio digital (o canal mais comum) tinha "Pedidos"/"Vendas" no
+   * dashboard subestimados (achado real: 3 pedidos reais no dia, painel
+   * mostrando só 1). Também exclui CANCELLED da contagem, que o método
+   * antigo incluía por engano.
+   *
+   * Os nomes de campo abaixo (`revenue`, `averageTicket`, `totalProfit`,
+   * `totalCmv`, `margin`) espelham exatamente o que os 2 consumidores do
+   * frontend leem (`app/page.tsx` e `app/dashboard/page.tsx`) — nenhum dos
+   * dois lia `totalRevenue` sozinho, então "Vendas"/"Ticket Médio" ficavam
+   * sempre R$ 0 independente de venda real, bug separado da subestimação.
+   */
   async dashboard(companyId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getStartOfTodayBrazil();
+    const now = new Date();
 
+    if (this.reportsService) {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 6);
+      const [report, weekReport] = await Promise.all([
+        this.reportsService.getRevenue(companyId, { from: today, to: now }),
+        this.reportsService.getRevenue(companyId, { from: weekAgo, to: now }),
+      ]);
+      return {
+        totalOrders: report.orderCount,
+        totalRevenue: report.totalRevenue,
+        revenue: report.totalRevenue,
+        averageTicket: report.avgTicket,
+        totalProfit: report.grossProfit,
+        totalCmv: report.totalCmv,
+        margin: report.grossMargin * 100,
+        weekSeries: buildWeekSeries(weekAgo, weekReport.dailySeries),
+      };
+    }
+
+    // Fallback defensivo — nunca deve rodar em produção (ReportsModule
+    // sempre importado), mantido só por robustez caso a injeção falhe.
     const orders = await this.prisma.order.findMany({
-      where: {
-        companyId,
-        createdAt: { gte: today },
-      },
+      where: { companyId, createdAt: { gte: today }, status: { not: OrderStatus.CANCELLED } },
     });
-
     const totalOrders = orders.length;
-    const totalRevenue = orders.reduce(
-      (acc, order) => acc + Number(order.total),
-      0,
-    );
-    const pendingOrders = orders.filter(
-      (order) => order.status === OrderStatus.PENDING,
-    ).length;
-    const confirmedOrders = orders.filter(
-      (order) => order.status === OrderStatus.CONFIRMED,
-    ).length;
-
-    return { totalOrders, totalRevenue, pendingOrders, confirmedOrders };
+    const totalRevenue = orders.reduce((acc, order) => acc + Number(order.total), 0);
+    return {
+      totalOrders,
+      totalRevenue,
+      revenue: totalRevenue,
+      averageTicket: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+      totalProfit: 0,
+      totalCmv: 0,
+      margin: 0,
+      weekSeries: [],
+    };
   }
 
   static readonly KITCHEN_STATUSES = [
@@ -1446,15 +1512,32 @@ export class OrdersService {
                       .filter(Boolean)
                       .join(', ')
                   : undefined;
+              // Batch lookup de categoria (mesmo padrão de enqueuePrintJobs)
+              // pra agrupar o cupom-imagem em seções PIZZAS/BEBIDAS/etc.
+              const productIds = rawItems
+                .map((i) => i.productId)
+                .filter(Boolean);
+              const categoryMap = new Map<string, string>();
+              if (productIds.length > 0) {
+                const products = await this.prisma.product.findMany({
+                  where: { id: { in: productIds } },
+                  select: { id: true, category: { select: { categoryType: true } } },
+                });
+                for (const p of products) {
+                  if (p.category?.categoryType) categoryMap.set(p.id, p.category.categoryType);
+                }
+              }
               await this.orderNotificationService!.notifyOrderConfirmed({
                 companyId,
                 orderId: id,
                 customerPhone: fullOrder.customerPhone,
                 customerName: fullOrder.customerName ?? undefined,
+                orderType: fullOrder.orderType ?? undefined,
                 items: rawItems.map((i) => ({
                   name: i.productName ?? i.name ?? 'Item',
                   quantity: Number(i.quantity ?? 1),
                   unitPrice: Number(i.unitPrice ?? i.price ?? 0),
+                  categoryType: i.productId ? categoryMap.get(i.productId) ?? null : null,
                 })),
                 subtotal: Number(fullOrder.subtotal),
                 deliveryFee: Number(fullOrder.deliveryFee ?? 0),

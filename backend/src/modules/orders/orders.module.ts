@@ -16,6 +16,7 @@ import { QrCampaignsModule } from '../qr-campaigns/qr-campaigns.module';
 import { PrintersModule } from '../printers/printers.module';
 import { OnlineOrdersModule } from '../online-orders/online-orders.module';
 import { LoyaltyMilestonesModule } from '../loyalty-milestones/loyalty-milestones.module';
+import { ReportsModule } from '../reports/reports.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { LoyaltyMilestonesModule } from '../loyalty-milestones/loyalty-milestone
     PrintersModule,
     forwardRef(() => OnlineOrdersModule),
     LoyaltyMilestonesModule,
+    ReportsModule,
   ],
 
   controllers: [OrdersController],

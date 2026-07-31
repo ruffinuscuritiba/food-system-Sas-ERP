@@ -121,11 +121,14 @@ export class OnlineOrdersService {
 
     // Zone lookup: resolve real deliveryFee for DELIVERY orders (menu always sends 0)
     let deliveryZoneId: string | undefined;
-    if (orderType === 'DELIVERY' && dto.neighborhood) {
-      const zone = await this.deliveryConfigService.getFeeForNeighborhood(
-        dto.companyId,
-        dto.neighborhood,
-      );
+    if (orderType === 'DELIVERY') {
+      const addressLine = [dto.address, dto.addressNumber, dto.neighborhood, dto.city]
+        .filter(Boolean)
+        .join(', ');
+      const zone = await this.deliveryConfigService.resolveDeliveryFee(dto.companyId, {
+        neighborhood: dto.neighborhood,
+        addressLine: addressLine || null,
+      });
       if (zone) {
         if (deliveryFee === 0) deliveryFee = Number(zone.clientFee);
         deliveryZoneId = zone.id;

@@ -226,11 +226,11 @@ export class OrdersService {
           },
           select: { id: true, clientFee: true, driverShare: true },
         });
-      } else if (neighborhood) {
-        zone = await this.deliveryConfigService.getFeeForNeighborhood(
-          data.companyId,
+      } else {
+        zone = await this.deliveryConfigService.resolveDeliveryFee(data.companyId, {
           neighborhood,
-        );
+          addressLine: data.deliveryAddress || null,
+        });
       }
 
       if (zone) {
@@ -1124,11 +1124,11 @@ export class OrdersService {
           }
           deliveryAddress = dto.deliveryAddress.trim();
           neighborhood = dto.neighborhood?.trim() || null;
-          if (neighborhood && this.deliveryConfigService) {
-            const zone = await this.deliveryConfigService.getFeeForNeighborhood(
-              companyId,
+          if (this.deliveryConfigService) {
+            const zone = await this.deliveryConfigService.resolveDeliveryFee(companyId, {
               neighborhood,
-            );
+              addressLine: deliveryAddress,
+            });
             if (zone) {
               deliveryFee = Number(zone.clientFee);
               driverFee = zone.driverShare != null ? Number(zone.driverShare) : null;

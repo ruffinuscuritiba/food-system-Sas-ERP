@@ -90,6 +90,16 @@ export class OrderNotificationService {
       params.deliveryFee != null && params.deliveryFee > 0
         ? money(params.deliveryFee)
         : undefined;
+    // Order (PDV) não tem campo de desconto no schema (negociação avulsa
+    // direto com a loja, fora de qualquer sistema de cupom) — sem isso, um
+    // pedido com total menor que subtotal+taxa aparecia sem NENHUMA
+    // explicação da diferença (achado real: cliente via só subtotal e um
+    // total bem menor, sem entender por quê). Deriva o valor implícito.
+    const impliedDiscount = Math.max(
+      0,
+      (params.subtotal ?? params.total) + (params.deliveryFee ?? 0) - params.total,
+    );
+    const discount = impliedDiscount > 0.01 ? money(impliedDiscount) : undefined;
     const payment =
       PAYMENT_LABELS[params.paymentMethod] ?? params.paymentMethod;
     // Pedido de mesa/consumo local grava deliveryAddress como o literal
@@ -113,6 +123,7 @@ export class OrderNotificationService {
       items,
       subtotal,
       deliveryFee,
+      discount,
       total,
       payment,
       address,
@@ -155,6 +166,7 @@ export class OrderNotificationService {
         items: receiptItems,
         subtotalLabel: subtotal ?? null,
         deliveryFeeLabel: deliveryFee ?? null,
+        discountLabel: discount ?? null,
         totalLabel: total,
         paymentLabel: payment,
         websiteFooter: company?.slug ? `foodsaas.com.br/menu/${company.slug}` : null,

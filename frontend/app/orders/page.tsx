@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import {
   ShoppingCart, Printer, Clock, Truck, CheckCircle2, History,
   Phone, User, MapPin, X, Save, ChevronRight, RefreshCw,
+  SplitSquareHorizontal, Plus, Minus,
 } from "lucide-react";
 import { type PrintableOrder } from "@/components/printing/printTicket";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
@@ -151,6 +152,34 @@ function EditNotesModal({
   const [neighborhood, setNeighborhood] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Pagamento dividido (ex: "26 no dinheiro + 8 no PIX") -- mesma
+  // capacidade que já existe na criação do pedido no PDV (PaymentModal),
+  // só que não existia ainda pra CORRIGIR um pedido já criado.
+  const [splitMode, setSplitMode] = useState(false);
+  const [splits, setSplits] = useState<{ method: string; amount: string }[]>([
+    { method: order.paymentMethod, amount: "" },
+    { method: "PIX", amount: "" },
+  ]);
+  const splitTotal = splits.reduce((a, s) => a + (parseFloat(s.amount) || 0), 0);
+  const splitDiff = Number(order.total) - splitTotal;
+
+  function updateSplit(idx: number, patch: Partial<{ method: string; amount: string }>) {
+    setSplits((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  }
+  function addSplit() {
+    if (splits.length >= 3) return;
+    setSplits((prev) => [...prev, { method: "CASH", amount: "" }]);
+  }
+  function removeSplit(idx: number) {
+    if (splits.length <= 2) return;
+    setSplits((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function autoFillSplit(idx: number) {
+    const otherSum = splits.reduce((a, s, i) => (i === idx ? a : a + (parseFloat(s.amount) || 0)), 0);
+    const remaining = Math.max(0, Number(order.total) - otherSum);
+    updateSplit(idx, { amount: remaining.toFixed(2) });
+  }
+
   // Depois de despachado/entregue não faz sentido converter o tipo (mudar
   // pra "entrega" um pedido que já saiu como retirada, por ex.) — forma de
   // pagamento continua editável em qualquer status, é o caso real que gerou
@@ -163,19 +192,35 @@ function EditNotesModal({
       toast.error("Informe o endereço de entrega");
       return;
     }
+    if (splitMode && Math.abs(splitDiff) > 0.01) {
+      toast.error(`A soma da divisão precisa bater com o total (falta R$ ${splitDiff.toFixed(2)})`);
+      return;
+    }
     setSaving(true);
     try {
-      if (notes !== (order.notes || "")) {
+      // Pagamento dividido: o schema só tem UM campo paymentMethod (mesma
+      // limitação de quando o pedido é criado dividido no PDV) -- usa o
+      // método do 1º split como "oficial" e registra o detalhamento como
+      // observação legível, igual ao padrão já usado em app/pdv/page.tsx.
+      const splitNote = splitMode
+        ? `Pgto dividido: ${splits.filter(s => parseFloat(s.amount) > 0).map(s => `${PAY_LABELS[s.method] ?? s.method} R$${(parseFloat(s.amount) || 0).toFixed(2)}`).join(" + ")}`
+        : null;
+      const finalNotes = splitNote
+        ? [notes.trim(), splitNote].filter(Boolean).join("\n")
+        : notes;
+      const finalPaymentMethod = splitMode ? splits[0].method : paymentMethod;
+
+      if (finalNotes !== (order.notes || "")) {
         // Sem endpoint PATCH genérico pra notes ainda — reaproveita /status
         // mantendo o status atual (não altera o fluxo da cozinha).
-        await api.patch(`/orders/${order.id}/status`, { status: order.status, notes });
+        await api.patch(`/orders/${order.id}/status`, { status: order.status, notes: finalNotes });
       }
 
       const detailsChanged =
-        paymentMethod !== order.paymentMethod || orderType !== (order.orderType || "PICKUP");
+        finalPaymentMethod !== order.paymentMethod || orderType !== (order.orderType || "PICKUP");
       if (detailsChanged) {
         await api.patch(`/orders/${order.id}/details`, {
-          ...(paymentMethod !== order.paymentMethod && { paymentMethod }),
+          ...(finalPaymentMethod !== order.paymentMethod && { paymentMethod: finalPaymentMethod }),
           ...(orderType !== (order.orderType || "PICKUP") && { orderType }),
           ...(convertingToDelivery && {
             deliveryAddress: deliveryAddress.trim(),
@@ -203,25 +248,86 @@ function EditNotesModal({
         </div>
         <div className="px-5 py-4 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
-              Forma de pagamento
-            </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {Object.entries(PAY_LABELS).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setPaymentMethod(value)}
-                  className={`text-xs font-semibold py-2 rounded-lg border transition ${
-                    paymentMethod === value
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">
+                Forma de pagamento
+              </label>
+              <button
+                type="button"
+                onClick={() => setSplitMode((v) => !v)}
+                className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition ${
+                  splitMode
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <SplitSquareHorizontal size={11} /> Dividir
+              </button>
             </div>
+
+            {!splitMode ? (
+              <div className="grid grid-cols-3 gap-1.5">
+                {Object.entries(PAY_LABELS).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPaymentMethod(value)}
+                    className={`text-xs font-semibold py-2 rounded-lg border transition ${
+                      paymentMethod === value
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2 bg-gray-50 border border-gray-100 rounded-xl p-3">
+                {splits.map((s, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <select
+                      value={s.method}
+                      onChange={(e) => updateSplit(idx, { method: e.target.value })}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none bg-white"
+                    >
+                      {Object.entries(PAY_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                    <div className="relative w-24 shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">R$</span>
+                      <input
+                        value={s.amount}
+                        onChange={(e) => updateSplit(idx, { amount: e.target.value.replace(",", ".") })}
+                        onFocus={() => !s.amount && autoFillSplit(idx)}
+                        placeholder="0,00"
+                        inputMode="decimal"
+                        className="w-full border border-gray-200 rounded-lg pl-6 pr-2 py-1.5 text-xs outline-none"
+                      />
+                    </div>
+                    {splits.length > 2 && (
+                      <button type="button" onClick={() => removeSplit(idx)} className="text-gray-400 hover:text-red-500 shrink-0">
+                        <Minus size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {splits.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={addSplit}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    <Plus size={12} /> Adicionar forma
+                  </button>
+                )}
+                <div className={`text-[11px] font-semibold flex justify-between pt-1 border-t border-gray-200 ${Math.abs(splitDiff) > 0.01 ? "text-red-500" : "text-green-600"}`}>
+                  <span>Total do pedido: R$ {Number(order.total).toFixed(2)}</span>
+                  <span>{Math.abs(splitDiff) > 0.01 ? `Falta R$ ${splitDiff.toFixed(2)}` : "✓ Confere"}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

@@ -47,6 +47,7 @@ export interface ReceiptImageParams {
   items: ReceiptItem[];
   subtotalLabel?: string | null;
   deliveryFeeLabel?: string | null;
+  discountLabel?: string | null;
   totalLabel: string;
   paymentLabel: string;
   websiteFooter?: string | null;
@@ -217,6 +218,7 @@ export class ReceiptImageService {
 
     if (params.subtotalLabel) height += 18;
     if (params.deliveryFeeLabel) height += 18;
+    if (params.discountLabel) height += 18;
     height += 30; // total
     height += 20; // pagamento
     height += 22; // separador
@@ -389,6 +391,15 @@ export class ReceiptImageService {
         textRow('Taxa de entrega', params.deliveryFeeLabel, {
           fontSize: 12,
           marginTop: 4,
+        }),
+      );
+    }
+    if (params.discountLabel) {
+      totalsChildren.push(
+        textRow('Desconto', `-${params.discountLabel}`, {
+          fontSize: 12,
+          marginTop: 4,
+          color: '#a13f3f',
         }),
       );
     }

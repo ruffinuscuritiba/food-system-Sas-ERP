@@ -29,16 +29,23 @@ export function tplOrderConfirmed(params: {
   items: string;
   subtotal?: string;
   deliveryFee?: string;
+  discount?: string;
   total: string;
   payment: string;
   address: string;
 }): string {
   const greeting = params.name ? `Olá, *${params.name}*! ` : '';
-  // Só mostra o detalhamento Subtotal/Taxa quando há taxa de entrega — pedido
-  // de retirada/balcão (deliveryFee ausente) fica só com o Total, sem uma
-  // linha "Taxa de entrega: R$ 0,00" sem sentido.
-  const breakdown = params.deliveryFee
-    ? `Subtotal: ${params.subtotal}\nTaxa de entrega: ${params.deliveryFee}\n`
+  // Só mostra o detalhamento Subtotal/Taxa/Desconto quando há taxa de
+  // entrega OU desconto — pedido de retirada/balcão sem nenhum dos dois
+  // fica só com o Total, sem linhas "R$ 0,00" sem sentido. Desconto é
+  // derivado (subtotal+taxa-total) — Order (PDV) não tem campo próprio pra
+  // isso (negociação avulsa direto com a loja) — sem mostrar aqui, o
+  // cliente via só o subtotal e um total bem menor sem explicação nenhuma.
+  const hasBreakdown = !!(params.deliveryFee || params.discount);
+  const breakdown = hasBreakdown
+    ? `Subtotal: ${params.subtotal}\n` +
+      (params.deliveryFee ? `Taxa de entrega: ${params.deliveryFee}\n` : '') +
+      (params.discount ? `Desconto: -${params.discount}\n` : '')
     : '';
   return `${greeting}✅ *Pedido confirmado!*
 

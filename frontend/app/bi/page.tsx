@@ -178,9 +178,12 @@ export default function BIPage() {
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
-  async function sendMessage() {
-    if (!aiInput.trim() || aiLoading) return;
-    const question = aiInput.trim();
+  // Aceita um texto explícito (pills de sugestão) — sem isso, o pill só
+  // preenchia o campo (setAiInput) sem enviar; clicar nele parecia não fazer
+  // nada, já que o input com o texto ficava fora da área visível no scroll.
+  async function sendMessage(explicit?: string) {
+    const question = (explicit ?? aiInput).trim();
+    if (!question || aiLoading) return;
     setAiInput("");
     setAiMessages((prev) => [...prev, { role: "USER", content: question }]);
     setAiLoading(true);
@@ -752,7 +755,7 @@ export default function BIPage() {
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {["Como melhorar minha margem?", "Quais produtos vender mais?", "Análise de cancelamentos", "Sugestão de promoção"].map((s) => (
-                    <button key={s} onClick={() => { setAiInput(s); }} className="text-xs bg-primary/5 text-primary border border-primary/20 px-3 py-1.5 rounded-xl hover:bg-primary/10 transition font-medium">
+                    <button key={s} onClick={() => sendMessage(s)} disabled={aiLoading} className="text-xs bg-primary/5 text-primary border border-primary/20 px-3 py-1.5 rounded-xl hover:bg-primary/10 transition font-medium disabled:opacity-40">
                       {s}
                     </button>
                   ))}
@@ -787,7 +790,7 @@ export default function BIPage() {
                 className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
               />
               <button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={!aiInput.trim() || aiLoading}
                 className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-md shadow-primary/30 disabled:opacity-40 transition hover:bg-primary/90"
               >

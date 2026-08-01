@@ -36,7 +36,7 @@ const PRESETS = [
   { label: "90 d", days: 90 },
 ];
 
-const ALL_LAYERS: DataLayer[] = ["orders", "stock", "drivers", "loyalty", "visits"];
+const ALL_LAYERS: DataLayer[] = ["orders", "stock", "drivers", "loyalty", "visits", "funnel"];
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function BiAvancadoPage() {

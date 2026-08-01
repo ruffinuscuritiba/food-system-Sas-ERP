@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useState, useCallback, useMemo } from "react";
+import { Suspense, useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, RotateCcw, Layers, ChevronRight,
@@ -23,7 +23,10 @@ const Scene6D = dynamic(() => import("@/components/bi6d/Scene6D"), {
 });
 
 // ── Helpers de data ───────────────────────────────────────────────────────────
-function fmtDate(d: Date) { return d.toISOString().slice(0, 10); }
+// toISOString() usa UTC — no fim da tarde/noite no Brasil (UTC-3) o relógio
+// UTC já virou o dia seguinte, desalinhando o range pedido (mesma classe de
+// bug já corrigida em app/bi/page.tsx e app/financeiro/page.tsx).
+function fmtDate(d: Date) { return d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); }
 function buildRange(days: number) {
   const to = new Date(); const from = new Date();
   from.setDate(to.getDate() - days);
@@ -38,6 +41,18 @@ const PRESETS = [
 
 const ALL_LAYERS: DataLayer[] = ["orders", "stock", "drivers", "loyalty", "visits", "funnel"];
 
+// ── Variantes de entrada em cascata — sem isso, cards/linhas do painel
+//    lateral simplesmente "blitavam" na tela assim que os dados chegavam,
+//    destoando do resto da cena (que é toda animada). ────────────────────────
+const staggerContainer = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.045, delayChildren: 0.05 } },
+};
+const staggerItem = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" as const } },
+};
+
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function BiAvancadoPage() {
   const [preset,      setPreset]      = useState(1);
@@ -46,6 +61,14 @@ export default function BiAvancadoPage() {
   const [activeLayers, setActiveLayers] = useState<Set<DataLayer>>(
     new Set(ALL_LAYERS)
   );
+  // Dica de interação some sozinha depois de um tempo — um produto premium
+  // não fica repetindo "arraste pra rotacionar" pro sempre, isso é cara de
+  // aviso de dev esquecido, não de UI pensada.
+  const [showHint, setShowHint] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setShowHint(false), 7000);
+    return () => clearTimeout(t);
+  }, []);
 
   const { from, to } = buildRange(PRESETS[preset].days);
 
@@ -95,18 +118,21 @@ export default function BiAvancadoPage() {
               const active = activeLayers.has(layer);
               const meta   = LAYER_META[layer];
               return (
-                <button
+                <motion.button
                   key={layer}
                   onClick={() => toggleLayer(layer)}
                   title={`${active ? "Ocultar" : "Mostrar"} ${meta.label}`}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ duration: 0.15 }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
                     active ? "text-white" : "text-white/20"
                   }`}
                   style={active ? { background: meta.color + "22", color: meta.color } : {}}
                 >
                   <span className="w-2 h-2 rounded-full" style={{ background: active ? meta.color : "#ffffff22" }} />
                   {meta.label}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -115,13 +141,16 @@ export default function BiAvancadoPage() {
 
           {/* Presets de período */}
           {PRESETS.map((p, i) => (
-            <button
+            <motion.button
               key={p.label}
               onClick={() => setPreset(i)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.92 }}
+              transition={{ duration: 0.15 }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                 preset === i ? "bg-white/10 text-white" : "text-white/30 hover:text-white/60"
               }`}
-            >{p.label}</button>
+            >{p.label}</motion.button>
           ))}
 
           <div className="w-px h-4 bg-white/10" />
@@ -143,39 +172,69 @@ export default function BiAvancadoPage() {
 
         {/* Canvas WebGL */}
         <div className="flex-1 relative">
-          {error && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center max-w-sm">
-                <p className="text-red-400 text-sm font-bold mb-1">Erro ao carregar dados</p>
-                <p className="text-white/40 text-xs">{error}</p>
-              </div>
-            </div>
-          )}
+          {/* Estados (erro/carregando/vazio) em crossfade — nunca troca em
+              corte seco, e nada disso reaparece pra sempre sem motivo. */}
+          <AnimatePresence mode="wait">
+            {error ? (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.35 }}
+                className="absolute inset-0 flex items-center justify-center z-10"
+              >
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center max-w-sm backdrop-blur-md">
+                  <p className="text-red-400 text-sm font-bold mb-1">Erro ao carregar dados</p>
+                  <p className="text-white/40 text-xs">{error}</p>
+                </div>
+              </motion.div>
+            ) : loading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.35 }}
+                className="absolute inset-0 flex items-center justify-center z-10 bg-black/30 backdrop-blur-sm"
+              >
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative w-14 h-14 flex items-center justify-center">
+                    <motion.div
+                      className="absolute inset-0 rounded-full"
+                      style={{ background: "radial-gradient(circle, rgba(6,182,212,0.35) 0%, transparent 70%)" }}
+                      animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.5, 0.9, 0.5] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <RefreshCw size={22} className="animate-spin text-cyan-300/80 relative" />
+                  </div>
+                  <p className="text-white/40 text-xs">
+                    Processando {PRESETS[preset].days} dias · {activeLayers.size} camada(s)…
+                  </p>
+                </div>
+              </motion.div>
+            ) : data && data.points.length === 0 ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.35 }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <p className="text-white/30 text-sm">Nenhum dado nas camadas selecionadas</p>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
-          {loading && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/30 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-3">
-                <RefreshCw size={22} className="animate-spin text-white/40" />
-                <p className="text-white/40 text-xs">
-                  Processando {PRESETS[preset].days} dias · {activeLayers.size} camada(s)…
+          <AnimatePresence>
+            {!loading && data && data.points.length > 0 && showHint && (
+              <motion.div
+                key="hint"
+                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.4 }}
+                className="absolute top-4 left-4 z-10 rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md px-4 py-2"
+              >
+                <p className="text-[11px] text-white/40">
+                  🖱 Arraste para rotacionar · Scroll = zoom · Clique na esfera = detalhes
                 </p>
-              </div>
-            </div>
-          )}
-
-          {!loading && data && data.points.length > 0 && (
-            <div className="absolute top-4 left-4 z-10 rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md px-4 py-2">
-              <p className="text-[11px] text-white/40">
-                🖱 Arraste para rotacionar · Scroll = zoom · Clique na esfera = detalhes
-              </p>
-            </div>
-          )}
-
-          {!loading && data && data.points.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-white/30 text-sm">Nenhum dado nas camadas selecionadas</p>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <Suspense fallback={null}>
             {data && data.points.length > 0 && (
@@ -196,7 +255,10 @@ export default function BiAvancadoPage() {
             >
               {/* Contagem por camada */}
               {data && (
-                <div className="flex flex-col gap-2">
+                <motion.div
+                  className="flex flex-col gap-2"
+                  variants={staggerContainer} initial="hidden" animate="show"
+                >
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/25 mb-1">
                     Pontos por fonte
                   </p>
@@ -205,38 +267,51 @@ export default function BiAvancadoPage() {
                     const meta = LAYER_META[layer];
                     const active = activeLayers.has(layer);
                     return (
-                      <div key={layer} className={`flex items-center justify-between rounded-xl px-3 py-2 transition-all ${active ? "" : "opacity-30"}`}
-                        style={{ background: active ? meta.color + "14" : "rgba(255,255,255,0.02)" }}>
+                      <motion.div
+                        key={layer}
+                        variants={staggerItem}
+                        whileHover={{ scale: 1.02 }}
+                        className={`flex items-center justify-between rounded-xl px-3 py-2 transition-all ${active ? "" : "opacity-30"}`}
+                        style={{ background: active ? meta.color + "14" : "rgba(255,255,255,0.02)" }}
+                      >
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full" style={{ background: meta.color }} />
                           <span className="text-xs font-medium text-white/70">{meta.label}</span>
                         </div>
                         <span className="text-xs font-black tabular-nums" style={{ color: meta.color }}>{cnt}</span>
-                      </div>
+                      </motion.div>
                     );
                   })}
                   <p className="text-[10px] text-white/20 mt-1">Total: {data.points.length} pontos 3D</p>
-                </div>
+                </motion.div>
               )}
 
               {/* KPIs rápidos */}
               {data && (
-                <div className="grid grid-cols-2 gap-2">
+                <motion.div
+                  className="grid grid-cols-2 gap-2"
+                  variants={staggerContainer} initial="hidden" animate="show"
+                >
                   {[
                     { l: "Dias",     v: data.days.toString(),                     c: "#3b82f6", icon: <Calendar size={11} /> },
                     { l: "Camadas",  v: activeLayers.size + "/" + ALL_LAYERS.length, c: "#8b5cf6", icon: <Layers size={11} /> },
                     { l: "Pico",     v: `R$${data.maxValue.toFixed(0)}`,          c: "#22c55e", icon: <BarChart3 size={11} /> },
                     { l: "Pontos",   v: data.points.length.toString(),             c: "#f97316", icon: <Activity size={11} /> },
                   ].map(k => (
-                    <div key={k.l} className="rounded-xl p-3" style={{ background: k.c + "12" }}>
+                    <motion.div
+                      key={k.l}
+                      variants={staggerItem}
+                      whileHover={{ scale: 1.04, y: -1 }}
+                      className="rounded-xl p-3" style={{ background: k.c + "12" }}
+                    >
                       <div className="flex items-center gap-1 mb-1" style={{ color: k.c + "99" }}>
                         {k.icon}
                         <p className="text-[10px] uppercase tracking-wider">{k.l}</p>
                       </div>
                       <p className="text-sm font-black tabular-nums" style={{ color: k.c }}>{k.v}</p>
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
 
               {/* Slider D4 */}

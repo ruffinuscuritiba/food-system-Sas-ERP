@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, useState, useCallback } from "react";
+import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls, Grid, Text, Billboard, Line, Environment, Lightformer, Sparkles,
@@ -12,8 +12,63 @@ import { LAYER_META } from "./use6DData";
 
 // ── Constantes de sensação/ritmo — únicas fontes da verdade pra timing ───────
 const POP_IN_SECONDS   = 0.6;   // D-microanimação: nascimento de um ponto
+const FADE_OUT_MS      = 550;   // duração da saída suave de um ponto removido
 const IDLE_ROTATE_WAIT = 4.5;   // s parado até a câmera retomar auto-rotação
 const DAMP_LAMBDA      = 6;     // suavidade padrão de easing (maior = mais rápido)
+
+type LifecyclePoint = DataPoint6D & { leaving?: boolean };
+
+/**
+ * Sem isso, um ponto que some (camada desligada, período trocado) some
+ * INSTANTANEAMENTE — quebra a simetria com o pop-in suave que já existe pra
+ * quando um ponto NASCE, e é a transição mais "seca" da cena inteira. Mantém
+ * o ponto renderizando (marcado `leaving:true`) por FADE_OUT_MS depois de
+ * sumir da fonte de dados real, aí sim remove de vez.
+ */
+function usePointLifecycle(points: DataPoint6D[], fadeOutMs = FADE_OUT_MS): LifecyclePoint[] {
+  const prevMapRef = useRef(new Map<string, DataPoint6D>());
+  const [leaving, setLeaving] = useState<DataPoint6D[]>([]);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const currentIds = new Set(points.map(p => p.id));
+    const prevMap = prevMapRef.current;
+
+    const newlyGone: DataPoint6D[] = [];
+    prevMap.forEach((p, id) => {
+      if (!currentIds.has(id) && !timers.current.has(id)) {
+        newlyGone.push(p);
+        const t = setTimeout(() => {
+          setLeaving(cur => cur.filter(x => x.id !== id));
+          timers.current.delete(id);
+        }, fadeOutMs);
+        timers.current.set(id, t);
+      }
+    });
+    if (newlyGone.length > 0) setLeaving(cur => [...cur, ...newlyGone]);
+
+    // reapareceu antes do fade terminar (troca rápida de camada) — cancela a saída
+    timers.current.forEach((t, id) => {
+      if (currentIds.has(id)) {
+        clearTimeout(t);
+        timers.current.delete(id);
+        setLeaving(cur => cur.filter(x => x.id !== id));
+      }
+    });
+
+    const nextMap = new Map<string, DataPoint6D>();
+    points.forEach(p => nextMap.set(p.id, p));
+    prevMapRef.current = nextMap;
+  }, [points, fadeOutMs]);
+
+  useEffect(() => () => { timers.current.forEach(t => clearTimeout(t)); }, []);
+
+  return useMemo(() => {
+    const currentIds = new Set(points.map(p => p.id));
+    const stillLeaving = leaving.filter(p => !currentIds.has(p.id));
+    return [...points, ...stillLeaving.map(p => ({ ...p, leaving: true }))];
+  }, [points, leaving]);
+}
 
 // ── D6a: saúde → cor base da camada modulada pela margem ─────────────────────
 function resolveColor(point: DataPoint6D): THREE.Color {
@@ -111,36 +166,41 @@ function ProbabilityRing({ point, color }: { point: DataPoint6D; color: THREE.Co
 function Sphere6D({
   point, timeFilter, selected, onSelect,
 }: {
-  point: DataPoint6D; timeFilter: number;
+  point: LifecyclePoint; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
 }) {
   const groupRef = useRef<THREE.Group>(null!);
   const meshRef  = useRef<THREE.Mesh>(null!);
+  const haloRef  = useRef<THREE.Mesh>(null!);
   const color    = useMemo(() => resolveColor(point), [point]);
   const isSel    = selected === point.id;
   const [hovered, setHovered] = useState(false);
 
   const fade   = Math.abs(point.t - timeFilter);
-  const targetOpacity = fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3);
+  const targetOpacity = point.leaving ? 0 : (fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3));
   const radius = point.weight * 0.32;
   const [px, py, pz] = pointPosition(point);
 
   // Microanimação de nascimento — escala 0→1 com easing suave nos primeiros
-  // POP_IN_SECONDS de vida do ponto (não do app inteiro).
+  // POP_IN_SECONDS de vida do ponto (não do app inteiro). Saída simétrica:
+  // quando `leaving`, o alvo de escala/opacidade vira 0 e o damp cuida do
+  // resto — nunca um "sumiço" instantâneo.
   const birthTime = useRef<number | null>(null);
   const currentOpacity = useRef(0);
   const currentScale   = useRef(0);
+  const currentHalo    = useRef(0);
 
   useFrame(({ clock }, dt) => {
     if (birthTime.current === null) birthTime.current = clock.elapsedTime;
     const age = clock.elapsedTime - birthTime.current;
-    const pop = THREE.MathUtils.smoothstep(age, 0, POP_IN_SECONDS);
+    const pop = point.leaving ? 1 : THREE.MathUtils.smoothstep(age, 0, POP_IN_SECONDS);
 
     // Transições suaves (damp) em vez de valores instantâneos — some/aparece
-    // sem "saltar" ao mudar o slider de tempo ou o hover.
+    // sem "saltar" ao mudar o slider de tempo, o hover ou ao ser removido.
     currentOpacity.current = THREE.MathUtils.damp(currentOpacity.current, targetOpacity, DAMP_LAMBDA, dt);
     const hoverBoost = hovered && !isSel ? 1.12 : 1;
-    currentScale.current = THREE.MathUtils.damp(currentScale.current, pop * hoverBoost, DAMP_LAMBDA, dt);
+    const targetScale = point.leaving ? 0 : pop * hoverBoost;
+    currentScale.current = THREE.MathUtils.damp(currentScale.current, targetScale, point.leaving ? DAMP_LAMBDA * 0.8 : DAMP_LAMBDA, dt);
 
     if (groupRef.current) groupRef.current.scale.setScalar(currentScale.current);
     if (meshRef.current) {
@@ -149,6 +209,13 @@ function Sphere6D({
       const targetEmissive = isSel ? 1.1 : hovered ? 0.55 : 0.26;
       mat.emissiveIntensity = THREE.MathUtils.damp(mat.emissiveIntensity, targetEmissive, DAMP_LAMBDA, dt);
       if (isSel) meshRef.current.rotation.y += dt * 1.2;
+    }
+    // Halo de seleção sempre montado — só sua opacidade anima, nunca um
+    // pop/desaparecimento instantâneo ao selecionar/desselecionar.
+    if (haloRef.current) {
+      currentHalo.current = THREE.MathUtils.damp(currentHalo.current, isSel ? 0.12 : 0, DAMP_LAMBDA, dt);
+      (haloRef.current.material as THREE.MeshBasicMaterial).opacity = currentHalo.current;
+      haloRef.current.visible = currentHalo.current > 0.002;
     }
   });
 
@@ -180,12 +247,10 @@ function Sphere6D({
           envMapIntensity={1.1}
         />
       </mesh>
-      {isSel && (
-        <mesh>
-          <sphereGeometry args={[radius * 1.7, 16, 16]} />
-          <meshBasicMaterial color={color} transparent opacity={0.12} side={THREE.BackSide} depthWrite={false} />
-        </mesh>
-      )}
+      <mesh ref={haloRef} visible={false}>
+        <sphereGeometry args={[radius * 1.7, 16, 16]} />
+        <meshBasicMaterial color={color} transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
+      </mesh>
       {/* D6b — probabilidade real do ponto, sempre visível */}
       <ProbabilityRing point={point} color={color} />
     </group>
@@ -339,23 +404,60 @@ function FlowParticles({ points }: { points: DataPoint6D[] }) {
   );
 }
 
-// ── Tooltip 3D ────────────────────────────────────────────────────────────────
-function Tooltip3D({ point }: { point: DataPoint6D }) {
+// ── Tooltip 3D — pop suave de entrada/saída (nunca corte seco) ───────────────
+function Tooltip3D({ point, visible }: { point: DataPoint6D; visible: boolean }) {
+  const groupRef = useRef<THREE.Group>(null!);
+  const current  = useRef(0);
   const [px, pyBase, pz] = pointPosition(point);
   const py = pyBase + point.weight * 0.32 + 0.45;
   const fmt = (n: number) =>
     n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  useFrame((_, dt) => {
+    current.current = THREE.MathUtils.damp(current.current, visible ? 1 : 0, DAMP_LAMBDA * 1.6, dt);
+    if (groupRef.current) {
+      groupRef.current.scale.setScalar(0.82 + current.current * 0.18);
+      groupRef.current.visible = current.current > 0.015;
+    }
+  });
+
   return (
-    <Billboard position={[px, py, pz]}>
-      <Text
-        fontSize={0.11} color="#ffffff" anchorX="center" anchorY="bottom"
-        outlineWidth={0.007} outlineColor="#000000" maxWidth={2.8}
-      >
-        {`[${LAYER_META[point.layer].label}] ${point.label}\n${point.detail}\n💰 ${fmt(point.value)} · confiança ${(point.probability * 100).toFixed(0)}%`}
-      </Text>
-    </Billboard>
+    <group ref={groupRef} position={[px, py, pz]}>
+      <Billboard>
+        <Text
+          fontSize={0.11} color="#ffffff" anchorX="center" anchorY="bottom"
+          outlineWidth={0.007} outlineColor="#000000" maxWidth={2.8}
+        >
+          {`[${LAYER_META[point.layer].label}] ${point.label}\n${point.detail}\n💰 ${fmt(point.value)} · confiança ${(point.probability * 100).toFixed(0)}%`}
+        </Text>
+      </Billboard>
+    </group>
   );
+}
+
+/**
+ * Host que mantém o ÚLTIMO ponto selecionado renderizando por um instante
+ * mesmo depois de `selected` virar null — sem isso, desselecionar (clicar em
+ * outra esfera vazia, ou na mesma de novo) cortava o tooltip instantaneamente
+ * no meio de qualquer transição.
+ */
+function TooltipHost({ point }: { point: DataPoint6D | null }) {
+  const [displayed, setDisplayed] = useState(point);
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (point) {
+      if (clearTimer.current) { clearTimeout(clearTimer.current); clearTimer.current = null; }
+      setDisplayed(point);
+    } else if (displayed) {
+      clearTimer.current = setTimeout(() => setDisplayed(null), 400);
+    }
+    return () => { if (clearTimer.current) clearTimeout(clearTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [point]);
+
+  if (!displayed) return null;
+  return <Tooltip3D point={displayed} visible={!!point} />;
 }
 
 // ── Etiquetas das camadas no eixo Z ──────────────────────────────────────────
@@ -433,8 +535,14 @@ function SceneContent({
   sceneData: Scene6DData; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
 }) {
+  // Ponto vivo (sem `leaving`) — usado pra câmera/tooltip, que não devem
+  // seguir/mostrar um ponto que já está no meio da saída suave.
   const selPoint = sceneData.points.find(p => p.id === selected) ?? null;
   const cameraTarget = selPoint ? pointPosition(selPoint) : null;
+
+  // Mantém pontos removidos renderizando (com fade-out) por um instante em
+  // vez de sumirem instantaneamente — ver usePointLifecycle.
+  const livingPoints = usePointLifecycle(sceneData.points);
 
   return (
     <>
@@ -466,17 +574,17 @@ function SceneContent({
       <TimeAxis />
       <LayerLabels />
 
-      <HierarchyEdges points={sceneData.points} />
-      <FlowParticles points={sceneData.points} />
+      <HierarchyEdges points={livingPoints} />
+      <FlowParticles points={livingPoints} />
 
-      {sceneData.points.map(p => (
+      {livingPoints.map(p => (
         <Sphere6D
           key={p.id} point={p} timeFilter={timeFilter}
           selected={selected} onSelect={onSelect}
         />
       ))}
 
-      {selPoint && <Tooltip3D point={selPoint} />}
+      <TooltipHost point={selPoint} />
 
       <CinematicControls target={cameraTarget} />
 
@@ -504,18 +612,25 @@ export default function Scene6D({
   sceneData: Scene6DData; timeFilter: number;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  // Suaviza a entrada do canvas — sem isso, o primeiro frame do WebGL "estala"
+  // na tela assim que o import dinâmico termina, um corte seco logo na
+  // primeira impressão da experiência.
+  const [ready, setReady] = useState(false);
 
   return (
-    <Canvas
-      shadows
-      camera={{ position: [0, 4, 12], fov: 52 }}
-      gl={{ antialias: true, alpha: true }}
-      style={{ background: "transparent" }}
-    >
-      <SceneContent
-        sceneData={sceneData} timeFilter={timeFilter}
-        selected={selected} onSelect={setSelected}
-      />
-    </Canvas>
+    <div style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0, transition: "opacity 0.5s ease-out" }}>
+      <Canvas
+        shadows
+        camera={{ position: [0, 4, 12], fov: 52 }}
+        gl={{ antialias: true, alpha: true }}
+        style={{ background: "transparent" }}
+        onCreated={() => requestAnimationFrame(() => setReady(true))}
+      >
+        <SceneContent
+          sceneData={sceneData} timeFilter={timeFilter}
+          selected={selected} onSelect={setSelected}
+        />
+      </Canvas>
+    </div>
   );
 }

@@ -14,8 +14,25 @@ export class ReportsController {
   constructor(private reports: ReportsService) {}
 
   @Get('executive')
-  executive(@Req() req: any) {
-    return this.reports.getExecutiveKpis(req.user.companyId);
+  executive(
+    @Req() req: any,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    // Mesmo padrão de default de /revenue e /products — sem isso o Dashboard
+    // do /bi sempre mostrava os últimos 30 dias fixos, ignorando completamente
+    // o preset "Hoje"/"7 dias"/"Personalizado" selecionado na tela.
+    const range = {
+      from: from
+        ? parseBrazilDateStart(from)
+        : (() => {
+            const d = getStartOfTodayBrazil();
+            d.setDate(d.getDate() - 30);
+            return d;
+          })(),
+      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
+    };
+    return this.reports.getExecutiveKpis(req.user.companyId, range);
   }
 
   @Get('revenue')

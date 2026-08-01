@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
-import { toBrazilDateKey } from '@/common/utils/timezone';
+import { getStartOfTodayBrazil, toBrazilDateKey } from '@/common/utils/timezone';
 
 export interface DateRange {
   from: Date;
@@ -308,24 +308,43 @@ export class ReportsService {
       .slice(0, limit);
   }
 
-  async getExecutiveKpis(companyId: string): Promise<ExecutiveKpis> {
-    const now = new Date();
-    const start30 = new Date(now);
-    start30.setDate(now.getDate() - 30);
-    const start60 = new Date(now);
-    start60.setDate(now.getDate() - 60);
+  /**
+   * range opcional — sem ele, cai no default histórico (últimos 30 dias),
+   * usado pelo assistente de IA (ia.service.ts) que sempre quer esse resumo.
+   * Com range, o "período anterior" de comparação vira uma janela de MESMA
+   * duração imediatamente antes de `from` (ex: range="hoje" → anterior=ontem;
+   * range="30 dias" → anterior=30 dias antes disso) — antes disso o Dashboard
+   * do /bi sempre comparava contra um "últimos 30 dias" fixo, ignorando
+   * completamente o preset selecionado na tela (Hoje/7 dias/Personalizado
+   * sempre mostravam os mesmos números).
+   */
+  async getExecutiveKpis(
+    companyId: string,
+    range?: DateRange,
+  ): Promise<ExecutiveKpis> {
+    const to = range?.to ?? new Date();
+    const from =
+      range?.from ??
+      (() => {
+        const d = getStartOfTodayBrazil();
+        d.setDate(d.getDate() - 30);
+        return d;
+      })();
+    const durationMs = to.getTime() - from.getTime();
+    const previousTo = from;
+    const previousFrom = new Date(from.getTime() - durationMs);
 
     const [current, previous] = await Promise.all([
-      this.getRevenue(companyId, { from: start30, to: now }),
-      this.getRevenue(companyId, { from: start60, to: start30 }),
+      this.getRevenue(companyId, { from, to }),
+      this.getRevenue(companyId, { from: previousFrom, to: previousTo }),
     ]);
 
     const growth = (cur: number, prev: number) =>
       prev > 0 ? (cur - prev) / prev : 0;
 
     const topProducts = await this.getProductRanking(companyId, {
-      from: start30,
-      to: now,
+      from,
+      to,
     });
 
     const last30Days = current.dailySeries.map((d) => ({

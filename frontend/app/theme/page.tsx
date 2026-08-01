@@ -408,11 +408,18 @@ export default function ThemePage() {
             </section>
           </div>
 
-          {/* ── Coluna Direita: Preview → Pizza → Analytics ── */}
-          <div className="space-y-4">
+          {/* ── Coluna Direita: Preview → Pizza → Analytics ──
+               sticky fica no wrapper da coluna INTEIRA, não só no card de
+               preview — antes disso, a coluna esquerda (mais alta) esticava
+               essa coluna via grid stretch, e o preview (sticky sozinho)
+               ficava "andando" por cima da seção Pizza Meio a Meio (que
+               continuava na posição normal de documento), escondendo-a atrás
+               do preview ao rolar. Com o sticky no wrapper, a coluna inteira
+               sobe/desce junto, como um bloco só. */}
+          <div className="space-y-4 md:sticky md:top-6 md:self-start">
 
             {/* Preview do Tema */}
-            <div className="rounded-2xl overflow-hidden border md:sticky md:top-6 md:self-start" style={{ borderColor: theme.primaryColor }}>
+            <div className="rounded-2xl overflow-hidden border" style={{ borderColor: theme.primaryColor }}>
               <div className="relative h-48">
                 <img
                   src={theme.bannerUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591"}

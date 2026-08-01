@@ -4,6 +4,7 @@ import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
 import {
   OrbitControls, Grid, Text, Billboard, Line, Environment, Lightformer, Sparkles,
+  PerformanceMonitor,
 } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, Noise } from "@react-three/postprocessing";
 import * as THREE from "three";
@@ -15,6 +16,15 @@ const POP_IN_SECONDS   = 0.6;   // D-microanimação: nascimento de um ponto
 const FADE_OUT_MS      = 550;   // duração da saída suave de um ponto removido
 const IDLE_ROTATE_WAIT = 4.5;   // s parado até a câmera retomar auto-rotação
 const DAMP_LAMBDA      = 6;     // suavidade padrão de easing (maior = mais rápido)
+const FLOOR_Y          = -1.8;  // mesma altura do <Grid> — base das "hastes" de skyline
+const HIGHLIGHT_COLOR  = "#fbbf24";
+
+export interface PerfSample {
+  fps: number;
+  frameMs: number;
+  drawCalls: number;
+  triangles: number;
+}
 
 type LifecyclePoint = DataPoint6D & { leaving?: boolean };
 
@@ -91,6 +101,40 @@ function pointPosition(point: DataPoint6D): [number, number, number] {
   return [(point.x - 12) * 0.45, point.y * 4.5 - 1.2, point.z];
 }
 
+// ── Design de informação: "haste" ligando cada ponto ao chão do grid — sem
+//    isso, esferas soltas no espaço não comunicam "valor" de jeito nenhum
+//    (uma esfera flutuando não é maior ou menor de forma óbvia à distância).
+//    Com a haste, cada ponto vira uma "coluna" — a cena inteira lê como um
+//    skyline: mais alto = mais valor, e dá pra comparar as 6 camadas (lanes)
+//    de uma olhada só, o que um gráfico 2D não consegue sem virar 6 gráficos
+//    separados ou uma poluição de linhas sobrepostas. ─────────────────────────
+function SkylineStem({ point, opacity }: { point: DataPoint6D; opacity: number }) {
+  const [px, py, pz] = pointPosition(point);
+  const { points, colors } = useMemo(() => {
+    const color = new THREE.Color(LAYER_META[point.layer].color);
+    const dim = color.clone().multiplyScalar(0.15);
+    return {
+      points: [[px, FLOOR_Y, pz], [px, py, pz]] as [number, number, number][],
+      colors: [dim, color],
+    };
+  }, [px, py, pz, point.layer]);
+
+  if (opacity <= 0.01) return null;
+  return <Line points={points} vertexColors={colors} lineWidth={1} transparent opacity={opacity * 0.5} />;
+}
+
+function SkylineStems({ points, timeFilter }: { points: LifecyclePoint[]; timeFilter: number }) {
+  return (
+    <>
+      {points.map(p => {
+        const fade = Math.abs(p.t - timeFilter);
+        const opacity = p.leaving ? 0 : (fade < 0.15 ? 1 : Math.max(0.07, 1 - fade * 3));
+        return <SkylineStem key={`stem-${p.id}`} point={p} opacity={opacity} />;
+      })}
+    </>
+  );
+}
+
 // ── Curva compartilhada por linhas-de-hierarquia E partículas-de-fluxo — os
 //    dois encodings desenham exatamente o mesmo arco, então visualmente lêem
 //    como "a mesma aresta", só com tratamentos diferentes. ────────────────────
@@ -164,14 +208,16 @@ function ProbabilityRing({ point, color }: { point: DataPoint6D; color: THREE.Co
 
 // ── Esfera individual — material físico (clearcoat), pop-in, hover, easing ───
 function Sphere6D({
-  point, timeFilter, selected, onSelect,
+  point, timeFilter, selected, onSelect, isHighlighted, segments,
 }: {
   point: LifecyclePoint; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
+  isHighlighted: boolean; segments: number;
 }) {
-  const groupRef = useRef<THREE.Group>(null!);
-  const meshRef  = useRef<THREE.Mesh>(null!);
-  const haloRef  = useRef<THREE.Mesh>(null!);
+  const groupRef  = useRef<THREE.Group>(null!);
+  const meshRef   = useRef<THREE.Mesh>(null!);
+  const haloRef   = useRef<THREE.Mesh>(null!);
+  const reticleRef = useRef<THREE.Group>(null!);
   const color    = useMemo(() => resolveColor(point), [point]);
   const isSel    = selected === point.id;
   const [hovered, setHovered] = useState(false);
@@ -206,7 +252,7 @@ function Sphere6D({
     if (meshRef.current) {
       const mat = meshRef.current.material as THREE.MeshPhysicalMaterial;
       mat.opacity = currentOpacity.current;
-      const targetEmissive = isSel ? 1.1 : hovered ? 0.55 : 0.26;
+      const targetEmissive = isSel ? 1.1 : hovered ? 0.55 : isHighlighted ? 0.6 : 0.26;
       mat.emissiveIntensity = THREE.MathUtils.damp(mat.emissiveIntensity, targetEmissive, DAMP_LAMBDA, dt);
       if (isSel) meshRef.current.rotation.y += dt * 1.2;
     }
@@ -216,6 +262,13 @@ function Sphere6D({
       currentHalo.current = THREE.MathUtils.damp(currentHalo.current, isSel ? 0.12 : 0, DAMP_LAMBDA, dt);
       (haloRef.current.material as THREE.MeshBasicMaterial).opacity = currentHalo.current;
       haloRef.current.visible = currentHalo.current > 0.002;
+    }
+    // Reticle dourado — "olhe aqui primeiro": só existe no ponto que responde
+    // ao insight calculado, gira devagar, nunca compete com o halo de seleção
+    // (cor e forma diferentes de propósito).
+    if (reticleRef.current) {
+      reticleRef.current.rotation.z += dt * 0.5;
+      reticleRef.current.visible = isHighlighted && currentOpacity.current > 0.1;
     }
   });
 
@@ -233,7 +286,7 @@ function Sphere6D({
         onPointerOut={() => { setHovered(false); document.body.style.cursor = "auto"; }}
         castShadow
       >
-        <sphereGeometry args={[radius, 24, 24]} />
+        <sphereGeometry args={[radius, segments, segments]} />
         <meshPhysicalMaterial
           color={color}
           emissive={color}
@@ -248,11 +301,18 @@ function Sphere6D({
         />
       </mesh>
       <mesh ref={haloRef} visible={false}>
-        <sphereGeometry args={[radius * 1.7, 16, 16]} />
+        <sphereGeometry args={[radius * 1.7, Math.max(10, segments - 8), Math.max(10, segments - 8)]} />
         <meshBasicMaterial color={color} transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
       </mesh>
       {/* D6b — probabilidade real do ponto, sempre visível */}
       <ProbabilityRing point={point} color={color} />
+      {/* "Olhe aqui primeiro" — só no ponto que evidencia o insight calculado */}
+      <group ref={reticleRef} visible={false}>
+        <mesh>
+          <torusGeometry args={[radius * 2.1, 0.012, 8, 40]} />
+          <meshBasicMaterial color={HIGHLIGHT_COLOR} transparent opacity={0.55} depthWrite={false} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -528,12 +588,43 @@ function CinematicControls({ target }: { target: [number, number, number] | null
   );
 }
 
+// ── HUD de performance — amostra FPS real + info do renderer (draw calls,
+//    triângulos) direto do three.js, sem custo extra (renderer.info já é
+//    mantido pelo próprio WebGL). Throttlado pra não causar re-render da UI
+//    a 60fps — a MEDIÇÃO roda a cada frame, o CALLBACK só a cada ~500ms. ─────
+function PerfHud({ onSample }: { onSample: (s: PerfSample) => void }) {
+  const frames = useRef(0);
+  const acc = useRef(0);
+  const lastReport = useRef(0);
+
+  useFrame(({ gl, clock }, dt) => {
+    frames.current++;
+    acc.current += dt;
+    if (clock.elapsedTime - lastReport.current >= 0.5) {
+      const fps = acc.current > 0 ? frames.current / acc.current : 0;
+      onSample({
+        fps: Math.round(fps),
+        frameMs: acc.current > 0 ? (acc.current / frames.current) * 1000 : 0,
+        drawCalls: gl.info.render.calls,
+        triangles: gl.info.render.triangles,
+      });
+      frames.current = 0;
+      acc.current = 0;
+      lastReport.current = clock.elapsedTime;
+    }
+  });
+  return null;
+}
+
 // ── Conteúdo da cena ──────────────────────────────────────────────────────────
 function SceneContent({
-  sceneData, timeFilter, selected, onSelect,
+  sceneData, timeFilter, selected, onSelect, highlightId, qualityFactor, onPerfSample,
 }: {
   sceneData: Scene6DData; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
+  highlightId: string | null;
+  qualityFactor: number; // 0..1, vindo do PerformanceMonitor — degrada efeitos, não a informação
+  onPerfSample: (s: PerfSample) => void;
 }) {
   // Ponto vivo (sem `leaving`) — usado pra câmera/tooltip, que não devem
   // seguir/mostrar um ponto que já está no meio da saída suave.
@@ -544,10 +635,18 @@ function SceneContent({
   // vez de sumirem instantaneamente — ver usePointLifecycle.
   const livingPoints = usePointLifecycle(sceneData.points);
 
+  // Degradação adaptativa — a PRIMEIRA coisa a cair é o que é puramente
+  // decorativo (bloom, grão, poeira, segmentos da esfera), NUNCA a
+  // informação em si (posição/cor/tamanho continuam sempre corretos).
+  const sphereSegments = qualityFactor > 0.6 ? 24 : qualityFactor > 0.3 ? 16 : 10;
+  const sparklesCount  = Math.round(20 + qualityFactor * 60);
+  const bloomEnabled   = qualityFactor > 0.25;
+
   return (
     <>
+      <PerfHud onSample={onPerfSample} />
       <ambientLight intensity={0.3} />
-      <directionalLight position={[6, 10, 6]} intensity={1.1} castShadow />
+      <directionalLight position={[6, 10, 6]} intensity={1.1} castShadow={qualityFactor > 0.4} />
       <pointLight position={[-5, 5, -5]} intensity={0.5} color="#8b5cf6" />
       <pointLight position={[5, 3,  5]} intensity={0.4} color="#f97316" />
       <pointLight position={[0, 8,  0]} intensity={0.3} color="#06b6d4" />
@@ -561,8 +660,9 @@ function SceneContent({
         <Lightformer intensity={1.4} color="#ffffff" position={[0, 6, 0]} scale={8} form="ring" />
       </Environment>
 
-      {/* Poeira ambiente — profundidade imediata, 1 draw call */}
-      <Sparkles count={80} scale={14} size={1.4} speed={0.15} opacity={0.25} color="#ffffff" />
+      {/* Poeira ambiente — profundidade imediata, 1 draw call (contagem cai
+          em hardware fraco antes de qualquer coisa que carregue informação) */}
+      <Sparkles count={sparklesCount} scale={14} size={1.4} speed={0.15} opacity={0.25} color="#ffffff" />
 
       <Grid
         args={[22, 22]} cellSize={0.5} cellThickness={0.3}
@@ -574,6 +674,8 @@ function SceneContent({
       <TimeAxis />
       <LayerLabels />
 
+      {/* Hastes de skyline — leitura de "valor = altura" à primeira vista */}
+      <SkylineStems points={livingPoints} timeFilter={timeFilter} />
       <HierarchyEdges points={livingPoints} />
       <FlowParticles points={livingPoints} />
 
@@ -581,6 +683,8 @@ function SceneContent({
         <Sphere6D
           key={p.id} point={p} timeFilter={timeFilter}
           selected={selected} onSelect={onSelect}
+          isHighlighted={p.id === highlightId}
+          segments={sphereSegments}
         />
       ))}
 
@@ -589,27 +693,32 @@ function SceneContent({
       <CinematicControls target={cameraTarget} />
 
       {/* Bloom com mipmapBlur (mais suave e barato) + toque de grão/vinheta —
-          sensação de dashboard premium, não só dados plotados. */}
-      <EffectComposer multisampling={0}>
-        <Bloom
-          mipmapBlur
-          intensity={0.9}
-          luminanceThreshold={0.15}
-          luminanceSmoothing={0.35}
-          radius={0.8}
-        />
-        <Vignette eskil={false} offset={0.15} darkness={0.6} />
-        <Noise opacity={0.02} />
-      </EffectComposer>
+          primeiro efeito a desligar se o hardware não aguentar; a cena
+          continua 100% legível sem ele, só menos "brilhante". */}
+      {bloomEnabled && (
+        <EffectComposer multisampling={0}>
+          <Bloom
+            mipmapBlur
+            intensity={0.9}
+            luminanceThreshold={0.15}
+            luminanceSmoothing={0.35}
+            radius={0.8}
+          />
+          <Vignette eskil={false} offset={0.15} darkness={0.6} />
+          <Noise opacity={0.02} />
+        </EffectComposer>
+      )}
     </>
   );
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
 export default function Scene6D({
-  sceneData, timeFilter,
+  sceneData, timeFilter, highlightId = null, onPerfSample,
 }: {
   sceneData: Scene6DData; timeFilter: number;
+  highlightId?: string | null;
+  onPerfSample?: (s: PerfSample) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   // Suaviza a entrada do canvas — sem isso, o primeiro frame do WebGL "estala"
@@ -617,18 +726,34 @@ export default function Scene6D({
   // primeira impressão da experiência.
   const [ready, setReady] = useState(false);
 
+  // Degradação adaptativa de qualidade — PerformanceMonitor (drei) mede o
+  // FPS real do dispositivo e devolve um fator 0..1; usamos isso pra baixar
+  // dpr e desligar efeitos decorativos ANTES da experiência engasgar, em vez
+  // de simplesmente torcer pra todo notebook aguentar a config "de vitrine".
+  const [dpr, setDpr] = useState(1.5);
+  const [qualityFactor, setQualityFactor] = useState(1);
+  const handlePerfChange = useCallback((api: { factor: number }) => {
+    setQualityFactor(api.factor);
+    setDpr(Math.min(1.6, Math.max(0.75, 1 + api.factor * 0.8)));
+  }, []);
+
+  const handlePerfSample = useCallback((s: PerfSample) => { onPerfSample?.(s); }, [onPerfSample]);
+
   return (
     <div style={{ width: "100%", height: "100%", opacity: ready ? 1 : 0, transition: "opacity 0.5s ease-out" }}>
       <Canvas
         shadows
+        dpr={dpr}
         camera={{ position: [0, 4, 12], fov: 52 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
         onCreated={() => requestAnimationFrame(() => setReady(true))}
       >
+        <PerformanceMonitor onIncline={handlePerfChange} onDecline={handlePerfChange} onChange={handlePerfChange} />
         <SceneContent
           sceneData={sceneData} timeFilter={timeFilter}
           selected={selected} onSelect={setSelected}
+          highlightId={highlightId} qualityFactor={qualityFactor} onPerfSample={handlePerfSample}
         />
       </Canvas>
     </div>

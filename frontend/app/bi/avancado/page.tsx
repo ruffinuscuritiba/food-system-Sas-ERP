@@ -5,11 +5,13 @@ import { Suspense, useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, RotateCcw, Layers, ChevronRight,
-  Activity, RefreshCw, BarChart3, Calendar,
+  Activity, RefreshCw, BarChart3, Calendar, Lightbulb, Gauge, X,
 } from "lucide-react";
 import Link from "next/link";
 import { use6DData, LAYER_META, type DataLayer } from "@/components/bi6d/use6DData";
+import { computeHeadlineInsight } from "@/components/bi6d/insights";
 import DimensionLegend from "@/components/bi6d/DimensionLegend";
+import type { PerfSample } from "@/components/bi6d/Scene6D";
 
 // ── Three.js carrega APENAS nesta rota (dynamic import lazy) ─────────────────
 const Scene6D = dynamic(() => import("@/components/bi6d/Scene6D"), {
@@ -75,6 +77,20 @@ export default function BiAvancadoPage() {
   // useMemo para estabilizar o Set e evitar re-fetch desnecessário
   const layerSet = useMemo(() => activeLayers, [activeLayers]);
   const { data, loading, error } = use6DData(from, to, layerSet);
+
+  // Design de informação: a frase útil que justifica o 3D aparece ANTES de
+  // qualquer interação — não depende do usuário decifrar a cena sozinho.
+  const insight = useMemo(
+    () => (data ? computeHeadlineInsight(data.points) : { text: "", peakId: null }),
+    [data]
+  );
+
+  // Validação objetiva de desempenho — números reais, não achismo. Visível
+  // por padrão nesta tela (é uma ferramenta de QA tanto quanto um HUD de
+  // usuário) mas pode ser escondido.
+  const [showPerf, setShowPerf] = useState(true);
+  const [perf, setPerf] = useState<PerfSample | null>(null);
+  const handlePerfSample = useCallback((s: PerfSample) => setPerf(s), []);
 
   const toggleLayer = useCallback((layer: DataLayer) => {
     setActiveLayers(prev => {
@@ -160,6 +176,12 @@ export default function BiAvancadoPage() {
             <RotateCcw size={13} />
           </button>
           <button
+            onClick={() => setShowPerf(v => !v)}
+            title="Performance ao vivo (FPS, draw calls)"
+            className={`p-2 rounded-lg transition-all ${showPerf ? "bg-white/10 text-white" : "text-white/30 hover:text-white/60"}`}>
+            <Gauge size={13} />
+          </button>
+          <button
             onClick={() => setShowLegend(v => !v)}
             className={`p-2 rounded-lg transition-all ${showLegend ? "bg-white/10 text-white" : "text-white/30 hover:text-white/60"}`}>
             <Layers size={13} />
@@ -221,6 +243,27 @@ export default function BiAvancadoPage() {
             ) : null}
           </AnimatePresence>
 
+          {/* Design de informação: a frase que justifica o 3D — primeira
+              coisa lida, não depende de decifrar a cena. Não some sozinha
+              (é dado, não tutorial de UI) — só troca quando o insight muda. */}
+          <AnimatePresence mode="wait">
+            {!loading && data && data.points.length > 0 && insight.text && (
+              <motion.div
+                key={insight.text}
+                initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="absolute top-4 left-1/2 -translate-x-1/2 z-10 max-w-lg"
+              >
+                <div className="flex items-start gap-2.5 rounded-2xl border border-amber-400/25 bg-black/55 backdrop-blur-md px-4 py-3 shadow-lg shadow-amber-500/10">
+                  <Lightbulb size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-[12.5px] text-white/80 leading-snug">{insight.text}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <AnimatePresence>
             {!loading && data && data.points.length > 0 && showHint && (
               <motion.div
@@ -236,9 +279,43 @@ export default function BiAvancadoPage() {
             )}
           </AnimatePresence>
 
+          {/* Validação objetiva de desempenho — números reais lidos direto
+              do renderer.info do three.js + FPS medido, não estimativa. */}
+          <AnimatePresence>
+            {showPerf && perf && (
+              <motion.div
+                key="perf"
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}
+                transition={{ duration: 0.3 }}
+                className="absolute bottom-4 left-4 z-10 rounded-xl border border-white/[0.06] bg-black/50 backdrop-blur-md px-3.5 py-2.5 font-mono"
+              >
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Gauge size={12} className={perf.fps >= 50 ? "text-emerald-400" : perf.fps >= 30 ? "text-amber-400" : "text-red-400"} />
+                  <span className="text-[10px] uppercase tracking-wider text-white/40">Performance ao vivo</span>
+                  <button onClick={() => setShowPerf(false)} className="ml-auto text-white/20 hover:text-white/50">
+                    <X size={11} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+                  <span className="text-white/40">FPS</span>
+                  <span className={`font-bold ${perf.fps >= 50 ? "text-emerald-400" : perf.fps >= 30 ? "text-amber-400" : "text-red-400"}`}>{perf.fps}</span>
+                  <span className="text-white/40">Frame</span>
+                  <span className="text-white/70">{perf.frameMs.toFixed(1)}ms</span>
+                  <span className="text-white/40">Draw calls</span>
+                  <span className="text-white/70">{perf.drawCalls}</span>
+                  <span className="text-white/40">Triângulos</span>
+                  <span className="text-white/70">{perf.triangles.toLocaleString("pt-BR")}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <Suspense fallback={null}>
             {data && data.points.length > 0 && (
-              <Scene6D sceneData={data} timeFilter={timeFilter} />
+              <Scene6D
+                sceneData={data} timeFilter={timeFilter}
+                highlightId={insight.peakId} onPerfSample={handlePerfSample}
+              />
             )}
           </Suspense>
         </div>

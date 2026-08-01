@@ -758,12 +758,15 @@ function PerfHud({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 // ── Conteúdo da cena ──────────────────────────────────────────────────────────
 function SceneContent({
-  sceneData, timeFilter, selected, onSelect, highlightId, correlatedId, qualityFactor, onPerfSample,
+  sceneData, timeFilter, selected, onSelect, highlightId, correlatedId, replayToken, qualityFactor, onPerfSample,
 }: {
   sceneData: Scene6DData; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
   highlightId: string | null;
   correlatedId: string | null;
+  /** Incrementa a cada clique em "Reproduzir Insight" — força o Modo
+      História a rodar de novo mesmo sem o insight ter mudado. */
+  replayToken: number;
   qualityFactor: number; // 0..1, vindo do PerformanceMonitor — degrada efeitos, não a informação
   onPerfSample: (s: PerfSample) => void;
 }) {
@@ -796,7 +799,7 @@ function SceneContent({
     storyTimerRef.current = setTimeout(() => setStoryActive(false), 5200);
     return () => { if (storyTimerRef.current) clearTimeout(storyTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightId, correlatedId]);
+  }, [highlightId, correlatedId, replayToken]);
 
   const endStoryEarly = useCallback(() => {
     if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
@@ -910,13 +913,16 @@ function SceneContent({
 
 // ── Export ────────────────────────────────────────────────────────────────────
 export default function Scene6D({
-  sceneData, timeFilter, highlightId = null, correlatedId = null, onPerfSample,
+  sceneData, timeFilter, highlightId = null, correlatedId = null, replayToken = 0, onPerfSample,
 }: {
   sceneData: Scene6DData; timeFilter: number;
   highlightId?: string | null;
   /** Ponto da outra camada que evidencia o insight — junto com `highlightId`
       forma a dupla que o Modo História enquadra/ilumina. */
   correlatedId?: string | null;
+  /** Incremente pra forçar o Modo História a tocar de novo sob demanda
+      (botão "Reproduzir Insight") — roda sozinho na 1ª vez de qualquer forma. */
+  replayToken?: number;
   onPerfSample?: (s: PerfSample) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -952,7 +958,7 @@ export default function Scene6D({
         <SceneContent
           sceneData={sceneData} timeFilter={timeFilter}
           selected={selected} onSelect={setSelected}
-          highlightId={highlightId} correlatedId={correlatedId}
+          highlightId={highlightId} correlatedId={correlatedId} replayToken={replayToken}
           qualityFactor={qualityFactor} onPerfSample={handlePerfSample}
         />
       </Canvas>

@@ -5,7 +5,7 @@ import { Suspense, useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, RotateCcw, Layers, ChevronRight,
-  Activity, RefreshCw, BarChart3, Calendar, Lightbulb, Gauge, X,
+  Activity, RefreshCw, BarChart3, Calendar, Lightbulb, Gauge, X, Play,
 } from "lucide-react";
 import Link from "next/link";
 import { use6DData, LAYER_META, type DataLayer } from "@/components/bi6d/use6DData";
@@ -81,7 +81,7 @@ export default function BiAvancadoPage() {
   // Design de informação: a frase útil que justifica o 3D aparece ANTES de
   // qualquer interação — não depende do usuário decifrar a cena sozinho.
   const insight = useMemo(
-    () => (data ? computeHeadlineInsight(data.points) : { text: "", peakId: null, correlatedId: null, layerTags: null }),
+    () => (data ? computeHeadlineInsight(data.points) : { text: "", peakId: null, correlatedId: null, layerTags: null, impact: null }),
     [data]
   );
 
@@ -91,6 +91,12 @@ export default function BiAvancadoPage() {
   const [showPerf, setShowPerf] = useState(true);
   const [perf, setPerf] = useState<PerfSample | null>(null);
   const handlePerfSample = useCallback((s: PerfSample) => setPerf(s), []);
+
+  // Modo História toca sozinho na 1ª vez que um insight chega; depois disso
+  // o usuário decide quando quer ver de novo — incrementar isso força a
+  // cena a rodar a animação outra vez sem esperar o insight mudar.
+  const [replayToken, setReplayToken] = useState(0);
+  const replayInsight = useCallback(() => setReplayToken(t => t + 1), []);
 
   const toggleLayer = useCallback((layer: DataLayer) => {
     setActiveLayers(prev => {
@@ -258,8 +264,21 @@ export default function BiAvancadoPage() {
               >
                 <div className="flex items-start gap-2.5 rounded-2xl border border-amber-400/25 bg-black/55 backdrop-blur-md px-4 py-3 shadow-lg shadow-amber-500/10">
                   <Lightbulb size={16} className="text-amber-400 shrink-0 mt-0.5" />
-                  <div className="flex flex-col gap-1.5">
-                    <p className="text-[12.5px] text-white/80 leading-snug">{insight.text}</p>
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/80">Insight principal</span>
+                      {/* Botão de replay — o Modo História (câmera+feixes+dimming)
+                          toca sozinho na 1ª vez; depois disso o usuário decide
+                          quando quer ver de novo, em vez de recarregar a página. */}
+                      <button
+                        onClick={replayInsight}
+                        className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-amber-300/90 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 rounded-full px-2 py-0.5 transition-colors"
+                        title="Tocar de novo a animação que aponta pro insight"
+                      >
+                        <Play size={9} className="fill-current" />
+                        Reproduzir Insight
+                      </button>
+                    </div>
                     {/* Rótulo das 2 camadas cruzadas — a mesma dupla que a
                         cena ilumina/enquadra sozinha (Modo História). Só
                         aparece quando há de fato uma correlação, não num
@@ -272,6 +291,26 @@ export default function BiAvancadoPage() {
                         <span className="text-white/25 text-[10px]">×</span>
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
                           {insight.layerTags[1]}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-[12.5px] text-white/80 leading-snug">{insight.text}</p>
+                    {/* Resumo fixo — fica na tela mesmo depois da animação
+                        terminar, pra ninguém precisar lembrar o que acabou
+                        de ver. Severidade vem da magnitude real do achado
+                        (% de queda / % acima da média), nunca um número solto. */}
+                    {insight.impact && (
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className="text-[11px] text-white/40">Impacto estimado:</span>
+                        <span className={
+                          "text-[11px] font-bold px-1.5 py-0.5 rounded-md border " +
+                          (insight.impact === "ALTO"
+                            ? "text-red-300 bg-red-400/10 border-red-400/20"
+                            : insight.impact === "MEDIO"
+                            ? "text-amber-300 bg-amber-400/10 border-amber-400/20"
+                            : "text-emerald-300 bg-emerald-400/10 border-emerald-400/20")
+                        }>
+                          {insight.impact === "ALTO" ? "Alto" : insight.impact === "MEDIO" ? "Médio" : "Baixo"}
                         </span>
                       </div>
                     )}
@@ -331,7 +370,7 @@ export default function BiAvancadoPage() {
             {data && data.points.length > 0 && (
               <Scene6D
                 sceneData={data} timeFilter={timeFilter}
-                highlightId={insight.peakId} correlatedId={insight.correlatedId}
+                highlightId={insight.peakId} correlatedId={insight.correlatedId} replayToken={replayToken}
                 onPerfSample={handlePerfSample}
               />
             )}

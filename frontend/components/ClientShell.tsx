@@ -595,17 +595,18 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
           const root = document.documentElement;
           const color = r.data?.primaryColor;
           if (color) root.style.setProperty("--color-primary", color);
-          // Aplica cores de fundo/sidebar salvas pelo seletor de preset
-          const bg = r.data?.backgroundColor;
-          const sidebar = r.data?.secondaryColor;
-          if (bg && bg !== "#020617") {
-            root.style.setProperty("--surface-0",   bg);
-            root.style.setProperty("--app-page-bg", bg);
-          }
-          if (sidebar && sidebar !== "#0f172a") {
-            root.style.setProperty("--surface-1",  sidebar);
-            root.style.setProperty("--app-sidebar", sidebar);
-          }
+          // NÃO aplicar backgroundColor/secondaryColor (CompanyTheme) aqui —
+          // esses campos configuram o FUNDO DO CARDÁPIO DIGITAL PÚBLICO
+          // (preview mostrado em /configuracoes?tab=aparencia é o cardápio,
+          // não o painel). Aplicar em --surface-0/--surface-1/--app-page-bg/
+          // --app-sidebar tingia o PAINEL ADMIN INTEIRO (sidebar + fundo de
+          // toda página) com a cor escolhida pro cardápio — com um preset tipo
+          // "Verde Natureza"/"Terracota Suave" isso deixava toda a área
+          // administrativa colorida e destoando do resto do design system
+          // (cinza-azul neutro), com cara de sistema quebrado. --color-primary
+          // (accent de botão/nav ativo) continua sincronizado normalmente —
+          // só o fundo/sidebar do painel voltou a ser sempre neutro
+          // (claro/escuro conforme darkMode, nunca a cor do cardápio).
           // Sincroniza o preset PDV salvo no banco (cross-device) para o
           // localStorage local + CSS vars --pdv-* antes de o /pdv montar.
           if (r.data?.pdvThemeConfig && typeof r.data.pdvThemeConfig === "object") {

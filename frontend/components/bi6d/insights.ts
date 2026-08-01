@@ -14,6 +14,8 @@
 
 import type { DataPoint6D, DataLayer } from "./use6DData";
 
+export type InsightImpact = "ALTO" | "MEDIO" | "BAIXO";
+
 export interface HeadlineInsight {
   text: string;
   peakId: string | null;
@@ -22,6 +24,10 @@ export interface HeadlineInsight {
   correlatedId: string | null;
   /** Rótulos curtos das duas camadas envolvidas, pra tag na UI ("Pedidos + Estoque"). */
   layerTags: [string, string] | null;
+  /** Severidade estimada — derivada da MAGNITUDE real do achado (queda %
+   *  na janela cruzada, ou % acima da média no caso de pico isolado), nunca
+   *  um número arbitrário. Vira o resumo fixo que fica depois da animação. */
+  impact: InsightImpact | null;
 }
 
 const HOUR_LABEL_BUCKET = 2; // agrupa em janelas de 2h pra achar coincidência
@@ -40,7 +46,7 @@ function bucketHour(x: number): number {
 }
 
 export function computeHeadlineInsight(points: DataPoint6D[]): HeadlineInsight {
-  const empty: HeadlineInsight = { text: "", peakId: null, correlatedId: null, layerTags: null };
+  const empty: HeadlineInsight = { text: "", peakId: null, correlatedId: null, layerTags: null, impact: null };
   if (points.length === 0) return empty;
 
   const orderPoints = points.filter(p => p.layer === "orders");
@@ -81,20 +87,24 @@ export function computeHeadlineInsight(points: DataPoint6D[]): HeadlineInsight {
 
   const hourLabel = `${peakHour}h–${peakHour + HOUR_LABEL_BUCKET}h`;
   if (bestFinding) {
+    const impact: InsightImpact = bestFinding.drop > 0.5 ? "ALTO" : bestFinding.drop > 0.35 ? "MEDIO" : "BAIXO";
     return {
       text: `Pico de vendas às ${hourLabel} (${fmtMoney(peak.value)}) coincide com ${bestFinding.label} nesse mesmo horário — um cruzamento que só aparece olhando as camadas juntas.`,
       peakId: peak.id,
       correlatedId: bestFinding.point.id,
       layerTags: [LAYER_SHORT_LABEL.orders, LAYER_SHORT_LABEL[bestFinding.layer]],
+      impact,
     };
   }
 
   if (pctAboveAvg > 15) {
+    const impact: InsightImpact = pctAboveAvg > 40 ? "ALTO" : pctAboveAvg > 25 ? "MEDIO" : "BAIXO";
     return {
       text: `Seu momento mais forte foi às ${hourLabel}: ${fmtMoney(peak.value)}, ${pctAboveAvg.toFixed(0)}% acima da média do período.`,
       peakId: peak.id,
       correlatedId: null,
       layerTags: null,
+      impact,
     };
   }
 
@@ -103,5 +113,6 @@ export function computeHeadlineInsight(points: DataPoint6D[]): HeadlineInsight {
     peakId: peak.id,
     correlatedId: null,
     layerTags: null,
+    impact: "BAIXO",
   };
 }

@@ -1108,7 +1108,7 @@ export default function PDVPage() {
                 return (
                   <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
                     className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition ${
-                      isActive ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-zinc-300"
+                      isActive ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-[var(--pdv-text,#ffffff)] opacity-80"
                     }`}>
                     {cat.name}
                   </button>
@@ -1124,7 +1124,7 @@ export default function PDVPage() {
             <div className="space-y-2">
               <button onClick={() => setSelectedCategory("all")}
                 className={`w-full min-h-[64px] rounded-3xl text-center px-4 transition font-semibold text-sm ${
-                  selectedCategory === "all" ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-300"
+                  selectedCategory === "all" ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-[var(--pdv-text,#ffffff)] opacity-80"
                 }`}>Todos</button>
               {loading ? Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="w-full min-h-[64px] rounded-3xl bg-[var(--pdv-card-hover,#0c101d)] animate-pulse" />
@@ -1147,7 +1147,7 @@ export default function PDVPage() {
                         }
                       }}
                       className={`w-full min-h-[64px] rounded-3xl px-4 transition font-semibold text-sm flex items-center justify-between gap-2 ${
-                        isParentActive ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-300"
+                        isParentActive ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-[var(--pdv-text,#ffffff)] opacity-80"
                       }`}>
                       <span className="flex-1 text-center">{cat.name}</span>
                       {hasChildren && (
@@ -1160,7 +1160,7 @@ export default function PDVPage() {
                           <button key={child.id}
                             onClick={() => setSelectedCategory(child.id)}
                             className={`w-full min-h-[48px] rounded-2xl px-3 transition text-xs font-semibold text-center ${
-                              selectedCategory === child.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-zinc-400"
+                              selectedCategory === child.id ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] hover:bg-[var(--pdv-card-hover,#151c2d)] text-[var(--pdv-text,#ffffff)] opacity-70"
                             }`}>
                             {child.name}
                           </button>

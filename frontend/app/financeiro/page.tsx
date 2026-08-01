@@ -17,6 +17,19 @@ import {
   PieChart, Pie, Legend,
 } from "recharts";
 
+// Chave "YYYY-MM-DD" no fuso de Brasília — usar toISOString() (UTC) aqui
+// causava dois bugs: "Hoje" virava uma janela rolante de 24h em vez do dia
+// de calendário, e a partir do fim da tarde no Brasil (UTC-3) a data UTC já
+// era "amanhã", excluindo o dia inteiro. Mesma técnica de entregadores/page.tsx.
+function brazilDateKeyOf(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+function shiftBrazilDateKey(key: string, days: number): string {
+  const d = new Date(`${key}T12:00:00-03:00`); // meio-dia evita virar de dia por DST/arredondamento
+  d.setUTCDate(d.getUTCDate() + days);
+  return brazilDateKeyOf(d);
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Tab = "mensalidade" | "extrato" | "caixa" | "relatorio" | "configuracoes";
@@ -722,16 +735,21 @@ function TabRelatorio({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const now = new Date();
-    const from =
+    // Datas em string "YYYY-MM-DD" (fuso Brasília) — o backend já espera
+    // esse formato (parseBrazilDateStart/End) e alinha certinho meia-noite a
+    // meia-noite; mandar .toISOString() (UTC) fazia "Hoje" virar uma janela
+    // rolante de 24h em vez do dia de calendário, e podia excluir o dia
+    // inteiro à noite (quando o UTC já virou "amanhã").
+    const todayKey = brazilDateKeyOf(new Date());
+    const fromKey =
       period === "mes"
-        ? new Date(now.getFullYear(), now.getMonth(), 1)
+        ? `${todayKey.slice(0, 7)}-01`
         : period === "semana"
-        ? new Date(now.getTime() - 7 * 86400000)
-        : new Date(now.getTime() - 86400000);
+        ? shiftBrazilDateKey(todayKey, -7)
+        : todayKey;
 
     api
-      .get("/reports/revenue", { params: { from: from.toISOString(), to: now.toISOString() } })
+      .get("/reports/revenue", { params: { from: fromKey, to: todayKey } })
       .then((r) => { if (!cancelled) setReport(r.data); })
       .catch(() => { if (!cancelled) setReport(null); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -766,14 +784,15 @@ function TabRelatorio({
     { name: "Balcão", value: report?.byType?.dineIn ?? 0 },
   ].filter((d) => d.value > 0);
 
-  // Últimos 7 dias a partir da série diária real do backend
+  // Últimos 7 dias a partir da série diária real do backend (dailySeries usa
+  // chaves no fuso de Brasília — toISOString() aqui desalinhava a partir do
+  // fim da tarde, quando o UTC já vira o dia seguinte).
   const dailyMap = new Map((report?.dailySeries ?? []).map((d) => [d.date, d]));
-  const now = new Date();
+  const todayChartKey = brazilDateKeyOf(new Date());
   const chartData = Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(now.getTime() - (6 - i) * 86400000);
-    const iso = day.toISOString().slice(0, 10);
-    const dayStr = day.toLocaleDateString("pt-BR", { weekday: "short" });
-    return { day: dayStr, value: dailyMap.get(iso)?.revenue ?? 0 };
+    const key = shiftBrazilDateKey(todayChartKey, -(6 - i));
+    const dayStr = new Date(`${key}T12:00:00-03:00`).toLocaleDateString("pt-BR", { weekday: "short", timeZone: "America/Sao_Paulo" });
+    return { day: dayStr, value: dailyMap.get(key)?.revenue ?? 0 };
   });
   const maxChart = Math.max(...chartData.map((d) => d.value), 1);
 
@@ -903,15 +922,16 @@ function TabRelatorio({
             <p className="text-sm text-gray-400 py-8 text-center">Sem dados no período.</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
+              <PieChart margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                 <Pie
                   data={paymentPieData}
                   dataKey="value"
                   nameKey="name"
                   innerRadius={45}
-                  outerRadius={80}
+                  outerRadius={72}
                   paddingAngle={2}
-                  label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  label={({ percent }: any) => `${(percent * 100).toFixed(1)}%`}
+                  labelLine={{ strokeWidth: 1 }}
                 >
                   {paymentPieData.map((entry) => (
                     <Cell key={entry.key} fill={PAYMENT_PIE_COLORS[entry.key] ?? "#9ca3af"} />
@@ -933,15 +953,16 @@ function TabRelatorio({
             <p className="text-sm text-gray-400 py-8 text-center">Sem dados no período.</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
+              <PieChart margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                 <Pie
                   data={typePieData}
                   dataKey="value"
                   nameKey="name"
                   innerRadius={45}
-                  outerRadius={80}
+                  outerRadius={72}
                   paddingAngle={2}
-                  label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  label={({ percent }: any) => `${(percent * 100).toFixed(1)}%`}
+                  labelLine={{ strokeWidth: 1 }}
                 >
                   {typePieData.map((entry) => (
                     <Cell key={entry.name} fill={TYPE_PIE_COLORS[entry.name] ?? "#9ca3af"} />

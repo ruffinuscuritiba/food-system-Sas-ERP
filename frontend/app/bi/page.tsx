@@ -77,7 +77,11 @@ interface AiMessage { role: "USER" | "ASSISTANT"; content: string; }
 
 const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
-const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+// toISOString() usa UTC — no fim da tarde/noite no Brasil (UTC-3) o relógio
+// UTC já virou o dia seguinte, então "Hoje" acabava pedindo dados de um dia
+// que ainda nem começou no horário de Brasília (0 resultados). Mesma técnica
+// já usada em entregadores/page.tsx (brazilDateKey).
+const fmtDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
 function presetRange(preset: DatePreset, custom: { from: string; to: string }) {
   const now = new Date();
@@ -151,7 +155,7 @@ export default function BIPage() {
     setLoading(true);
     try {
       const [kpiRes, revRes, productsRes, menuRes, customersRes, feedbackRes, alertRes] = await Promise.allSettled([
-        api.get("/reports/executive"),
+        api.get(`/reports/executive?from=${range.from}&to=${range.to}`),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
         api.get(`/reports/products?from=${range.from}&to=${range.to}&limit=50`),
         api.get(`/menu-analytics/summary?from=${range.from}&to=${range.to}`),

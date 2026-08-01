@@ -184,8 +184,14 @@
 /* ── PDV light — banner de categoria: overlay gradiente (escuro embaixo) ────
  * Substitui bg-black/60 (muito pesado) por gradiente suave:
  * quase transparente no topo → 40% opaco na base (onde fica o texto).
- * O texto do banner permanece BRANCO (legível sobre a base mais escura). */
-:root:not(.theme-dark) .pdv-root [class*="bg-black/"] {
+ * O texto do banner permanece BRANCO (legível sobre a base mais escura).
+ * ESCOPADO a `section` de propósito — esse era o overlay do banner de
+ * categoria (única ocorrência de bg-black/NN dentro da <section> de
+ * produtos). Um seletor [class*="bg-black/"] sem esse escopo pegava
+ * TAMBÉM os overlays de modal (Entrada/Saída/Sangria etc., bg-black/80
+ * fora da section), zerando o backdrop deles pra quase-transparente e
+ * deixando o fundo borrado mas mal escurecido atrás dos modais. */
+:root:not(.theme-dark) .pdv-root section [class*="bg-black/"] {
   background: linear-gradient(
     to bottom,
     rgba(0,0,0,0.04) 0%,
@@ -195,6 +201,18 @@
 /* Texto do banner (title + subtitle) mantém branco — legível no gradiente */
 :root:not(.theme-dark) .pdv-root section .text-white,
 :root:not(.theme-dark) .pdv-root section .text-zinc-300 { color: #ffffff !important; }
+
+/* ── PDV light — badges do rodapé (Ativos/Em Rota/Finalizados + "Sistema
+ * Online"/Operador/data/hora): as cores pastel -400 do Tailwind foram
+ * pensadas pra contrastar num fundo ESCURO — no fundo claro do PDV
+ * (~#F7F6F3) ficam quase ilegíveis (contraste bem abaixo do mínimo
+ * legível). Escurece só o texto/pontinho, mantém o pill leve por trás. */
+:root:not(.theme-dark) .pdv-root footer .text-zinc-400  { color: #52525b !important; }
+:root:not(.theme-dark) .pdv-root footer .text-green-400 { color: #15803d !important; }
+:root:not(.theme-dark) .pdv-root footer .text-blue-400  { color: #1d4ed8 !important; }
+:root:not(.theme-dark) .pdv-root footer .bg-zinc-400  { background-color: #71717a !important; }
+:root:not(.theme-dark) .pdv-root footer .bg-green-400 { background-color: #16a34a !important; }
+:root:not(.theme-dark) .pdv-root footer .bg-blue-400  { background-color: #2563eb !important; }
 
 /* ── PDV light — botões 3D elevados ────────────────────────────────────────
  * Sombra proeminente + brilho inset topo → aparência de botão físico prensado. */

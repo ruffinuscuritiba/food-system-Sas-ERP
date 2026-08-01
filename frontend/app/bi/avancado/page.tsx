@@ -81,7 +81,7 @@ export default function BiAvancadoPage() {
   // Design de informação: a frase útil que justifica o 3D aparece ANTES de
   // qualquer interação — não depende do usuário decifrar a cena sozinho.
   const insight = useMemo(
-    () => (data ? computeHeadlineInsight(data.points) : { text: "", peakId: null }),
+    () => (data ? computeHeadlineInsight(data.points) : { text: "", peakId: null, correlatedId: null, layerTags: null }),
     [data]
   );
 
@@ -258,7 +258,24 @@ export default function BiAvancadoPage() {
               >
                 <div className="flex items-start gap-2.5 rounded-2xl border border-amber-400/25 bg-black/55 backdrop-blur-md px-4 py-3 shadow-lg shadow-amber-500/10">
                   <Lightbulb size={16} className="text-amber-400 shrink-0 mt-0.5" />
-                  <p className="text-[12.5px] text-white/80 leading-snug">{insight.text}</p>
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[12.5px] text-white/80 leading-snug">{insight.text}</p>
+                    {/* Rótulo das 2 camadas cruzadas — a mesma dupla que a
+                        cena ilumina/enquadra sozinha (Modo História). Só
+                        aparece quando há de fato uma correlação, não num
+                        insight de "pico isolado" sem segunda camada. */}
+                    {insight.layerTags && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
+                          {insight.layerTags[0]}
+                        </span>
+                        <span className="text-white/25 text-[10px]">×</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
+                          {insight.layerTags[1]}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -314,7 +331,8 @@ export default function BiAvancadoPage() {
             {data && data.points.length > 0 && (
               <Scene6D
                 sceneData={data} timeFilter={timeFilter}
-                highlightId={insight.peakId} onPerfSample={handlePerfSample}
+                highlightId={insight.peakId} correlatedId={insight.correlatedId}
+                onPerfSample={handlePerfSample}
               />
             )}
           </Suspense>

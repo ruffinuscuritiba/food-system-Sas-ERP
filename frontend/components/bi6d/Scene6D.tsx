@@ -215,18 +215,24 @@ export interface PointVisualState {
   opacity: number;
   emissiveIntensity: number;
   haloOpacity: number;
-  reticleVisible: boolean;
+  markerOpacity: number;
 }
 
 /** Metade 1 (cálculo puro) do estado da esfera — ver nota de SEAM acima. */
 function usePointVisualState(
   point: LifecyclePoint,
-  opts: { timeFilter: number; isSelected: boolean; isHovered: boolean; isHighlighted: boolean },
-  onUpdate: (state: PointVisualState, dt: number) => void,
+  opts: {
+    timeFilter: number; isSelected: boolean; isHovered: boolean; isHighlighted: boolean;
+    // Modo História: quando ativo, tudo que NÃO é a dupla da história recua —
+    // não compete por atenção enquanto a câmera conta a história. O ponto em
+    // si nunca some de vez (mantém contexto de "skyline"), só fica bem quieto.
+    isDimmed: boolean;
+  },
+  onUpdate: (state: PointVisualState, dt: number, elapsed: number) => void,
 ) {
   const birthTime = useRef<number | null>(null);
   const state = useRef<PointVisualState>({
-    scale: 0, opacity: 0, emissiveIntensity: 0.26, haloOpacity: 0, reticleVisible: false,
+    scale: 0, opacity: 0, emissiveIntensity: 0.26, haloOpacity: 0, markerOpacity: 0,
   });
 
   useFrame(({ clock }, dt) => {
@@ -236,18 +242,20 @@ function usePointVisualState(
     const pop = point.leaving ? 1 : THREE.MathUtils.smoothstep(age, 0, POP_IN_SECONDS);
 
     const fade = Math.abs(point.t - opts.timeFilter);
-    const targetOpacity = point.leaving ? 0 : (fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3));
+    const baseOpacity = point.leaving ? 0 : (fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3));
+    const dimMultiplier = opts.isDimmed ? 0.16 : 1;
+    const targetOpacity = baseOpacity * dimMultiplier;
     const hoverBoost = opts.isHovered && !opts.isSelected ? 1.12 : 1;
     const targetScale = point.leaving ? 0 : pop * hoverBoost;
 
     s.opacity = THREE.MathUtils.damp(s.opacity, targetOpacity, DAMP_LAMBDA, dt);
     s.scale = THREE.MathUtils.damp(s.scale, targetScale, point.leaving ? DAMP_LAMBDA * 0.8 : DAMP_LAMBDA, dt);
-    const targetEmissive = opts.isSelected ? 1.1 : opts.isHovered ? 0.55 : opts.isHighlighted ? 0.6 : 0.26;
+    const targetEmissive = opts.isSelected ? 1.1 : opts.isHovered ? 0.55 : opts.isHighlighted ? 0.8 : opts.isDimmed ? 0.06 : 0.26;
     s.emissiveIntensity = THREE.MathUtils.damp(s.emissiveIntensity, targetEmissive, DAMP_LAMBDA, dt);
     s.haloOpacity = THREE.MathUtils.damp(s.haloOpacity, opts.isSelected ? 0.12 : 0, DAMP_LAMBDA, dt);
-    s.reticleVisible = opts.isHighlighted && s.opacity > 0.1;
+    s.markerOpacity = THREE.MathUtils.damp(s.markerOpacity, opts.isHighlighted ? 0.95 : 0, DAMP_LAMBDA, dt);
 
-    onUpdate(s, dt);
+    onUpdate(s, dt, clock.elapsedTime);
   });
 }
 
@@ -316,16 +324,17 @@ function ProbabilityRing({ point, color }: { point: DataPoint6D; color: THREE.Co
 //    usePointVisualState — se um dia isso virar InstancedMesh, só a função
 //    passada pro hook muda, não a matemática. ─────────────────────────────────
 function Sphere6D({
-  point, timeFilter, selected, onSelect, isHighlighted, segments,
+  point, timeFilter, selected, onSelect, isHighlighted, isDimmed, segments,
 }: {
   point: LifecyclePoint; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
-  isHighlighted: boolean; segments: number;
+  isHighlighted: boolean; isDimmed: boolean; segments: number;
 }) {
   const groupRef  = useRef<THREE.Group>(null!);
   const meshRef   = useRef<THREE.Mesh>(null!);
   const haloRef   = useRef<THREE.Mesh>(null!);
-  const reticleRef = useRef<THREE.Group>(null!);
+  const markerRef = useRef<THREE.Group>(null!);
+  const markerMatRef = useRef<THREE.MeshBasicMaterial>(null!);
   const color    = useMemo(() => resolveColor(point), [point]);
   const isSel    = selected === point.id;
   const [hovered, setHovered] = useState(false);
@@ -334,8 +343,8 @@ function Sphere6D({
 
   usePointVisualState(
     point,
-    { timeFilter, isSelected: isSel, isHovered: hovered, isHighlighted },
-    (s, dt) => {
+    { timeFilter, isSelected: isSel, isHovered: hovered, isHighlighted, isDimmed },
+    (s, dt, elapsed) => {
       if (groupRef.current) groupRef.current.scale.setScalar(s.scale);
       if (meshRef.current) {
         const mat = meshRef.current.material as THREE.MeshPhysicalMaterial;
@@ -349,13 +358,14 @@ function Sphere6D({
         (haloRef.current.material as THREE.MeshBasicMaterial).opacity = s.haloOpacity;
         haloRef.current.visible = s.haloOpacity > 0.002;
       }
-      // Reticle dourado — "olhe aqui primeiro": só existe no ponto que
-      // responde ao insight calculado, gira devagar, nunca compete com o
-      // halo de seleção (cor e forma diferentes de propósito).
-      if (reticleRef.current) {
-        reticleRef.current.rotation.z += dt * 0.5;
-        reticleRef.current.visible = s.reticleVisible;
+      // Marcador "olhe aqui" — só no(s) ponto(s) que a história atual está
+      // contando. Bob suave (nunca giro raso feito reticle antigo — a ideia
+      // é ler como uma seta apontando pro ponto, visível de qualquer ângulo).
+      if (markerRef.current) {
+        markerRef.current.visible = s.markerOpacity > 0.01;
+        markerRef.current.position.y = radius * 2.4 + 0.22 + Math.sin(elapsed * 2.2) * 0.06;
       }
+      if (markerMatRef.current) markerMatRef.current.opacity = s.markerOpacity;
     },
   );
 
@@ -393,14 +403,40 @@ function Sphere6D({
       </mesh>
       {/* D6b — probabilidade real do ponto, sempre visível */}
       <ProbabilityRing point={point} color={color} />
-      {/* "Olhe aqui primeiro" — só no ponto que evidencia o insight calculado */}
-      <group ref={reticleRef} visible={false}>
-        <mesh>
-          <torusGeometry args={[radius * 2.1, 0.012, 8, 40]} />
-          <meshBasicMaterial color={HIGHLIGHT_COLOR} transparent opacity={0.55} depthWrite={false} />
+      {/* Seta "olhe aqui" — só no(s) ponto(s) que a história calculada aponta.
+          Substitui o antigo anel fino (fácil de perder em qualquer ângulo de
+          câmera) por uma forma que lê como seta de qualquer lado. */}
+      <group ref={markerRef} visible={false}>
+        <mesh rotation={[Math.PI, 0, 0]}>
+          <coneGeometry args={[0.1, 0.19, 4]} />
+          <meshBasicMaterial ref={markerMatRef} color={HIGHLIGHT_COLOR} transparent opacity={0} depthWrite={false} />
         </mesh>
       </group>
     </group>
+  );
+}
+
+// ── Modo História: coluna de luz translúcida ligando o chão à altura do
+//    ponto — a cena literalmente aponta pro horário/camada em vez do
+//    usuário ter que procurar. Some sozinha quando a história termina. ────
+function StoryBeam({ x, z, active }: { x: number; z: number; active: boolean }) {
+  const matRef = useRef<THREE.MeshBasicMaterial>(null!);
+  const height = 5.6;
+  useFrame((_, dt) => {
+    if (matRef.current) {
+      // Sobe suave até um teto discreto (nunca compete com as esferas) e
+      // desce do mesmo jeito quando a história termina — sem sumiço seco.
+      matRef.current.opacity = THREE.MathUtils.damp(matRef.current.opacity, active ? 0.16 : 0, DAMP_LAMBDA * 0.6, dt);
+    }
+  });
+  return (
+    <mesh position={[x, FLOOR_Y + height / 2, z]}>
+      <cylinderGeometry args={[0.045, 0.07, height, 12, 1, true]} />
+      <meshBasicMaterial
+        ref={matRef} color={HIGHLIGHT_COLOR} transparent opacity={0}
+        side={THREE.DoubleSide} depthWrite={false} blending={THREE.AdditiveBlending}
+      />
+    </mesh>
   );
 }
 
@@ -647,12 +683,23 @@ function TimeAxis() {
 // ── Câmera cinematográfica — auto-rotação lenta que pausa na interação e
 //    retoma após ficar parada; alvo desliza suavemente até o ponto
 //    selecionado em vez de saltar (focus pull). ──────────────────────────────
-function CinematicControls({ target }: { target: [number, number, number] | null }) {
+function CinematicControls({
+  target, onUserInteract,
+}: {
+  target: [number, number, number] | null;
+  /** Disparado ao 1º toque/arrasto do usuário — cancela o Modo História na
+      hora: se a pessoa já está explorando por conta própria, a câmera não
+      deve continuar "puxando" pra história calculada. */
+  onUserInteract?: () => void;
+}) {
   const controlsRef = useRef<any>(null);
   const lastInteraction = useRef(0);
   const currentTarget = useRef(new THREE.Vector3(0, 0, 0));
 
-  const handleStart = useCallback(() => { lastInteraction.current = performance.now() / 1000; }, []);
+  const handleStart = useCallback(() => {
+    lastInteraction.current = performance.now() / 1000;
+    onUserInteract?.();
+  }, [onUserInteract]);
   const handleEnd    = useCallback(() => { lastInteraction.current = performance.now() / 1000; }, []);
 
   useFrame(({ clock }, dt) => {
@@ -711,22 +758,66 @@ function PerfHud({ onSample }: { onSample: (s: PerfSample) => void }) {
 
 // ── Conteúdo da cena ──────────────────────────────────────────────────────────
 function SceneContent({
-  sceneData, timeFilter, selected, onSelect, highlightId, qualityFactor, onPerfSample,
+  sceneData, timeFilter, selected, onSelect, highlightId, correlatedId, qualityFactor, onPerfSample,
 }: {
   sceneData: Scene6DData; timeFilter: number;
   selected: string | null; onSelect: (id: string | null) => void;
   highlightId: string | null;
+  correlatedId: string | null;
   qualityFactor: number; // 0..1, vindo do PerformanceMonitor — degrada efeitos, não a informação
   onPerfSample: (s: PerfSample) => void;
 }) {
   // Ponto vivo (sem `leaving`) — usado pra câmera/tooltip, que não devem
   // seguir/mostrar um ponto que já está no meio da saída suave.
   const selPoint = sceneData.points.find(p => p.id === selected) ?? null;
-  const cameraTarget = selPoint ? pointPosition(selPoint) : null;
 
   // Mantém pontos removidos renderizando (com fade-out) por um instante em
   // vez de sumirem instantaneamente — ver usePointLifecycle.
   const livingPoints = usePointLifecycle(sceneData.points);
+
+  // ── Modo História — a cena leva o olho até o insight calculado em vez do
+  //    gerente ter que procurar. Ativa sozinha quando um novo insight chega
+  //    (nova janela de datas/preset), dura ~5s, e cede na hora pro primeiro
+  //    toque/arrasto do usuário (ninguém gosta de câmera "roubada" da mão). ──
+  const storyPoints = useMemo(() => {
+    const ids = [highlightId, correlatedId].filter((id): id is string => !!id);
+    return ids
+      .map(id => livingPoints.find(p => p.id === id))
+      .filter((p): p is LifecyclePoint => !!p);
+  }, [highlightId, correlatedId, livingPoints]);
+
+  const [storyActive, setStoryActive] = useState(false);
+  const storyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!highlightId) { setStoryActive(false); return; }
+    setStoryActive(true);
+    if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
+    storyTimerRef.current = setTimeout(() => setStoryActive(false), 5200);
+    return () => { if (storyTimerRef.current) clearTimeout(storyTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId, correlatedId]);
+
+  const endStoryEarly = useCallback(() => {
+    if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
+    setStoryActive(false);
+  }, []);
+
+  // Clique explícito num ponto sempre vence — o usuário já disse o que quer
+  // olhar. Sem seleção, a história (se ativa) enquadra os 2 pontos juntos
+  // (ponto médio) em vez de exigir que o gerente ache os dois sozinho.
+  const cameraTarget = useMemo<[number, number, number] | null>(() => {
+    if (selPoint) return pointPosition(selPoint);
+    if (storyActive && storyPoints.length > 0) {
+      if (storyPoints.length === 1) return pointPosition(storyPoints[0]);
+      const positions = storyPoints.map(pointPosition);
+      const mx = positions.reduce((s, p) => s + p[0], 0) / positions.length;
+      const my = positions.reduce((s, p) => s + p[1], 0) / positions.length;
+      const mz = positions.reduce((s, p) => s + p[2], 0) / positions.length;
+      return [mx, my, mz];
+    }
+    return null;
+  }, [selPoint, storyActive, storyPoints]);
 
   // Degradação adaptativa — a PRIMEIRA coisa a cair é o que é puramente
   // decorativo (bloom, grão, poeira, segmentos da esfera), NUNCA a
@@ -772,18 +863,30 @@ function SceneContent({
       <HierarchyEdges points={livingPoints} />
       <FlowParticles points={livingPoints} />
 
-      {livingPoints.map(p => (
-        <Sphere6D
-          key={p.id} point={p} timeFilter={timeFilter}
-          selected={selected} onSelect={onSelect}
-          isHighlighted={p.id === highlightId}
-          segments={sphereSegments}
-        />
-      ))}
+      {/* Feixes de luz do Modo História — ligam o chão à altura de cada ponto
+          da dupla que compõe o insight, sempre montados (fade próprio) pra
+          nunca cortar seco quando a história liga/desliga. */}
+      {storyPoints.map(p => {
+        const [x, , z] = pointPosition(p);
+        return <StoryBeam key={`beam-${p.id}`} x={x} z={z} active={storyActive} />;
+      })}
+
+      {livingPoints.map(p => {
+        const isStoryPoint = p.id === highlightId || p.id === correlatedId;
+        return (
+          <Sphere6D
+            key={p.id} point={p} timeFilter={timeFilter}
+            selected={selected} onSelect={onSelect}
+            isHighlighted={isStoryPoint}
+            isDimmed={storyActive && !isStoryPoint && p.id !== selected}
+            segments={sphereSegments}
+          />
+        );
+      })}
 
       <TooltipHost point={selPoint} />
 
-      <CinematicControls target={cameraTarget} />
+      <CinematicControls target={cameraTarget} onUserInteract={endStoryEarly} />
 
       {/* Bloom com mipmapBlur (mais suave e barato) + toque de grão/vinheta —
           primeiro efeito a desligar se o hardware não aguentar; a cena
@@ -807,10 +910,13 @@ function SceneContent({
 
 // ── Export ────────────────────────────────────────────────────────────────────
 export default function Scene6D({
-  sceneData, timeFilter, highlightId = null, onPerfSample,
+  sceneData, timeFilter, highlightId = null, correlatedId = null, onPerfSample,
 }: {
   sceneData: Scene6DData; timeFilter: number;
   highlightId?: string | null;
+  /** Ponto da outra camada que evidencia o insight — junto com `highlightId`
+      forma a dupla que o Modo História enquadra/ilumina. */
+  correlatedId?: string | null;
   onPerfSample?: (s: PerfSample) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -846,7 +952,8 @@ export default function Scene6D({
         <SceneContent
           sceneData={sceneData} timeFilter={timeFilter}
           selected={selected} onSelect={setSelected}
-          highlightId={highlightId} qualityFactor={qualityFactor} onPerfSample={handlePerfSample}
+          highlightId={highlightId} correlatedId={correlatedId}
+          qualityFactor={qualityFactor} onPerfSample={handlePerfSample}
         />
       </Canvas>
     </div>

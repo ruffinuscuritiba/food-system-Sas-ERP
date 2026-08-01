@@ -223,6 +223,10 @@ export class UpdateCompanySettingsDto {
   @IsOptional()
   googleReviewUrl?: string;
 
+  @IsString()
+  @IsOptional()
+  instagramUrl?: string;
+
   // ── Personalização do Menu Lateral ──────────────────────────────────────
   @IsObject()
   @IsOptional()

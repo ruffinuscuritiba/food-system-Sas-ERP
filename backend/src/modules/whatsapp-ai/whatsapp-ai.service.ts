@@ -2402,6 +2402,34 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
   // sozinho depois de 2h.
 
   /**
+   * Cross-canal (Order + OnlineOrder), últimos 8 dígitos — mesma regra já
+   * usada em reports.service.getCustomerStats/loyalty-milestones. Conta o
+   * próprio pedido atual junto: count<=1 significa que este é o único
+   * pedido desse telefone até agora, ou seja, o primeiro.
+   */
+  private async isFirstOrderForPhone(companyId: string, phone: string): Promise<boolean> {
+    const last8 = phone.replace(/\D/g, '').slice(-8);
+    if (last8.length < 8) return false;
+    try {
+      const [orders, onlineOrders] = await Promise.all([
+        this.prisma.order.count({ where: { companyId, customerPhone: { endsWith: last8 } } }),
+        this.prisma.onlineOrder.count({ where: { companyId, customerPhone: { endsWith: last8 } } }),
+      ]);
+      return orders + onlineOrders <= 1;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Linha extra convidando a seguir o Instagram — só no primeiro pedido do
+   *  cliente e só se a loja tiver o link configurado (pedido explícito do
+   *  usuário: não repetir o convite pra quem já é cliente recorrente). */
+  private instagramInviteLine(isFirstOrder: boolean, instagramUrl?: string | null): string {
+    if (!isFirstOrder || !instagramUrl) return '';
+    return `\n\n📸 E já aproveita pra nos seguir no Instagram: ${instagramUrl}`;
+  }
+
+  /**
    * Dispara a pergunta de satisfação pós-entrega. Só roda se a empresa tiver
    * Google Review configurado (sem isso não há pra onde direcionar o elogio)
    * e uma conexão WhatsApp ativa. Idempotente por (orderSource, orderId).
@@ -2452,6 +2480,10 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         .catch(() => null);
       if (existing) return; // já pedimos feedback pra este pedido
 
+      // Snapshotado agora (não recalculado na hora de mandar o link) — decide
+      // se o convite de Instagram entra junto com o pedido de avaliação.
+      const isFirstOrder = await this.isFirstOrderForPhone(params.companyId, raw);
+
       const firstName = params.customerName
         ? params.customerName.split(' ')[0]
         : '';
@@ -2469,6 +2501,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
           orderId: params.orderId,
           customerPhone: raw,
           customerName: params.customerName ?? null,
+          isFirstOrder,
         },
       });
     } catch (err: any) {
@@ -2565,13 +2598,14 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
 
       const company = await this.prisma.company.findUnique({
         where: { id: companyId },
-        select: { googleReviewUrl: true },
+        select: { googleReviewUrl: true, instagramUrl: true },
       });
       if (company?.googleReviewUrl) {
+        const instaLine = this.instagramInviteLine(!!pending.isFirstOrder, company.instagramUrl);
         await this.dispatchMessage(
           connection,
           phoneDigitsRaw,
-          `Que ótimo saber disso! 🙌 Se puder, deixa uma avaliação rápida pra gente — ajuda muito!\n\n👉 ${company.googleReviewUrl}`,
+          `Que ótimo saber disso! 🙌 Se puder, deixa uma avaliação rápida pra gente — ajuda muito!\n\n👉 ${company.googleReviewUrl}${instaLine}`,
         );
         await (this.prisma as any).deliveryFeedback.update({
           where: { id: pending.id },
@@ -2620,7 +2654,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       try {
         const company = await this.prisma.company.findUnique({
           where: { id: fb.companyId },
-          select: { googleReviewUrl: true },
+          select: { googleReviewUrl: true, instagramUrl: true },
         });
         if (!company?.googleReviewUrl) {
           await (this.prisma as any).deliveryFeedback.update({
@@ -2636,9 +2670,10 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         if (!connection) continue;
 
         const firstName = fb.customerName ? fb.customerName.split(' ')[0] : '';
+        const instaLine = this.instagramInviteLine(!!fb.isFirstOrder, company.instagramUrl);
         const msg =
           `Oi${firstName ? ` ${firstName}` : ''}! Espero que tenha gostado do pedido 😊 Se puder, deixa uma avaliação rápida pra gente:\n\n` +
-          `👉 ${company.googleReviewUrl}`;
+          `👉 ${company.googleReviewUrl}${instaLine}`;
         const sent = await this.dispatchMessage(connection, fb.customerPhone, msg);
         if (sent) {
           await (this.prisma as any).deliveryFeedback.update({

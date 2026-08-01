@@ -456,8 +456,16 @@ export default function PDVPage() {
     ]).then(([catRes, prodRes]) => {
       const cats: Category[] = Array.isArray(catRes.data) ? catRes.data : [];
       setCategories(cats);
+      // Cobre tanto categoria única "Pizzas" quanto subcategorias tipo
+      // "Clássicas"/"Especiais" dentro de uma categoria pai "Pizzas" — sem
+      // isso, produto cadastrado na subcategoria (nome sem "pizza") nunca
+      // caía no construtor de pizza (Product.categoryId aponta pro filho).
       const pizzaCatIds = new Set(
-        cats.filter(c => c.name.toLowerCase().includes("pizza")).map(c => c.id)
+        cats.filter(c => {
+          if (c.name.toLowerCase().includes("pizza")) return true;
+          const parent = c.parentCategoryId ? cats.find(p => p.id === c.parentCategoryId) : null;
+          return !!parent && parent.name.toLowerCase().includes("pizza");
+        }).map(c => c.id)
       );
       setPizzaCategories(pizzaCatIds);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
@@ -1725,7 +1733,11 @@ export default function PDVPage() {
             </div>
             <div className="p-6">
               <PizzaBuilder
-                flavors={filteredProducts.filter(p => p.categoryId && pizzaCategories.has(p.categoryId || "")).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
+                // Sempre a lista COMPLETA de sabores de pizza (todas as categorias/
+                // subcategorias tipo Clássica/Especial), nunca só a aba ativa do PDV —
+                // senão o operador só via os sabores da aba em que clicou "Adicionar" e
+                // não conseguia montar uma pizza meio-a-meio cruzando as duas categorias.
+                flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "")).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={[]}
                 sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0 }))}
                 sizeConfigs={pizzaSizeConfigs}

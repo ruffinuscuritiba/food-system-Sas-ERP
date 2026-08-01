@@ -322,6 +322,7 @@ model Company {
   // ── Construtor de Layout ────────────────────────────────────────────────────
   layoutConfig        Json?
   googleReviewUrl     String?
+  instagramUrl        String?
 
   // ── Personalização do Menu Lateral ─────────────────────────────────────────
   sidebarConfig       Json?   // Record<navKey, boolean> — false = oculto
@@ -1899,6 +1900,9 @@ model DeliveryFeedback {
   responseText   String?   @db.Text
   sentiment      String?   // "POSITIVE" | "NEGATIVE"
   reviewLinkSent Boolean   @default(false)
+  // Snapshotado no momento do pedido de feedback (não recalculado depois) —
+  // decide se a mensagem de avaliação também convida a seguir o Instagram.
+  isFirstOrder   Boolean   @default(false)
   createdAt      DateTime  @default(now())
 
   @@unique([orderSource, orderId])

@@ -1010,8 +1010,14 @@ export class OrdersService {
     }
 
     // ── Feedback pós-entrega (pergunta antes de mandar o link do Google) ────
+    // Espera 15min antes de perguntar "como ficou?" — dar tempo da pessoa
+    // comer antes de ser abordada (pedido explícito do usuário). Nota: é um
+    // setTimeout em memória, não durável — se o backend reiniciar dentro
+    // dessa janela de 15min (comum em dias de deploy), a pergunta desse
+    // pedido específico não sai; não há cron de segurança pra este estágio
+    // (só existe pro reenvio do link após a pergunta já ter sido feita).
     if (status === 'DELIVERED' && customerPhone) {
-      setImmediate(() => {
+      setTimeout(() => {
         this.whatsappAiService
           ?.requestDeliveryFeedback({
             companyId: order.companyId,
@@ -1023,7 +1029,7 @@ export class OrdersService {
           .catch(() => {
             /* silent — não bloqueia fluxo */
           });
-      });
+      }, 15 * 60 * 1000);
     }
 
     return updatedOrder;
@@ -1573,9 +1579,10 @@ export class OrdersService {
         });
       }
 
-      // Feedback pós-entrega (pergunta antes de mandar o link do Google)
+      // Feedback pós-entrega (pergunta antes de mandar o link do Google) —
+      // mesma espera de 15min do lado PDV (ver comentário em updateStatus).
       if (status === 'DELIVERED') {
-        setImmediate(async () => {
+        setTimeout(async () => {
           try {
             const fullOrder = await this.prisma.onlineOrder.findUnique({
               where: { id },
@@ -1592,7 +1599,7 @@ export class OrdersService {
           } catch {
             /* silent */
           }
-        });
+        }, 15 * 60 * 1000);
       }
 
       return { id: updated.id, source: 'ONLINE', status };

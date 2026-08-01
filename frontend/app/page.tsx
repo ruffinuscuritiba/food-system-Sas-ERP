@@ -16,6 +16,14 @@ from "@/components/dashboard/kpi-card";
 import { SalesChart }
 from "@/components/dashboard/sales-chart";
 
+/** Divisão de revenue/totalOrders (ticket médio) quase nunca fecha em 2 casas
+ *  exatas — sem toFixed, React renderiza a dízima inteira (ex: 46.656666...).
+ *  Aplicado em todo valor monetário do dashboard, não só no ticket médio. */
+function fmtMoney(n: number | string | undefined): string {
+  const v = Number(n) || 0;
+  return v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function Home() {
 
   const router = useRouter();
@@ -182,24 +190,24 @@ setSummary({
 
           <KpiCard
             title="Entradas"
-            value={`R$ ${summary.entries}`}
+            value={`R$ ${fmtMoney(summary.entries)}`}
             color="text-green-400"
           />
 
           <KpiCard
             title="Saídas"
-            value={`R$ ${summary.exits}`}
+            value={`R$ ${fmtMoney(summary.exits)}`}
             color="text-red-400"
           />
 
           <KpiCard
             title="Saldo"
-            value={`R$ ${summary.balance}`}
+            value={`R$ ${fmtMoney(summary.balance)}`}
           />
 
           <KpiCard
             title="Vendas"
-            value={`R$ ${summary.totalSales}`}
+            value={`R$ ${fmtMoney(summary.totalSales)}`}
             color="text-blue-400"
           />
 
@@ -211,7 +219,7 @@ setSummary({
 
           <KpiCard
             title="Ticket Médio"
-            value={`R$ ${summary.ticketAverage}`}
+            value={`R$ ${fmtMoney(summary.ticketAverage)}`}
             color="text-purple-400"
           />
 

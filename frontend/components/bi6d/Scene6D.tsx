@@ -107,31 +107,51 @@ function pointPosition(point: DataPoint6D): [number, number, number] {
 //    Com a haste, cada ponto vira uma "coluna" — a cena inteira lê como um
 //    skyline: mais alto = mais valor, e dá pra comparar as 6 camadas (lanes)
 //    de uma olhada só, o que um gráfico 2D não consegue sem virar 6 gráficos
-//    separados ou uma poluição de linhas sobrepostas. ─────────────────────────
-function SkylineStem({ point, opacity }: { point: DataPoint6D; opacity: number }) {
-  const [px, py, pz] = pointPosition(point);
-  const { points, colors } = useMemo(() => {
-    const color = new THREE.Color(LAYER_META[point.layer].color);
-    const dim = color.clone().multiplyScalar(0.15);
-    return {
-      points: [[px, FLOOR_Y, pz], [px, py, pz]] as [number, number, number][],
-      colors: [dim, color],
-    };
-  }, [px, py, pz, point.layer]);
-
-  if (opacity <= 0.01) return null;
-  return <Line points={points} vertexColors={colors} lineWidth={1} transparent opacity={opacity * 0.5} />;
-}
-
+//    separados ou uma poluição de linhas sobrepostas.
+//
+//    JÁ NASCE "instanciada" — não existe conceito de opacidade animada por
+//    frame aqui (o fade é recalculado só quando `points`/`timeFilter` mudam,
+//    ou seja, em re-render, não a cada frame), então em vez de 1 <Line> por
+//    ponto (o que já foi testado e chegava a ~400+ draw calls no pior caso),
+//    é UM ÚNICO THREE.LineSegments com todas as hastes num buffer só — o
+//    fade "por instância" é aproximado escurecendo a cor no próprio buffer
+//    (linha fina de fundo — imperceptível a diferença de um alpha real).
+//    Este componente é o exemplo de referência pra migrar Sphere6D/
+//    ProbabilityRing pro mesmo padrão se algum dia N draw calls virar
+//    gargalo real medido (ver comentário em usePointVisualState). ─────────────
 function SkylineStems({ points, timeFilter }: { points: LifecyclePoint[]; timeFilter: number }) {
+  const geomRef = useRef<THREE.BufferGeometry>(null!);
+
+  const { positions, colors, count } = useMemo(() => {
+    const n = points.length;
+    const pos = new Float32Array(n * 2 * 3);
+    const col = new Float32Array(n * 2 * 3);
+    points.forEach((p, i) => {
+      const [px, py, pz] = pointPosition(p);
+      const fade = Math.abs(p.t - timeFilter);
+      const opacity = p.leaving ? 0 : (fade < 0.15 ? 1 : Math.max(0.07, 1 - fade * 3));
+      const base = new THREE.Color(LAYER_META[p.layer].color);
+      const dim    = base.clone().multiplyScalar(0.15 * opacity * 0.5);
+      const bright = base.clone().multiplyScalar(opacity * 0.5);
+
+      const o = i * 6;
+      pos[o]     = px; pos[o + 1] = FLOOR_Y; pos[o + 2] = pz;
+      pos[o + 3] = px; pos[o + 4] = py;       pos[o + 5] = pz;
+      col[o]     = dim.r;    col[o + 1] = dim.g;    col[o + 2] = dim.b;
+      col[o + 3] = bright.r; col[o + 4] = bright.g; col[o + 5] = bright.b;
+    });
+    return { positions: pos, colors: col, count: n * 2 };
+  }, [points, timeFilter]);
+
+  if (count === 0) return null;
   return (
-    <>
-      {points.map(p => {
-        const fade = Math.abs(p.t - timeFilter);
-        const opacity = p.leaving ? 0 : (fade < 0.15 ? 1 : Math.max(0.07, 1 - fade * 3));
-        return <SkylineStem key={`stem-${p.id}`} point={p} opacity={opacity} />;
-      })}
-    </>
+    <lineSegments>
+      <bufferGeometry ref={geomRef}>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} count={count} itemSize={3} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} count={count} itemSize={3} />
+      </bufferGeometry>
+      <lineBasicMaterial vertexColors transparent={false} />
+    </lineSegments>
   );
 }
 
@@ -165,30 +185,115 @@ function useSoftDotTexture(): THREE.Texture {
   }, []);
 }
 
-// ── D6b — Probabilidade: pulso elegante (breathing assimétrico, não seno cru)
-//    + anel duplo (núcleo nítido + halo suave) — frequência/nitidez escalam
-//    com a confiança real do dado. ─────────────────────────────────────────────
-function ProbabilityRing({ point, color }: { point: DataPoint6D; color: THREE.Color }) {
-  const innerRef = useRef<THREE.Mesh>(null!);
-  const outerRef = useRef<THREE.Mesh>(null!);
-  const radius = point.weight * 0.32;
+// ── SEAM DE MIGRAÇÃO — leia antes de mexer em Sphere6D/ProbabilityRing ───────
+//
+// Cada ponto hoje é 1 <mesh> (esfera) + 2 <mesh> (anéis) + eventualmente halo
+// e reticle — no pior caso medido analiticamente (~417 pontos, 90 dias/6
+// camadas) isso é ~1.250 draw calls só dessas duas peças. Se algum dia isso
+// se confirmar um gargalo real (medido, não achismo — ver PerfHud), a troca
+// pra InstancedMesh é possível SEM reescrever a lógica de animação, porque
+// toda ela já está separada em duas metades:
+//
+//   1) CÁLCULO — os hooks usePointVisualState()/useRingPulseState() abaixo
+//      fazem toda a matemática (damp/easing/breathing) e devolvem um objeto
+//      de estado plano via callback `onUpdate`. Eles NUNCA tocam em nenhum
+//      objeto Three.js — não sabem se existe um <mesh> ou um InstancedMesh.
+//
+//   2) APLICAÇÃO — quem CHAMA o hook decide o que fazer com o estado. Hoje
+//      (Sphere6D/ProbabilityRing) escreve direto em `meshRef.current.material`.
+//      Amanhã, um `InstancedSpheres` escreveria o MESMO objeto de estado num
+//      Float32Array de atributo por instância (`instanceMatrix`/`instanceColor`
+//      + um atributo custom pra opacidade/emissivo via onBeforeCompile) dentro
+//      de UM loop, fora do React — o cálculo (metade 1) não muda uma linha.
+//
+// Ou seja: migrar = trocar a função de callback `onUpdate`, não os hooks.
+// (SkylineStems já foi migrado de verdade pra esse padrão — é o exemplo
+// funcionando de referência: um THREE.LineSegments só, sem estado por frame.)
+
+export interface PointVisualState {
+  scale: number;
+  opacity: number;
+  emissiveIntensity: number;
+  haloOpacity: number;
+  reticleVisible: boolean;
+}
+
+/** Metade 1 (cálculo puro) do estado da esfera — ver nota de SEAM acima. */
+function usePointVisualState(
+  point: LifecyclePoint,
+  opts: { timeFilter: number; isSelected: boolean; isHovered: boolean; isHighlighted: boolean },
+  onUpdate: (state: PointVisualState, dt: number) => void,
+) {
+  const birthTime = useRef<number | null>(null);
+  const state = useRef<PointVisualState>({
+    scale: 0, opacity: 0, emissiveIntensity: 0.26, haloOpacity: 0, reticleVisible: false,
+  });
+
+  useFrame(({ clock }, dt) => {
+    const s = state.current;
+    if (birthTime.current === null) birthTime.current = clock.elapsedTime;
+    const age = clock.elapsedTime - birthTime.current;
+    const pop = point.leaving ? 1 : THREE.MathUtils.smoothstep(age, 0, POP_IN_SECONDS);
+
+    const fade = Math.abs(point.t - opts.timeFilter);
+    const targetOpacity = point.leaving ? 0 : (fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3));
+    const hoverBoost = opts.isHovered && !opts.isSelected ? 1.12 : 1;
+    const targetScale = point.leaving ? 0 : pop * hoverBoost;
+
+    s.opacity = THREE.MathUtils.damp(s.opacity, targetOpacity, DAMP_LAMBDA, dt);
+    s.scale = THREE.MathUtils.damp(s.scale, targetScale, point.leaving ? DAMP_LAMBDA * 0.8 : DAMP_LAMBDA, dt);
+    const targetEmissive = opts.isSelected ? 1.1 : opts.isHovered ? 0.55 : opts.isHighlighted ? 0.6 : 0.26;
+    s.emissiveIntensity = THREE.MathUtils.damp(s.emissiveIntensity, targetEmissive, DAMP_LAMBDA, dt);
+    s.haloOpacity = THREE.MathUtils.damp(s.haloOpacity, opts.isSelected ? 0.12 : 0, DAMP_LAMBDA, dt);
+    s.reticleVisible = opts.isHighlighted && s.opacity > 0.1;
+
+    onUpdate(s, dt);
+  });
+}
+
+export interface RingPulseState {
+  innerOpacity: number; innerScale: number;
+  outerOpacity: number; outerScale: number;
+}
+
+/** Metade 1 (cálculo puro) do pulso de probabilidade — mesmo seam acima. */
+function useRingPulseState(
+  point: DataPoint6D,
+  onUpdate: (state: RingPulseState) => void,
+) {
   const phaseOffset = useMemo(() => Math.random() * Math.PI * 2, []);
   const speed = 0.5 + point.probability * 2.6; // rad/s — mais confiança, pulso mais rápido
+  const state = useRef<RingPulseState>({ innerOpacity: 0.15, innerScale: 1.25, outerOpacity: 0.05, outerScale: 1.6 });
 
   useFrame(({ clock }) => {
     const raw = (Math.sin(clock.elapsedTime * speed + phaseOffset) + 1) / 2;
     // easing assimétrico: sobe rápido, desce suave — "respiração", não onda mecânica
     const breathe = Math.pow(raw, 1.6);
+    const s = state.current;
+    s.innerOpacity = 0.12 + breathe * (0.15 + point.probability * 0.35);
+    s.innerScale   = 1.25 + breathe * 0.18;
+    s.outerOpacity = 0.04 + breathe * (0.05 + point.probability * 0.14);
+    s.outerScale   = 1.6 + breathe * 0.4;
+    onUpdate(s);
+  });
+}
 
+// ── D6b — Probabilidade: pulso elegante (breathing assimétrico, não seno cru)
+//    + anel duplo (núcleo nítido + halo suave) — frequência/nitidez escalam
+//    com a confiança real do dado. Metade 2 (aplicação) do seam acima. ────────
+function ProbabilityRing({ point, color }: { point: DataPoint6D; color: THREE.Color }) {
+  const innerRef = useRef<THREE.Mesh>(null!);
+  const outerRef = useRef<THREE.Mesh>(null!);
+  const radius = point.weight * 0.32;
+
+  useRingPulseState(point, (s) => {
     if (innerRef.current) {
-      const mat = innerRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.12 + breathe * (0.15 + point.probability * 0.35);
-      innerRef.current.scale.setScalar(1.25 + breathe * 0.18);
+      (innerRef.current.material as THREE.MeshBasicMaterial).opacity = s.innerOpacity;
+      innerRef.current.scale.setScalar(s.innerScale);
     }
     if (outerRef.current) {
-      const mat = outerRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.04 + breathe * (0.05 + point.probability * 0.14);
-      outerRef.current.scale.setScalar(1.6 + breathe * 0.4);
+      (outerRef.current.material as THREE.MeshBasicMaterial).opacity = s.outerOpacity;
+      outerRef.current.scale.setScalar(s.outerScale);
     }
   });
 
@@ -206,7 +311,10 @@ function ProbabilityRing({ point, color }: { point: DataPoint6D; color: THREE.Co
   );
 }
 
-// ── Esfera individual — material físico (clearcoat), pop-in, hover, easing ───
+// ── Esfera individual — material físico (clearcoat), pop-in, hover, easing.
+//    Metade 2 (aplicação) do seam de migração documentado acima de
+//    usePointVisualState — se um dia isso virar InstancedMesh, só a função
+//    passada pro hook muda, não a matemática. ─────────────────────────────────
 function Sphere6D({
   point, timeFilter, selected, onSelect, isHighlighted, segments,
 }: {
@@ -221,56 +329,35 @@ function Sphere6D({
   const color    = useMemo(() => resolveColor(point), [point]);
   const isSel    = selected === point.id;
   const [hovered, setHovered] = useState(false);
-
-  const fade   = Math.abs(point.t - timeFilter);
-  const targetOpacity = point.leaving ? 0 : (fade < 0.15 ? 1.0 : Math.max(0.07, 1.0 - fade * 3));
   const radius = point.weight * 0.32;
   const [px, py, pz] = pointPosition(point);
 
-  // Microanimação de nascimento — escala 0→1 com easing suave nos primeiros
-  // POP_IN_SECONDS de vida do ponto (não do app inteiro). Saída simétrica:
-  // quando `leaving`, o alvo de escala/opacidade vira 0 e o damp cuida do
-  // resto — nunca um "sumiço" instantâneo.
-  const birthTime = useRef<number | null>(null);
-  const currentOpacity = useRef(0);
-  const currentScale   = useRef(0);
-  const currentHalo    = useRef(0);
-
-  useFrame(({ clock }, dt) => {
-    if (birthTime.current === null) birthTime.current = clock.elapsedTime;
-    const age = clock.elapsedTime - birthTime.current;
-    const pop = point.leaving ? 1 : THREE.MathUtils.smoothstep(age, 0, POP_IN_SECONDS);
-
-    // Transições suaves (damp) em vez de valores instantâneos — some/aparece
-    // sem "saltar" ao mudar o slider de tempo, o hover ou ao ser removido.
-    currentOpacity.current = THREE.MathUtils.damp(currentOpacity.current, targetOpacity, DAMP_LAMBDA, dt);
-    const hoverBoost = hovered && !isSel ? 1.12 : 1;
-    const targetScale = point.leaving ? 0 : pop * hoverBoost;
-    currentScale.current = THREE.MathUtils.damp(currentScale.current, targetScale, point.leaving ? DAMP_LAMBDA * 0.8 : DAMP_LAMBDA, dt);
-
-    if (groupRef.current) groupRef.current.scale.setScalar(currentScale.current);
-    if (meshRef.current) {
-      const mat = meshRef.current.material as THREE.MeshPhysicalMaterial;
-      mat.opacity = currentOpacity.current;
-      const targetEmissive = isSel ? 1.1 : hovered ? 0.55 : isHighlighted ? 0.6 : 0.26;
-      mat.emissiveIntensity = THREE.MathUtils.damp(mat.emissiveIntensity, targetEmissive, DAMP_LAMBDA, dt);
-      if (isSel) meshRef.current.rotation.y += dt * 1.2;
-    }
-    // Halo de seleção sempre montado — só sua opacidade anima, nunca um
-    // pop/desaparecimento instantâneo ao selecionar/desselecionar.
-    if (haloRef.current) {
-      currentHalo.current = THREE.MathUtils.damp(currentHalo.current, isSel ? 0.12 : 0, DAMP_LAMBDA, dt);
-      (haloRef.current.material as THREE.MeshBasicMaterial).opacity = currentHalo.current;
-      haloRef.current.visible = currentHalo.current > 0.002;
-    }
-    // Reticle dourado — "olhe aqui primeiro": só existe no ponto que responde
-    // ao insight calculado, gira devagar, nunca compete com o halo de seleção
-    // (cor e forma diferentes de propósito).
-    if (reticleRef.current) {
-      reticleRef.current.rotation.z += dt * 0.5;
-      reticleRef.current.visible = isHighlighted && currentOpacity.current > 0.1;
-    }
-  });
+  usePointVisualState(
+    point,
+    { timeFilter, isSelected: isSel, isHovered: hovered, isHighlighted },
+    (s, dt) => {
+      if (groupRef.current) groupRef.current.scale.setScalar(s.scale);
+      if (meshRef.current) {
+        const mat = meshRef.current.material as THREE.MeshPhysicalMaterial;
+        mat.opacity = s.opacity;
+        mat.emissiveIntensity = s.emissiveIntensity;
+        if (isSel) meshRef.current.rotation.y += dt * 1.2;
+      }
+      // Halo de seleção sempre montado — só sua opacidade anima, nunca um
+      // pop/desaparecimento instantâneo ao selecionar/desselecionar.
+      if (haloRef.current) {
+        (haloRef.current.material as THREE.MeshBasicMaterial).opacity = s.haloOpacity;
+        haloRef.current.visible = s.haloOpacity > 0.002;
+      }
+      // Reticle dourado — "olhe aqui primeiro": só existe no ponto que
+      // responde ao insight calculado, gira devagar, nunca compete com o
+      // halo de seleção (cor e forma diferentes de propósito).
+      if (reticleRef.current) {
+        reticleRef.current.rotation.z += dt * 0.5;
+        reticleRef.current.visible = s.reticleVisible;
+      }
+    },
+  );
 
   const click = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -318,7 +405,13 @@ function Sphere6D({
 }
 
 // ── D6c — Hierarquia: curva com gradiente de cor pai→filho (não linha reta
-//    de cor única) — reaproveita o MESMO arco das partículas de fluxo. ───────
+//    de cor única) — reaproveita o MESMO arco das partículas de fluxo.
+//    AINDA NÃO migrado pro padrão de SkylineStems (1 <Line> por aresta —
+//    até ~184 draw calls no pior caso medido). É o próximo candidato óbvio
+//    se a fusão em buffer único algum dia for necessária: teria só que lidar
+//    com o `dashed` condicional (funil vs. hierarquia) via um atributo extra
+//    por vértice em vez do prop do drei — não fiz agora pra não migrar o que
+//    ninguém pediu ainda, mas o caminho é o mesmo do SkylineStems. ───────────
 function GradientEdge({ parent, child }: { parent: DataPoint6D; child: DataPoint6D }) {
   const SEGMENTS = 24;
   const { points, colors } = useMemo(() => {

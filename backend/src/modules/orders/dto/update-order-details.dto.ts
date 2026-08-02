@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export enum PaymentMethodDto {
   CASH = 'CASH',
@@ -17,9 +17,11 @@ export enum OrderTypeDto {
 
 /**
  * Edição pós-criação: forma de pagamento (ex: cliente informou errado na
- * hora do pedido e só descobriu o certo na retirada/entrega) e conversão de
+ * hora do pedido e só descobriu o certo na retirada/entrega), conversão de
  * tipo (retirada -> entrega, recalculando a taxa automaticamente pela zona
- * do bairro). Nunca edita itens/preço dos produtos, só esses dois campos.
+ * do bairro) e desconto manual (ex: caixa não tinha troco e abateu a
+ * diferença — precisa ajustar o pedido depois de já criado, não só na
+ * abertura no PDV). Nunca edita itens/preço unitário dos produtos.
  */
 export class UpdateOrderDetailsDto {
   @IsOptional()
@@ -45,4 +47,9 @@ export class UpdateOrderDetailsDto {
   @IsOptional()
   @IsString()
   customerPhone?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discount?: number;
 }

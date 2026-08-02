@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -196,7 +197,13 @@ export class OrdersService {
 
         companyId: data.companyId,
 
-        productName: product.name,
+        // Mesmo padrão de override do unitPrice acima: usa o nome enviado
+        // pelo frontend quando presente (ex: pizza meio-a-meio, onde o
+        // "produto" vendido não corresponde 1:1 a nenhum Product real —
+        // productId aponta só pro 1º sabor, usado pra receita/estoque/CMV).
+        // Fallback pro nome real do banco cobre itens simples e qualquer
+        // caller que não envie o campo (ex: WhatsApp/Kely, /orders/public).
+        productName: (item.productName && String(item.productName).trim()) || product.name,
 
         productSku: product.sku,
 
@@ -1093,6 +1100,7 @@ export class OrdersService {
       neighborhood?: string;
       customerName?: string;
       customerPhone?: string;
+      discount?: number;
     },
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -1165,6 +1173,27 @@ export class OrdersService {
         data.deliveryZoneId = deliveryZoneId;
         data.deliveryAddress = deliveryAddress;
         data.neighborhood = neighborhood;
+        data.total = newTotal;
+      }
+
+      // ── Desconto manual pós-criação ──────────────────────────────────────
+      // Ex: cliente pagou em dinheiro e o caixa não tinha troco — abate a
+      // diferença no pedido já criado (antes só dava pra aplicar desconto na
+      // hora de fechar no PDV, nunca depois). Usa o deliveryFee já resolvido
+      // acima (se orderType mudou nesta mesma chamada) para não recalcular
+      // com um valor de taxa desatualizado.
+      if (dto.discount !== undefined) {
+        const effectiveDeliveryFee =
+          data.deliveryFee !== undefined ? Number(data.deliveryFee) : Number(order.deliveryFee);
+        const newDiscount = Math.max(0, Number(dto.discount));
+        const maxDiscount = Number(order.subtotal) + effectiveDeliveryFee;
+        if (newDiscount > maxDiscount) {
+          throw new BadRequestException(
+            `Desconto não pode ser maior que o valor do pedido (máx R$ ${maxDiscount.toFixed(2)}).`,
+          );
+        }
+        newTotal = Number(order.subtotal) - newDiscount + effectiveDeliveryFee;
+        data.discount = newDiscount;
         data.total = newTotal;
       }
 
@@ -1360,6 +1389,8 @@ export class OrdersService {
       customerPhone: o.customer?.phone ?? o.customerPhone ?? null,
       deliveryAddress: o.deliveryAddress ?? o.customer?.address ?? null,
       orderType: o.orderType ?? 'DINE_IN',
+      subtotal: Number(o.subtotal ?? o.total),
+      discount: Number(o.discount ?? 0),
       total: Number(o.total),
       paymentMethod: o.paymentMethod ?? null,
       notes: o.notes ?? null,

@@ -534,8 +534,12 @@ export default function PDVPage() {
         categoryId: pizza.categoryId,
         isActive: true,
         orderProductId: pizza.flavors?.[0]?.id,
+        // pizza.name (= "Pizza {tamanho}: {sabores}") agora viaja separado
+        // como productName (ver closePaidOrder) — não repete aqui dentro de
+        // notes, senão a tela de Pedidos e o ticket impresso mostravam a
+        // composição 2x ("Pizza Média: Calabresa / Quatro Queijos (Pizza
+        // Média: Calabresa / Quatro Queijos)"). notes fica só com borda/obs.
         notes: [
-          `Pizza ${pizza.sizeLabel || pizza.size}: ${pizza.name}`,
           pizza.border ? `Borda: ${pizza.border.name}` : "",
           pizza.notes || "",
         ].filter(Boolean).join(" | "),
@@ -690,6 +694,13 @@ export default function PDVPage() {
       const orderItems = cart.map(({ product, qty, complements, unitPrice }) => ({
         productId: product.orderProductId || product.id,
         quantity: qty,
+        // Nome completo do item — pra pizza meio-a-meio, product.name já é o
+        // nome composto ("Pizza Média: Calabresa / Quatro Queijos"), diferente
+        // do nome do produto real no banco (só o 1º sabor, usado só como
+        // referência de productId/receita/estoque). Sem isso, o backend
+        // sempre snapshotava o nome do Product real (1 sabor só) no recibo/
+        // impressão, escondendo o 2º sabor do cliente.
+        productName: product.name,
         notes: product.notes || "",
         // unitPrice envia o preço real do tamanho ao backend;
         // se ausente (item simples), o backend usa product.salePrice do banco como fallback.
@@ -1572,7 +1583,7 @@ export default function PDVPage() {
                 <label className="block text-xs text-zinc-500 font-bold uppercase mb-2">Digite o número da mesa</label>
                 <div className="flex gap-2">
                   <input id="trocar-mesa-input" type="text" placeholder="Ex: 12" defaultValue={pdvOrderDetails.tableNumber}
-                    className="flex-1 bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
+                    className="flex-1 bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
                   <button onClick={() => { const input = document.getElementById("trocar-mesa-input") as HTMLInputElement; const v = input?.value?.trim(); if (!v) { toast.error("Digite o número da mesa"); return; } trocarMesa(v); }}
                     className="px-5 py-3 rounded-xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 font-bold text-sm transition">Confirmar</button>
                 </div>
@@ -1626,7 +1637,7 @@ export default function PDVPage() {
                   onChange={e => setCashAmount(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") submitCashAction(); }}
                   placeholder="0,00"
-                  className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
+                  className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
               </div>
               <button onClick={submitCashAction} disabled={cashSaving}
                 className="w-full py-3 rounded-xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 disabled:opacity-50 font-bold text-sm transition">
@@ -1670,7 +1681,7 @@ export default function PDVPage() {
                     <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Código do cupom</label>
                     <div className="flex gap-2">
                       <input value={cupomForm.code} onChange={e => setCupomForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-                        className="flex-1 bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-4 py-3 text-sm font-mono font-bold uppercase outline-none focus:border-blue-500 tracking-widest" placeholder="PROMO10" />
+                        className="flex-1 bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] rounded-xl px-4 py-3 text-sm font-mono font-bold uppercase outline-none focus:border-blue-500 tracking-widest" placeholder="PROMO10" />
                       <button onClick={() => setCupomForm(f => ({ ...f, code: gerarCodigoCupom() }))} title="Gerar código aleatório"
                         className="px-3 py-3 rounded-xl bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-zinc-400 hover:text-white transition text-xs font-bold">↻</button>
                     </div>
@@ -1694,14 +1705,14 @@ export default function PDVPage() {
                       <input type="number" min={0} max={cupomForm.type === "PERCENTAGE" ? 100 : undefined} value={cupomForm.value}
                         onChange={e => setCupomForm(f => ({ ...f, value: e.target.value }))}
                         placeholder={cupomForm.type === "PERCENTAGE" ? "Ex: 10" : "Ex: 5.00"}
-                        className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
+                        className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] rounded-xl px-4 py-3 text-lg font-bold outline-none focus:border-blue-500" />
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Limite de usos</label>
                       <input type="number" min={1} value={cupomForm.usageLimit} onChange={e => setCupomForm(f => ({ ...f, usageLimit: e.target.value }))}
-                        placeholder="Ilimitado" className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
+                        placeholder="Ilimitado" className="w-full bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs text-zinc-500 font-bold uppercase mb-1.5">Validade</label>

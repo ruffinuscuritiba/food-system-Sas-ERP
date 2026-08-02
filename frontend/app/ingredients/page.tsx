@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
-import { Plus, FlaskConical, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, FlaskConical, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight, Search } from "lucide-react";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
 const emptyForm = { name: "", stock: "", minimumStock: "", unit: "kg", cost: "" };
@@ -15,6 +15,7 @@ export default function IngredientsPage() {
   const [saving, setSaving]           = useState(false);
   const [editItem, setEditItem]       = useState<any | null>(null);
   const [editSaving, setEditSaving]   = useState(false);
+  const [search, setSearch]           = useState("");
 
   async function load() {
     try {
@@ -29,6 +30,16 @@ export default function IngredientsPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Mesma normalização (acento/case-insensitive) do dedupe do backend —
+  // busca "file de peito" encontra "Filé de Peito Frango" sem precisar
+  // digitar acento certo.
+  function normalize(s: string) {
+    return s.normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").toLowerCase().trim();
+  }
+  const filteredIngredients = search.trim()
+    ? ingredients.filter((i) => normalize(i.name).includes(normalize(search)))
+    : ingredients;
+
   // ── Criar ────────────────────────────────────────────────────────────────────
   async function save() {
     if (!form.name || !form.unit || !form.cost) {
@@ -37,14 +48,21 @@ export default function IngredientsPage() {
     }
     setSaving(true);
     try {
-      await api.post("/ingredients", {
+      const { data } = await api.post("/ingredients", {
         name: form.name,
         stock: Number(form.stock) || 0,
         minimumStock: Number(form.minimumStock) || 0,
         unit: form.unit,
         cost: Number(form.cost),
       });
-      toast.success("Ingrediente cadastrado");
+      // Backend soma ao estoque do ingrediente existente em vez de duplicar
+      // quando o nome já existe (mesmo nome ou apelido conhecido) — avisa
+      // isso explicitamente pra não parecer que sumiu o cadastro novo.
+      toast.success(
+        data?.mergedIntoExisting
+          ? `Já existia "${form.name}" — estoque somado ao ingrediente existente`
+          : "Ingrediente cadastrado"
+      );
       setForm(emptyForm);
       load();
     } catch {
@@ -153,6 +171,17 @@ export default function IngredientsPage() {
           </button>
         </div>
 
+        {/* Busca */}
+        <div className="relative mb-4">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar ingrediente por nome..."
+            className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-green-500 shadow-sm"
+          />
+        </div>
+
         {/* Tabela */}
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <table className="w-full text-sm">
@@ -168,7 +197,9 @@ export default function IngredientsPage() {
                 <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Carregando...</td></tr>
               ) : ingredients.length === 0 ? (
                 <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Nenhum ingrediente cadastrado</td></tr>
-              ) : ingredients.map((i) => {
+              ) : filteredIngredients.length === 0 ? (
+                <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Nenhum ingrediente encontrado para "{search}"</td></tr>
+              ) : filteredIngredients.map((i) => {
                 const low = Number(i.stock) <= Number(i.minimumStock);
                 const active = i.isActive !== false;
                 return (

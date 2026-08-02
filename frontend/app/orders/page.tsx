@@ -43,6 +43,8 @@ type Order = {
   deliveryAddress?: string;
   paymentMethod: string;
   paymentStatus?: string | null;
+  subtotal?: number;
+  discount?: number;
   deliveryFee: number;
   driverFee?: number;
   driverId?: string | null;
@@ -147,6 +149,10 @@ function EditNotesModal({
 }) {
   const [notes, setNotes] = useState(order.notes || "");
   const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod);
+  // Desconto pós-criação (ex: caixa sem troco, abateu a diferença depois de
+  // já ter fechado o pedido) — mesmo padrão de texto+vírgula já usado no
+  // valor do split logo abaixo, pra ficar consistente dentro do mesmo modal.
+  const [discount, setDiscount] = useState(String(order.discount ?? 0).replace(".", ","));
   const [orderType, setOrderType] = useState(order.orderType || "PICKUP");
   const [deliveryAddress, setDeliveryAddress] = useState(order.deliveryAddress || "");
   const [neighborhood, setNeighborhood] = useState("");
@@ -197,6 +203,11 @@ function EditNotesModal({
   const typeLocked = order.status === "OUT_FOR_DELIVERY" || order.status === "DELIVERED";
   const convertingToDelivery = orderType === "DELIVERY" && order.orderType !== "DELIVERY";
 
+  const discountValue = Math.max(0, parseFloat(discount.replace(",", ".")) || 0);
+  const discountChanged = Math.abs(discountValue - Number(order.discount ?? 0)) > 0.001;
+  const subtotalForPreview = Number(order.subtotal ?? order.total);
+  const totalAfterDiscount = Math.max(0, subtotalForPreview - discountValue + Number(order.deliveryFee ?? 0));
+
   async function save() {
     if (convertingToDelivery && !deliveryAddress.trim()) {
       toast.error("Informe o endereço de entrega");
@@ -232,7 +243,8 @@ function EditNotesModal({
         finalPaymentMethod !== order.paymentMethod ||
         orderType !== (order.orderType || "PICKUP") ||
         nameChanged ||
-        phoneChanged;
+        phoneChanged ||
+        discountChanged;
       if (detailsChanged) {
         await api.patch(`/orders/${order.id}/details`, {
           ...(finalPaymentMethod !== order.paymentMethod && { paymentMethod: finalPaymentMethod }),
@@ -243,6 +255,7 @@ function EditNotesModal({
           }),
           ...(nameChanged && { customerName: editCustomerName.trim() }),
           ...(phoneChanged && { customerPhone: editCustomerPhone.trim() }),
+          ...(discountChanged && { discount: discountValue }),
         });
       }
 
@@ -399,6 +412,27 @@ function EditNotesModal({
             </div>
           )}
 
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
+              Desconto
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">R$</span>
+              <input
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value.replace(/[^0-9,.]/g, ""))}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full border border-gray-200 focus:border-primary rounded-lg pl-8 pr-3 py-2 text-sm outline-none"
+              />
+            </div>
+            <div className="flex items-center justify-between mt-1.5 text-[11px] text-gray-400">
+              <span>Ex: abater diferença de troco que faltou no fechamento</span>
+              <span className="font-semibold text-gray-600 whitespace-nowrap ml-2">
+                Total: R$ {totalAfterDiscount.toFixed(2)}
+              </span>
+            </div>
+          </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
               Observações do pedido

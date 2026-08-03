@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
+import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
 import { PaymentModal } from "@/components/pdv/PaymentModal";
 import { PizzaBuilder } from "@/components/pdv/PizzaBuilder";
@@ -232,6 +233,12 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
 
 export default function PDVPage() {
   const router = useRouter();
+  // Conta DEMO é read-only no backend (DemoGuard bloqueia todo POST/PATCH/
+  // DELETE) — sem isso, "Fechar pedido" sempre voltava 403 durante uma
+  // apresentação de venda. closePaidOrder/launchToKitchen simulam o sucesso
+  // localmente (toast, impressão, comanda) sem nenhuma chamada de escrita
+  // real; a segurança do backend continua intacta como segunda camada.
+  const isDemoUser = useAuthStore((s) => s.user?.role === "DEMO");
   const [categories, setCategories]             = useState<Category[]>([]);
   const [products, setProducts]                 = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -734,25 +741,31 @@ export default function PDVPage() {
           ].filter(Boolean).join(", ")
         : "INTERNO";
 
-      const orderRes = await api.post("/orders", {
-        customerName: details.customerName || serviceLabel,
-        customerPhone: details.customerPhone || "",
-        deliveryAddress: fullAddress,
-        neighborhood: details.orderType === "DELIVERY" ? details.bairro || "" : undefined,
-        orderType: details.orderType,
-        // tableNumber enviado para o backend atualizar a mesa para OCCUPIED
-        tableNumber: details.orderType === "DINE_IN" ? details.tableNumber : undefined,
-        deliveryZoneId: details.deliveryZoneId || undefined,
-        paymentMethod,
-        notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
-        items: orderItems,
-        subtotal: cartTotal,
-        deliveryFee: parsedDeliveryFee,
-        discount: discountAmount,
-        total: orderTotal,
-      });
+      const orderRes = isDemoUser
+        // Conta DEMO: nenhuma chamada de escrita real (o backend bloquearia
+        // com 403 mesmo assim). Fabrica um id/number local com a MESMA forma
+        // de orderRes.data pra todo o resto da função (impressão inclusa)
+        // seguir idêntico ao fluxo real, sem duplicar lógica.
+        ? { data: { id: `demo-${Date.now()}`, number: Math.floor(100 + Math.random() * 900) } }
+        : await api.post("/orders", {
+            customerName: details.customerName || serviceLabel,
+            customerPhone: details.customerPhone || "",
+            deliveryAddress: fullAddress,
+            neighborhood: details.orderType === "DELIVERY" ? details.bairro || "" : undefined,
+            orderType: details.orderType,
+            // tableNumber enviado para o backend atualizar a mesa para OCCUPIED
+            tableNumber: details.orderType === "DINE_IN" ? details.tableNumber : undefined,
+            deliveryZoneId: details.deliveryZoneId || undefined,
+            paymentMethod,
+            notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
+            items: orderItems,
+            subtotal: cartTotal,
+            deliveryFee: parsedDeliveryFee,
+            discount: discountAmount,
+            total: orderTotal,
+          });
 
-      if (orderRes.data?.id) {
+      if (!isDemoUser && orderRes.data?.id) {
         try {
           await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" });
         } catch (confirmErr: any) {
@@ -764,14 +777,17 @@ export default function PDVPage() {
       toast.success(`Pedido fechado — ${serviceLabel}`, { duration: 3000 });
 
       // Salva último pedido + busca printBlock em background para botão de reimprimir
+      // (pulado em demo — o pedido fake não existe no banco, o GET só daria 404)
       const lastOrderId = orderRes.data?.id;
-      if (lastOrderId) {
+      if (!isDemoUser && lastOrderId) {
         setLastOrder({ id: lastOrderId, number: orderRes.data?.number, total: orderTotal, customerName: details.customerName || serviceLabel });
         setTimeout(() => {
           api.get(`/qr-campaigns/order/${lastOrderId}/print-block`).then(r => {
             if (r.data?.printBlock) setLastOrder(prev => prev ? { ...prev, printBlock: r.data.printBlock } : prev);
           }).catch(() => {});
         }, 1500); // aguarda o setImmediate do backend gerar o QR
+      } else if (isDemoUser && lastOrderId) {
+        setLastOrder({ id: lastOrderId, number: orderRes.data?.number, total: orderTotal, customerName: details.customerName || serviceLabel });
       }
 
       // Impressão automática: monta ticket a partir do carrinho local (sem novo GET)
@@ -827,7 +843,8 @@ export default function PDVPage() {
       }
 
       // Salva endereço desagregado do cliente para autofill futuro (fire-and-forget)
-      if (details.orderType === "DELIVERY" && details.customerPhone?.replace(/\D/g, "").length >= 8) {
+      // — pulado em demo, seria só mais uma escrita bloqueada pelo backend
+      if (!isDemoUser && details.orderType === "DELIVERY" && details.customerPhone?.replace(/\D/g, "").length >= 8) {
         api.patch("/orders/customer-address", {
           phone:       details.customerPhone,
           name:        details.customerName || "",
@@ -898,25 +915,28 @@ export default function PDVPage() {
 
     setPaymentSubmitting(true);
     try {
-      const orderRes = await api.post("/orders", {
-        customerName: `Mesa ${pdvOrderDetails.tableNumber}`,
-        customerPhone: "",
-        deliveryAddress: "INTERNO",
-        orderType: "DINE_IN",
-        tableNumber: pdvOrderDetails.tableNumber,
-        paymentMethod: "PIX",
-        notes: `Mesa ${pdvOrderDetails.tableNumber}`,
-        items: orderItems,
-        subtotal: cartTotal,
-        deliveryFee: 0,
-        total: cartTotal,
-      });
+      // Conta DEMO: mesma simulação local do closePaidOrder — sem escrita real.
+      if (!isDemoUser) {
+        const orderRes = await api.post("/orders", {
+          customerName: `Mesa ${pdvOrderDetails.tableNumber}`,
+          customerPhone: "",
+          deliveryAddress: "INTERNO",
+          orderType: "DINE_IN",
+          tableNumber: pdvOrderDetails.tableNumber,
+          paymentMethod: "PIX",
+          notes: `Mesa ${pdvOrderDetails.tableNumber}`,
+          items: orderItems,
+          subtotal: cartTotal,
+          deliveryFee: 0,
+          total: cartTotal,
+        });
 
-      if (orderRes.data?.id) {
-        try {
-          await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" });
-        } catch {
-          toast("⚠️ Pedido criado mas não confirmado automaticamente.", { duration: 4000 });
+        if (orderRes.data?.id) {
+          try {
+            await api.patch(`/orders/${orderRes.data.id}/status`, { status: "CONFIRMED" });
+          } catch {
+            toast("⚠️ Pedido criado mas não confirmado automaticamente.", { duration: 4000 });
+          }
         }
       }
 

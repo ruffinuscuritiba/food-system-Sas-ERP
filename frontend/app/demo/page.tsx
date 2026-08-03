@@ -95,16 +95,32 @@ const ALL_NICHES = [
   "Confeitaria", "Pastelaria", "Açaí", "Conveniências", "Mercados",
 ];
 
-// Só existem 2 catálogos reais de demo: 3 pizzarias (Bella Napoli/Don Corleone/
-// Milano, plano Basic/Pro/Enterprise) e 1 marmitaria (Marmita Express, plano
-// Delivery) — ver DEMO_ACCOUNTS em lib/demoThemes.ts. Sem este mapa, um
-// prospect de Marmitaria que clica "Testar Basic/Pro/Enterprise" (em vez de
-// "Testar Delivery") caía direto numa pizzaria com produtos de pizza, o que já
-// aconteceu ao vivo numa venda real. Enquanto não houver catálogo dedicado por
-// nicho, todo botão de plano pra um nicho com override aponta pra ÚNICA conta
-// que de fato bate com o negócio do prospect.
-const NICHE_DEMO_OVERRIDE: Record<string, string> = {
-  Marmitarias: "demo-delivery-001",
+// Catálogos reais de demo hoje: 3 pizzarias (Bella Napoli/Don Corleone/Milano,
+// plano Basic/Pro/Enterprise), 1 marmitaria (Marmita Express, plano Delivery)
+// e 1 conveniência (Adega & Conveniência Point) — ver DEMO_ACCOUNTS em
+// lib/demoThemes.ts. Por nicho, mapeia qual conta REAL cada botão de plano
+// deve abrir; um plano ausente do mapa cai no default (a conta do próprio
+// plano, ex.: Basic → Bella Napoli) — é assim que Pizzaria continua correto
+// pros 3 primeiros botões sem precisar de entrada explícita pra cada um.
+// Chave = nome do nicho como em ALL_NICHES; valor = id de DEMO_ACCOUNTS por
+// botão de plano.
+const NICHE_DEMO_OVERRIDE: Record<string, Partial<Record<"BASIC" | "PRO" | "ENTERPRISE" | "DELIVERY", string>>> = {
+  // Só existe 1 catálogo de marmitaria — os 4 botões abrem a mesma conta.
+  // Sem isso, "Testar Basic/Pro/Enterprise" pra um prospect de marmitaria
+  // caía direto numa pizzaria com produtos de pizza (já aconteceu ao vivo
+  // numa venda real).
+  Marmitarias: {
+    BASIC: "demo-delivery-001", PRO: "demo-delivery-001",
+    ENTERPRISE: "demo-delivery-001", DELIVERY: "demo-delivery-001",
+  },
+  // Basic/Pro/Enterprise já são pizzarias de verdade — só o botão Delivery
+  // (que sem override cairia na marmitaria) precisa ser redirecionado pra
+  // uma das pizzarias existentes.
+  Pizzaria: { DELIVERY: "demo-basic-001" },
+  Conveniências: {
+    BASIC: "demo-conveniencia-001", PRO: "demo-conveniencia-001",
+    ENTERPRISE: "demo-conveniencia-001", DELIVERY: "demo-conveniencia-001",
+  },
 };
 
 // Slugs sem acento pra link de prospecção (?niche=marmitaria) — fácil de
@@ -1410,7 +1426,7 @@ function DemoContent() {
       const { data } = await api.post("auth/demo-access", {
         name: form.name, email: form.email, whatsapp: form.whatsapp,
         restaurantName: form.restaurantName,
-        plan: demo.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery",
+        plan: demo.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery" | "conveniencia",
       });
       const { accessToken, user } = data;
       if (!accessToken) { toast.error("Demonstração indisponível."); return; }
@@ -1647,8 +1663,8 @@ function DemoContent() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {PLAN_CARDS.map((card) => {
               const baseDemo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
-              const overrideId = NICHE_DEMO_OVERRIDE[selectedNiche];
-              // Override troca a CONTA (evita pizza pro prospect errado); o
+              const overrideId = NICHE_DEMO_OVERRIDE[selectedNiche]?.[card.plan];
+              // Override troca a CONTA (evita catálogo do nicho errado); o
               // texto do card continua o do plano clicado — só o catálogo
               // real dentro da demo muda.
               const demo = overrideId ? (DEMO_ACCOUNTS.find((d) => d.id === overrideId) ?? baseDemo) : baseDemo;

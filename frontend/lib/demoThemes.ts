@@ -83,6 +83,17 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
       "--app-sidebar-active": "#0F7A62",
     },
   },
+
+  // ── CONVENIÊNCIA — Adega & Conveniência Point — vinho/adega ──────────────
+  "demo-conveniencia-001": {
+    name: "Adega & Conveniência Point",
+    primaryColor: "#9F1239",
+    cssVars: {
+      ...MARBLE,
+      "--color-primary":      "#9F1239",
+      "--app-sidebar-active": "#9F1239",
+    },
+  },
 };
 
 export const DEMO_IDS = new Set(Object.keys(DEMO_THEMES));
@@ -96,7 +107,7 @@ export const DEMO_IDS = new Set(Object.keys(DEMO_THEMES));
  */
 export interface DemoAccount {
   id: string;
-  plan: "BASIC" | "PRO" | "ENTERPRISE" | "DELIVERY";
+  plan: "BASIC" | "PRO" | "ENTERPRISE" | "DELIVERY" | "CONVENIENCIA";
   label: string;
   tagline: string;
   email: string;
@@ -145,6 +156,16 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     password: "DemoDelivery@123",
     primaryColor: "#0F7A62",
     features: ["PDV", "Cardápio Online", "Rastreamento de Entregadores", "Zonas de Entrega", "App do Entregador"],
+  },
+  {
+    id: "demo-conveniencia-001",
+    plan: "CONVENIENCIA",
+    label: "FoodSaaS Conveniência",
+    tagline: "Focado em conveniências, adegas e minimercados com leitor de código de barras.",
+    email: "demo-conveniencia@foodsaas.demo",
+    password: "DemoConveniencia@123",
+    primaryColor: "#9F1239",
+    features: ["PDV com código de barras", "Controle de Estoque", "Cardápio Online", "Controle de Caixa"],
   },
 ];
 

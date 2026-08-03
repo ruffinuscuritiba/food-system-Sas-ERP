@@ -58,10 +58,11 @@ function buildDefaultSidebarConfig(segment: string): Record<string, boolean> {
 }
 
 const DEMO_PLAN_EMAIL: Record<string, string> = {
-  basic:      'demo-basic@foodsaas.demo',
-  pro:        'demo-pro@foodsaas.demo',
-  enterprise: 'demo-enterprise@foodsaas.demo',
-  delivery:   'demo-delivery@foodsaas.demo',
+  basic:        'demo-basic@foodsaas.demo',
+  pro:          'demo-pro@foodsaas.demo',
+  enterprise:   'demo-enterprise@foodsaas.demo',
+  delivery:     'demo-delivery@foodsaas.demo',
+  conveniencia: 'demo-conveniencia@foodsaas.demo',
 };
 
 @Injectable()
@@ -359,7 +360,7 @@ export class AuthService {
     email: string;
     whatsapp: string;
     restaurantName: string;
-    plan: 'basic' | 'pro' | 'enterprise' | 'delivery';
+    plan: 'basic' | 'pro' | 'enterprise' | 'delivery' | 'conveniencia';
   }) {
     const demoEmail = DEMO_PLAN_EMAIL[dto.plan];
     if (!demoEmail) throw new BadRequestException('Plano de demonstração inválido');
@@ -416,7 +417,7 @@ export class AuthService {
 
       // WA owner notification — lead quente na demo
       setImmediate(() => {
-        const planLabels: Record<string, string> = { basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise', delivery: 'Delivery' };
+        const planLabels: Record<string, string> = { basic: 'Básico', pro: 'Pro', enterprise: 'Enterprise', delivery: 'Delivery', conveniencia: 'Conveniência' };
         const waMsg =
           `🔥 *Lead quente na demo!*\n\n` +
           `*${dto.restaurantName}*\n` +

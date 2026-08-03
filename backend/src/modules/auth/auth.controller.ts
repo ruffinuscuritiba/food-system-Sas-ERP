@@ -45,7 +45,7 @@ export class AuthController {
       email: string;
       whatsapp: string;
       restaurantName: string;
-      plan: 'basic' | 'pro' | 'enterprise' | 'delivery';
+      plan: 'basic' | 'pro' | 'enterprise' | 'delivery' | 'conveniencia';
     },
   ) {
     return this.service.demoAccess({

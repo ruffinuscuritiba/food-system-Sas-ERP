@@ -31,7 +31,8 @@ api.interceptors.request.use(
       const skipAuth =
         config.url?.includes("auth/login") ||
         config.url?.includes("auth/signup") ||
-        config.url?.includes("auth/register");
+        config.url?.includes("auth/register") ||
+        config.url?.includes("auth/demo-access");
 
       if (token && !skipAuth) {
 

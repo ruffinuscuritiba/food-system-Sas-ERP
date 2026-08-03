@@ -19,9 +19,13 @@ export class DemoGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<any>();
 
-    // Auth endpoints are always public — never block unauthenticated login/signup/register
+    // Auth endpoints are always public — never block unauthenticated login/signup/register/demo-access.
+    // demo-access is POST and is how a visitor switches from one demo (DEMO role,
+    // write-blocked by this same guard) into another — without this bypass, a
+    // leftover DEMO token in localStorage gets attached to the next demo-access
+    // call and this guard blocks it, breaking "test Basic then test Delivery".
     const url: string = req.url ?? '';
-    if (/\/auth\/(login|signup|register)/.test(url)) return true;
+    if (/\/auth\/(login|signup|register|demo-access)/.test(url)) return true;
 
     const auth: string = req.headers?.['authorization'] ?? '';
     if (!auth.startsWith('Bearer ')) return true;

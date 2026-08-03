@@ -95,6 +95,18 @@ const ALL_NICHES = [
   "Confeitaria", "Pastelaria", "Açaí", "Conveniências", "Mercados",
 ];
 
+// Só existem 2 catálogos reais de demo: 3 pizzarias (Bella Napoli/Don Corleone/
+// Milano, plano Basic/Pro/Enterprise) e 1 marmitaria (Marmita Express, plano
+// Delivery) — ver DEMO_ACCOUNTS em lib/demoThemes.ts. Sem este mapa, um
+// prospect de Marmitaria que clica "Testar Basic/Pro/Enterprise" (em vez de
+// "Testar Delivery") caía direto numa pizzaria com produtos de pizza, o que já
+// aconteceu ao vivo numa venda real. Enquanto não houver catálogo dedicado por
+// nicho, todo botão de plano pra um nicho com override aponta pra ÚNICA conta
+// que de fato bate com o negócio do prospect.
+const NICHE_DEMO_OVERRIDE: Record<string, string> = {
+  Marmitarias: "demo-delivery-001",
+};
+
 // Slugs sem acento pra link de prospecção (?niche=marmitaria) — fácil de
 // digitar/compartilhar no WhatsApp. Abre a demo já com o nicho pré-selecionado.
 const NICHE_SLUGS: Record<string, string> = {
@@ -1634,7 +1646,12 @@ function DemoContent() {
           {/* ── Plan cards ── */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {PLAN_CARDS.map((card) => {
-              const demo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
+              const baseDemo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
+              const overrideId = NICHE_DEMO_OVERRIDE[selectedNiche];
+              // Override troca a CONTA (evita pizza pro prospect errado); o
+              // texto do card continua o do plano clicado — só o catálogo
+              // real dentro da demo muda.
+              const demo = overrideId ? (DEMO_ACCOUNTS.find((d) => d.id === overrideId) ?? baseDemo) : baseDemo;
               const nicheInfo = NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"];
               const planKey = card.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery";
               const features = (nicheInfo.features as any)[planKey] ?? demo.features ?? [];

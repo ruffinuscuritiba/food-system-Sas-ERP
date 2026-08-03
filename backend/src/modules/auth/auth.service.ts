@@ -63,6 +63,15 @@ const DEMO_PLAN_EMAIL: Record<string, string> = {
   enterprise:   'demo-enterprise@foodsaas.demo',
   delivery:     'demo-delivery@foodsaas.demo',
   conveniencia: 'demo-conveniencia@foodsaas.demo',
+  hamburgueria: 'demo-hamburgueria@foodsaas.demo',
+  lanchonete:   'demo-lanchonete@foodsaas.demo',
+  churrascaria: 'demo-churrascaria@foodsaas.demo',
+  hotdog:       'demo-hotdog@foodsaas.demo',
+  padaria:      'demo-padaria@foodsaas.demo',
+  confeitaria:  'demo-confeitaria@foodsaas.demo',
+  pastelaria:   'demo-pastelaria@foodsaas.demo',
+  acai:         'demo-acai@foodsaas.demo',
+  mercado:      'demo-mercado@foodsaas.demo',
 };
 
 @Injectable()
@@ -360,7 +369,9 @@ export class AuthService {
     email: string;
     whatsapp: string;
     restaurantName: string;
-    plan: 'basic' | 'pro' | 'enterprise' | 'delivery' | 'conveniencia';
+    // Chave livre — validada em runtime contra DEMO_PLAN_EMAIL (não é um enum
+    // de plano de assinatura real, é só o seletor de qual conta demo abrir).
+    plan: string;
   }) {
     const demoEmail = DEMO_PLAN_EMAIL[dto.plan];
     if (!demoEmail) throw new BadRequestException('Plano de demonstração inválido');

@@ -3,6 +3,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { SuperAdminService } from './super-admin.service';
 import { DemoVitrineService } from './demo-vitrine.service';
 import { DemoConvenienciaSeedService } from './demo-conveniencia-seed.service';
+import { DemoNicheSeedService } from './demo-niche-seed.service';
 
 const DEMO_EMAILS = [
   'demo-basic@foodsaas.demo',
@@ -31,6 +32,7 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
     private readonly superAdmin: SuperAdminService,
     private readonly vitrine: DemoVitrineService,
     private readonly conveniencia: DemoConvenienciaSeedService,
+    private readonly nicheSeed: DemoNicheSeedService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -41,6 +43,9 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
     // o boot nem impedir as outras demos de existirem se essa falhar.
     this.conveniencia.ensure().catch((err) =>
       this.logger.error('Conveniência demo seed failed', err?.message ?? String(err)),
+    );
+    this.nicheSeed.ensureAll().catch((err) =>
+      this.logger.error('Niche demo seed failed', err?.message ?? String(err)),
     );
   }
 
@@ -55,6 +60,7 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
       this.logger.debug('Demo accounts present — running idempotent patches.');
       await this.vitrine.patchDemoCategoryNames();
       await this.vitrine.patchDemoThemesAndModules();
+      await this.vitrine.patchDemoImages();
       return;
     }
 

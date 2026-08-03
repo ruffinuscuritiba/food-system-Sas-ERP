@@ -121,6 +121,42 @@ const NICHE_DEMO_OVERRIDE: Record<string, Partial<Record<"BASIC" | "PRO" | "ENTE
     BASIC: "demo-conveniencia-001", PRO: "demo-conveniencia-001",
     ENTERPRISE: "demo-conveniencia-001", DELIVERY: "demo-conveniencia-001",
   },
+  Hamburgueria: {
+    BASIC: "demo-hamburgueria-001", PRO: "demo-hamburgueria-001",
+    ENTERPRISE: "demo-hamburgueria-001", DELIVERY: "demo-hamburgueria-001",
+  },
+  Lanchonetes: {
+    BASIC: "demo-lanchonete-001", PRO: "demo-lanchonete-001",
+    ENTERPRISE: "demo-lanchonete-001", DELIVERY: "demo-lanchonete-001",
+  },
+  Churrascaria: {
+    BASIC: "demo-churrascaria-001", PRO: "demo-churrascaria-001",
+    ENTERPRISE: "demo-churrascaria-001", DELIVERY: "demo-churrascaria-001",
+  },
+  Hotdogs: {
+    BASIC: "demo-hotdog-001", PRO: "demo-hotdog-001",
+    ENTERPRISE: "demo-hotdog-001", DELIVERY: "demo-hotdog-001",
+  },
+  Padaria: {
+    BASIC: "demo-padaria-001", PRO: "demo-padaria-001",
+    ENTERPRISE: "demo-padaria-001", DELIVERY: "demo-padaria-001",
+  },
+  Confeitaria: {
+    BASIC: "demo-confeitaria-001", PRO: "demo-confeitaria-001",
+    ENTERPRISE: "demo-confeitaria-001", DELIVERY: "demo-confeitaria-001",
+  },
+  Pastelaria: {
+    BASIC: "demo-pastelaria-001", PRO: "demo-pastelaria-001",
+    ENTERPRISE: "demo-pastelaria-001", DELIVERY: "demo-pastelaria-001",
+  },
+  Açaí: {
+    BASIC: "demo-acai-001", PRO: "demo-acai-001",
+    ENTERPRISE: "demo-acai-001", DELIVERY: "demo-acai-001",
+  },
+  Mercados: {
+    BASIC: "demo-mercado-001", PRO: "demo-mercado-001",
+    ENTERPRISE: "demo-mercado-001", DELIVERY: "demo-mercado-001",
+  },
 };
 
 // Slugs sem acento pra link de prospecção (?niche=marmitaria) — fácil de
@@ -1426,7 +1462,7 @@ function DemoContent() {
       const { data } = await api.post("auth/demo-access", {
         name: form.name, email: form.email, whatsapp: form.whatsapp,
         restaurantName: form.restaurantName,
-        plan: demo.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery" | "conveniencia",
+        plan: demo.plan.toLowerCase(),
       });
       const { accessToken, user } = data;
       if (!accessToken) { toast.error("Demonstração indisponível."); return; }

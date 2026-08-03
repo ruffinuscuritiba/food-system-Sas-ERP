@@ -13,8 +13,12 @@ const DEMO_BASE = 'https://food-system-sas-erp-frontend.vercel.app/demo-assets';
 const rnd = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-const img = (path: string) => `${DEMO_BASE}/${path}`;
-const banner = (path: string) => `${DEMO_BASE}/banners/${path}`;
+// path pode ser um caminho relativo em /demo-assets (arquivo local) OU uma URL
+// absoluta (https://images.unsplash.com/...) — usado pelos pratos do dia da
+// marmitaria, que não têm asset local próprio (só existiam fotos de pizza no
+// /public/demo-assets, por isso o bug de "pizza aparecendo na marmita").
+const img = (path: string) => (path.startsWith('http') ? path : `${DEMO_BASE}/${path}`);
+const banner = (path: string) => (path.startsWith('http') ? path : `${DEMO_BASE}/banners/${path}`);
 
 function pastDate(daysAgo: number): Date {
   const d = new Date();
@@ -55,7 +59,7 @@ const CATEGORIES_DEF = [
   {
     key: 'pratos',
     name: 'Pratos do Dia',
-    bannerFile: 'pizzas-salgadas.jpg',
+    bannerFile: 'https://images.unsplash.com/photo-1709114107937-6dec855d9ab5?w=1200&h=400&fit=crop&q=80',
     sortOrder: 1,
   },
 ];
@@ -309,13 +313,16 @@ const COMBOS: ProdDef[] = [
   },
 ];
 
+// Fotos verificadas visualmente uma a uma antes de entrar aqui (baixadas e
+// conferidas via Read multimodal) — nunca mais um imgId de pizza copiado sem
+// querer pra um produto de marmita, que foi exatamente o bug reportado.
 const PRATOS_DIA: ProdDef[] = [
-  { key: 'frango-grelhado',  name: 'Marmita Frango Grelhado',     price: 22.9, cost: 9.0,  imgId: 'pizzas/frango-catupiry.jpg', desc: 'Frango grelhado, arroz, feijão, salada e farofa' },
-  { key: 'bife-milanesa',    name: 'Marmita Bife à Milanesa',      price: 25.9, cost: 10.5, imgId: 'pizzas/portuguesa.jpg',      desc: 'Bife empanado, purê de batata, arroz e feijão' },
-  { key: 'peixe-grelhado',   name: 'Marmita Peixe Grelhado',       price: 28.9, cost: 12.0, imgId: 'pizzas/quatro-queijos.jpg',  desc: 'Tilápia grelhada, arroz, legumes no vapor e limão' },
-  { key: 'strogonoff',       name: 'Marmita Strogonoff de Frango', price: 26.9, cost: 11.0, imgId: 'pizzas/calabresa.jpg',       desc: 'Strogonoff cremoso, arroz branco e batata palha' },
-  { key: 'macarrao-bolonha', name: 'Marmita Macarrão à Bolonhesa', price: 21.9, cost: 8.5,  imgId: 'pizzas/bacon-especial.jpg',  desc: 'Macarrão com molho bolonhesa artesanal e parmesão' },
-  { key: 'vegana',           name: 'Marmita Vegana',               price: 20.9, cost: 7.5,  imgId: 'pizzas/pepperoni.jpg',       desc: 'Grão-de-bico, legumes assados, tabule e tahine' },
+  { key: 'frango-grelhado',  name: 'Marmita Frango Grelhado',     price: 22.9, cost: 9.0,  imgId: 'https://images.unsplash.com/photo-1670165088604-5a39f5c1be51?w=600&h=600&fit=crop&q=80', desc: 'Frango grelhado, arroz, feijão, salada e farofa' },
+  { key: 'bife-milanesa',    name: 'Marmita Bife à Milanesa',      price: 25.9, cost: 10.5, imgId: 'https://images.unsplash.com/photo-1640346060848-ad6921833885?w=600&h=600&fit=crop&q=80', desc: 'Bife empanado, purê de batata, arroz e feijão' },
+  { key: 'peixe-grelhado',   name: 'Marmita Peixe Grelhado',       price: 28.9, cost: 12.0, imgId: 'https://images.unsplash.com/photo-1737140789642-9788a3388494?w=600&h=600&fit=crop&q=80', desc: 'Tilápia grelhada, arroz, legumes no vapor e limão' },
+  { key: 'strogonoff',       name: 'Marmita Strogonoff de Frango', price: 26.9, cost: 11.0, imgId: 'https://images.unsplash.com/photo-1662114807772-e108b0c526fb?w=600&h=600&fit=crop&q=80', desc: 'Strogonoff cremoso, arroz branco e batata palha' },
+  { key: 'macarrao-bolonha', name: 'Marmita Macarrão à Bolonhesa', price: 21.9, cost: 8.5,  imgId: 'https://images.unsplash.com/photo-1614777986387-015c2a89b696?w=600&h=600&fit=crop&q=80', desc: 'Macarrão com molho bolonhesa artesanal e parmesão' },
+  { key: 'vegana',           name: 'Marmita Vegana',               price: 20.9, cost: 7.5,  imgId: 'https://images.unsplash.com/photo-1644085128570-3f9782b47f80?w=600&h=600&fit=crop&q=80', desc: 'Grão-de-bico, legumes assados, tabule e tahine' },
 ];
 
 const PRODUCTS_MAP: Record<string, ProdDef[]> = {
@@ -618,6 +625,34 @@ const TIERS: TierConfig[] = [
 @Injectable()
 export class DemoVitrineService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Idempotent — reaplica imageUrl/bannerImage do PRODUCTS_MAP/CATEGORIES_DEF
+   * atual em cima de produtos/categorias JÁ CRIADOS (populateAll só roda uma
+   * vez, na criação inicial — sem isso, corrigir um imgId no código nunca
+   * chega no banco de produção). Fecha o bug real de "Pratos do Dia" da
+   * Marmita Express usando foto de pizza (imgId errado copiado de outro
+   * catálogo numa sessão anterior). Só toca o campo de imagem, nunca preço/
+   * nome/descrição já em uso.
+   */
+  async patchDemoImages(): Promise<void> {
+    for (const t of TIERS) {
+      for (const catDef of CATEGORIES_DEF.filter((c) => t.catKeys.includes(c.key))) {
+        const catId = `${t.companyId}-cat-${catDef.key}`;
+        await this.prisma.category.updateMany({
+          where: { id: catId, companyId: t.companyId },
+          data: { bannerImage: banner(catDef.bannerFile) },
+        });
+        for (const p of PRODUCTS_MAP[catDef.key] ?? []) {
+          const prodId = `${t.companyId}-prod-${p.key}`;
+          await this.prisma.product.updateMany({
+            where: { id: prodId, companyId: t.companyId },
+            data: { imageUrl: img(p.imgId) },
+          });
+        }
+      }
+    }
+  }
 
   /**
    * Idempotent — updates category names for all demo companies to the current

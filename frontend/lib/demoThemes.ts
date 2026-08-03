@@ -88,11 +88,52 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
   "demo-conveniencia-001": {
     name: "Adega & Conveniência Point",
     primaryColor: "#9F1239",
-    cssVars: {
-      ...MARBLE,
-      "--color-primary":      "#9F1239",
-      "--app-sidebar-active": "#9F1239",
-    },
+    cssVars: { ...MARBLE, "--color-primary": "#9F1239", "--app-sidebar-active": "#9F1239" },
+  },
+  "demo-hamburgueria-001": {
+    name: "Grelha & Cia Hamburgueria",
+    primaryColor: "#B91C1C",
+    cssVars: { ...MARBLE, "--color-primary": "#B91C1C", "--app-sidebar-active": "#B91C1C" },
+  },
+  "demo-lanchonete-001": {
+    name: "Ponto do Lanche",
+    primaryColor: "#B45309",
+    cssVars: { ...MARBLE, "--color-primary": "#B45309", "--app-sidebar-active": "#B45309" },
+  },
+  "demo-churrascaria-001": {
+    name: "Espeto & Brasa Churrascaria",
+    primaryColor: "#7C2D12",
+    cssVars: { ...MARBLE, "--color-primary": "#7C2D12", "--app-sidebar-active": "#7C2D12" },
+  },
+  "demo-hotdog-001": {
+    name: "Dog House Lanches",
+    primaryColor: "#A16207",
+    cssVars: { ...MARBLE, "--color-primary": "#A16207", "--app-sidebar-active": "#A16207" },
+  },
+  "demo-padaria-001": {
+    name: "Padaria Trigo Dourado",
+    primaryColor: "#92400E",
+    cssVars: { ...MARBLE, "--color-primary": "#92400E", "--app-sidebar-active": "#92400E" },
+  },
+  "demo-confeitaria-001": {
+    name: "Doce Encanto Confeitaria",
+    primaryColor: "#BE185D",
+    cssVars: { ...MARBLE, "--color-primary": "#BE185D", "--app-sidebar-active": "#BE185D" },
+  },
+  "demo-pastelaria-001": {
+    name: "Pastelaria Sabor & Cia",
+    primaryColor: "#CA8A04",
+    cssVars: { ...MARBLE, "--color-primary": "#CA8A04", "--app-sidebar-active": "#CA8A04" },
+  },
+  "demo-acai-001": {
+    name: "Açaí Tropical Point",
+    primaryColor: "#6D28D9",
+    cssVars: { ...MARBLE, "--color-primary": "#6D28D9", "--app-sidebar-active": "#6D28D9" },
+  },
+  "demo-mercado-001": {
+    name: "Mercadinho Bom Preço",
+    primaryColor: "#1D4ED8",
+    cssVars: { ...MARBLE, "--color-primary": "#1D4ED8", "--app-sidebar-active": "#1D4ED8" },
   },
 };
 
@@ -107,7 +148,10 @@ export const DEMO_IDS = new Set(Object.keys(DEMO_THEMES));
  */
 export interface DemoAccount {
   id: string;
-  plan: "BASIC" | "PRO" | "ENTERPRISE" | "DELIVERY" | "CONVENIENCIA";
+  // "BASIC"|"PRO"|"ENTERPRISE"|"DELIVERY" pilotam os 4 cards de plano da
+  // wizard; os demais valores (CONVENIENCIA, HAMBURGUERIA, ...) só existem
+  // pra serem alvo de NICHE_DEMO_OVERRIDE e nunca aparecem como card próprio.
+  plan: string;
   label: string;
   tagline: string;
   email: string;
@@ -166,6 +210,60 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
     password: "DemoConveniencia@123",
     primaryColor: "#9F1239",
     features: ["PDV com código de barras", "Controle de Estoque", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-hamburgueria-001", plan: "HAMBURGUERIA", label: "FoodSaaS Hamburgueria",
+    tagline: "Focado em hamburguerias com modificadores de ingrediente e combos.",
+    email: "demo-hamburgueria@foodsaas.demo", password: "DemoHamburgueria@123", primaryColor: "#B91C1C",
+    features: ["PDV com modificadores", "KDS na Chapa", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-lanchonete-001", plan: "LANCHONETE", label: "FoodSaaS Lanchonete",
+    tagline: "Focado em lanchonetes com frente de caixa ágil.",
+    email: "demo-lanchonete@foodsaas.demo", password: "DemoLanchonete@123", primaryColor: "#B45309",
+    features: ["PDV Ágil", "Cardápio Online", "Controle de Estoque", "Controle de Caixa"],
+  },
+  {
+    id: "demo-churrascaria-001", plan: "CHURRASCARIA", label: "FoodSaaS Churrascaria",
+    tagline: "Focado em churrascarias com comanda por mesa.",
+    email: "demo-churrascaria@foodsaas.demo", password: "DemoChurrascaria@123", primaryColor: "#7C2D12",
+    features: ["Mesas e Comandas", "KDS na Churrasqueira", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-hotdog-001", plan: "HOTDOG", label: "FoodSaaS Hot Dog",
+    tagline: "Focado em hot dogs e lanches rápidos de balcão.",
+    email: "demo-hotdog@foodsaas.demo", password: "DemoHotdog@123", primaryColor: "#A16207",
+    features: ["KDS na Chapa", "Modificadores de Ingrediente", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-padaria-001", plan: "PADARIA", label: "FoodSaaS Padaria",
+    tagline: "Focado em padarias com venda por unidade, kg ou dúzia.",
+    email: "demo-padaria@foodsaas.demo", password: "DemoPadaria@123", primaryColor: "#92400E",
+    features: ["PDV Ágil", "Encomendas", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-confeitaria-001", plan: "CONFEITARIA", label: "FoodSaaS Confeitaria",
+    tagline: "Focado em confeitarias com pedidos personalizados e agenda de retirada.",
+    email: "demo-confeitaria@foodsaas.demo", password: "DemoConfeitaria@123", primaryColor: "#BE185D",
+    features: ["Pedidos Personalizados", "Agenda de Retirada", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-pastelaria-001", plan: "PASTELARIA", label: "FoodSaaS Pastelaria",
+    tagline: "Focado em pastelarias com grade de recheios sem erro de comanda.",
+    email: "demo-pastelaria@foodsaas.demo", password: "DemoPastelaria@123", primaryColor: "#CA8A04",
+    features: ["PDV Tátil", "Impressão Setorizada", "Cardápio Online", "Controle de Caixa"],
+  },
+  {
+    id: "demo-acai-001", plan: "ACAI", label: "FoodSaaS Açaí",
+    tagline: "Focado em açaiterias com montagem rápida por tamanho e adicionais.",
+    email: "demo-acai@foodsaas.demo", password: "DemoAcai@123", primaryColor: "#6D28D9",
+    features: ["PDV de Montagem Rápida", "Cardápio Online", "Controle de Estoque", "Controle de Caixa"],
+  },
+  {
+    id: "demo-mercado-001", plan: "MERCADO", label: "FoodSaaS Mercado",
+    tagline: "Focado em mercados e mercearias com leitor de código de barras.",
+    email: "demo-mercado@foodsaas.demo", password: "DemoMercado@123", primaryColor: "#1D4ED8",
+    features: ["PDV com EAN", "Controle de Estoque", "Cardápio Online", "Controle de Caixa"],
   },
 ];
 

@@ -2,6 +2,7 @@ import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { SuperAdminService } from './super-admin.service';
 import { DemoVitrineService } from './demo-vitrine.service';
+import { DemoConvenienciaSeedService } from './demo-conveniencia-seed.service';
 
 const DEMO_EMAILS = [
   'demo-basic@foodsaas.demo',
@@ -29,11 +30,17 @@ export class DemoBootstrapService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly superAdmin: SuperAdminService,
     private readonly vitrine: DemoVitrineService,
+    private readonly conveniencia: DemoConvenienciaSeedService,
   ) {}
 
   onApplicationBootstrap(): void {
     this.ensureDemoAccounts().catch((err) =>
       this.logger.error('Demo bootstrap failed', err?.message ?? String(err)),
+    );
+    // Independente do bloco acima (4 contas originais) — nunca deve derrubar
+    // o boot nem impedir as outras demos de existirem se essa falhar.
+    this.conveniencia.ensure().catch((err) =>
+      this.logger.error('Conveniência demo seed failed', err?.message ?? String(err)),
     );
   }
 

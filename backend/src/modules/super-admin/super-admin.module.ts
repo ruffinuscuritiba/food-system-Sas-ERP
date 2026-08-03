@@ -7,14 +7,17 @@ import { SuperAdminService } from './super-admin.service';
 import { SuperAdminGuard } from './super-admin.guard';
 import { DemoVitrineService } from './demo-vitrine.service';
 import { DemoBootstrapService } from './demo-bootstrap.service';
+import { DemoConvenienciaSeedService } from './demo-conveniencia-seed.service';
 import { LeadsModule } from '../leads/leads.module';
 import { CompanyModule } from '../company/company.module';
+import { SegmentSeedModule } from '../segment-seed/segment-seed.module';
 
 @Module({
   imports: [
     PrismaModule,
     LeadsModule,
     CompanyModule,
+    SegmentSeedModule,
     ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -35,6 +38,7 @@ import { CompanyModule } from '../company/company.module';
     SuperAdminGuard,
     DemoVitrineService,
     DemoBootstrapService,
+    DemoConvenienciaSeedService,
   ],
   exports: [SuperAdminService],
 })

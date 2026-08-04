@@ -10,6 +10,7 @@ import {
   Check,
   ChevronDown,
   Clock,
+  Copy,
   Cpu,
   FileText,
   Loader2,
@@ -94,6 +95,27 @@ const ALL_NICHES = [
   "Churrascaria", "Hotdogs", "Marmitarias", "Padaria",
   "Confeitaria", "Pastelaria", "Açaí", "Conveniências", "Mercados",
 ];
+
+// Slug do link mágico /demo/[niche] por nicho (ver app/demo/[niche]/page.tsx)
+// — usado pelo botão "Copiar link desta demo" pra gerar um link que já loga
+// sozinho na conta certa, em vez do visitante ter que clicar em "Testar X" e
+// depois copiar a URL genérica /pdv da barra de endereço (que não funciona
+// pra ninguém além de quem já está logado no mesmo navegador de quem clicou).
+const NICHE_TO_MAGIC_SLUG: Record<string, string> = {
+  Restaurantes: "restaurantes",
+  Pizzaria: "pizzaria",
+  Hamburgueria: "hamburgueria",
+  Lanchonetes: "lanchonetes",
+  Churrascaria: "churrascaria",
+  Hotdogs: "hotdog",
+  Marmitarias: "marmitaria",
+  Padaria: "padaria",
+  Confeitaria: "confeitaria",
+  Pastelaria: "pastelaria",
+  "Açaí": "acai",
+  "Conveniências": "conveniencia",
+  Mercados: "mercado",
+};
 
 // Catálogos reais de demo hoje: 3 pizzarias (Bella Napoli/Don Corleone/Milano,
 // plano Basic/Pro/Enterprise), 1 marmitaria (Marmita Express, plano Delivery)
@@ -1639,6 +1661,24 @@ function DemoContent() {
                 </button>
               );
             })}
+          </div>
+
+          {/* ── Link mágico do nicho selecionado (pra mandar pro prospect) ── */}
+          <div className="mb-8 flex justify-center">
+            <button
+              onClick={() => {
+                const slug = NICHE_TO_MAGIC_SLUG[selectedNiche] ?? "restaurantes";
+                const url = `${window.location.origin}/demo/${slug}`;
+                navigator.clipboard.writeText(url)
+                  .then(() => toast.success(`Link copiado: /demo/${slug}`))
+                  .catch(() => toast.error("Não foi possível copiar — copie manualmente da barra de endereço."));
+                trackClick("/demo", `copy_magic_link_${slug}`);
+              }}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/70 transition-all hover:bg-white/[0.09] hover:text-white"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copiar link desta demo (abre e loga sozinho pro cliente)
+            </button>
           </div>
 
           {/* ── Personalização de cor (opcional, colapsado por padrão) ── */}

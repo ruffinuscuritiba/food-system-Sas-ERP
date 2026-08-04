@@ -222,18 +222,18 @@ export default function CampanhasPage() {
 </head>
 <body>
   ${store ? `<div class="center bold" style="letter-spacing:1px;">${store}</div>` : ""}
-  <div class="center small" style="margin-top:4px;">ESCANEIE E GANHE</div>
+  <div class="center bold" style="font-size:11px;margin-top:4px;">ESCANEIE E GANHE</div>
   <hr/>
-  <div class="center" style="font-size:18px;font-weight:900;margin-top:4px;">🎁 ${discountLine}</div>
-  <div class="center small" style="margin-top:4px;">no seu primeiro pedido, direto pela nossa loja — sem taxa de app!</div>
+  <div class="center" style="font-size:18px;font-weight:900;margin-top:4px;">${discountLine}</div>
+  <div class="center" style="font-size:12px;font-weight:600;margin-top:4px;">no seu primeiro pedido, direto pela nossa loja - sem taxa de app!</div>
   <div class="center" style="margin:10px 0;">
     <img src="${qrImg}" width="180" height="180" style="display:block;margin:0 auto;" alt="QR"/>
   </div>
-  <div class="center bold" style="font-size:14px;">📱 Aponte a câmera do celular</div>
+  <div class="center bold" style="font-size:14px;">Aponte a câmera do celular</div>
   <div class="center" style="font-family:monospace;font-size:16px;font-weight:900;letter-spacing:3px;margin-top:4px;">${shareToken ?? ""}</div>
   <hr/>
-  <div class="center small">Desconto aplicado automaticamente no cadastro do 1º pedido</div>
-  <div class="center small" style="margin-top:6px;">✂ grampeie este cupom na caixa/sacola</div>
+  <div class="center bold" style="font-size:11px;">Desconto aplicado automaticamente no cadastro do 1o pedido</div>
+  <div class="center bold" style="font-size:11px;margin-top:6px;">*** grampeie este cupom na caixa/sacola ***</div>
 </body>
 </html>`
 

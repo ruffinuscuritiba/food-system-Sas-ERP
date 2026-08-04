@@ -171,11 +171,16 @@ export class QrRedirectController {
       target.searchParams.set('qr', sessionPayload.token);
       return res.redirect(302, target.toString());
     } catch (err: any) {
-      // Erros de negócio (expirado, já usado, campanha inativa) → manda pro
-      // site em vez de expor o backend/uma rota inexistente; sem o companyId
-      // (resolveToken falhou antes de retorná-lo) não dá pra ir direto pro
-      // cardápio da loja específica.
-      return res.redirect(302, this.svc.frontendBaseUrl);
+      // Erros de negócio (expirado, já usado, campanha inativa) → tenta
+      // mandar pro cardápio da própria loja (sem o cupom); só cai na home
+      // pública do site se nem o companyId for recuperável (token inválido).
+      // Nunca redireciona pra raiz do site — lá é o dashboard admin, que
+      // exige login e confundiria um cliente escaneando o QR.
+      const companyId = await this.svc.findCompanyIdByToken(rawToken).catch(() => null);
+      const fallback = companyId
+        ? `${this.svc.frontendBaseUrl}/menu/${companyId}`
+        : `${this.svc.frontendBaseUrl}/landing`;
+      return res.redirect(302, fallback);
     }
   }
 }

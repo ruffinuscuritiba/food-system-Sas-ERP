@@ -9,11 +9,12 @@
 import { redirect } from "next/navigation"
 
 interface Props {
-  params: { token: string }
+  params: Promise<{ token: string }>
 }
 
-export default function QrLandingPage({ params }: Props) {
+export default async function QrLandingPage({ params }: Props) {
+  const { token } = await params
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
   // Redireciona para o backend que coloca o cookie e volta para /menu
-  redirect(`${apiUrl}/r/${params.token}`)
+  redirect(`${apiUrl}/r/${token}`)
 }

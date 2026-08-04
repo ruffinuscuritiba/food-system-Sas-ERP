@@ -9,6 +9,7 @@ import {
   ChevronDown, ChevronUp, Link2, Copy, Check, X, Download, Printer,
   Award, Gift, PartyPopper,
 } from "lucide-react"
+import { printTicket, THERMAL_CSS } from "@/components/printing/printTicket"
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -197,16 +198,18 @@ export default function CampanhasPage() {
   }
 
   /**
-   * Abre um popup e imprime um cartaz A5 pronto pra colar em balcão/sacola de
-   * entrega (iFood/99Food) — separado do "Baixar QR Code" (que só baixa a
-   * imagem crua) pra não mexer nesse fluxo já existente.
+   * Imprime um cupom preto-e-branco de 80mm (mesmo padrão dos tickets de
+   * pedido — THERMAL_CSS/printTicket) pra grampear na caixa/sacola de
+   * entrega (iFood/99Food). Trocado do cartaz A5 colorido original porque a
+   * impressora térmica de recibo (ex.: Bematech MP-4200 TH) não imprime
+   * página inteira colorida — só ~80mm em preto e branco.
    */
   function printPoster() {
     if (!shareCampaign || !shareLink) return
     const discountLine = shareCampaign.discountType === "FIXO"
       ? `R$ ${Number(shareCampaign.discountValue).toFixed(2).replace(".", ",")} DE DESCONTO`
       : `${shareCampaign.discountValue}% DE DESCONTO`
-    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=460x460&data=${encodeURIComponent(shareLink)}`
+    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(shareLink)}`
     const store = companyName ? companyName.toUpperCase() : ""
 
     const html = `
@@ -214,60 +217,29 @@ export default function CampanhasPage() {
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Cartaz — ${shareCampaign.name}</title>
-<style>
-  @page { size: A5; margin: 0; }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0; width: 148mm; height: 210mm;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: linear-gradient(160deg, #ea580c 0%, #c2410c 100%);
-    color: #fff; display: flex; flex-direction: column;
-    align-items: center; justify-content: space-between;
-    text-align: center; padding: 10mm 8mm;
-  }
-  .store   { font-size: 15px; font-weight: 800; letter-spacing: 2px; opacity: .92; }
-  .badge   { font-size: 13px; font-weight: 700; background: rgba(255,255,255,.18);
-             border: 1px solid rgba(255,255,255,.5); border-radius: 999px;
-             padding: 4px 14px; margin-top: 6px; }
-  .headline { font-size: 34px; font-weight: 900; line-height: 1.15; margin-top: 14px; }
-  .discount { font-size: 46px; font-weight: 900; margin-top: 4px;
-              text-shadow: 0 3px 0 rgba(0,0,0,.15); }
-  .sub      { font-size: 16px; font-weight: 600; margin-top: 10px; opacity: .95; max-width: 105mm; }
-  .qrBox    { background: #fff; border-radius: 20px; padding: 14px; margin: 16px 0; }
-  .qrBox img { display: block; width: 55mm; height: 55mm; }
-  .code     { font-size: 13px; font-weight: 700; letter-spacing: 3px; opacity: .9; }
-  .cta      { font-size: 15px; font-weight: 700; }
-  .foot     { font-size: 10px; opacity: .75; margin-top: 6px; }
-</style>
+<title>Cupom — ${shareCampaign.name}</title>
+<style>${THERMAL_CSS}</style>
 </head>
 <body>
-  <div>
-    ${store ? `<div class="store">${store}</div>` : ""}
-    <div class="badge">ESCANEIE E GANHE</div>
+  ${store ? `<div class="center bold" style="letter-spacing:1px;">${store}</div>` : ""}
+  <div class="center small" style="margin-top:4px;">ESCANEIE E GANHE</div>
+  <hr/>
+  <div class="center" style="font-size:18px;font-weight:900;margin-top:4px;">🎁 ${discountLine}</div>
+  <div class="center small" style="margin-top:4px;">no seu primeiro pedido, direto pela nossa loja — sem taxa de app!</div>
+  <div class="center" style="margin:10px 0;">
+    <img src="${qrImg}" width="180" height="180" style="display:block;margin:0 auto;" alt="QR"/>
   </div>
-  <div>
-    <div class="headline">🎁 ${discountLine}</div>
-    <div class="sub">no seu primeiro pedido, direto pela nossa loja — sem taxa de app!</div>
-  </div>
-  <div class="qrBox"><img src="${qrImg}" /></div>
-  <div>
-    <div class="cta">📱 Aponte a câmera do celular para o QR Code</div>
-    <div class="code">CÓDIGO: ${shareToken ?? ""}</div>
-    <div class="foot">Desconto aplicado automaticamente no cadastro do 1º pedido</div>
-  </div>
+  <div class="center bold" style="font-size:14px;">📱 Aponte a câmera do celular</div>
+  <div class="center" style="font-family:monospace;font-size:16px;font-weight:900;letter-spacing:3px;margin-top:4px;">${shareToken ?? ""}</div>
+  <hr/>
+  <div class="center small">Desconto aplicado automaticamente no cadastro do 1º pedido</div>
+  <div class="center small" style="margin-top:6px;">✂ grampeie este cupom na caixa/sacola</div>
 </body>
 </html>`
 
-    const w = window.open("", "_blank", "width=480,height=720")
-    if (!w) {
-      toast.error("Popup bloqueado — permita popups para imprimir o cartaz")
-      return
+    if (!printTicket(html)) {
+      toast.error("Popup bloqueado — permita popups para imprimir o cupom")
     }
-    w.document.write(html)
-    w.document.close()
-    w.focus()
-    w.print()
   }
 
   async function copyLink() {
@@ -706,12 +678,12 @@ export default function CampanhasPage() {
                   onClick={printPoster}
                   className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition"
                 >
-                  <Printer size={14} /> Imprimir Cartaz (com a frase de desconto)
+                  <Printer size={14} /> Imprimir Cupom (P&B, 80mm)
                 </button>
                 <p className="text-xs text-gray-400 text-center">
                   Esse link pode ser escaneado por várias pessoas — não expira no primeiro uso.
                   {shareCampaign.type === "RECUPERACAO_IFOOD" &&
-                    " Cole o cartaz na sacola/caixa das entregas do iFood/99Food enquanto a integração automática não está conectada."}
+                    " Grampeie o cupom na sacola/caixa das entregas do iFood/99Food enquanto a integração automática não está conectada."}
                 </p>
               </>
             ) : null}

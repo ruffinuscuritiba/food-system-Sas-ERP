@@ -5,24 +5,24 @@ import { useRouter } from "next/navigation";
 import { Loader2, UtensilsCrossed } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/stores/auth.store";
-import { loginDemo, getDemoAccount, type DemoPlan } from "./_enterDemo";
+import { loginDemoAccountById, getDemoAccountById } from "./_enterDemo";
 
-export default function AutoEnterDemo({ plan }: { plan: DemoPlan }) {
+export default function AutoEnterDemo({ accountId }: { accountId: string }) {
   const router = useRouter();
   const { setAuth } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
-  const demo = getDemoAccount(plan);
+  const demo = getDemoAccountById(accountId);
 
   useEffect(() => {
     async function run() {
       try {
-        const { accessToken, user } = await loginDemo(plan);
+        const { accessToken, user } = await loginDemoAccountById(accountId);
         if (!accessToken) throw new Error("Token ausente");
         setAuth(accessToken, user as Parameters<typeof setAuth>[1]);
         document.cookie = `token=${accessToken}; path=/`;
         localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(user));
-        toast.success(`Abrindo demo ${plan.toUpperCase()}…`);
+        toast.success(`Abrindo demo ${demo?.label ?? accountId}…`);
         router.push("/pdv");
       } catch (err: any) {
         const msg =
@@ -34,7 +34,7 @@ export default function AutoEnterDemo({ plan }: { plan: DemoPlan }) {
     }
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accountId]);
 
   const color = demo?.primaryColor ?? "#f97316";
 
@@ -59,7 +59,7 @@ export default function AutoEnterDemo({ plan }: { plan: DemoPlan }) {
         </>
       ) : (
         <>
-          <p className="text-lg font-black">Abrindo demo {plan.toUpperCase()}…</p>
+          <p className="text-lg font-black">Abrindo demo {demo?.label ?? "…"}…</p>
           <Loader2 className="h-6 w-6 animate-spin" style={{ color }} />
           <p className="text-xs text-white/40">Carregando {demo?.label ?? "demonstração"}</p>
         </>

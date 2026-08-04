@@ -87,8 +87,12 @@ export class QrCampaignsService {
   ) {
     this.frontendUrl =
       this.config.get('FRONTEND_URL') ??
-      this.config.get('NEXT_PUBLIC_API_URL')?.replace('/api', '') ??
       'https://food-system-sas-erp-frontend.vercel.app';
+  }
+
+  /** URL base do site (frontend) — usada pelo QrRedirectController no fallback de erro. */
+  get frontendBaseUrl(): string {
+    return this.frontendUrl;
   }
 
   // ── WhatsApp de boas-vindas ao usar o cupom QR ────────────────────────────

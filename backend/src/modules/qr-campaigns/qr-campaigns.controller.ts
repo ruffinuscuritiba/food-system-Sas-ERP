@@ -171,9 +171,11 @@ export class QrRedirectController {
       target.searchParams.set('qr', sessionPayload.token);
       return res.redirect(302, target.toString());
     } catch (err: any) {
-      // Erros de negócio (expirado, já usado) → redireciona para cardápio sem promo
-      const fallback = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? ''}/menu`;
-      return res.redirect(302, fallback);
+      // Erros de negócio (expirado, já usado, campanha inativa) → manda pro
+      // site em vez de expor o backend/uma rota inexistente; sem o companyId
+      // (resolveToken falhou antes de retorná-lo) não dá pra ir direto pro
+      // cardápio da loja específica.
+      return res.redirect(302, this.svc.frontendBaseUrl);
     }
   }
 }

@@ -376,6 +376,20 @@ export class QrCampaignsService {
     };
   }
 
+  /**
+   * Lookup tolerante — usado só pelo fallback de erro do QrRedirectController
+   * pra saber pra qual cardápio mandar o cliente mesmo quando o cupom está
+   * expirado/usado/campanha inativa (nunca lança, nunca acessa dado sensível).
+   */
+  async findCompanyIdByToken(token: string): Promise<string | null> {
+    const clean = token.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 6);
+    const qr = await this.prisma.qrCode.findUnique({
+      where: { token: clean },
+      select: { companyId: true },
+    });
+    return qr?.companyId ?? null;
+  }
+
   // ── Checkout — validar token na sessão e calcular desconto ───────────────
 
   async validateForCheckout(

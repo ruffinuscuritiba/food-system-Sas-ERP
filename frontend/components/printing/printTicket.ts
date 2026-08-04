@@ -114,6 +114,11 @@ export const THERMAL_CSS = `
  * Opens a popup, writes the full HTML string, and triggers window.print().
  * Returns false (and warns in the console) if the popup was blocked — callers
  * use this to warn the operator instead of failing silently.
+ *
+ * Waits for any <img> in the ticket (ex.: QR code fetched from
+ * api.qrserver.com) to finish loading before printing — otherwise print()
+ * can fire before the image arrives and it comes out blank. Falls back to a
+ * 2.5s safety timeout so a blocked/slow image never hangs the print.
  */
 export function printTicket(html: string): boolean {
   const w = window.open("", "_blank", "width=420,height=700");
@@ -124,7 +129,29 @@ export function printTicket(html: string): boolean {
   w.document.write(html);
   w.document.close();
   w.focus();
-  w.print();
+
+  const doPrint = () => { try { w.print(); } catch { /* popup may already be closing */ } };
+  const images = Array.from(w.document.images);
+  const pending = images.filter(img => !img.complete);
+
+  if (pending.length === 0) {
+    doPrint();
+    return true;
+  }
+
+  let done = false;
+  let remaining = pending.length;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    doPrint();
+  };
+  pending.forEach(img => {
+    const settle = () => { remaining--; if (remaining <= 0) finish(); };
+    img.addEventListener("load", settle);
+    img.addEventListener("error", settle);
+  });
+  setTimeout(finish, 2500);
   return true;
 }
 

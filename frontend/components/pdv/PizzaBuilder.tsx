@@ -7,7 +7,12 @@ import { CheckCircle2 } from "lucide-react";
 
 type FlavorVariant = { id: string; name: string; price: number };
 type Flavor        = FlavorVariant;
-type Border        = { id: string; name: string; price: number };
+// Borda tem preço POR TAMANHO (PizzaBorderSize) — nunca um preço fixo único.
+// sizes[0] é usado como fallback quando o tamanho selecionado não tem preço
+// cadastrado (mesmo padrão do cardápio digital, getBorderPrice), pra nunca
+// esconder a borda inteira só porque um tamanho específico ficou sem preço.
+type Border        = { id: string; name: string; sizes: { size: string; price: number }[] };
+type ResolvedBorder = { id: string; name: string; price: number };
 type SizeOption    = { size: string; label: string; price: number };
 type SizeConfig    = { maxFlavors: number };
 
@@ -23,6 +28,11 @@ type Props = {
 
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function borderPriceForSize(b: Border, size: string): number {
+  const match = b.sizes.find(s => s.size === size);
+  return Number((match ?? b.sizes[0])?.price ?? 0);
+}
 
 // Known size suffixes — checked longest first to avoid partial matches
 const SIZE_SUFFIX_MAP: [string, string[]][] = [
@@ -137,7 +147,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
       );
     }
 
-    return base + (border?.price ?? 0);
+    return base + (border ? borderPriceForSize(border, selectedSize.size) : 0);
   }, [selectedNorms, border, selectedSize]);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
@@ -145,14 +155,17 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
   function addPizza() {
     if (selectedNorms.length === 0) return;
     const resolved = selectedNorms.map(n => resolveVariant(n, selectedSize.size));
-    
+    const resolvedBorder: ResolvedBorder | null = border
+      ? { id: border.id, name: border.name, price: borderPriceForSize(border, selectedSize.size) }
+      : null;
+
     onAdd({
       id:         `pizza-${Date.now()}`,
       type:       "PIZZA",
       size:       selectedSize.size,
       sizeLabel:  selectedSize.label,
       flavors:    resolved,
-      border,
+      border:     resolvedBorder,
       notes,
       quantity:   1,
       name:       `Pizza ${selectedSize.label}: ${selectedNorms.map(n => n.displayName).join(" / ")}`,
@@ -329,7 +342,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
                 }`}
               >
                 <span className="font-semibold block truncate">{b.name}</span>
-                <span className="block text-xs opacity-80">+{fmt(b.price)}</span>
+                <span className="block text-xs opacity-80">+{fmt(borderPriceForSize(b, selectedSize.size))}</span>
               </button>
             ))}
           </div>

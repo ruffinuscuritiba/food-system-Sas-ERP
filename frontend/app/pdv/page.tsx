@@ -43,6 +43,7 @@ interface Category {
   children?: Category[];
 }
 interface ProductSize { size: string; price: number; }
+interface PizzaBorderData { id: string; name: string; isActive?: boolean; sizes: { size: string; price: number }[]; }
 interface Product {
   id: string; name: string; description?: string;
   salePrice?: number; costPrice?: number; imageUrl?: string; imageZoom?: number;
@@ -285,6 +286,12 @@ export default function PDVPage() {
   const [now, setNow]                           = useState(new Date());
   const [pizzaCategories, setPizzaCategories]   = useState<Set<string>>(new Set());
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<Record<string, { maxFlavors: number }>>({});
+  // Bug real reportado ao vivo: PizzaBuilder sempre recebia borders={[]]}
+  // hardcoded — a etapa "Borda Recheada" nunca aparecia no PDV, pra
+  // NENHUM tamanho (não era um problema específico da Pequena, era ausência
+  // total de fetch). O cardápio digital já buscava isso corretamente; o PDV
+  // nunca tinha ganhado o mesmo fetch.
+  const [pizzaBorders, setPizzaBorders]         = useState<PizzaBorderData[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   // Aviso suave de caixa fechado — NÃO bloqueia venda, só avisa o operador.
   const [cashOpen, setCashOpen] = useState<boolean | null>(null);
@@ -350,6 +357,12 @@ export default function PDVPage() {
               configs.forEach((c: any) => { map[c.size] = { maxFlavors: c.maxFlavors ?? 2 }; });
             }
             setPizzaSizeConfigs(map);
+          })
+          .catch(() => {});
+        api.get("/pizza-borders")
+          .then(r => {
+            const list = Array.isArray(r.data) ? r.data : [];
+            setPizzaBorders(list.filter((b: PizzaBorderData) => b.isActive !== false));
           })
           .catch(() => {});
       }
@@ -1769,7 +1782,7 @@ export default function PDVPage() {
                 // senão o operador só via os sabores da aba em que clicou "Adicionar" e
                 // não conseguia montar uma pizza meio-a-meio cruzando as duas categorias.
                 flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "")).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
-                borders={[]}
+                borders={pizzaBorders}
                 sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0 }))}
                 sizeConfigs={pizzaSizeConfigs}
                 onAdd={addPizzaToCart}

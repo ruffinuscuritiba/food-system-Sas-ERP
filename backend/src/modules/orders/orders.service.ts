@@ -760,13 +760,22 @@ export class OrdersService {
             });
           }
 
-          if (order.customerId) {
-            await this.loyaltyService.processOrderReward(
-              order.customerId,
-              order.companyId,
-              order.id,
-              Number(order.total),
-            );
+          // Antes só creditava se Order.customerId já estivesse preenchido
+          // (praticamente nunca — PDV/mesa/WhatsApp só gravam o telefone
+          // como texto solto). Agora resolve/cria o Customer pelo telefone,
+          // igual já é feito pra "Cliente Fiel" (checkAndRegisterMilestone).
+          {
+            const phone = order.customer?.phone ?? order.customerPhone;
+            const name = order.customer?.name ?? order.customerName;
+            if (phone) {
+              await this.loyaltyService.processOrderRewardByPhone(
+                order.companyId,
+                phone,
+                name,
+                order.id,
+                Number(order.total),
+              );
+            }
           }
 
           // Credita a venda no saldo físico do caixa SOMENTE quando foi
@@ -1485,7 +1494,13 @@ export class OrdersService {
       const mapped = this.mapKitchenStatusToOnline(status);
       const onlineOrder = await this.prisma.onlineOrder.findFirst({
         where: { id, companyId },
-        select: { id: true, orderStatus: true },
+        select: {
+          id: true,
+          orderStatus: true,
+          customerPhone: true,
+          customerName: true,
+          total: true,
+        },
       });
       if (!onlineOrder)
         throw new NotFoundException('Pedido online não encontrado.');
@@ -1497,6 +1512,23 @@ export class OrdersService {
       // mesmo pedido não consome duas vezes.
       if (mapped === 'CONFIRMED' && onlineOrder.orderStatus !== 'CONFIRMED') {
         await this.onlineOrdersService?.consumeStockForOrder(id, companyId, userId);
+
+        // Fidelidade — pedido do cardápio digital nunca creditava pontos
+        // (só o PDV/WhatsApp tinham o hook, e mesmo assim quebrado, ver
+        // acima). Mesmo gatilho "após confirmado", nunca em PENDING.
+        if (onlineOrder.customerPhone) {
+          this.loyaltyService
+            .processOrderRewardByPhone(
+              companyId,
+              onlineOrder.customerPhone,
+              onlineOrder.customerName,
+              onlineOrder.id,
+              Number(onlineOrder.total),
+            )
+            .catch((e: any) =>
+              this.logger.warn(`[ONLINE] fidelidade falhou (${id}): ${e?.message}`),
+            );
+        }
       }
 
       const updated = await this.prisma.onlineOrder.update({

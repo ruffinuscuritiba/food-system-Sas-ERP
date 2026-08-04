@@ -11,6 +11,7 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { DeliveryConfigService } from '@/modules/delivery-config/delivery-config.service';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 import { LoyaltyMilestonesService } from '@/modules/loyalty-milestones/loyalty-milestones.service';
+import { LoyaltyService } from '@/modules/loyalty/loyalty.service';
 import { StockService } from '@/modules/stock/stock.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { PrintersService } from '@/modules/printers/printers.service';
@@ -52,6 +53,9 @@ export interface CreateOnlineOrderDto {
   subtotal: number;
   deliveryFee?: number;
   discount?: number;
+  /** Quantos pontos de fidelidade o cliente quer gastar neste pedido (não o
+   *  valor em R$) — debitado de verdade do saldo após o pedido persistir. */
+  redeemPoints?: number;
   total: number;
   paymentMethod: OnlinePaymentMethodType;
   notes?: string;
@@ -75,6 +79,7 @@ export class OnlineOrdersService {
     @Optional() private readonly whatsappAi?: WhatsappAiService,
     @Optional() private readonly printersService?: PrintersService,
     @Optional() private readonly loyaltyMilestones?: LoyaltyMilestonesService,
+    @Optional() private readonly loyaltyService?: LoyaltyService,
   ) {}
 
   /**
@@ -298,6 +303,17 @@ export class OnlineOrdersService {
         ).catch((e: any) =>
           this.logger.warn(`[OnlineOrder] syncCustomerOptIn falhou: ${e?.message}`),
         );
+
+        // → Resgate de pontos de fidelidade (se o cliente marcou "usar pontos"
+        // no checkout) — debita o saldo de verdade; antes o desconto era só
+        // um número calculado no frontend, nunca decrementado no backend.
+        if (this.loyaltyService && dto.redeemPoints && dto.redeemPoints > 0) {
+          this.loyaltyService
+            .applyPointsDiscount(dto.companyId, dto.customerPhone, dto.redeemPoints, order.id)
+            .catch((e: any) =>
+              this.logger.warn(`[OnlineOrder] resgate de pontos falhou: ${e?.message}`),
+            );
+        }
 
         // → Kitchen screen picks up new order
         this.socketGateway.emitOrderCreated(order);

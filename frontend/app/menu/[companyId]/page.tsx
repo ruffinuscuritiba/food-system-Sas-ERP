@@ -694,8 +694,11 @@ export default function MenuPage() {
       );
       if (res.ok) {
         const data = await res.json();
-        setLoyaltyPoints(data.points || 0);
-        setLoyaltyDiscount(data.discountValue || 0);
+        // Resposta real do backend é {totalPoints, totalCashback, redeemableValue,
+        // transactions} — nomes antigos (points/discountValue) nunca bateram,
+        // saldo sempre aparecia zerado mesmo quando o cliente tinha pontos.
+        setLoyaltyPoints(data.totalPoints || 0);
+        setLoyaltyDiscount(data.redeemableValue || 0);
       }
     } catch { /* silent */ }
   }, [realCompanyId]);
@@ -1483,6 +1486,10 @@ export default function MenuPage() {
           }),
           subtotal:      cartTotal,
           discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount,
+          // Quantos pontos resgatar de verdade (o backend decrementa o saldo
+          // real após criar o pedido) — antes o desconto acima nunca debitava
+          // nada, o saldo mostrado ficava incorreto pra sempre.
+          redeemPoints:  usePoints && loyaltyPoints > 0 ? loyaltyPoints : 0,
           deliveryFee:   selectedZone?.clientFee ?? 0,
           deliveryZoneId: selectedZone?.id ?? undefined,
           total:         capturedFinalTotal + (selectedZone?.clientFee ?? 0),
@@ -1498,6 +1505,9 @@ export default function MenuPage() {
       const createdOrderId: string = orderData.id;
       if (orderData.companyId) setRealCompanyId(orderData.companyId);
       setOnlineOrderId(createdOrderId);
+      // 1 ponto por R$1 (mesma regra do backend, creditados quando a loja
+      // confirmar o pedido) — só pra mostrar a mensagem de "você ganhou".
+      setLoyaltyPointsEarned(Math.floor(capturedFinalTotal));
 
       // Step 2 — redeem coupon async (fire-and-forget)
       if (couponId) {

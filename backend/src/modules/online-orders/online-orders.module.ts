@@ -8,6 +8,7 @@ import { StockModule } from '@/modules/stock/stock.module';
 import { WhatsappAiModule } from '@/modules/whatsapp-ai/whatsapp-ai.module';
 import { PrintersModule } from '@/modules/printers/printers.module';
 import { LoyaltyMilestonesModule } from '@/modules/loyalty-milestones/loyalty-milestones.module';
+import { LoyaltyModule } from '@/modules/loyalty/loyalty.module';
 import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 
@@ -22,6 +23,7 @@ import { OnlineOrdersController } from './online-orders.controller';
     WhatsappAiModule,
     PrintersModule,
     LoyaltyMilestonesModule,
+    LoyaltyModule,
   ],
   controllers: [OnlineOrdersController],
   providers: [OnlineOrdersService],

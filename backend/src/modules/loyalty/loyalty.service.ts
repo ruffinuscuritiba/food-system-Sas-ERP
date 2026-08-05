@@ -134,6 +134,7 @@ export class LoyaltyService {
       this.prisma.pointTransaction.create({
         data: {
           loyaltyAccountId: account.id,
+          companyId,
           orderId,
           points,
           type: 'EARNED',
@@ -338,6 +339,7 @@ export class LoyaltyService {
       this.prisma.pointTransaction.create({
         data: {
           loyaltyAccountId: account.id,
+          companyId,
           points: -pointsToRedeem,
           type: 'REDEEMED',
           description: `Resgate de ${pointsToRedeem} pontos — cupom ${couponCode}`,
@@ -422,6 +424,7 @@ export class LoyaltyService {
       this.prisma.pointTransaction.create({
         data: {
           loyaltyAccountId: account.id,
+          companyId,
           orderId,
           points: -points,
           type: 'REDEEMED',

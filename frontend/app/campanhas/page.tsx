@@ -58,6 +58,13 @@ interface LoyaltyReward {
   createdAt: string
 }
 
+// ─── Cashback por pedido (% configurável) ──────────────────────────────────
+
+interface CashbackConfig {
+  ratePercent: number
+  isActive: boolean
+}
+
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<CampaignType, string> = {
@@ -95,6 +102,12 @@ export default function CampanhasPage() {
   const [loyaltyForm, setLoyaltyForm]         = useState({ ordersThreshold: 10, rewardLabel: "1 Pizza Clássica Grátis", isActive: false })
   const [loyaltySaving, setLoyaltySaving]     = useState(false)
   const [showLoyaltyForm, setShowLoyaltyForm] = useState(false)
+
+  // Cashback
+  const [cashbackConfig, setCashbackConfig]   = useState<CashbackConfig | null>(null)
+  const [cashbackForm, setCashbackForm]       = useState({ ratePercent: 1.5, isActive: true })
+  const [cashbackSaving, setCashbackSaving]   = useState(false)
+  const [showCashbackForm, setShowCashbackForm] = useState(false)
 
   const [form, setForm] = useState({
     name:             "",
@@ -146,7 +159,17 @@ export default function CampanhasPage() {
     }
   }
 
-  useEffect(() => { loadAll(); loadLoyalty() }, [])
+  async function loadCashback() {
+    try {
+      const { data } = await api.get<CashbackConfig>("/loyalty/cashback-config")
+      setCashbackConfig(data)
+      setCashbackForm({ ratePercent: Number(data.ratePercent), isActive: data.isActive })
+    } catch {
+      // best-effort — não trava a tela de campanhas por causa disso
+    }
+  }
+
+  useEffect(() => { loadAll(); loadLoyalty(); loadCashback() }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -277,6 +300,25 @@ export default function CampanhasPage() {
       toast.error(e?.response?.data?.message ?? "Erro ao salvar")
     } finally {
       setLoyaltySaving(false)
+    }
+  }
+
+  async function saveCashbackConfig(e: React.FormEvent) {
+    e.preventDefault()
+    if (cashbackForm.ratePercent < 0 || cashbackForm.ratePercent > 20) {
+      toast.error("A taxa precisa estar entre 0% e 20%")
+      return
+    }
+    setCashbackSaving(true)
+    try {
+      const { data } = await api.patch<CashbackConfig>("/loyalty/cashback-config", cashbackForm)
+      setCashbackConfig(data)
+      toast.success("Cashback salvo!")
+      setShowCashbackForm(false)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Erro ao salvar")
+    } finally {
+      setCashbackSaving(false)
     }
   }
 
@@ -622,6 +664,66 @@ export default function CampanhasPage() {
           </div>
         ) : (
           <p className="text-sm text-gray-400 text-center py-2">Nenhum cliente pronto para resgatar no momento.</p>
+        )}
+      </div>
+
+      {/* ── Cashback — % por pedido, cliente escolhe acumular ou usar na hora ── */}
+      <div className="border rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <DollarSign className="text-emerald-600" size={20} />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900">Cashback</h2>
+              <p className="text-xs text-gray-500">
+                {cashbackConfig?.isActive
+                  ? `Ativo — ${cashbackConfig.ratePercent}% de volta em cada pedido`
+                  : "Desativado — configure abaixo para ativar"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCashbackForm(v => !v)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold text-emerald-700 border-emerald-200 hover:bg-emerald-50 transition"
+          >
+            {showCashbackForm ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            Configurar
+          </button>
+        </div>
+
+        {showCashbackForm && (
+          <form onSubmit={saveCashbackConfig} className="bg-gray-50 border rounded-2xl p-4 space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase">Taxa de cashback (%)</label>
+              <input
+                type="number" min={0} max={20} step={0.1} required
+                value={cashbackForm.ratePercent}
+                onChange={e => setCashbackForm(f => ({ ...f, ratePercent: Number(e.target.value) }))}
+                className="mt-1 w-full border rounded-xl px-3 py-2 text-sm"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={cashbackForm.isActive}
+                onChange={e => setCashbackForm(f => ({ ...f, isActive: e.target.checked }))}
+                className="rounded"
+              />
+              Cashback ativo
+            </label>
+            <p className="text-xs text-gray-400">
+              No checkout do cardápio digital, o cliente escolhe por pedido: guardar o cashback no saldo pra usar
+              num pedido futuro, ou já usar como desconto neste mesmo pedido. Vale só pro cardápio digital (PDV/mesa
+              não têm essa opção ainda). O saldo acumulado é o mesmo dos pontos de fidelidade.
+            </p>
+            <div className="flex justify-end">
+              <button type="submit" disabled={cashbackSaving}
+                className="px-6 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">
+                {cashbackSaving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </form>
         )}
       </div>
 

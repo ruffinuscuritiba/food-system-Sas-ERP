@@ -343,6 +343,9 @@ model Company {
   loyaltyMilestoneConfig  LoyaltyMilestoneConfig?
   loyaltyMilestoneRewards LoyaltyMilestoneReward[]
 
+  // ── Cashback por pedido (% configurável) ──────────────────────────────────
+  cashbackConfig CashbackConfig?
+
   // ── Marketing Digital (limite diário de campanhas geradas por IA) ──────────
   aiCampaignGenerations AiCampaignGeneration[]
 
@@ -1791,6 +1794,10 @@ model OnlineOrder {
   // impressão (Totem não imprime pré-conta pro cliente). NÃO afeta o roteamento
   // de status em updateKitchenStatus, que continua chaveado por source==='ONLINE'.
   channel                 String   @default("ONLINE")
+  // Cliente escolheu "usar cashback agora" neste pedido (já embutido em
+  // `discount`) — impede creditar cashback de novo pra este pedido quando
+  // ele for confirmado (só pontos/Cliente Fiel continuam normalmente).
+  instantCashbackApplied  Boolean  @default(false)
   // ── Split financeiro ──────────────────────────────────────────────────────
   grossAmount             Decimal? @db.Decimal(10, 2)
   feeAmount               Decimal? @db.Decimal(10, 2)
@@ -2417,4 +2424,18 @@ model LoyaltyMilestoneReward {
   // Idempotência: nunca gerar 2 avisos pro mesmo cliente no mesmo marco
   @@unique([companyId, customerPhone, milestoneCount])
   @@index([companyId, redeemed])
+}
+
+// Cashback por pedido — % configurável pela loja (default 1,5%). No checkout
+// do cardápio digital o cliente escolhe, por pedido: acumular no saldo (pra
+// usar depois, mesmo saldo de LoyaltyAccount.totalCashback) OU já usar como
+// desconto imediato neste próprio pedido (nunca os dois pro mesmo pedido).
+model CashbackConfig {
+  id          String   @id @default(cuid())
+  companyId   String   @unique
+  company     Company  @relation(fields: [companyId], references: [id])
+  ratePercent Decimal  @default(1.5) @db.Decimal(5, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

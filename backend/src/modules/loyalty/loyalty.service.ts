@@ -10,7 +10,7 @@ import { normalizePhoneBr } from '@/common/utils/phone';
 
 // Regras configuráveis por loja (idealmente viria de Company settings)
 const POINTS_PER_REAL = 1; // 1 ponto por R$ 1,00
-const CASHBACK_RATE = 0.02; // 2% cashback
+const DEFAULT_CASHBACK_RATE_PERCENT = 1.5; // usado só se a loja nunca configurou
 const POINTS_TO_BRL_RATE = 0.05; // 100 pontos = R$ 5,00 (mesma regra de redeemPoints)
 
 /** Últimos 8 dígitos — ignora DDI/DDC/formatação, mesma regra usada em
@@ -59,17 +59,52 @@ export class LoyaltyService {
   }
 
   /** Wrapper de processOrderReward por telefone — usado pelos hooks reais
-   *  (Order/OnlineOrder nunca têm customerId confiável preenchido). */
+   *  (Order/OnlineOrder nunca têm customerId confiável preenchido).
+   *  `skipCashback` — pedido já usou o cashback como desconto imediato no
+   *  próprio checkout (ver applyInstantCashback); pontos continuam normais. */
   async processOrderRewardByPhone(
     companyId: string,
     phone: string | null | undefined,
     name: string | null | undefined,
     orderId: string,
     orderAmount: number,
+    opts?: { skipCashback?: boolean },
   ) {
     const customerId = await this.findOrCreateCustomerByPhone(companyId, phone, name);
     if (!customerId) return null;
-    return this.processOrderReward(customerId, companyId, orderId, orderAmount);
+    return this.processOrderReward(customerId, companyId, orderId, orderAmount, opts);
+  }
+
+  // ── Config de cashback (% por loja) — cria com defaults na 1ª leitura,
+  // mesmo padrão de LoyaltyMilestonesService.getConfig ──────────────────────
+  async getCashbackConfig(companyId: string) {
+    const existing = await this.prisma.cashbackConfig.findUnique({ where: { companyId } });
+    if (existing) return existing;
+    return this.prisma.cashbackConfig.create({ data: { companyId } });
+  }
+
+  async updateCashbackConfig(
+    companyId: string,
+    dto: { ratePercent?: number; isActive?: boolean },
+  ) {
+    return this.prisma.cashbackConfig.upsert({
+      where: { companyId },
+      create: {
+        companyId,
+        ratePercent: dto.ratePercent ?? DEFAULT_CASHBACK_RATE_PERCENT,
+        isActive: dto.isActive ?? true,
+      },
+      update: {
+        ...(dto.ratePercent !== undefined && { ratePercent: dto.ratePercent }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      },
+    });
+  }
+
+  /** Endpoint público (checkout do cardápio) — nunca expõe mais que isso. */
+  async getPublicCashbackConfig(companyId: string) {
+    const config = await this.getCashbackConfig(companyId);
+    return { isActive: config.isActive, ratePercent: Number(config.ratePercent) };
   }
 
   // ── Chamado após pedido APROVADO (hook em orders.service) ──
@@ -78,11 +113,19 @@ export class LoyaltyService {
     companyId: string,
     orderId: string,
     orderAmount: number,
+    opts?: { skipCashback?: boolean },
   ) {
     const points = Math.floor(orderAmount * POINTS_PER_REAL);
-    const cashback = new Decimal(orderAmount * CASHBACK_RATE).toDecimalPlaces(
-      2,
-    );
+
+    let cashback = new Decimal(0);
+    if (!opts?.skipCashback) {
+      const cashbackConfig = await this.getCashbackConfig(companyId);
+      if (cashbackConfig.isActive) {
+        cashback = new Decimal(orderAmount)
+          .mul(Number(cashbackConfig.ratePercent) / 100)
+          .toDecimalPlaces(2);
+      }
+    }
 
     const account = await this.upsertAccount(customerId, companyId);
 

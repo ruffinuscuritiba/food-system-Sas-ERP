@@ -1500,6 +1500,7 @@ export class OrdersService {
           customerPhone: true,
           customerName: true,
           total: true,
+          instantCashbackApplied: true,
         },
       });
       if (!onlineOrder)
@@ -1524,6 +1525,7 @@ export class OrdersService {
               onlineOrder.customerName,
               onlineOrder.id,
               Number(onlineOrder.total),
+              { skipCashback: onlineOrder.instantCashbackApplied },
             )
             .catch((e: any) =>
               this.logger.warn(`[ONLINE] fidelidade falhou (${id}): ${e?.message}`),

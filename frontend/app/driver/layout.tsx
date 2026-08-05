@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Home, Package, DollarSign, History, User } from "lucide-react";
 import { api } from "@/services/api";
+import { InstallBanner } from "@/components/driver/InstallBanner";
 
 const NAV = [
   { href: "/driver",          label: "Início",    icon: Home },
@@ -29,6 +30,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      <InstallBanner />
       <main className="flex-1 overflow-y-auto pb-20">
         {children}
       </main>

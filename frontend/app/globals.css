@@ -130,8 +130,11 @@
 .app-sidebar-nav .bg-primary,
 .pdv-root [class*="bg-[var(--color-primary"] * { color: #ffffff !important; }
 
-/* Header do PDV: texto escuro */
-.pdv-root > div > div:first-child .text-white { color: #1A1A1A; }
+/* Header do PDV: texto escuro — seletor antigo (`> div > div:first-child`)
+ * nunca batia porque o header vive dentro de <main>, não de outro <div>
+ * (campo de busca ficava com texto branco invisível em fundo claro). */
+:root:not(.theme-dark) .pdv-root header .text-white,
+:root:not(.theme-dark) .pdv-root header .text-zinc-200 { color: #1A1A1A !important; }
 
 /* ── Imagem de fundo textura configurável (25% opacidade = 75% suavidade) ──
  * Quando a loja define backgroundImageUrl, --bg-texture-url é injetada e a

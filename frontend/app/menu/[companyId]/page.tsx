@@ -278,6 +278,10 @@ export default function MenuPage() {
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
   const [loyaltyPointsEarned, setLoyaltyPointsEarned] = useState(0);
+  // Cashback — taxa configurável pela loja (GET público); cliente escolhe por
+  // pedido: acumular pro próximo (padrão) ou usar já como desconto agora.
+  const [cashbackConfig, setCashbackConfig] = useState<{ isActive: boolean; ratePercent: number } | null>(null);
+  const [cashbackMode, setCashbackMode] = useState<"ACCUMULATE" | "INSTANT">("ACCUMULATE");
   const [metaPixelId, setMetaPixelId] = useState<string | null>(null);
   const [gaId, setGaId] = useState<string | null>(null);
   const [gtmId, setGtmId] = useState<string | null>(null);
@@ -371,7 +375,7 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes, bordersRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes, bordersRes, cashbackRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
@@ -379,6 +383,7 @@ export default function MenuPage() {
         fetch(`${apiBaseUrl}/delivery-config/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/company/layout/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/pizza-borders/public?companyId=${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/loyalty/cashback-config/public?companyId=${companyId}`).catch(() => null),
       ]);
 
       if (!menuRes || !menuRes.ok) {
@@ -433,6 +438,12 @@ export default function MenuPage() {
       if (bordersRes?.ok) {
         const bd = await bordersRes.json().catch(() => []);
         if (Array.isArray(bd)) setPizzaBorders(bd);
+      }
+
+      // Cashback config (public — no auth)
+      if (cashbackRes?.ok) {
+        const cb = await cashbackRes.json().catch(() => null);
+        if (cb) setCashbackConfig({ isActive: !!cb.isActive, ratePercent: Number(cb.ratePercent) || 0 });
       }
 
       if (companyRes?.ok) {
@@ -1407,7 +1418,11 @@ export default function MenuPage() {
     if (qrPromo.discountType === "PERCENTUAL") return Math.min(cartTotal, cartTotal * qrPromo.discountValue / 100);
     return Math.min(cartTotal, qrPromo.discountValue);
   })();
-  const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount;
+  const cashbackAmount = cashbackConfig?.isActive
+    ? Number((cartTotal * (cashbackConfig.ratePercent / 100)).toFixed(2))
+    : 0;
+  const instantCashbackDiscount = cashbackMode === "INSTANT" ? cashbackAmount : 0;
+  const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount + instantCashbackDiscount;
   const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const filtered = products.filter((p) => {
@@ -1485,11 +1500,14 @@ export default function MenuPage() {
             };
           }),
           subtotal:      cartTotal,
-          discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount,
+          discount:      (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount + instantCashbackDiscount,
           // Quantos pontos resgatar de verdade (o backend decrementa o saldo
           // real após criar o pedido) — antes o desconto acima nunca debitava
           // nada, o saldo mostrado ficava incorreto pra sempre.
           redeemPoints:  usePoints && loyaltyPoints > 0 ? loyaltyPoints : 0,
+          // "INSTANT" já embutiu o desconto acima; "ACCUMULATE" (padrão) só
+          // credita o cashback no saldo quando a loja confirmar o pedido.
+          cashbackMode:  cashbackConfig?.isActive ? cashbackMode : undefined,
           deliveryFee:   selectedZone?.clientFee ?? 0,
           deliveryZoneId: selectedZone?.id ?? undefined,
           total:         capturedFinalTotal + (selectedZone?.clientFee ?? 0),
@@ -2710,6 +2728,34 @@ export default function MenuPage() {
               </label>
             )}
 
+            {cashbackConfig?.isActive && cashbackAmount > 0 && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 space-y-2">
+                <div className="text-emerald-700 font-bold text-sm">
+                  🪙 Cashback de {cashbackConfig.ratePercent}% (R$ {cashbackAmount.toFixed(2)})
+                </div>
+                <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cashbackMode"
+                    checked={cashbackMode === "ACCUMULATE"}
+                    onChange={() => setCashbackMode("ACCUMULATE")}
+                    className="w-4 h-4 accent-emerald-600"
+                  />
+                  Guardar no saldo para o próximo pedido
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cashbackMode"
+                    checked={cashbackMode === "INSTANT"}
+                    onChange={() => setCashbackMode("INSTANT")}
+                    className="w-4 h-4 accent-emerald-600"
+                  />
+                  Usar agora — desconto de R$ {cashbackAmount.toFixed(2)} neste pedido
+                </label>
+              </div>
+            )}
+
             {/* QR Recovery promo banner */}
             {qrPromo && (
               <div className="rounded-xl border border-green-300 bg-green-50 px-4 py-3">
@@ -2983,6 +3029,12 @@ export default function MenuPage() {
                 <div className="flex justify-between text-sm text-yellow-600">
                   <span className="flex items-center gap-1"><Star size={11} fill="currentColor" /> Fidelidade</span>
                   <span>- R$ {loyaltyDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {instantCashbackDiscount > 0 && (
+                <div className="flex justify-between text-sm text-emerald-600">
+                  <span>🪙 Cashback</span>
+                  <span>- R$ {instantCashbackDiscount.toFixed(2)}</span>
                 </div>
               )}
               {couponDiscount > 0 && (

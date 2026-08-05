@@ -56,6 +56,12 @@ export interface CreateOnlineOrderDto {
   /** Quantos pontos de fidelidade o cliente quer gastar neste pedido (não o
    *  valor em R$) — debitado de verdade do saldo após o pedido persistir. */
   redeemPoints?: number;
+  /** "ACCUMULATE" (padrão) — cashback deste pedido vai pro saldo, creditado
+   *  quando a loja confirmar. "INSTANT" — cliente já escolheu usar o
+   *  cashback como desconto neste próprio pedido (já embutido em `discount`
+   *  pelo frontend, mesma taxa pública de GET /loyalty/cashback-config/public)
+   *  — não credita cashback de novo na confirmação, só pontos. */
+  cashbackMode?: 'ACCUMULATE' | 'INSTANT';
   total: number;
   paymentMethod: OnlinePaymentMethodType;
   notes?: string;
@@ -285,6 +291,7 @@ export class OnlineOrdersService {
         paymentMethod,
         notes: dto.notes?.trim() || null,
         channel: dto.channel === 'TOTEM' ? 'TOTEM' : 'ONLINE',
+        instantCashbackApplied: dto.cashbackMode === 'INSTANT',
       },
     });
 

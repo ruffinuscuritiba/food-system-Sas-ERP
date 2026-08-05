@@ -17,6 +17,7 @@ const PUBLIC_ROUTES = [
   '/order-status',
   '/r',
   '/termos',
+  '/driver-invite',
 ]
 
 export function middleware(request: NextRequest) {

@@ -1304,6 +1304,10 @@ model PointTransaction {
   id               String          @id @default(uuid())
   loyaltyAccountId String
   loyaltyAccount   LoyaltyAccount  @relation(fields: [loyaltyAccountId], references: [id])
+  // Já existia na tabela real (NOT NULL, com índice) mas nunca tinha sido
+  // declarada aqui — todo INSERT falhava. Denormalizado de propósito (nunca
+  // precisa de join em LoyaltyAccount só pra filtrar por empresa).
+  companyId        String
   orderId          String?
   points           Int             // positivo = ganho, negativo = resgatado
   type             PointType

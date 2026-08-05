@@ -1780,6 +1780,46 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     }
   }
 
+  /**
+   * Monta a lista de formas de pagamento a partir da configuração real da
+   * loja (Configurações → Pagamento) — antes era uma string fixa no código
+   * que nunca mencionava dinheiro nem métodos personalizados, então a IA
+   * dizia "não trabalhamos com dinheiro" mesmo em lojas que aceitam.
+   * PIX/cartão continuam marcados como "automático via link" (é o único
+   * fluxo que o bot sabe conduzir sozinho); os demais são "combinar na
+   * entrega/retirada", já que não há link/QR pra eles.
+   */
+  private buildPaymentInfo(company: {
+    acceptCash?: boolean | null;
+    acceptCreditCard?: boolean | null;
+    acceptDebitCard?: boolean | null;
+    acceptMealVoucher?: boolean | null;
+    customPaymentMethods?: unknown;
+  } | null): string {
+    const lines: string[] = [];
+    // PIX não tem toggle próprio — é o método padrão do link automático,
+    // sempre oferecido.
+    lines.push('PIX (pagamento automático via link)');
+    if (company?.acceptCreditCard !== false)
+      lines.push('Cartão de Crédito (link seguro)');
+    if (company?.acceptDebitCard !== false)
+      lines.push('Cartão de Débito (link seguro)');
+    if (company?.acceptCash)
+      lines.push('Dinheiro (pago na entrega/retirada, sem link)');
+    if (company?.acceptMealVoucher)
+      lines.push('Vale-Refeição (pago na entrega/retirada, sem link)');
+    const custom = Array.isArray(company?.customPaymentMethods)
+      ? (company!.customPaymentMethods as Array<{
+          name?: string;
+          isActive?: boolean;
+        }>)
+      : [];
+    for (const m of custom) {
+      if (m?.isActive && m.name) lines.push(`${m.name} (pago na entrega/retirada, sem link)`);
+    }
+    return `Formas de pagamento aceitas: ${lines.join(', ')}.`;
+  }
+
   // ── CLAUDE STRUCTURED MODE ────────────────────────────────────────────────
 
   private async runClaudeStructuredResponse(
@@ -1826,7 +1866,16 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     const menuCtx = this.promptService.buildMenuContext(products, categories);
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
-      select: { name: true, slug: true },
+      select: {
+        name: true,
+        slug: true,
+        businessHours: true,
+        acceptCash: true,
+        acceptCreditCard: true,
+        acceptDebitCard: true,
+        acceptMealVoucher: true,
+        customPaymentMethods: true,
+      },
     });
     const companyName = company?.name ?? 'nossa loja';
     const attendantName = settings.attendantName ?? 'Atendente';
@@ -1876,19 +1925,14 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       /* bordas opcionais */
     }
 
-    const companyHoursRow = await this.prisma.company.findUnique({
-      where: { id: companyId },
-      select: { businessHours: true },
-    });
     const businessHoursInfo = buildBusinessHoursInfo(
       settings,
-      companyHoursRow?.businessHours as
+      company?.businessHours as
         | Record<string, CompanyBusinessHoursDay>
         | null
         | undefined,
     );
-    const paymentInfo =
-      'Formas de pagamento aceitas: PIX (pagamento automático via link), Cartão de Crédito (link seguro), Cartão de Débito (link seguro).';
+    const paymentInfo = this.buildPaymentInfo(company);
 
     let structured: StructuredResponse;
     try {

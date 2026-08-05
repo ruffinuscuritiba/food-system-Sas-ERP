@@ -135,6 +135,13 @@
  * (campo de busca ficava com texto branco invisível em fundo claro). */
 :root:not(.theme-dark) .pdv-root header .text-white,
 :root:not(.theme-dark) .pdv-root header .text-zinc-200 { color: #1A1A1A !important; }
+/* Placeholder do campo de busca (texto exibido com o campo vazio) usa uma
+ * pseudo-classe própria (::placeholder) — não é coberto pela regra de
+ * `.text-white` acima, que só afeta o valor digitado. */
+:root:not(.theme-dark) .pdv-root header input.placeholder-zinc-400::placeholder {
+  color: #6b7280 !important;
+  opacity: 1;
+}
 
 /* ── Imagem de fundo textura configurável (25% opacidade = 75% suavidade) ──
  * Quando a loja define backgroundImageUrl, --bg-texture-url é injetada e a

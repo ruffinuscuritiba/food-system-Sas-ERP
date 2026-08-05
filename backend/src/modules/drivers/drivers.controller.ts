@@ -108,6 +108,14 @@ export class DriversController {
     return this.service.update(id, req.user.companyId, body);
   }
 
+  @Post(':id/invite-link')
+  @UseGuards(RolesGuard, ModuleGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
+  @RequiredModule('delivery')
+  generateInviteLink(@Param('id') id: string, @Req() req: any) {
+    return this.service.generateInviteLink(id, req.user.companyId);
+  }
+
   @Patch(':id/location')
   @UseGuards(RolesGuard, ModuleGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')

@@ -70,6 +70,7 @@ const PUBLIC_ROUTES = [
   "/tracking",
   "/r",        // QR redirect de recuperação de clientes
   "/termos",
+  "/driver-invite",
 ];
 
 type NavItem = {

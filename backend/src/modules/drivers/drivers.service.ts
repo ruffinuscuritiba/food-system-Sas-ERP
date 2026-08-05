@@ -4,11 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 import { getStartOfTodayBrazil } from '@/common/utils/timezone';
+
+const DRIVER_INVITE_PURPOSE = 'driver_invite';
 
 @Injectable()
 export class DriversService {
@@ -16,6 +20,8 @@ export class DriversService {
     private prisma: PrismaService,
     private ordersService: OrdersService,
     private socketGateway: SocketGateway,
+    private jwtService: JwtService,
+    private config: ConfigService,
   ) {}
 
   // FIX: agora retorna, para cada entregador, quantas entregas ele já
@@ -495,5 +501,81 @@ export class DriversService {
         data: { status: 'PAID', paidAt: new Date(), financialId: financial.id },
       });
     });
+  }
+
+  // ── Convite de instalação — entregador define a própria senha ────────────
+  // Antes o admin precisava inventar uma senha na hora de criar o entregador
+  // e repassar ela por fora (WhatsApp/papel) — 2 informações pra comunicar
+  // (link + senha), risco de erro de digitação. Agora o admin manda só o
+  // link; o entregador define a própria senha e já cai logado no app.
+
+  async generateInviteLink(driverId: string, companyId: string) {
+    const driver = await this.prisma.driverProfile.findFirst({
+      where: { id: driverId, companyId },
+      include: { user: { select: { id: true, name: true } } },
+    });
+    if (!driver) throw new NotFoundException('Entregador não encontrado');
+
+    const token = this.jwtService.sign(
+      { sub: driver.user.id, purpose: DRIVER_INVITE_PURPOSE },
+      { expiresIn: '7d' },
+    );
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ||
+      'https://food-system-sas-erp-frontend.vercel.app';
+
+    return {
+      link: `${frontendUrl}/driver-invite/${token}`,
+      driverName: driver.user.name,
+    };
+  }
+
+  async acceptInvite(token: string, password: string) {
+    let payload: { sub?: string; purpose?: string };
+    try {
+      payload = this.jwtService.verify(token);
+    } catch {
+      throw new BadRequestException(
+        'Link de convite inválido ou expirado — peça um novo link.',
+      );
+    }
+    if (payload.purpose !== DRIVER_INVITE_PURPOSE || !payload.sub) {
+      throw new BadRequestException('Link de convite inválido.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+    if (!user || user.role !== 'DELIVERY') {
+      throw new NotFoundException('Conta de entregador não encontrada.');
+    }
+
+    const bcrypt = await import('bcrypt');
+    const hashed = await bcrypt.hash(password, 10);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashed, isActive: true },
+    });
+
+    const accessToken = this.jwtService.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        companyId: user.companyId,
+        role: user.role,
+      },
+      { expiresIn: '7d' },
+    );
+
+    return {
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+      },
+    };
   }
 }

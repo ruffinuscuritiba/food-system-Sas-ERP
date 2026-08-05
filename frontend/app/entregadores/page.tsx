@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Bike, Plus, Phone, MapPin, Star, CheckCircle,
   XCircle, Search, Package, DollarSign, X, Eye, EyeOff,
-  Pencil, Loader2, ToggleLeft, ToggleRight, Receipt, CheckCheck,
+  Pencil, Loader2, ToggleLeft, ToggleRight, Receipt, CheckCheck, Link2,
 } from "lucide-react";
 import { api } from "@/services/api";
 import toast from "react-hot-toast";
@@ -688,6 +688,20 @@ export default function EntregadoresPage() {
   function onCreated(d: Driver) { setDrivers(prev => [d, ...prev]); }
   function onUpdated(d: Driver) { setDrivers(prev => prev.map(x => x.id === d.id ? d : x)); }
 
+  const [copyingInvite, setCopyingInvite] = useState<string | null>(null);
+  async function copyInviteLink(driverId: string) {
+    setCopyingInvite(driverId);
+    try {
+      const { data } = await api.post(`/drivers/${driverId}/invite-link`);
+      await navigator.clipboard.writeText(data.link);
+      toast.success("Link de convite copiado! Mande pro entregador.");
+    } catch {
+      toast.error("Erro ao gerar link de convite");
+    } finally {
+      setCopyingInvite(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
 
@@ -798,6 +812,14 @@ export default function EntregadoresPage() {
                       title="Histórico & Pagamento"
                     >
                       <Receipt size={14} />
+                    </button>
+                    <button
+                      onClick={() => copyInviteLink(d.id)}
+                      disabled={copyingInvite === d.id}
+                      className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-500 flex items-center justify-center transition disabled:opacity-50"
+                      title="Copiar link de convite (entregador define a própria senha)"
+                    >
+                      {copyingInvite === d.id ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
                     </button>
                     <button
                       onClick={() => setEditDriver(d)}

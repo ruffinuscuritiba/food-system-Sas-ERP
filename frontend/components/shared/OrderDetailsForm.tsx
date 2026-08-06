@@ -51,7 +51,16 @@ type DeliveryZone = {
 
 type Props = {
   value: OrderDetails;
-  onChange: (v: OrderDetails) => void;
+  // Aceita valor OU updater funcional (padrão do useState nativo) — os
+  // pontos que mesclam patch de forma assíncrona (lookup por telefone,
+  // debounce de rua/CEP) SEMPRE usam a forma funcional agora. Antes,
+  // `onChange({...value, ...patch})` mesclava contra o `value` capturado
+  // no fechamento (closure) de quando o timeout foi agendado — se o
+  // usuário digitasse mais alguma coisa nesse meio-tempo (~500ms), a
+  // resposta da busca sobrescrevia o formulário inteiro com um snapshot
+  // desatualizado, revertendo campos já digitados (achado real: telefone/
+  // nome apareciam vazios mesmo com o cliente "Fabiano" já encontrado).
+  onChange: (v: OrderDetails | ((prev: OrderDetails) => OrderDetails)) => void;
   compact?: boolean;
   companyId?: string;
   token?: string;
@@ -86,7 +95,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
   }, [companyId]);
 
   function set(patch: Partial<OrderDetails>) {
-    onChange({ ...value, ...patch });
+    onChange(prev => ({ ...prev, ...patch }));
   }
 
   function matchZoneByNeighborhood(bairro: string) {
@@ -94,12 +103,12 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
     const lower = bairro.toLowerCase().trim();
     const zone = zones.find(z => z.neighborhood?.toLowerCase().trim() === lower) ?? null;
     setMatchedZone(zone);
-    onChange({
-      ...value,
+    onChange(prev => ({
+      ...prev,
       bairro,
-      deliveryFee: zone ? String(Number(zone.clientFee).toFixed(2)).replace(".", ",") : value.deliveryFee,
+      deliveryFee: zone ? String(Number(zone.clientFee).toFixed(2)).replace(".", ",") : prev.deliveryFee,
       deliveryZoneId: zone?.id ?? undefined,
-    });
+    }));
   }
 
   function onBairroChange(bairro: string) {
@@ -161,15 +170,15 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
     setRuaSuggestions([]);
     const zone = zones.find(z => z.neighborhood?.toLowerCase().trim() === bairro.toLowerCase().trim()) ?? null;
     setMatchedZone(zone);
-    onChange({
-      ...value,
+    onChange(prev => ({
+      ...prev,
       address: s.rua,
       bairro,
-      cidade:  s.cidade  || value.cidade,
-      cep:     s.cep     || value.cep,
-      deliveryFee: zone ? String(Number(zone.clientFee).toFixed(2)).replace(".", ",") : value.deliveryFee,
+      cidade:  s.cidade  || prev.cidade,
+      cep:     s.cep     || prev.cep,
+      deliveryFee: zone ? String(Number(zone.clientFee).toFixed(2)).replace(".", ",") : prev.deliveryFee,
       deliveryZoneId: zone?.id ?? undefined,
-    });
+    }));
   }
 
   // ── Phone lookup ───────────────────────────────────────────────────────────
@@ -208,12 +217,20 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
       if (data.cidade)      patch.cidade        = data.cidade;
       if (data.cep)         patch.cep           = data.cep;
       if (Object.keys(patch).length > 0) {
-        const newBairro = (patch.bairro ?? value.bairro ?? "").toLowerCase().trim();
-        const zone = newBairro ? zones.find(z => z.neighborhood?.toLowerCase().trim() === newBairro) ?? null : null;
-        if (zone) {
-          setMatchedZone(zone);
-          patch.deliveryFee  = String(Number(zone.clientFee).toFixed(2)).replace(".", ",");
-          patch.deliveryZoneId = zone.id;
+        // Casa a zona de entrega só pelo bairro que veio do próprio lookup
+        // (data.bairro) — evita depender do `value.bairro` capturado no
+        // fechamento de quando o debounce foi agendado, que podia estar
+        // desatualizado. Se o cadastro do cliente não tem bairro salvo, o
+        // match de zona simplesmente não acontece aqui (sem efeito colateral
+        // dentro do updater funcional do onChange).
+        if (patch.bairro) {
+          const lower = patch.bairro.toLowerCase().trim();
+          const zone = zones.find(z => z.neighborhood?.toLowerCase().trim() === lower) ?? null;
+          if (zone) {
+            setMatchedZone(zone);
+            patch.deliveryFee = String(Number(zone.clientFee).toFixed(2)).replace(".", ",");
+            patch.deliveryZoneId = zone.id;
+          }
         }
         set(patch);
       }

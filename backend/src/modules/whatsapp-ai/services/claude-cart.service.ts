@@ -428,11 +428,31 @@ ${cartJson}
       if (fromBlock) return fromBlock;
     }
 
-    // Fallback: preserva carrinho atual. NUNCA usa o texto bruto do modelo
-    // como resposta — se o JSON veio cortado/malformado (ex.: resposta longa
-    // estourou o limite de tokens no meio do cardápio), o texto bruto pode
-    // ser um JSON quebrado ou incompleto, e mandar isso pro cliente no
-    // WhatsApp é pior do que uma mensagem genérica de erro.
+    // Tentativa 3: texto SEM nenhum indício de JSON (sem chave "{") — não é
+    // um JSON cortado/malformado, é o modelo respondendo em linguagem
+    // natural direto, esquecendo o contrato JSON. Confirmado em produção
+    // (pedido perdido real): raw = "Obrigada! E qual é o bairro? 😊" e
+    // "Me passa o endereço completo com rua, número e bairro! 😊" — duas
+    // respostas perfeitamente boas que estavam sendo descartadas e trocadas
+    // pelo erro genérico, derrubando o atendimento no meio da conversa.
+    // Diferente do caso de JSON truncado (que PODE conter um fragmento de
+    // chave solta e não deve vazar pro cliente), texto sem "{" nenhum não
+    // corre esse risco.
+    if (!unfenced.includes('{') && unfenced.length > 0 && unfenced.length < 500) {
+      this.log.warn(
+        `ClaudeCartService: resposta em texto puro (sem JSON) — usando direto: "${unfenced.slice(0, 200)}"`,
+      );
+      return {
+        resposta_para_o_cliente: unfenced,
+        status_carrinho: fallbackCart,
+      };
+    }
+
+    // Fallback final: preserva carrinho atual. NUNCA usa o texto bruto do
+    // modelo como resposta aqui — o JSON veio cortado/malformado (ex.:
+    // resposta longa estourou o limite de tokens no meio do cardápio), o
+    // texto bruto pode ser um JSON quebrado ou incompleto, e mandar isso pro
+    // cliente no WhatsApp é pior do que uma mensagem genérica de erro.
     this.log.warn(
       `ClaudeCartService: resposta não parseável — raw: "${rawText.slice(0, 200)}"`,
     );

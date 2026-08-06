@@ -115,10 +115,14 @@ export class OrdersController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER')
-  create(@Body() body: any, @CompanyId() companyId: string) {
+  create(@Body() body: any, @CompanyId() companyId: string, @Request() req: any) {
     return this.service.create({
       ...body,
       companyId,
+      // Usado só pra decidir a trava de caixa aberto (ver orders.service.ts
+      // create()) — CASHIER/WAITER precisam de caixa aberto pra vender
+      // qualquer coisa; ADMIN/MANAGER continuam podendo vender sem.
+      requesterRole: req.user?.role,
     });
   }
 

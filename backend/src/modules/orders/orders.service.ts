@@ -123,14 +123,25 @@ export class OrdersService {
       select: { id: true },
     });
 
-    // Trava escopada: SÓ bloqueia venda de balcão/PDV paga em DINHEIRO físico
-    // sem caixa aberto. NUNCA bloqueia iFood/Rappi/integrações (channel
-    // explícito, ex: "IFOOD") nem outros métodos de pagamento (PIX, cartão) —
-    // esses não passam pela gaveta física da loja.
+    // Trava escopada: NUNCA bloqueia iFood/Rappi/integrações (channel
+    // explícito, ex: "IFOOD") — esses não passam pela gaveta física da loja.
+    // Dentro do PDV: (a) pagamento em DINHEIRO sempre exige caixa aberto,
+    // pra QUALQUER papel (é dinheiro físico de verdade); (b) CASHIER/WAITER
+    // (pedido explícito do dono da loja: "outros caixas sem ser admin/gerente
+    // precisam abrir o caixa pra vender") ficam travados em QUALQUER forma de
+    // pagamento sem caixa aberto — ADMIN/MANAGER continuam podendo vender
+    // (ex.: testar o sistema, atender um cliente de última hora) mesmo sem
+    // caixa aberto, porque respondem pela conferência de qualquer jeito.
     const isPdvChannel = !data.channel || data.channel === 'PDV';
-    if (data.paymentMethod === 'CASH' && isPdvChannel && !openCash) {
+    const requiresCashRegardlessOfMethod =
+      isPdvChannel && ['CASHIER', 'WAITER'].includes(data.requesterRole);
+    if (
+      isPdvChannel &&
+      !openCash &&
+      (data.paymentMethod === 'CASH' || requiresCashRegardlessOfMethod)
+    ) {
       throw new ForbiddenException(
-        'Nenhum caixa aberto — abra o caixa em Financeiro antes de registrar vendas em dinheiro.',
+        'Nenhum caixa aberto — abra o caixa antes de registrar vendas.',
       );
     }
 

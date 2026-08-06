@@ -56,3 +56,28 @@ export function parseBrazilDateStart(dateStr: string): Date {
 export function parseBrazilDateEnd(dateStr: string): Date {
   return new Date(`${dateStr.slice(0, 10)}T23:59:59.999-03:00`);
 }
+
+/**
+ * Início de janela flexível: aceita tanto "YYYY-MM-DD" (dia inteiro, mesmo
+ * comportamento de `parseBrazilDateStart`) quanto "YYYY-MM-DDTHH:mm[:ss]"
+ * (horário exato escolhido pelo usuário, ex.: filtro "Data e horário
+ * específico" do relatório). Sem isso, o relatório só filtrava por dia de
+ * calendário — não dava pra reproduzir uma janela como "05/08 03:00 até
+ * 06/08 03:00" (virada de turno da loja), só "05/08" ou "06/08" inteiros.
+ */
+export function parseBrazilFlexibleStart(value: string): Date {
+  if (value.length > 10) {
+    const withSeconds = value.length === 16 ? `${value}:00` : value;
+    return new Date(`${withSeconds}-03:00`);
+  }
+  return parseBrazilDateStart(value);
+}
+
+/** Fim de janela flexível — ver `parseBrazilFlexibleStart`. */
+export function parseBrazilFlexibleEnd(value: string): Date {
+  if (value.length > 10) {
+    const withSeconds = value.length === 16 ? `${value}:00` : value;
+    return new Date(`${withSeconds}-03:00`);
+  }
+  return parseBrazilDateEnd(value);
+}

@@ -460,4 +460,27 @@ export class AuthService {
     const { password: _, ...userWithoutPassword } = user;
     return { accessToken, user: { ...userWithoutPassword, company: user.company } };
   }
+
+  /**
+   * Confere se a senha informada é de QUALQUER usuário ADMIN/MANAGER/
+   * SUPER_ADMIN ativo da MESMA empresa do usuário logado — gate de
+   * "supervisor override" para ações sensíveis do PDV (abrir/fechar caixa,
+   * sangria) quando quem está no terminal é um CASHIER. Nunca emite token
+   * novo, só valida — a sessão do PDV continua sendo a do cashier.
+   */
+  async verifyAdminPassword(companyId: string, password: string): Promise<boolean> {
+    if (!password) return false;
+    const supervisors = await this.prisma.user.findMany({
+      where: {
+        companyId,
+        isActive: true,
+        role: { in: ['ADMIN', 'MANAGER', 'SUPER_ADMIN'] },
+      },
+      select: { password: true },
+    });
+    for (const s of supervisors) {
+      if (await bcrypt.compare(password, s.password)) return true;
+    }
+    return false;
+  }
 }

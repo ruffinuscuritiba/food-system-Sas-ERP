@@ -5,6 +5,8 @@ import {
   getStartOfTodayBrazil,
   parseBrazilDateStart,
   parseBrazilDateEnd,
+  parseBrazilFlexibleStart,
+  parseBrazilFlexibleEnd,
   toBrazilDateKey,
 } from '@/common/utils/timezone';
 
@@ -41,15 +43,18 @@ export class ReportsController {
     @Query('from') from: string,
     @Query('to') to: string,
   ) {
+    // Aceita "YYYY-MM-DD" (dia inteiro) OU "YYYY-MM-DDTHH:mm" (data+horário
+    // específico, filtro "Personalizado" do relatório) — parseBrazilFlexible*
+    // detecta o formato pelo tamanho da string.
     const range = {
       from: from
-        ? parseBrazilDateStart(from)
+        ? parseBrazilFlexibleStart(from)
         : (() => {
             const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
+      to: to ? parseBrazilFlexibleEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.reports.getRevenue(req.user.companyId, range);
   }

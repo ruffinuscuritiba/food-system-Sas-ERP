@@ -29,6 +29,7 @@ import {
   Lock,
   ArrowDownCircle,
   ArrowUpCircle,
+  Wallet,
 } from "lucide-react";
 import { buildKitchenTicket } from "@/components/printing/KitchenTicket";
 import { printTicket } from "@/components/printing/printTicket";
@@ -302,6 +303,44 @@ export default function PDVPage() {
   const [cashActionLabel, setCashActionLabel] = useState("");
   const [cashAmount, setCashAmount] = useState("");
   const [cashSaving, setCashSaving] = useState(false);
+
+  // Atalho "Gerenciar caixa" — pra CASHIER (sem isAdmin()), os controles de
+  // caixa (Abrir/Entrada/Saída/Sangria/Fechar) ficam trancados atrás de senha
+  // de supervisor (ADMIN/MANAGER/SUPER_ADMIN da mesma empresa). Desbloqueado
+  // fica só nesta aba/sessão (sessionStorage) — refresh ou outro terminal
+  // exige senha de novo.
+  const isPdvAdmin = useAuthStore((s) => s.isAdmin());
+  const [cashUnlocked, setCashUnlocked] = useState(false);
+  const [showCashUnlock, setShowCashUnlock] = useState(false);
+  const [cashUnlockPassword, setCashUnlockPassword] = useState("");
+  const [cashUnlockLoading, setCashUnlockLoading] = useState(false);
+  useEffect(() => {
+    if (sessionStorage.getItem("pdv_cash_unlocked") === "1") setCashUnlocked(true);
+  }, []);
+  const canManageCash = isPdvAdmin || cashUnlocked;
+
+  async function submitCashUnlock() {
+    if (!cashUnlockPassword) return;
+    setCashUnlockLoading(true);
+    try {
+      const r = await api.post<{ valid: boolean }>("/auth/verify-admin-password", {
+        password: cashUnlockPassword,
+      });
+      if (r.data.valid) {
+        setCashUnlocked(true);
+        sessionStorage.setItem("pdv_cash_unlocked", "1");
+        setShowCashUnlock(false);
+        setCashUnlockPassword("");
+        toast.success("Gerenciamento de caixa liberado.");
+      } else {
+        toast.error("Senha de administrador inválida.");
+      }
+    } catch {
+      toast.error("Não foi possível validar a senha.");
+    } finally {
+      setCashUnlockLoading(false);
+    }
+  }
 
   // Painel de status do rodapé: contagem de pedidos do dia por fase —
   // ativos (na cozinha), em rota/entrega e finalizados.
@@ -884,6 +923,13 @@ export default function PDVPage() {
   }
 
   function openPayment() {
+    // Mesma trava do backend (orders.service.ts create()): CASHIER/WAITER só
+    // vendem com caixa aberto. Aviso antes do checkout inteiro, não só no 403
+    // depois de preencher tudo — admin/manager continuam sem essa exigência.
+    if (!isPdvAdmin && cashOpen === false) {
+      toast.error("Abra o caixa antes de vender. Toque em \"Gerenciar caixa\" no topo da tela.");
+      return;
+    }
     if (!canProceedToPayment) {
       toast.error(
         pdvOrderDetails.orderType === "DINE_IN"
@@ -900,6 +946,10 @@ export default function PDVPage() {
 
   /** Modo Mesa: envia itens para a cozinha sem cobrar. Mantém a mesa selecionada. */
   async function launchToKitchen() {
+    if (!isPdvAdmin && cashOpen === false) {
+      toast.error("Abra o caixa antes de vender. Toque em \"Gerenciar caixa\" no topo da tela.");
+      return;
+    }
     if (cart.length === 0) { toast.error("Carrinho vazio"); return; }
     if (!pdvOrderDetails.tableNumber?.trim()) { toast.error("Informe o número da mesa"); return; }
     if (paymentLockRef.current) return;
@@ -1037,14 +1087,25 @@ export default function PDVPage() {
       {/* CONTENT */}
       <main className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden">
 
-        {/* Aviso suave: nenhum caixa aberto (não bloqueia a venda) */}
+        {/* Sem caixa aberto: pra admin/manager é só aviso; pra CASHIER/WAITER é
+            bloqueante de verdade (ver openPayment/launchToKitchen + gate do
+            backend em orders.service.ts create()). */}
         {cashOpen === false && (
-          <a
-            href="/financeiro?tab=caixa"
-            className="shrink-0 flex items-center justify-center gap-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-xs font-semibold px-3 py-1.5 hover:bg-amber-500/25 transition"
-          >
-            ⚠️ Nenhum caixa aberto — abra o caixa em Financeiro antes de fechar o dia
-          </a>
+          isPdvAdmin ? (
+            <a
+              href="/financeiro?tab=caixa"
+              className="shrink-0 flex items-center justify-center gap-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-xs font-semibold px-3 py-1.5 hover:bg-amber-500/25 transition"
+            >
+              ⚠️ Nenhum caixa aberto — abra o caixa em Financeiro antes de fechar o dia
+            </a>
+          ) : (
+            <button
+              onClick={() => setShowCashUnlock(true)}
+              className="shrink-0 flex items-center justify-center gap-2 bg-red-500/15 border-b border-red-500/30 text-red-300 text-xs font-semibold px-3 py-1.5 hover:bg-red-500/25 transition"
+            >
+              🔒 Nenhum caixa aberto — peça pra um admin abrir o caixa em "Gerenciar caixa" antes de vender
+            </button>
+          )
         )}
 
         {/* HEADER */}
@@ -1067,37 +1128,51 @@ export default function PDVPage() {
               className="bg-transparent outline-none w-full text-sm text-white placeholder-zinc-400 min-w-0"
             />
           </div>
-          {/* Controles de Caixa — Abrir/Entrada/Saída/Sangria direto no PDV */}
+          {/* Controles de Caixa — Abrir/Entrada/Saída/Sangria direto no PDV.
+              Trancados atrás de senha de supervisor pra quem não é admin —
+              ver canManageCash. */}
           <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-            {cashOpen === false && (
-              <button onClick={() => openCashModal("OPEN", "Abrir Caixa")} title="Abrir caixa"
-                className="h-9 md:h-[54px] px-3 md:px-4 rounded-xl md:rounded-2xl bg-amber-500 hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 font-bold text-black text-xs md:text-sm">
-                <Unlock size={15} /> <span className="hidden md:inline">Abrir Caixa</span>
+            {!canManageCash ? (
+              <button
+                onClick={() => setShowCashUnlock(true)}
+                title="Gerenciar caixa (requer login de admin ou senha)"
+                className="h-9 md:h-[54px] px-3 md:px-4 rounded-xl md:rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card-hover,#0c101d)] hover:opacity-80 active:scale-95 transition flex items-center gap-1.5 font-bold text-zinc-300 text-xs md:text-sm"
+              >
+                <Wallet size={15} /> <span className="hidden md:inline">Gerenciar caixa</span>
               </button>
-            )}
-            {cashOpen === true && (
+            ) : (
               <>
-                <div className="hidden md:flex items-center gap-2 h-[54px] px-3 rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card-hover,#0c101d)]" title="Caixa aberto">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0" />
-                  <span className="font-bold text-green-400 text-xs leading-none">Caixa Aberto</span>
-                </div>
-                <button onClick={() => openCashModal("SUPPLY", "Entrada de Caixa")} title="Entrada"
-                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-green-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
-                  <ArrowDownCircle size={15} /> <span className="hidden md:inline">Entrada</span>
-                </button>
-                <button onClick={() => openCashModal("WITHDRAW", "Saída de Caixa")} title="Saída"
-                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-amber-500 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold text-black">
-                  <ArrowUpCircle size={15} /> <span className="hidden md:inline">Saída</span>
-                </button>
-                <button onClick={() => openCashModal("WITHDRAW", "Sangria")} title="Sangria"
-                  className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-amber-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold text-black">
-                  <ArrowUpCircle size={15} /> <span className="hidden md:inline">Sangria</span>
-                </button>
-                {/* Fechar Caixa — do lado da Sangria, mesmo grupo de controles de caixa */}
-                <button onClick={() => router.push("/financeiro?tab=caixa")} title="Fechar caixa"
-                  className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-600 hover:opacity-90 active:scale-95 transition items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
-                  <Lock size={15} /> <span className="hidden md:inline">Fechar Caixa</span>
-                </button>
+                {cashOpen === false && (
+                  <button onClick={() => openCashModal("OPEN", "Abrir Caixa")} title="Abrir caixa"
+                    className="h-9 md:h-[54px] px-3 md:px-4 rounded-xl md:rounded-2xl bg-amber-500 hover:opacity-90 active:scale-95 transition flex items-center gap-1.5 font-bold text-black text-xs md:text-sm">
+                    <Unlock size={15} /> <span className="hidden md:inline">Abrir Caixa</span>
+                  </button>
+                )}
+                {cashOpen === true && (
+                  <>
+                    <div className="hidden md:flex items-center gap-2 h-[54px] px-3 rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card-hover,#0c101d)]" title="Caixa aberto">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+                      <span className="font-bold text-green-400 text-xs leading-none">Caixa Aberto</span>
+                    </div>
+                    <button onClick={() => openCashModal("SUPPLY", "Entrada de Caixa")} title="Entrada"
+                      className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-green-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                      <ArrowDownCircle size={15} /> <span className="hidden md:inline">Entrada</span>
+                    </button>
+                    <button onClick={() => openCashModal("WITHDRAW", "Saída de Caixa")} title="Saída"
+                      className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-amber-500 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold text-black">
+                      <ArrowUpCircle size={15} /> <span className="hidden md:inline">Saída</span>
+                    </button>
+                    <button onClick={() => openCashModal("WITHDRAW", "Sangria")} title="Sangria"
+                      className="w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-amber-600 hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-1.5 text-xs md:text-sm font-bold text-black">
+                      <ArrowUpCircle size={15} /> <span className="hidden md:inline">Sangria</span>
+                    </button>
+                    {/* Fechar Caixa — do lado da Sangria, mesmo grupo de controles de caixa */}
+                    <button onClick={() => router.push("/financeiro?tab=caixa")} title="Fechar caixa"
+                      className="hidden sm:flex w-9 h-9 md:h-[54px] md:w-auto md:px-3 rounded-xl md:rounded-2xl bg-red-600 hover:opacity-90 active:scale-95 transition items-center justify-center gap-1.5 text-xs md:text-sm font-bold">
+                      <Lock size={15} /> <span className="hidden md:inline">Fechar Caixa</span>
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -1597,6 +1672,49 @@ export default function PDVPage() {
               </div>
             )}
           </aside>
+        </div>
+      )}
+
+      {/* GERENCIAR CAIXA — senha de supervisor pra CASHIER sem isAdmin() */}
+      {showCashUnlock && (
+        <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[var(--pdv-sidebar-bg,#050816)] border border-[var(--pdv-border,#1d2336)] rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--pdv-border,#161b2d)]">
+              <h2 className="text-lg font-black text-white flex items-center gap-2">
+                <Wallet size={20} className="text-amber-400" /> Gerenciar caixa
+              </h2>
+              <button
+                onClick={() => { setShowCashUnlock(false); setCashUnlockPassword(""); }}
+                className="w-9 h-9 rounded-xl bg-white/5 text-zinc-400 hover:text-white flex items-center justify-center"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-zinc-400 text-sm">
+                Somente administradores têm acesso direto. Peça pra um admin digitar a senha para liberar o gerenciamento de caixa nesta tela.
+              </p>
+              <div>
+                <label className="block text-xs text-zinc-500 font-bold uppercase mb-2">Senha de administrador</label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={cashUnlockPassword}
+                  onChange={(e) => setCashUnlockPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") submitCashUnlock(); }}
+                  placeholder="••••••••"
+                  className="w-full h-11 px-4 rounded-xl bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white outline-none focus:border-amber-400"
+                />
+              </div>
+              <button
+                onClick={submitCashUnlock}
+                disabled={cashUnlockLoading || !cashUnlockPassword}
+                className="w-full h-11 rounded-xl bg-amber-500 text-black font-bold hover:opacity-90 active:scale-95 transition disabled:opacity-50"
+              >
+                {cashUnlockLoading ? "Verificando..." : "Liberar"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

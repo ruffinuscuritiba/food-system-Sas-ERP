@@ -1,4 +1,6 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+
+import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '@/database/prisma.service';
 
@@ -10,6 +12,8 @@ export class ProductsService {
     private prisma: PrismaService,
 
     private auditService: AuditService,
+
+    private config: ConfigService,
   ) {}
 
   findAll(companyId: string) {
@@ -242,7 +246,7 @@ export class ProductsService {
     });
     if (!company) return [];
     const companyId = company.id;
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: {
         companyId,
 
@@ -271,6 +275,42 @@ export class ProductsService {
 
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
+
+    // Produtos com foto salva como base64 direto no banco (sem Cloudinary
+    // configurado, ver StorageService) inflavam essa resposta em vários MB —
+    // com 42 produtos chegava a 9MB e travava o carregamento do cardápio em
+    // celular. Troca a string base64 gigante por uma URL leve que serve a
+    // MESMA imagem sob demanda (um <img> por vez, em paralelo, com cache do
+    // navegador) em vez de embutir tudo de uma vez no JSON do cardápio.
+    const backendUrl = (
+      this.config.get<string>('BACKEND_URL') ||
+      'https://api.srv1747711.hstgr.cloud'
+    ).replace(/\/$/, '');
+    return products.map((p) => {
+      if (p.imageUrl && p.imageUrl.startsWith('data:')) {
+        return {
+          ...p,
+          imageUrl: `${backendUrl}/api/products/public/image/${p.id}?v=${p.updatedAt.getTime()}`,
+        };
+      }
+      return p;
+    });
+  }
+
+  async getPublicImage(id: string): Promise<{ mime: string; buffer: Buffer }> {
+    const product = await this.prisma.product.findFirst({
+      where: { id, deletedAt: null },
+      select: { imageUrl: true },
+    });
+    const dataUrl = product?.imageUrl;
+    if (!dataUrl || !dataUrl.startsWith('data:')) {
+      throw new NotFoundException('Imagem não encontrada');
+    }
+    const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (!match) {
+      throw new NotFoundException('Imagem não encontrada');
+    }
+    return { mime: match[1], buffer: Buffer.from(match[2], 'base64') };
   }
 
   async reorder(companyId: string, items: { id: string; sortOrder: number }[]) {

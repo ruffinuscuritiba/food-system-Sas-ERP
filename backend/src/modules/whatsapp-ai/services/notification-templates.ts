@@ -116,10 +116,21 @@ export function formatPhoneInternational(
   phone: string,
   countryCode = '55',
 ): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length >= 12) return digits; // já tem DDD + DDI
+  let digits = phone.replace(/\D/g, '');
+  // Mesmo bug corrigido em common/utils/phone.ts normalizePhoneBr — cliente
+  // de fora digita o telefone com o "0" de discagem interurbana na frente
+  // ("011..." em vez de "11..."). Sem remover isso, `digits.length >= 12`
+  // abaixo assumia (errado) que o número já tinha DDI, nunca prefixava o 55
+  // de verdade, e a confirmação de pedido nunca era entregue — sem erro
+  // nenhum visível, o pedido só ficava "sem responder" pro cliente.
+  if (digits.length > 11 && digits.startsWith('0')) digits = digits.slice(1);
+  if (digits.startsWith(countryCode) && digits.length >= 12) return digits; // já tem DDD + DDI
   if (digits.length === 11) return `${countryCode}${digits}`; // DDD + 9 dígitos
   if (digits.length === 10) return `${countryCode}${digits}`; // DDD + 8 dígitos (fixo)
+  // Sobrou dígito(s) de digitação errada além do esperado — mantém só os
+  // últimos 11 (DDD+número) em vez de nunca enviar por conta de um número
+  // "grande demais pra ser válido".
+  if (digits.length > 11) return `${countryCode}${digits.slice(-11)}`;
   return digits;
 }
 

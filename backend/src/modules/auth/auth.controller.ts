@@ -1,9 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -55,5 +56,15 @@ export class AuthController {
       restaurantName: String(body.restaurantName || '').slice(0, 100),
       plan:           body.plan,
     });
+  }
+
+  /** Gate de senha de supervisor — usado pelo atalho "Gerenciar caixa" do PDV
+   * quando quem está no terminal não é ADMIN/MANAGER. Não emite token novo. */
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard)
+  @Post('verify-admin-password')
+  async verifyAdminPassword(@Req() req: any, @Body('password') password: string) {
+    const valid = await this.service.verifyAdminPassword(req.user.companyId, password);
+    return { valid };
   }
 }

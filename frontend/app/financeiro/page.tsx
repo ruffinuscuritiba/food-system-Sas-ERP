@@ -29,6 +29,15 @@ function shiftBrazilDateKey(key: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return brazilDateKeyOf(d);
 }
+// Formata "YYYY-MM-DDTHH:mm" (valor de <input type="datetime-local">) para
+// "DD/MM/YYYY HH:mm" — exibição do range custom escolhido, sem depender de
+// Date() (que interpretaria a string sem timezone como UTC).
+function formatDateTimeBr(value: string): string {
+  const [datePart, timePart] = value.split("T");
+  if (!datePart) return value;
+  const [y, m, d] = datePart.split("-");
+  return `${d}/${m}/${y}${timePart ? ` ${timePart}` : ""}`;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -728,9 +737,47 @@ function TabRelatorio({
 }: {
   summary: FinancialSummary | null;
 }) {
-  const [period, setPeriod] = useState<"dia" | "semana" | "mes">("mes");
+  const [period, setPeriod] = useState<"dia" | "semana" | "mes" | "custom">("mes");
   const [report, setReport] = useState<RevenueReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  // datetime-local ("YYYY-MM-DDTHH:mm") — permite filtrar por data E horário
+  // específico (ex.: virada de turno 05/08 03:00 até 06/08 03:00), não só o
+  // dia de calendário inteiro dos presets Hoje/7 dias/Este mês.
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const nowLocalDateTime = () => {
+    const d = new Date();
+    const key = brazilDateKeyOf(d);
+    const hh = d.toLocaleTimeString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return `${key}T${hh}`;
+  };
+
+  const applyCustomRange = () => {
+    if (!customFrom || !customTo) {
+      toast.error("Selecione a data/horário inicial e final.");
+      return;
+    }
+    if (customFrom > customTo) {
+      toast.error("A data inicial não pode ser depois da data final.");
+      return;
+    }
+    setPeriod("custom");
+    setShowCustomPicker(false);
+  };
+
+  const resetCustomToToday = () => {
+    const key = brazilDateKeyOf(new Date());
+    setCustomFrom(`${key}T00:00`);
+    setCustomTo(nowLocalDateTime());
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -741,21 +788,29 @@ function TabRelatorio({
     // rolante de 24h em vez do dia de calendário, e podia excluir o dia
     // inteiro à noite (quando o UTC já virou "amanhã").
     const todayKey = brazilDateKeyOf(new Date());
-    const fromKey =
-      period === "mes"
-        ? `${todayKey.slice(0, 7)}-01`
-        : period === "semana"
-        ? shiftBrazilDateKey(todayKey, -7)
-        : todayKey;
+    let fromParam: string;
+    let toParam: string;
+    if (period === "custom" && customFrom && customTo) {
+      fromParam = customFrom;
+      toParam = customTo;
+    } else {
+      fromParam =
+        period === "mes"
+          ? `${todayKey.slice(0, 7)}-01`
+          : period === "semana"
+          ? shiftBrazilDateKey(todayKey, -7)
+          : todayKey;
+      toParam = todayKey;
+    }
 
     api
-      .get("/reports/revenue", { params: { from: fromKey, to: todayKey } })
+      .get("/reports/revenue", { params: { from: fromParam, to: toParam } })
       .then((r) => { if (!cancelled) setReport(r.data); })
       .catch(() => { if (!cancelled) setReport(null); })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [period]);
+  }, [period, customFrom, customTo, refreshTick]);
 
   const grossRevenue = report?.totalRevenue ?? 0;
   const byPaymentMethod = report?.byPaymentMethod ?? {};
@@ -808,8 +863,14 @@ function TabRelatorio({
           <p className="text-sm text-gray-400 mt-1">
             {loading ? "Carregando…" : `${report?.orderCount ?? 0} pedidos (PDV + cardápio digital)`}
           </p>
+          {period === "custom" && customFrom && customTo && (
+            <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+              <Calendar size={12} />
+              {formatDateTimeBr(customFrom)} — {formatDateTimeBr(customTo)}
+            </p>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {(
             [
               { key: "dia", label: "Hoje" },
@@ -829,6 +890,70 @@ function TabRelatorio({
               {p.label}
             </button>
           ))}
+
+          <div className="relative">
+            <button
+              onClick={() => {
+                if (!showCustomPicker && !customFrom) resetCustomToToday();
+                setShowCustomPicker((v) => !v);
+              }}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition flex items-center gap-1.5 ${
+                period === "custom"
+                  ? "bg-primary text-white"
+                  : "border border-gray-200 text-gray-500 hover:border-primary hover:text-primary"
+              }`}
+            >
+              <Calendar size={14} /> Data e horário
+            </button>
+
+            {showCustomPicker && (
+              <div className="absolute right-0 top-full mt-2 z-20 w-[300px] bg-white border border-gray-200 rounded-2xl shadow-lg p-4 space-y-3">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                  Filtrar por data e horário específico
+                </p>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">De</label>
+                  <input
+                    type="datetime-local"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Até</label>
+                  <input
+                    type="datetime-local"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    onClick={resetCustomToToday}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Data de hoje
+                  </button>
+                  <button
+                    onClick={applyCustomRange}
+                    className="bg-primary text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:opacity-90"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            title="Atualizar"
+            onClick={() => setRefreshTick((t) => t + 1)}
+            className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
       </div>
 
@@ -1307,6 +1432,28 @@ function TabCaixa({ cash, onRefresh }: { cash: CashStatus | null; onRefresh: () 
   const [lastClose, setLastClose] = useState<CashStatus | null>(null);
   const [history, setHistory] = useState<CashStatus[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  // Causa raiz real de "declarei tudo e deu sobra enorme": quem fecha o
+  // caixa contava o FATURAMENTO TOTAL do dia (PIX+cartão inclusos) em vez do
+  // dinheiro físico da gaveta — PIX/cartão nunca entram no saldo do sistema
+  // (ver cash.service.ts movement()). Mostrar esse total não-dinheiro aqui,
+  // no momento de fechar, evita a confusão de novo — sem revelar o saldo
+  // esperado em dinheiro (o fechamento continua "às cegas" pra esse valor).
+  // Só pra quem já vê totais financeiros (isManager) — CASHIER continua 100%
+  // às cegas, é o propósito do recurso.
+  const [nonCashSummary, setNonCashSummary] = useState<{
+    byPaymentMethod: { paymentMethod: string; total: number; count: number }[];
+    grandTotal: number;
+  } | null>(null);
+  const [loadingNonCash, setLoadingNonCash] = useState(false);
+
+  useEffect(() => {
+    if (!showCloseModal || !isManager || !cash?.id) { setNonCashSummary(null); return; }
+    setLoadingNonCash(true);
+    api.get(`/cash/${cash.id}/audit-summary`)
+      .then((r) => setNonCashSummary(r.data))
+      .catch(() => setNonCashSummary(null))
+      .finally(() => setLoadingNonCash(false));
+  }, [showCloseModal, isManager, cash?.id]);
 
   const loadHistory = useCallback(async () => {
     if (!isManager) return;
@@ -1343,6 +1490,21 @@ function TabCaixa({ cash, onRefresh }: { cash: CashStatus | null; onRefresh: () 
   async function closeCash() {
     const value = Number(declaredValue);
     if (isNaN(value) || value < 0) { toast.error("Informe o valor contado"); return; }
+    // Rede de segurança contra o erro real que já aconteceu 2x: declarar o
+    // FATURAMENTO (PIX+cartão) em vez do dinheiro físico. Se o valor digitado
+    // bate (tolerância de 1 centavo) com o total não-dinheiro da sessão,
+    // confirma antes de mandar — não bloqueia, só evita o erro por distração.
+    if (
+      nonCashSummary &&
+      nonCashSummary.grandTotal > 0 &&
+      Math.abs(value - nonCashSummary.grandTotal) < 0.01
+    ) {
+      const confirmed = window.confirm(
+        `O valor digitado (R$ ${fmt(value)}) é igual ao total de vendas em PIX/cartão desta sessão.\n\n` +
+        `Confirme: você está contando o DINHEIRO FÍSICO na gaveta, não o faturamento total?`,
+      );
+      if (!confirmed) return;
+    }
     setSaving(true);
     try {
       const res = await api.patch("/cash/close", { declaredValue: value });
@@ -1598,11 +1760,30 @@ function TabCaixa({ cash, onRefresh }: { cash: CashStatus | null; onRefresh: () 
             </div>
             <div className="px-6 py-5 space-y-4">
               <p className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">
-                Conte o dinheiro físico na gaveta e informe o valor abaixo. O sistema não exibe o
-                saldo esperado — a comparação fica disponível apenas para o gestor.
+                Conte <strong>somente as notas e moedas</strong> que estão na gaveta agora e informe o
+                valor abaixo. Vendas em PIX, cartão ou transferência <strong>não entram nessa conta</strong>
+                — esse dinheiro nunca passou pela gaveta física.
               </p>
+              {isManager && (loadingNonCash || (nonCashSummary && nonCashSummary.grandTotal > 0)) && (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs">
+                  {loadingNonCash ? (
+                    <span className="text-blue-500 flex items-center gap-1.5">
+                      <RefreshCw size={12} className="animate-spin" /> Calculando vendas não-dinheiro...
+                    </span>
+                  ) : (
+                    <>
+                      <p className="text-blue-700 font-bold mb-1">
+                        💳 Vendas em PIX/cartão/transferência nesta sessão: R$ {fmt(nonCashSummary!.grandTotal)}
+                      </p>
+                      <p className="text-blue-600">
+                        Não inclua esse valor no campo abaixo — ele já foi pago fora da gaveta.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">
-                Valor contado (R$)
+                Valor contado — só dinheiro físico (R$)
               </label>
               <input
                 type="number" min="0" step="0.01" autoFocus

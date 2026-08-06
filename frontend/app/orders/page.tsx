@@ -81,6 +81,22 @@ const HISTORY_STATUSES = new Set(["DELIVERED", "CANCELLED"]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Data/horário completo do pedido — pra conferência/auditoria precisar achar
+// um pedido específico (ex.: bateu caixa errado, cliente reclamou de um
+// pedido de tal dia), igual coluna "Data" do Histórico e do relatório de
+// concorrentes (DD/MM/AAAA - HH:MM:SS).
+function fmtDateTime(order: Order): string {
+  const ref = order.createdAt || order.confirmedAt;
+  if (!ref) return "—";
+  const d = new Date(ref);
+  const date = d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const time = d.toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  return `${date} - ${time}`;
+}
+
 function elapsedMin(order: Order): number {
   const ref = order.confirmedAt || order.createdAt;
   if (!ref) return 0;
@@ -688,6 +704,10 @@ export default function OrdersPage() {
                         <div className="flex items-center gap-2 mt-0.5">
                           <Phone size={11} className="text-gray-400" />
                           <p className="text-gray-400 text-xs">{customerPhone(order)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Clock size={11} className="text-gray-400" />
+                          <p className="text-gray-400 text-xs">{fmtDateTime(order)}</p>
                         </div>
                       </div>
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusInfo.color}`}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
-import { Printer, RefreshCw } from "lucide-react";
+import { Printer, RefreshCw, Search, Calendar } from "lucide-react";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
 
@@ -52,7 +52,7 @@ const PAY_LABELS: Record<string, string> = {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
     day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
 }
 
@@ -62,6 +62,12 @@ export default function HistoricoPedidosPage() {
   const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
   const [companyName, setCompanyName] = useState("Restaurante");
+  // Busca por conferência — nome/telefone/nº do pedido + intervalo de data
+  // (datetime-local, com horário) pra achar um pedido específico sem ter que
+  // rolar a lista inteira. Filtro é local (a lista já vem inteira do backend).
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   async function load() {
     setLoading(true);
@@ -82,6 +88,20 @@ export default function HistoricoPedidosPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  const filteredOrders = orders.filter((order) => {
+    const ref = order.deliveredAt || order.cancelledAt || order.createdAt;
+    const refTime = ref ? new Date(ref).getTime() : null;
+    if (dateFrom && (refTime === null || refTime < new Date(dateFrom).getTime())) return false;
+    if (dateTo && (refTime === null || refTime > new Date(dateTo).getTime())) return false;
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    const clientName  = (order.customer?.name  || order.customerName  || "").toLowerCase();
+    const clientPhone = (order.customer?.phone || order.customerPhone || "").toLowerCase();
+    const shortId = order.id.slice(-8).toLowerCase();
+    return clientName.includes(q) || clientPhone.includes(q) || shortId.includes(q);
+  });
 
   async function handlePrint(order: Order) {
     const result = await PrintRouterService.printAll(
@@ -120,6 +140,55 @@ export default function HistoricoPedidosPage() {
         </button>
       </div>
 
+      {/* Busca por conferência: nome/telefone/nº do pedido + intervalo de data e horário */}
+      {orders.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3 mb-5 bg-gray-50 border border-gray-200 rounded-2xl p-4">
+          <div className="flex-1 min-w-[220px]">
+            <label className="block text-xs text-gray-400 font-bold uppercase mb-1.5">Buscar</label>
+            <div className="relative">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nome, telefone ou nº do pedido"
+                className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 font-bold uppercase mb-1.5 flex items-center gap-1">
+              <Calendar size={11} /> De
+            </label>
+            <input
+              type="datetime-local"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-10 px-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 font-bold uppercase mb-1.5 flex items-center gap-1">
+              <Calendar size={11} /> Até
+            </label>
+            <input
+              type="datetime-local"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-10 px-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          {(searchQuery || dateFrom || dateTo) && (
+            <button
+              onClick={() => { setSearchQuery(""); setDateFrom(""); setDateTo(""); }}
+              className="h-10 px-4 rounded-xl border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-100 transition"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-20 text-gray-400">
           <RefreshCw size={20} className="animate-spin mr-2" /> Carregando...
@@ -128,6 +197,11 @@ export default function HistoricoPedidosPage() {
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <p className="text-lg font-semibold">Nenhum pedido no histórico ainda</p>
           <p className="text-sm mt-1">Pedidos marcados como Entregue ou Cancelado aparecerão aqui.</p>
+        </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <p className="text-lg font-semibold">Nenhum pedido encontrado com esse filtro</p>
+          <p className="text-sm mt-1">Ajuste a busca ou o intervalo de data/horário.</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm touch-pan-x">
@@ -145,7 +219,7 @@ export default function HistoricoPedidosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {orders.map(order => {
+              {filteredOrders.map(order => {
                 const st = STATUS_PT[order.status];
                 const clientName  = order.customer?.name  || order.customerName  || "—";
                 const clientPhone = order.customer?.phone || order.customerPhone || "—";

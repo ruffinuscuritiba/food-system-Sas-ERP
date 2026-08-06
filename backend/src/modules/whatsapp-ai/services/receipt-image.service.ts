@@ -210,7 +210,12 @@ export class ReceiptImageService {
     for (const bucket of buckets) {
       if (showHeaders) height += 26;
       for (const item of bucket.items) {
-        height += 22;
+        // Nome quebra em várias linhas quando é longo (ver fix do overlap
+        // com o preço, mesma correção) — sem contar isso aqui, o rodapé do
+        // cupom (estrelas/link) podia ficar cortado pra fora da imagem.
+        const nameText = `${item.quantity}x ${item.name}`;
+        const nameLines = Math.max(1, Math.ceil(nameText.length / 32));
+        height += 22 + (nameLines - 1) * 16;
         height += (item.complements?.length ?? 0) * 16;
       }
     }
@@ -354,8 +359,18 @@ export class ReceiptImageService {
               marginTop: 6,
             },
             children: [
-              h('span', { style: {}, children: `${item.quantity}x ${item.name}` }),
-              h('span', { style: {}, children: priceStr }),
+              // Nome sem `flex`/largura própria deixava o texto invadir a
+              // coluna do preço em nomes longos (satori/yoga não quebra
+              // linha de um filho flex sem tamanho definido) — achado real:
+              // "Calabresa com alho e batata" sobrepondo "R$ 67,99".
+              h('span', {
+                style: { flex: '1 1 auto', minWidth: 0, paddingRight: 8 },
+                children: `${item.quantity}x ${item.name}`,
+              }),
+              h('span', {
+                style: { flexShrink: 0 },
+                children: priceStr,
+              }),
             ],
           }),
         );

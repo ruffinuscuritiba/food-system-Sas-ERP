@@ -817,7 +817,7 @@ export default function EntregadoresPage() {
                       onClick={() => copyInviteLink(d.id)}
                       disabled={copyingInvite === d.id}
                       className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-blue-100 text-gray-500 hover:text-blue-500 flex items-center justify-center transition disabled:opacity-50"
-                      title="Copiar link de convite (entregador define a própria senha)"
+                      title="Gerar link de acesso / redefinir senha (entregador define a própria senha ao abrir)"
                     >
                       {copyingInvite === d.id ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
                     </button>

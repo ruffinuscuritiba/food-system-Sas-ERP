@@ -114,6 +114,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   DEBIT_CARD: "Cartão de Débito",
   MEAL_VOUCHER: "Vale-Refeição",
   TRANSFER: "Transferência",
+  SPLIT: "Dividido",
 };
 
 const INCOME_CATEGORIES = [
@@ -716,6 +717,7 @@ const PAYMENT_PIE_COLORS: Record<string, string> = {
   CASH: "#f59e0b",
   MEAL_VOUCHER: "#ec4899",
   TRANSFER: "#6b7280",
+  SPLIT: "#0ea5e9",
 };
 const PAYMENT_PIE_LABELS: Record<string, string> = {
   PIX: "PIX",
@@ -724,6 +726,7 @@ const PAYMENT_PIE_LABELS: Record<string, string> = {
   CASH: "Dinheiro",
   MEAL_VOUCHER: "Vale-Refeição",
   TRANSFER: "Transferência",
+  SPLIT: "Dividido",
 };
 
 const TYPE_PIE_COLORS: Record<string, string> = {

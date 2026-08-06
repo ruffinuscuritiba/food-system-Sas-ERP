@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { FinancialType } from '@prisma/client';
 import { PrismaService } from 'src/database/prisma.service';
 
@@ -23,8 +23,11 @@ export class FinancialService {
         _sum: { amount: true },
         where: { companyId, type: FinancialType.EXPENSE },
       }),
+      // status !== CANCELLED — sem esse filtro, pedido cancelado (que nunca
+      // gerou faturamento real) inflava totalSales e ticketAverage do
+      // dashboard financeiro.
       this.prisma.order.findMany({
-        where: { companyId },
+        where: { companyId, status: { not: 'CANCELLED' } },
         select: { total: true },
       }),
     ]);
@@ -44,8 +47,15 @@ export class FinancialService {
   }
 
   create(data: any) {
+    const amount = Number(data.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Valor (amount) inválido — informe um número maior que zero.');
+    }
+    if (!data.type || !data.category) {
+      throw new BadRequestException('Tipo (type) e categoria (category) são obrigatórios.');
+    }
     return this.prisma.financial.create({
-      data: { ...data, amount: Number(data.amount) },
+      data: { ...data, amount },
     });
   }
 }

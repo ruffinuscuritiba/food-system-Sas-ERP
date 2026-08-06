@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
 
 @Injectable()
@@ -36,6 +36,16 @@ export class CashService {
     companyId: string,
     paymentMethod?: string,
   ) {
+    // Valida o tipo ANTES de qualquer leitura — um `type` diferente de
+    // SUPPLY/WITHDRAW (typo, campo vazio, valor inesperado) sempre cai no
+    // ramo `: decrement` do cálculo antigo, subtraindo do caixa sem aviso
+    // nenhum. Falha explícita é melhor que dinheiro somindo silenciosamente.
+    if (type !== 'SUPPLY' && type !== 'WITHDRAW') {
+      throw new BadRequestException(
+        `Tipo de movimento de caixa inválido: "${type}". Use SUPPLY ou WITHDRAW.`,
+      );
+    }
+
     const cash = await this.prisma.cash.findFirst({
       where: { companyId, isOpen: true },
       orderBy: { createdAt: 'desc' },
@@ -46,18 +56,17 @@ export class CashService {
       return cash;
     }
 
-    const entries =
-      type === 'SUPPLY' ? Number(cash.entries) + value : Number(cash.entries);
-    const exits =
-      type === 'WITHDRAW' ? Number(cash.exits) + value : Number(cash.exits);
-    const balance =
-      type === 'SUPPLY'
-        ? Number(cash.balance) + value
-        : Number(cash.balance) - value;
-
+    const isSupply = type === 'SUPPLY';
+    // Increment/decrement atômico no próprio UPDATE (não lê balance em JS e
+    // escreve de volta) — 2 sangrias simultâneas não perdem atualização uma
+    // da outra, o cálculo acontece no banco, não no processo Node.
     return this.prisma.cash.update({
       where: { id: cash.id },
-      data: { entries, exits, balance },
+      data: {
+        entries: isSupply ? { increment: value } : undefined,
+        exits: isSupply ? undefined : { increment: value },
+        balance: isSupply ? { increment: value } : { decrement: value },
+      },
     });
   }
 
@@ -107,27 +116,43 @@ export class CashService {
 
   // Cupom de Auditoria: resumo de cartão/PIX/transferência daquela sessão de
   // caixa (Order.cashId), pra facilitar a conferência física do dinheiro sem
-  // contar recibo por recibo. Não inclui CASH — esse já está no saldo físico.
+  // contar recibo por recibo. Não inclui a PARTE em dinheiro — essa já está
+  // no saldo físico. Usa findMany + soma manual (não groupBy) porque um
+  // pedido SPLIT (parte PIX + parte dinheiro) precisa da diferença
+  // total-cashReceived, não do total inteiro agrupado por paymentMethod —
+  // um groupBy simples inflaria a "conferência" com a parte que já é
+  // dinheiro físico contado na gaveta.
   async auditSummary(cashId: string, companyId: string) {
     const cash = await this.prisma.cash.findFirst({
       where: { id: cashId, companyId },
     });
     if (!cash) return null;
 
-    const grouped = await this.prisma.order.groupBy({
-      by: ['paymentMethod'],
+    const orders = await this.prisma.order.findMany({
       where: { cashId, companyId, status: { not: 'CANCELLED' } },
-      _sum: { total: true },
-      _count: { _all: true },
+      select: { paymentMethod: true, total: true, cashReceived: true },
     });
 
-    const byPaymentMethod = grouped
-      .filter((g) => g.paymentMethod !== 'CASH')
-      .map((g) => ({
-        paymentMethod: g.paymentMethod,
-        total: Number(g._sum.total ?? 0),
-        count: g._count._all,
-      }));
+    const byMethod = new Map<string, { total: number; count: number }>();
+    for (const o of orders) {
+      const total = Number(o.total);
+      const cashPortion =
+        o.cashReceived != null
+          ? Number(o.cashReceived)
+          : o.paymentMethod === 'CASH'
+            ? total
+            : 0;
+      const nonCashPortion = total - cashPortion;
+      if (nonCashPortion <= 0) continue; // 100% dinheiro — já contado na gaveta
+      const entry = byMethod.get(o.paymentMethod) ?? { total: 0, count: 0 };
+      entry.total += nonCashPortion;
+      entry.count += 1;
+      byMethod.set(o.paymentMethod, entry);
+    }
+
+    const byPaymentMethod = Array.from(byMethod.entries()).map(
+      ([paymentMethod, v]) => ({ paymentMethod, ...v }),
+    );
 
     const grandTotal = byPaymentMethod.reduce((s, g) => s + g.total, 0);
 

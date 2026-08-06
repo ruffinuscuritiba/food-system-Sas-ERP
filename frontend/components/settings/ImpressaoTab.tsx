@@ -58,7 +58,11 @@ const DEFAULT_SETTINGS: PrintingSettings = {
   // cupom impresso (sem comprovante digital nenhum pro cliente/troco) — um
   // default que a excluísse faria a loja parar de imprimir venda em dinheiro
   // no primeiro "Seletivo" salvo sem tocar nos checkboxes.
-  printPaymentTypes: ["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "MEAL_VOUCHER", "TRANSFER"],
+  // SPLIT incluído pelo mesmo motivo do CASH — pagamento dividido no PDV
+  // (ex: parte dinheiro + parte PIX) grava paymentMethod="SPLIT"; sem isso
+  // no default, um "Seletivo" salvo sem tocar nos checkboxes pararia de
+  // imprimir o cupom pra QUALQUER venda dividida.
+  printPaymentTypes: ["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "MEAL_VOUCHER", "TRANSFER", "SPLIT"],
 };
 
 export const PAYMENT_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -68,6 +72,7 @@ export const PAYMENT_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "DEBIT_CARD",   label: "Cartão de Débito" },
   { value: "MEAL_VOUCHER", label: "Vale-Refeição" },
   { value: "TRANSFER",     label: "Transferência" },
+  { value: "SPLIT",        label: "Pagamento dividido" },
 ];
 
 interface PrinterRecord {
@@ -292,11 +297,13 @@ export default function ImpressaoTab() {
         if (res.data.printingSettings) {
           const merged = { ...DEFAULT_SETTINGS, ...res.data.printingSettings };
           // Auto-cura de configuração salva ANTES deste fix: um printPaymentTypes
-          // gravado no banco sem "CASH" sobrescreve o default inteiro no spread
-          // acima (array não faz merge por chave) — nunca é intencional excluir
-          // dinheiro da impressão, então readiciona sozinho aqui.
-          if (!merged.printPaymentTypes.includes("CASH")) {
-            merged.printPaymentTypes = ["CASH", ...merged.printPaymentTypes];
+          // gravado no banco sem "CASH"/"SPLIT" sobrescreve o default inteiro no
+          // spread acima (array não faz merge por chave). CASH nunca é
+          // intencionalmente excluído; SPLIT nem existia como opção antes desta
+          // sessão, então nenhuma config antiga pode ter "escolhido" tirá-lo.
+          const missing = ["CASH", "SPLIT"].filter((m) => !merged.printPaymentTypes.includes(m));
+          if (missing.length > 0) {
+            merged.printPaymentTypes = [...missing, ...merged.printPaymentTypes];
           }
           setSettings(merged);
         }

@@ -7,6 +7,7 @@ export enum PaymentMethodDto {
   DEBIT_CARD = 'DEBIT_CARD',
   TRANSFER = 'TRANSFER',
   MEAL_VOUCHER = 'MEAL_VOUCHER',
+  SPLIT = 'SPLIT',
 }
 
 export enum OrderTypeDto {
@@ -27,6 +28,14 @@ export class UpdateOrderDetailsDto {
   @IsOptional()
   @IsEnum(PaymentMethodDto)
   paymentMethod?: PaymentMethodDto;
+
+  // Só relevante quando paymentMethod=SPLIT — quanto da nova forma de
+  // pagamento é dinheiro físico de verdade. Ausente = cai no fallback
+  // histórico (CASH direto = total inteiro, outro método = 0).
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cashReceived?: number;
 
   @IsOptional()
   @IsEnum(OrderTypeDto)

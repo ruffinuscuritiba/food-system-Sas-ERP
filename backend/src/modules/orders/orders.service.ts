@@ -113,6 +113,26 @@ export class OrdersService {
     private reportsService?: ReportsService,
   ) {}
 
+  /**
+   * Quanto de um valor (total do pedido, ou delta numa edição pós-criação) é
+   * dinheiro físico de verdade. `explicitCashReceived` é o que o PDV manda
+   * pra pagamento SPLIT (soma das parcelas em CASH) — quando ausente, cai no
+   * comportamento histórico: paymentMethod==='CASH' vale o valor inteiro,
+   * qualquer outro método vale 0. Único ponto de verdade — usado na criação,
+   * confirmação/cancelamento e edição pós-criação, pra nunca haver 2 lugares
+   * calculando isso de formas diferentes.
+   */
+  private resolveCashReceived(
+    paymentMethod: string,
+    amount: number,
+    explicitCashReceived?: number | string | Prisma.Decimal | null,
+  ): number {
+    if (explicitCashReceived !== undefined && explicitCashReceived !== null) {
+      return Math.max(0, Number(explicitCashReceived));
+    }
+    return paymentMethod === 'CASH' ? amount : 0;
+  }
+
   async create(data: any) {
     // Auditoria: sessão de caixa aberta no momento (se houver). Consultado
     // uma única vez e reaproveitado abaixo pra (a) travar venda em DINHEIRO
@@ -135,10 +155,16 @@ export class OrdersService {
     const isPdvChannel = !data.channel || data.channel === 'PDV';
     const requiresCashRegardlessOfMethod =
       isPdvChannel && ['CASHIER', 'WAITER'].includes(data.requesterRole);
+    // Pagamento dividido (paymentMethod='SPLIT') pode ter uma parte em
+    // dinheiro sem que paymentMethod seja literalmente 'CASH' — sem checar
+    // data.cashReceived aqui, um split com componente de dinheiro passava
+    // pela trava de caixa fechado mesmo tendo dinheiro físico de verdade.
+    const hasCashComponent =
+      data.paymentMethod === 'CASH' || Number(data.cashReceived || 0) > 0;
     if (
       isPdvChannel &&
       !openCash &&
-      (data.paymentMethod === 'CASH' || requiresCashRegardlessOfMethod)
+      (hasCashComponent || requiresCashRegardlessOfMethod)
     ) {
       throw new ForbiddenException(
         'Nenhum caixa aberto — abra o caixa antes de registrar vendas.',
@@ -269,6 +295,18 @@ export class OrdersService {
 
     const total = subtotal + deliveryFee - discount;
 
+    // Quanto deste pedido é dinheiro físico de verdade — nunca "total inteiro
+    // sempre que paymentMethod==='CASH'". Split (PDV) manda cashReceived
+    // explícito (soma das parcelas em dinheiro); qualquer outro caller
+    // (WhatsApp, iFood, cardápio digital, /orders/public) nunca manda esse
+    // campo, então cai no fallback de sempre: CASH direto = total inteiro,
+    // qualquer outro método = 0.
+    const cashReceived = this.resolveCashReceived(
+      data.paymentMethod,
+      total,
+      data.cashReceived,
+    );
+
     const order = await this.prisma.$transaction(
       async (tx) => {
         // 1a. Próximo número sequencial por tenant
@@ -287,6 +325,8 @@ export class OrdersService {
             customerId: data.customerId ?? null,
 
             paymentMethod: data.paymentMethod,
+
+            cashReceived,
 
             subtotal,
 
@@ -789,17 +829,26 @@ export class OrdersService {
             }
           }
 
-          // Credita a venda no saldo físico do caixa SOMENTE quando foi
-          // paga em dinheiro de verdade — PIX/cartão não passam pela
-          // gaveta, então nunca podem inflar o "Sistema" do fechamento
-          // às cegas. Cobre o caminho principal do PDV (balcão/delivery/
-          // retirada), que nunca chamava /cash/movement sozinho.
-          if (order.paymentMethod === 'CASH' && order.cashId) {
+          // Credita a venda no saldo físico do caixa SOMENTE pela parte que
+          // foi paga em dinheiro de verdade (order.cashReceived) — PIX/cartão
+          // não passam pela gaveta, então nunca podem inflar o "Sistema" do
+          // fechamento às cegas. Cobre o caminho principal do PDV (balcão/
+          // delivery/retirada), que nunca chamava /cash/movement sozinho.
+          // Usar cashReceived (não order.total) é o que corrige pagamento
+          // SPLIT — antes o total INTEIRO era creditado sempre que
+          // paymentMethod fosse 'CASH', mesmo num split onde só uma fração
+          // era dinheiro de verdade.
+          const cashPortion = this.resolveCashReceived(
+            order.paymentMethod,
+            Number(order.total),
+            order.cashReceived,
+          );
+          if (cashPortion > 0 && order.cashId) {
             await tx.cash.updateMany({
               where: { id: order.cashId, isOpen: true },
               data: {
-                balance: { increment: Number(order.total) },
-                entries: { increment: Number(order.total) },
+                balance: { increment: cashPortion },
+                entries: { increment: cashPortion },
               },
             });
           }
@@ -856,17 +905,24 @@ export class OrdersService {
 
           // Estorna o crédito de caixa SE E SOMENTE SE o pedido já tinha
           // passado por CONFIRMED antes (senão nunca foi creditado — evita
-          // debitar dinheiro que nunca entrou no saldo).
+          // debitar dinheiro que nunca entrou no saldo). Estorna só a parte
+          // que de fato entrou (cashPortion) — mesmo raciocínio do SPLIT
+          // acima, nunca o order.total inteiro.
+          const cashPortionToReverse = this.resolveCashReceived(
+            order.paymentMethod,
+            Number(order.total),
+            order.cashReceived,
+          );
           if (
             order.status !== OrderStatus.PENDING &&
-            order.paymentMethod === 'CASH' &&
+            cashPortionToReverse > 0 &&
             order.cashId
           ) {
             await tx.cash.updateMany({
               where: { id: order.cashId, isOpen: true },
               data: {
-                balance: { decrement: Number(order.total) },
-                exits: { increment: Number(order.total) },
+                balance: { decrement: cashPortionToReverse },
+                exits: { increment: cashPortionToReverse },
               },
             });
           }
@@ -1115,6 +1171,7 @@ export class OrdersService {
     companyId: string,
     dto: {
       paymentMethod?: string;
+      cashReceived?: number;
       orderType?: string;
       deliveryAddress?: string;
       neighborhood?: string;
@@ -1219,19 +1276,37 @@ export class OrdersService {
 
       // ── Troca de forma de pagamento ──────────────────────────────────────
       const newPaymentMethod = dto.paymentMethod ?? order.paymentMethod;
+      const newCashReceived = this.resolveCashReceived(
+        newPaymentMethod,
+        newTotal,
+        dto.cashReceived,
+      );
       if (dto.paymentMethod) {
         data.paymentMethod = dto.paymentMethod as any;
+      }
+      // Persistido sempre que qualquer um dos dois vier — editar só a
+      // composição do split (sem trocar paymentMethod, que já é "SPLIT" nos
+      // dois lados) precisa atualizar cashReceived mesmo assim, senão o
+      // valor gravado no pedido fica desatualizado (usado depois no Cupom
+      // de Auditoria e numa próxima edição).
+      if (dto.paymentMethod || dto.cashReceived !== undefined) {
+        data.cashReceived = newCashReceived;
       }
 
       // ── Reconciliação do caixa ───────────────────────────────────────────
       // Só mexe se o pedido já passou por CONFIRMED (já teria afetado o
-      // caixa uma vez) e ainda está vinculado a uma sessão de caixa.
+      // caixa uma vez) e ainda está vinculado a uma sessão de caixa. Usa
+      // resolveCashReceived pros dois lados — se o pedido já era SPLIT com
+      // uma parte em dinheiro (order.cashReceived), a contribuição antiga
+      // não pode ser tratada como 0 só porque paymentMethod não é 'CASH'.
       const alreadyHitCash = order.status !== OrderStatus.PENDING && !!order.cashId;
       if (alreadyHitCash) {
-        const oldContribution =
-          order.paymentMethod === 'CASH' ? Number(order.total) : 0;
-        const newContribution =
-          newPaymentMethod === 'CASH' ? newTotal : 0;
+        const oldContribution = this.resolveCashReceived(
+          order.paymentMethod,
+          Number(order.total),
+          order.cashReceived,
+        );
+        const newContribution = newCashReceived;
         const delta = newContribution - oldContribution;
 
         if (delta > 0) {

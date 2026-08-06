@@ -492,7 +492,13 @@ export default function PDVPage() {
       .then(r => {
         const ps = r.data?.printingSettings;
         if (ps?.printMode === "SELECTED" && Array.isArray(ps.printPaymentTypes)) {
-          setPrintPaymentRule({ mode: "SELECTED", types: ps.printPaymentTypes });
+          // Auto-cura de config salva com o default antigo (sem "CASH") — nunca
+          // é intencional deixar de imprimir o cupom de venda em dinheiro, é a
+          // forma que mais precisa de comprovante físico (sem trilha digital).
+          const types = ps.printPaymentTypes.includes("CASH")
+            ? ps.printPaymentTypes
+            : ["CASH", ...ps.printPaymentTypes];
+          setPrintPaymentRule({ mode: "SELECTED", types });
         }
       })
       .catch(() => {});

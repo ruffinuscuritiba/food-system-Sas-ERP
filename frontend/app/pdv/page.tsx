@@ -492,12 +492,12 @@ export default function PDVPage() {
       .then(r => {
         const ps = r.data?.printingSettings;
         if (ps?.printMode === "SELECTED" && Array.isArray(ps.printPaymentTypes)) {
-          // Auto-cura de config salva com o default antigo (sem "CASH") — nunca
-          // é intencional deixar de imprimir o cupom de venda em dinheiro, é a
-          // forma que mais precisa de comprovante físico (sem trilha digital).
-          const types = ps.printPaymentTypes.includes("CASH")
-            ? ps.printPaymentTypes
-            : ["CASH", ...ps.printPaymentTypes];
+          // Auto-cura de config salva com o default antigo (sem "CASH"/"SPLIT")
+          // — nunca é intencional deixar de imprimir dinheiro (forma que mais
+          // precisa de comprovante físico) nem pagamento dividido (opção nova,
+          // nenhuma config salva antes desta sessão pôde tê-la desmarcado).
+          const missing = ["CASH", "SPLIT"].filter((m) => !ps.printPaymentTypes.includes(m));
+          const types = missing.length > 0 ? [...missing, ...ps.printPaymentTypes] : ps.printPaymentTypes;
           setPrintPaymentRule({ mode: "SELECTED", types });
         }
       })
@@ -746,7 +746,22 @@ export default function PDVPage() {
     if (cart.length === 0 || paymentLockRef.current) return;
     paymentLockRef.current = true;
 
-    const paymentMethod = splits?.[0]?.method || method;
+    // Bug real corrigido: mandar pro backend só o método do 1º split
+    // ("splits?.[0]?.method || method") fazia o TOTAL do pedido ser
+    // creditado no caixa físico quando CASH caía em 1º lugar (supercontagem
+    // de PIX/cartão como se fosse dinheiro), ou nunca creditado quando CASH
+    // caía em 2º/3º (dinheiro que entrou de verdade sumia do caixa). Agora
+    // manda o método real ("SPLIT" quando dividido) + cashReceived explícito
+    // (soma só das parcelas em dinheiro) — o backend credita exatamente essa
+    // fração, nunca o total inteiro.
+    const paymentMethod = splits ? "SPLIT" : method;
+    const cashReceived = splits
+      ? splits
+          .filter((s) => s.method === "CASH")
+          .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+      : method === "CASH"
+        ? orderTotal
+        : 0;
     const serviceLabel =
       details.orderType === "DINE_IN"
         ? `Mesa ${details.tableNumber}`
@@ -815,6 +830,7 @@ export default function PDVPage() {
             tableNumber: details.orderType === "DINE_IN" ? details.tableNumber : undefined,
             deliveryZoneId: details.deliveryZoneId || undefined,
             paymentMethod,
+            cashReceived,
             notes: [serviceLabel, splitNote].filter(Boolean).join(" | "),
             items: orderItems,
             subtotal: cartTotal,

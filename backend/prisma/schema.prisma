@@ -66,6 +66,10 @@ enum PaymentMethod {
   DEBIT_CARD
   TRANSFER
   MEAL_VOUCHER
+  // Pagamento dividido em 2+ formas (PDV). O detalhamento por forma vem em
+  // Order.notes (texto) + o valor físico em dinheiro fica em cashReceived —
+  // nunca inferir a forma real a partir de um único enum aqui.
+  SPLIT
 }
 
 enum OrderType {
@@ -624,6 +628,14 @@ model Order {
   status OrderStatus @default(PENDING)
 
   paymentMethod PaymentMethod
+
+  // Quanto do total deste pedido foi de verdade pago em dinheiro físico —
+  // crítico pra pagamento SPLIT (ex: parte PIX + parte dinheiro), onde
+  // paymentMethod sozinho não diz quanto entrou na gaveta. Null/0 pra pedidos
+  // sem componente em dinheiro; nos demais casos (paymentMethod=CASH direto,
+  // sem split) o backend cai no fallback total===cashReceived automaticamente
+  // se este campo vier vazio — ver orders.service.ts resolveCashReceived().
+  cashReceived Decimal? @db.Decimal(10, 2)
 
   subtotal Decimal @db.Decimal(10, 2)
 

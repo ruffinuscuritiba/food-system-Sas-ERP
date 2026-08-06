@@ -42,6 +42,7 @@ type Order = {
   customerPhone?: string;
   deliveryAddress?: string;
   paymentMethod: string;
+  cashReceived?: number | null;
   paymentStatus?: string | null;
   subtotal?: number;
   discount?: number;
@@ -235,17 +236,25 @@ function EditNotesModal({
     }
     setSaving(true);
     try {
-      // Pagamento dividido: o schema só tem UM campo paymentMethod (mesma
-      // limitação de quando o pedido é criado dividido no PDV) -- usa o
-      // método do 1º split como "oficial" e registra o detalhamento como
-      // observação legível, igual ao padrão já usado em app/pdv/page.tsx.
+      // Pagamento dividido: paymentMethod="SPLIT" (enum real, não mais o
+      // método do 1º split como "oficial" — bug real corrigido: mandava o
+      // TOTAL pro caixa se o 1º split fosse CASH, ou nunca creditava o
+      // dinheiro se CASH caísse em 2º/3º). cashReceived guarda só a soma das
+      // parcelas em dinheiro — mesmo padrão de app/pdv/page.tsx.
       const splitNote = splitMode
         ? `Pgto dividido: ${splits.filter(s => parseFloat(s.amount) > 0).map(s => `${PAY_LABELS[s.method] ?? s.method} R$${(parseFloat(s.amount) || 0).toFixed(2)}`).join(" + ")}`
         : null;
       const finalNotes = splitNote
         ? [notes.trim(), splitNote].filter(Boolean).join("\n")
         : notes;
-      const finalPaymentMethod = splitMode ? splits[0].method : paymentMethod;
+      const finalPaymentMethod = splitMode ? "SPLIT" : paymentMethod;
+      const finalCashReceived = splitMode
+        ? splits.filter(s => s.method === "CASH").reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0)
+        : (paymentMethod === "CASH" ? Number(order.total) : 0);
+      const previousCashReceived = order.cashReceived != null
+        ? Number(order.cashReceived)
+        : (order.paymentMethod === "CASH" ? Number(order.total) : 0);
+      const cashReceivedChanged = Math.abs(finalCashReceived - previousCashReceived) > 0.001;
 
       if (finalNotes !== (order.notes || "")) {
         // Sem endpoint PATCH genérico pra notes ainda — reaproveita /status
@@ -255,15 +264,23 @@ function EditNotesModal({
 
       const nameChanged = editCustomerName.trim() !== originalCustomerName;
       const phoneChanged = editCustomerPhone.trim() !== originalCustomerPhone;
+      const paymentMethodChanged = finalPaymentMethod !== order.paymentMethod;
       const detailsChanged =
-        finalPaymentMethod !== order.paymentMethod ||
+        paymentMethodChanged ||
+        cashReceivedChanged ||
         orderType !== (order.orderType || "PICKUP") ||
         nameChanged ||
         phoneChanged ||
         discountChanged;
       if (detailsChanged) {
         await api.patch(`/orders/${order.id}/details`, {
-          ...(finalPaymentMethod !== order.paymentMethod && { paymentMethod: finalPaymentMethod }),
+          ...(paymentMethodChanged && { paymentMethod: finalPaymentMethod }),
+          // Manda cashReceived sempre que a forma OU a composição do split
+          // mudar — sem isso, editar só os valores de um pedido já SPLIT
+          // nunca atualizava quanto de fato é dinheiro (paymentMethod
+          // continuava "SPLIT" nos dois lados, então o patch de paymentMethod
+          // sozinho nunca disparava).
+          ...((paymentMethodChanged || cashReceivedChanged) && { cashReceived: finalCashReceived }),
           ...(orderType !== (order.orderType || "PICKUP") && { orderType }),
           ...(convertingToDelivery && {
             deliveryAddress: deliveryAddress.trim(),
@@ -748,7 +765,7 @@ export default function OrdersPage() {
                           R$ {Number(order.total).toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-400">
-                          {PAY_LABELS[order.paymentMethod] || order.paymentMethod}
+                          {order.paymentMethod === "SPLIT" ? "Dividido" : (PAY_LABELS[order.paymentMethod] || order.paymentMethod)}
                         </p>
                         {order.paymentStatus === "APPROVED" ? (
                           <p className="text-[10px] font-bold text-green-600 mt-0.5">✓ Já pago (online)</p>

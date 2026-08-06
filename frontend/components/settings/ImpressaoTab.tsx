@@ -54,7 +54,11 @@ const DEFAULT_SETTINGS: PrintingSettings = {
   pizzaItemFormat: "compact",
   addonGrouping:   true,
   printMode:         "ALL",
-  printPaymentTypes: ["PIX", "CREDIT_CARD", "DEBIT_CARD", "MEAL_VOUCHER", "TRANSFER"],
+  // CASH incluído de propósito: é a forma de pagamento que MAIS precisa do
+  // cupom impresso (sem comprovante digital nenhum pro cliente/troco) — um
+  // default que a excluísse faria a loja parar de imprimir venda em dinheiro
+  // no primeiro "Seletivo" salvo sem tocar nos checkboxes.
+  printPaymentTypes: ["CASH", "PIX", "CREDIT_CARD", "DEBIT_CARD", "MEAL_VOUCHER", "TRANSFER"],
 };
 
 export const PAYMENT_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -285,7 +289,17 @@ export default function ImpressaoTab() {
     api
       .get<{ printingSettings?: PrintingSettings | null }>("/company/settings")
       .then((res) => {
-        if (res.data.printingSettings) setSettings({ ...DEFAULT_SETTINGS, ...res.data.printingSettings });
+        if (res.data.printingSettings) {
+          const merged = { ...DEFAULT_SETTINGS, ...res.data.printingSettings };
+          // Auto-cura de configuração salva ANTES deste fix: um printPaymentTypes
+          // gravado no banco sem "CASH" sobrescreve o default inteiro no spread
+          // acima (array não faz merge por chave) — nunca é intencional excluir
+          // dinheiro da impressão, então readiciona sozinho aqui.
+          if (!merged.printPaymentTypes.includes("CASH")) {
+            merged.printPaymentTypes = ["CASH", ...merged.printPaymentTypes];
+          }
+          setSettings(merged);
+        }
       })
       .catch(() => toast.error("Erro ao carregar configurações de impressão"))
       .finally(() => setLoading(false));

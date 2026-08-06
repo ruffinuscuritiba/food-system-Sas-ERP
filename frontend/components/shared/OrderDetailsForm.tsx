@@ -266,6 +266,14 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
   }
 
   function onPhoneChange(v: string) {
+    // Trava em 11 dígitos reais (DDD + 9 do celular) — conta só os números,
+    // não os caracteres (parênteses/espaço/hífen não entram na conta, senão
+    // um maxLength de HTML simples não pegaria "11 994856-1531", que tem só
+    // 14 caracteres mas já 12 dígitos). Sem isso era possível digitar 1
+    // dígito a mais sem nenhum aviso — causa raiz real de pedido de cliente
+    // de fora nunca receber a confirmação por WhatsApp (número salvo com
+    // dígito extra, sem DDI válido, e a mensagem nunca saía).
+    if (v.replace(/\D/g, "").length > 11) return;
     set({ customerPhone: v });
     if (v.replace(/\D/g, "") !== lastPhone.current) {
       setLastOrder(null);
@@ -340,6 +348,7 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
               onChange={e => onPhoneChange(e.target.value)}
               placeholder="(00) 00000-0000"
               inputMode="tel"
+              maxLength={15}
               className={inputCls}
             />
             {/* Último pedido / cliente encontrado */}

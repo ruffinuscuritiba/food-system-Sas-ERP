@@ -7,10 +7,13 @@ import {
   Delete,
   Patch,
   Request,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+
+import type { Response } from 'express';
 
 import { ConfigService } from '@nestjs/config';
 
@@ -154,6 +157,16 @@ export class ProductsController {
     companyId: string,
   ) {
     return this.service.publicMenu(companyId);
+  }
+
+  // Serve sob demanda a imagem de um produto que ainda está salva como
+  // base64 no banco (sem Cloudinary configurado) — ver publicMenu().
+  @Get('public/image/:id')
+  async publicImage(@Param('id') id: string, @Res() res: Response) {
+    const { mime, buffer } = await this.service.getPublicImage(id);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buffer);
   }
   @Get('trash')
   @UseGuards(JwtAuthGuard, RolesGuard)

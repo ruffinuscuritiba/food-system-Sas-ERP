@@ -813,11 +813,28 @@ export default function MenuPage() {
     return isComboProduct(product);
   }
 
+  /** Decide se o botão "+Adicionar" deve abrir o construtor de sabores de
+   *  pizza. Bug real corrigido: combos com sabor travado em 1 (ex.: "Festim
+   *  Perfeito", "Combo Executivo") NÃO precisam de escolha nenhuma — a
+   *  composição já é fixa e descrita no próprio nome/descrição do produto.
+   *  Abrir o construtor pré-preenchia o slot de sabor com o NOME DO COMBO
+   *  como se ele mesmo fosse um sabor de pizza — cliente clicava "Adicionar"
+   *  sem escolher nada e o pedido chegava sem indicar qual pizza real estava
+   *  dentro do combo (achado ao vivo: "Festim Perfeito" virando o próprio
+   *  "sabor" no carrinho). Combos com mais de 1 sabor liberado (maxFlavors>1,
+   *  quando existirem) continuam abrindo o construtor normalmente. */
+  function shouldOpenFlavorBuilder(product: Product): boolean {
+    if (!isPizzaProduct(product)) return false;
+    if (isComboProduct(product) && isLockedSingleFlavorProduct(product)) return false;
+    return true;
+  }
+
   async function addToCart(product: Product) {
     trackProductView(product.id);
-    // Toda pizza passa pelo construtor completo (tamanho/sabores/borda/observações)
-    // — unificado nesta sessão, não existe mais atalho de "adicionar direto".
-    if (isPizzaProduct(product)) {
+    // Toda pizza customizável passa pelo construtor completo (tamanho/sabores/
+    // borda/observações) — combo de sabor travado (ver shouldOpenFlavorBuilder)
+    // pula direto pra Complementos/carrinho, sem passar pelo construtor.
+    if (shouldOpenFlavorBuilder(product)) {
       openFlavorModal(product);
       return;
     }
@@ -2235,7 +2252,7 @@ export default function MenuPage() {
                               <Eye size={14} />
                             </button>
                           )}
-                          {isPizzaProduct(product) ? (
+                          {shouldOpenFlavorBuilder(product) ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); openFlavorModal(product); }}
                               className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
@@ -2290,7 +2307,7 @@ export default function MenuPage() {
                             <Eye size={13} /> Vídeo
                           </button>
                         )}
-                        {isPizzaProduct(product) ? (
+                        {shouldOpenFlavorBuilder(product) ? (
                           <button
                             onClick={() => openFlavorModal(product)}
                             className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"

@@ -39,7 +39,10 @@ services:
     environment:
       DATABASE_URL:  postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-foodsystem}
       JWT_SECRET:    ${JWT_SECRET:?JWT_SECRET is required — set in .env}
-      SUPER_ADMIN_EMAIL:    ${SUPER_ADMIN_EMAIL:-superadmin@system.com}
+      # Sem default: o e-mail do super-admin tinha `:-superadmin@system.com`
+      # aqui, ou seja, um deploy que esquecesse de setar a variável ficava com
+      # a credencial pública do repositório valendo. Agora falha explicitamente.
+      SUPER_ADMIN_EMAIL:    ${SUPER_ADMIN_EMAIL:?SUPER_ADMIN_EMAIL is required — set in .env}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:?SUPER_ADMIN_PASSWORD is required}
       PORT:          3001
       BACKEND_URL:   ${BACKEND_URL:-http://localhost:3001}

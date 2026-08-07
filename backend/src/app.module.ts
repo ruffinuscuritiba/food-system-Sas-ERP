@@ -58,6 +58,7 @@ import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { TotemModule } from './modules/totem/totem.module';
 import { WhatsappCampaignsModule } from './modules/whatsapp-campaigns/whatsapp-campaigns.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
+import { validateEnv } from './config/env.validation';
 
 // NOTE: ChatModule segue desabilitado (schema/code mismatch). AlertsModule
 // reativado — schema Alert/AlertType/AlertSeverity já bate 100% com
@@ -65,7 +66,7 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     ScheduleModule.forRoot(),
 

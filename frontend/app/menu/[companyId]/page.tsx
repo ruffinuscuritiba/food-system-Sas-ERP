@@ -769,6 +769,28 @@ export default function MenuPage() {
     return () => clearInterval(poll);
   }, [showPixScreen, onlineOrderId, pixPaid, pixExpired, realCompanyId]);
 
+  // "Quem pediu isso também pediu" — coocorrência real de pedidos (backend
+  // conta produtos que apareceram JUNTO no mesmo pedido nos últimos 180 dias),
+  // não um chute de categoria. Refeito a cada item novo adicionado; loja sem
+  // histórico ainda (ou item nunca vendido junto com nada) devolve [] e o
+  // order bump cai no heurístico de sempre (ver abaixo) — nunca fica vazio.
+  // Precisa ficar ANTES dos early-returns de loading/erro/orderSent — hook
+  // condicional (montado só quando o componente já passou por esses returns
+  // em algum render anterior) derruba a página inteira com "Rendered fewer
+  // hooks than expected" (React error #310).
+  const [frequentlyBoughtIds, setFrequentlyBoughtIds] = useState<string[]>([]);
+  const lastAddedProductId = cart.length > 0 ? cart[cart.length - 1].product.id : null;
+  useEffect(() => {
+    const targetCompanyId = realCompanyId || companyId;
+    if (!lastAddedProductId || !targetCompanyId) { setFrequentlyBoughtIds([]); return; }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/products/public/frequently-bought-with/${targetCompanyId}/${lastAddedProductId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { id: string }[]) => { if (!cancelled) setFrequentlyBoughtIds(Array.isArray(data) ? data.map((d) => d.id) : []); })
+      .catch(() => { if (!cancelled) setFrequentlyBoughtIds([]); });
+    return () => { cancelled = true; };
+  }, [lastAddedProductId, realCompanyId, companyId]);
+
   const fetchLoyaltyBalance = useCallback(async (phone: string) => {
     if (!phone || phone.length < 8 || !realCompanyId) return;
     try {
@@ -1951,24 +1973,6 @@ export default function MenuPage() {
     return b?.order ?? 99;
   };
   const featuredProducts = products.filter(p => !!p.featuredLabel || discountPercent(p) !== null).slice(0, 6);
-
-  // "Quem pediu isso também pediu" — coocorrência real de pedidos (backend
-  // conta produtos que apareceram JUNTO no mesmo pedido nos últimos 180 dias),
-  // não um chute de categoria. Refeito a cada item novo adicionado; loja sem
-  // histórico ainda (ou item nunca vendido junto com nada) devolve [] e o
-  // order bump cai no heurístico de sempre (ver abaixo) — nunca fica vazio.
-  const [frequentlyBoughtIds, setFrequentlyBoughtIds] = useState<string[]>([]);
-  const lastAddedProductId = cart.length > 0 ? cart[cart.length - 1].product.id : null;
-  useEffect(() => {
-    const targetCompanyId = realCompanyId || companyId;
-    if (!lastAddedProductId || !targetCompanyId) { setFrequentlyBoughtIds([]); return; }
-    let cancelled = false;
-    fetch(`${apiBaseUrl}/products/public/frequently-bought-with/${targetCompanyId}/${lastAddedProductId}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: { id: string }[]) => { if (!cancelled) setFrequentlyBoughtIds(Array.isArray(data) ? data.map((d) => d.id) : []); })
-      .catch(() => { if (!cancelled) setFrequentlyBoughtIds([]); });
-    return () => { cancelled = true; };
-  }, [lastAddedProductId, realCompanyId, companyId]);
 
   // Order bump (upsell no checkout): 1º a coocorrência real acima; completa
   // as vagas restantes (até 4) com o heurístico antigo — destaque/bebida/

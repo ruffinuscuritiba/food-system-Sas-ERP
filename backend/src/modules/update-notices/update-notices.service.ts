@@ -5,8 +5,14 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '@/database/prisma.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { PLATFORM_SELLER_COMPANY_ID } from '@/common/utils/matrix';
 
-const PLATFORM_COMPANY_ID = 'cmq7d3dxs0006gw5pabsljy87';
+// Era hardcoded pro companyId da Ruffinu's Pizzaria (loja real) em vez da
+// empresa vendedora do SaaS — causa raiz real de mensagens "Aqui é a Kely,
+// do FoodSaaS" (reconvite de lead pra demo, aviso de atualização) saindo
+// pelo número da PIZZARIA em vez do número dedicado de vendas do sistema
+// (ver PLATFORM_SELLER_COMPANY_ID / regra principal do CLAUDE.md).
+const PLATFORM_COMPANY_ID = PLATFORM_SELLER_COMPANY_ID;
 
 export interface BroadcastSummary {
   clientsWa: number;
@@ -291,9 +297,19 @@ export class UpdateNoticesService implements OnApplicationBootstrap {
   }
 
   /**
-   * Envia texto via Evolution API. Usa as envs EVOLUTION_*; se a instância da
-   * env não existir mais (reprovisionamento), cai para a primeira
-   * WhatsappConnection ativa do banco (self-healing contra env drift).
+   * Envia texto via Evolution API — SEMPRE pela conexão da empresa vendedora
+   * do SaaS (PLATFORM_SELLER_COMPANY_ID), nunca "qualquer conexão ativa".
+   *
+   * Bug real corrigido aqui: a versão antiga não filtrava por companyId
+   * nenhum — pegava a env EVOLUTION_* genérica (historicamente configurada
+   * pra apontar pra Ruffinu's, ver item 149 do CLAUDE.md) e, se isso
+   * falhasse, a WhatsappConnection ATIVA MAIS RECENTEMENTE ATUALIZADA de
+   * QUALQUER empresa — na prática, quase sempre a loja real mais usada do
+   * sistema. Resultado: reconvite de lead ("Aqui é a Kely, do FoodSaaS...")
+   * e aviso de atualização saíam pelo WhatsApp da PIZZARIA, confundindo
+   * cliente de pizza e vazando spam de vendas de software pelo número
+   * errado. Essas mensagens são sempre sobre a PLATAFORMA — só podem sair
+   * pela conexão dedicada de vendas do SaaS, nunca pela de uma loja real.
    */
   private async sendWa(
     rawPhone: string | null | undefined,
@@ -303,15 +319,9 @@ export class UpdateNoticesService implements OnApplicationBootstrap {
     if (digits.length < 10) return false;
     const number = digits.length <= 11 ? `55${digits}` : digits;
 
-    const targets: { apiUrl: string; apiKey: string; instance: string }[] = [];
-    const envUrl = this.config.get<string>('EVOLUTION_API_URL');
-    const envKey = this.config.get<string>('EVOLUTION_API_KEY');
-    const envInstance = this.config.get<string>('EVOLUTION_INSTANCE_NAME');
-    if (envUrl && envKey && envInstance) {
-      targets.push({ apiUrl: envUrl, apiKey: envKey, instance: envInstance });
-    }
     const conn = await this.prisma.whatsappConnection.findFirst({
       where: {
+        companyId: PLATFORM_COMPANY_ID,
         isActive: true,
         provider: 'EVOLUTION',
         instanceName: { not: null },
@@ -319,12 +329,17 @@ export class UpdateNoticesService implements OnApplicationBootstrap {
       },
       orderBy: { updatedAt: 'desc' },
     });
+    const targets: { apiUrl: string; apiKey: string; instance: string }[] = [];
     if (conn?.apiUrl && conn.apiToken && conn.instanceName) {
       targets.push({
         apiUrl: conn.apiUrl,
         apiKey: conn.apiToken,
         instance: conn.instanceName,
       });
+    } else {
+      this.logger.warn(
+        `[UpdateNotices] nenhuma WhatsappConnection ativa pra empresa vendedora do SaaS (${PLATFORM_COMPANY_ID}) — mensagem não enviada (não cai mais em conexão de outra empresa).`,
+      );
     }
 
     for (const t of targets) {

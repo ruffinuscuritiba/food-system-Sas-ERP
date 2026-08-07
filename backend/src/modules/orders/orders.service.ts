@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 import { LoyaltyMilestonesService } from '@/modules/loyalty-milestones/loyalty-milestones.service';
@@ -30,24 +31,7 @@ import { PrintersGateway } from '../printers/printers.gateway';
 import { OnlineOrdersService } from '../online-orders/online-orders.service';
 import { ReportsService } from '../reports/reports.service';
 import { getStartOfTodayBrazil, toBrazilDateKey } from '@/common/utils/timezone';
-
-// Números BR ganharam o 9º dígito móvel em 2016 — clientes/atendentes ainda
-// digitam sem ele por hábito ("67 9688-3803" em vez de "67 9 9688-3803").
-// `phone.contains` nunca casa nesse caso (não é substring), então geramos
-// as variantes com/sem o 9 pra tentar todas.
-function buildPhoneCandidates(rawDigits: string): string[] {
-  const candidates = new Set([rawDigits]);
-  if (rawDigits.length === 10) {
-    candidates.add(rawDigits.slice(0, 2) + '9' + rawDigits.slice(2));
-  } else if (rawDigits.length === 12 && rawDigits.startsWith('55')) {
-    candidates.add(rawDigits.slice(0, 4) + '9' + rawDigits.slice(4));
-  } else if (rawDigits.length === 11) {
-    candidates.add(rawDigits.slice(0, 2) + rawDigits.slice(3));
-  } else if (rawDigits.length === 13 && rawDigits.startsWith('55')) {
-    candidates.add(rawDigits.slice(0, 4) + rawDigits.slice(5));
-  }
-  return [...candidates];
-}
+import { buildPhoneCandidates, onlyDigits } from '@/common/utils/phone';
 
 const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
 
@@ -451,58 +435,88 @@ export class OrdersService {
 
     this.socketGateway.emitDashboardUpdate(data.companyId, dashboard);
 
-    // ── QR Recovery — gerar cupom de recuperação (fire-and-forget) ──────────
-    // Detecta canal: integrationOrders têm channel != 'PDV'
+    this.dispatchPostOrderSideEffects(order, data);
+
+    return order;
+  }
+
+  /**
+   * Efeitos colaterais do pedido criado: cupom de recuperação (QR), marco de
+   * Cliente Fiel e impressão automática.
+   *
+   * Todos rodam FORA da transação Prisma e em `setImmediate`, de propósito:
+   * são integrações com terceiros (WhatsApp, agente de impressão) que podem
+   * demorar ou falhar, e nenhuma delas pode atrasar a resposta do PDV nem
+   * desfazer um pedido que já está gravado. Cada bloco tem catch próprio pelo
+   * mesmo motivo — falha em um não impede os outros.
+   *
+   * Extraído de `create()` só pra reduzir o tamanho do método; a lógica é
+   * idêntica à anterior.
+   */
+  private dispatchPostOrderSideEffects(order: any, data: any): void {
+    const companyId = data.companyId;
+    const phone = order.customer?.phone ?? data.customerPhone;
+
+    // ── QR Recovery — cupom de recuperação ────────────────────────────────
+    // Detecta canal: pedidos de integração têm channel != 'PDV'.
     setImmediate(async () => {
       try {
         if (!this.qrCampaigns) return;
-        const orderSource = (data as any).channel ?? 'PROPRIO';
-        const phone = order.customer?.phone ?? (data as any).customerPhone;
+        const orderSource = data.channel ?? 'PROPRIO';
         const isFirstOrder = phone
-          ? (await this.prisma.order.count({ where: { companyId: data.companyId, customer: { phone } } })) <= 1
+          ? (await this.prisma.order.count({
+              where: { companyId, customer: { phone } },
+            })) <= 1
           : false;
         const qr = await this.qrCampaigns.generateForOrder({
-          companyId:    data.companyId,
-          orderId:      order.id,
+          companyId,
+          orderId: order.id,
           orderSource,
           customerName: order.customer?.name ?? `Pedido #${order.number}`,
           customerPhone: phone,
           isFirstOrder,
         });
-        if (qr) console.log(`[QR] token=${qr.token} gerado para order=${order.id} source=${orderSource}`);
+        if (qr) {
+          this.logger.log(
+            `[QR] token=${qr.token} gerado para order=${order.id} source=${orderSource}`,
+          );
+        }
       } catch (e: any) {
-        console.warn(`[QR] falha ao gerar cupom para order=${order.id}: ${e?.message}`);
+        this.logger.warn(
+          `[QR] falha ao gerar cupom para order=${order.id}: ${e?.message}`,
+        );
       }
     });
 
-    // ── Cliente Fiel — detectar marco de N pedidos (fire-and-forget) ────────
+    // ── Cliente Fiel — marco de N pedidos ─────────────────────────────────
     setImmediate(async () => {
       try {
         if (!this.loyaltyMilestones) return;
-        const phone = order.customer?.phone ?? (data as any).customerPhone;
         await this.loyaltyMilestones.checkAndRegisterMilestone(
-          data.companyId,
+          companyId,
           phone,
-          order.customer?.name ?? (data as any).customerName,
+          order.customer?.name ?? data.customerName,
         );
       } catch (e: any) {
-        console.warn(`[ClienteFiel] falha ao checar marco para order=${order.id}: ${e?.message}`);
+        this.logger.warn(
+          `[ClienteFiel] falha ao checar marco para order=${order.id}: ${e?.message}`,
+        );
       }
     });
 
-    // ── Impressão automática via Printer Agent (fire-and-forget) ─────────────
+    // ── Impressão automática via Printer Agent ────────────────────────────
     // Só enfileira se a empresa tiver um Agent online (heartbeat < 90s); caso
-    // contrário zero overhead e comportamento idêntico ao atual (window.print()
-    // no frontend continua sendo o fallback pra quem não tem Agent instalado).
+    // contrário zero overhead e comportamento idêntico ao atual
+    // (window.print() no frontend segue como fallback de quem não tem Agent).
     setImmediate(async () => {
       try {
-        await this.enqueuePrintJobs(data.companyId, order, data.channel);
+        await this.enqueuePrintJobs(companyId, order, data.channel);
       } catch (e: any) {
-        console.warn(`[print] falha ao enfileirar impressão para order=${order.id}: ${e?.message}`);
+        this.logger.warn(
+          `[print] falha ao enfileirar impressão para order=${order.id}: ${e?.message}`,
+        );
       }
     });
-
-    return order;
   }
 
   /**
@@ -581,7 +595,7 @@ export class OrdersService {
   }
 
   async customerLookup(phone: string, companyId: string) {
-    const digits = phone.replace(/\D/g, '');
+    const digits = onlyDigits(phone);
     if (digits.length < 8) return null;
 
     const candidates = buildPhoneCandidates(digits);
@@ -1350,44 +1364,39 @@ export class OrdersService {
    * sempre R$ 0 independente de venda real, bug separado da subestimação.
    */
   async dashboard(companyId: string) {
-    const today = getStartOfTodayBrazil();
-    const now = new Date();
-
-    if (this.reportsService) {
-      const weekAgo = new Date(today);
-      weekAgo.setDate(weekAgo.getDate() - 6);
-      const [report, weekReport] = await Promise.all([
-        this.reportsService.getRevenue(companyId, { from: today, to: now }),
-        this.reportsService.getRevenue(companyId, { from: weekAgo, to: now }),
-      ]);
-      return {
-        totalOrders: report.orderCount,
-        totalRevenue: report.totalRevenue,
-        revenue: report.totalRevenue,
-        averageTicket: report.avgTicket,
-        totalProfit: report.grossProfit,
-        totalCmv: report.totalCmv,
-        margin: report.grossMargin * 100,
-        weekSeries: buildWeekSeries(weekAgo, weekReport.dailySeries),
-      };
+    // Fonte ÚNICA de verdade: ReportsService.getRevenue (que já une Order +
+    // OnlineOrder). Existia aqui um fallback manual que recalculava receita só
+    // a partir de `Order` — ou seja, uma segunda implementação do mesmo KPI,
+    // silenciosamente errada (ignorava o cardápio digital, CMV e margem).
+    // Removido: `ReportsModule` é importado incondicionalmente por
+    // `OrdersModule` e exporta `ReportsService`, então a injeção não falha em
+    // condições normais. Se falhar, é erro de configuração e tem que aparecer
+    // — não ser mascarado por um número plausível mas incorreto.
+    if (!this.reportsService) {
+      throw new ServiceUnavailableException(
+        'ReportsService indisponível — dashboard não pode ser calculado. Verifique se ReportsModule está importado em OrdersModule.',
+      );
     }
 
-    // Fallback defensivo — nunca deve rodar em produção (ReportsModule
-    // sempre importado), mantido só por robustez caso a injeção falhe.
-    const orders = await this.prisma.order.findMany({
-      where: { companyId, createdAt: { gte: today }, status: { not: OrderStatus.CANCELLED } },
-    });
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((acc, order) => acc + Number(order.total), 0);
+    const today = getStartOfTodayBrazil();
+    const now = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 6);
+
+    const [report, weekReport] = await Promise.all([
+      this.reportsService.getRevenue(companyId, { from: today, to: now }),
+      this.reportsService.getRevenue(companyId, { from: weekAgo, to: now }),
+    ]);
+
     return {
-      totalOrders,
-      totalRevenue,
-      revenue: totalRevenue,
-      averageTicket: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-      totalProfit: 0,
-      totalCmv: 0,
-      margin: 0,
-      weekSeries: [],
+      totalOrders: report.orderCount,
+      totalRevenue: report.totalRevenue,
+      revenue: report.totalRevenue,
+      averageTicket: report.avgTicket,
+      totalProfit: report.grossProfit,
+      totalCmv: report.totalCmv,
+      margin: report.grossMargin * 100,
+      weekSeries: buildWeekSeries(weekAgo, weekReport.dailySeries),
     };
   }
 

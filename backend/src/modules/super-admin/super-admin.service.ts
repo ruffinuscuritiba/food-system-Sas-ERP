@@ -2,10 +2,12 @@ import {
   Injectable,
   UnauthorizedException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash, timingSafeEqual } from 'crypto';
 import { PrismaService } from '@/database/prisma.service';
 import { PLATFORM_SELLER_COMPANY_ID } from '@/common/utils/matrix';
 
@@ -26,14 +28,39 @@ export class SuperAdminService {
     private configService: ConfigService,
   ) {}
 
+  /**
+   * Comparação de tempo constante — `a !== b` sai no primeiro caractere
+   * diferente, o que vaza (por tempo de resposta) o quanto do segredo o
+   * atacante já acertou. Aqui o custo é sempre o mesmo, independente de
+   * onde a diferença está.
+   */
+  private safeEquals(a: string, b: string): boolean {
+    // Compara os digests SHA-256 (sempre 32 bytes) em vez das strings cruas:
+    // timingSafeEqual exige buffers do mesmo tamanho, e comparar o tamanho
+    // antes vazaria o comprimento do segredo.
+    const digestA = createHash('sha256').update(a, 'utf8').digest();
+    const digestB = createHash('sha256').update(b, 'utf8').digest();
+    return timingSafeEqual(digestA, digestB);
+  }
+
   async login(email: string, password: string) {
-    const saEmail =
-      this.configService.get<string>('SUPER_ADMIN_EMAIL') ??
-      'superadmin@system.com';
-    const saPassword =
-      this.configService.get<string>('SUPER_ADMIN_PASSWORD') ??
-      'SuperAdmin@123';
-    if (email !== saEmail || password !== saPassword) {
+    // SEM fallback hardcoded: as credenciais de super-admin existem SOMENTE
+    // no ambiente. Antes havia `?? 'superadmin@system.com'` / `?? 'SuperAdmin@123'`
+    // aqui — valores públicos no repositório, ou seja, qualquer pessoa com
+    // acesso ao código podia entrar como super-admin em qualquer deploy que
+    // não tivesse sobrescrito as env vars. O schema de validação de ambiente
+    // (config/env.validation.ts) já impede a aplicação de subir sem elas;
+    // esta checagem é a segunda camada de defesa.
+    const saEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+    const saPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
+    if (!saEmail || !saPassword) {
+      throw new ServiceUnavailableException(
+        'Acesso de super-admin não configurado neste servidor (SUPER_ADMIN_EMAIL/SUPER_ADMIN_PASSWORD ausentes).',
+      );
+    }
+    const emailOk = this.safeEquals(email ?? '', saEmail);
+    const passwordOk = this.safeEquals(password ?? '', saPassword);
+    if (!emailOk || !passwordOk) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
     const accessToken = await this.jwtService.signAsync(

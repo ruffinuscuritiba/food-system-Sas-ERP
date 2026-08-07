@@ -1893,15 +1893,19 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     // prompt pra IA responder.
     let storeAddressInfo = '';
     if (company?.street) {
-      const parts = [
+      // Rótulos explícitos — sem isso a IA já confundiu "complemento" (ex:
+      // "Casa Amarela") com bairro numa resposta real (validado em produção).
+      const streetLine = [
         company.street,
         company.streetNumber ? `nº ${company.streetNumber}` : '',
-        company.complement || '',
       ].filter(Boolean).join(', ');
-      const cityLine = [company.neighborhood, company.city, company.state]
-        .filter(Boolean)
-        .join(' - ');
-      storeAddressInfo = [parts, cityLine, company.zipCode ? `CEP ${company.zipCode}` : '']
+      storeAddressInfo = [
+        streetLine,
+        company.complement ? `Complemento: ${company.complement}` : '',
+        company.neighborhood ? `Bairro: ${company.neighborhood}` : '',
+        [company.city, company.state].filter(Boolean).join('/') || '',
+        company.zipCode ? `CEP ${company.zipCode}` : '',
+      ]
         .filter(Boolean)
         .join(' — ');
     }

@@ -31,6 +31,8 @@ import { Roles } from '@/common/decorators/roles.decorator';
 
 import { CreateProductDto } from './dto/create-product.dto';
 
+import { Throttle } from '@nestjs/throttler';
+
 @Controller('products')
 export class ProductsController {
   constructor(
@@ -157,6 +159,17 @@ export class ProductsController {
     companyId: string,
   ) {
     return this.service.publicMenu(companyId);
+  }
+
+  // "Quem pediu isso também pediu" — usado no carrinho do cardápio digital
+  // pra sugerir upsell real (coocorrência de pedidos, sem IA nenhuma).
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get('public/frequently-bought-with/:companyId/:productId')
+  frequentlyBoughtWith(
+    @Param('companyId') companyId: string,
+    @Param('productId') productId: string,
+  ) {
+    return this.service.getFrequentlyBoughtWith(companyId, productId);
   }
 
   // Serve sob demanda a imagem de um produto que ainda está salva como

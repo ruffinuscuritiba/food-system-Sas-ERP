@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import { motion } from "framer-motion";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, ChevronDown,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
@@ -1820,10 +1821,34 @@ export default function MenuPage() {
 
   // ─── Loading / Error ─────────────────────────────────────────────────────────
   if (loading) {
+    // Skeleton em vez de spinner + tela em branco — dá pro cliente uma noção
+    // imediata do formato do cardápio (categorias + cards de produto) em vez
+    // de uma pausa "morta". O tema (cor/dark) ainda não foi carregado nesse
+    // ponto, então usa tons neutros fixos — o flash pro tema real ao terminar
+    // de carregar é mínimo e normal em qualquer app desse tipo.
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500 font-medium">Carregando cardápio...</p>
+      <div className="min-h-screen bg-gray-50 px-4 py-6 max-w-2xl mx-auto">
+        <div className="animate-pulse">
+          <div className="h-40 bg-gray-200 rounded-2xl mb-4" />
+          <div className="flex gap-2 mb-6 overflow-hidden">
+            {[72, 96, 64, 88, 60].map((w, i) => (
+              <div key={i} className="h-9 bg-gray-200 rounded-xl shrink-0" style={{ width: w }} />
+            ))}
+          </div>
+          <div className="space-y-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex bg-white">
+                <div className="flex-1 min-w-0 p-4 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded w-full" />
+                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                  <div className="h-6 bg-gray-200 rounded w-20 mt-2" />
+                </div>
+                <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -1855,11 +1880,36 @@ export default function MenuPage() {
     return b?.order ?? 99;
   };
   const featuredProducts = products.filter(p => !!p.featuredLabel || discountPercent(p) !== null).slice(0, 6);
-  // Order bump (upsell no checkout): produtos em destaque fora do carrinho;
-  // fallback para bebidas/sobremesas. Máx 4. Reaproveita publicMenu — zero backend.
+
+  // "Quem pediu isso também pediu" — coocorrência real de pedidos (backend
+  // conta produtos que apareceram JUNTO no mesmo pedido nos últimos 180 dias),
+  // não um chute de categoria. Refeito a cada item novo adicionado; loja sem
+  // histórico ainda (ou item nunca vendido junto com nada) devolve [] e o
+  // order bump cai no heurístico de sempre (ver abaixo) — nunca fica vazio.
+  const [frequentlyBoughtIds, setFrequentlyBoughtIds] = useState<string[]>([]);
+  const lastAddedProductId = cart.length > 0 ? cart[cart.length - 1].product.id : null;
+  useEffect(() => {
+    const targetCompanyId = realCompanyId || companyId;
+    if (!lastAddedProductId || !targetCompanyId) { setFrequentlyBoughtIds([]); return; }
+    let cancelled = false;
+    fetch(`${apiBaseUrl}/products/public/frequently-bought-with/${targetCompanyId}/${lastAddedProductId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { id: string }[]) => { if (!cancelled) setFrequentlyBoughtIds(Array.isArray(data) ? data.map((d) => d.id) : []); })
+      .catch(() => { if (!cancelled) setFrequentlyBoughtIds([]); });
+    return () => { cancelled = true; };
+  }, [lastAddedProductId, realCompanyId, companyId]);
+
+  // Order bump (upsell no checkout): 1º a coocorrência real acima; completa
+  // as vagas restantes (até 4) com o heurístico antigo — destaque/bebida/
+  // sobremesa — sem duplicar. Reaproveita publicMenu pro heurístico, zero
+  // backend extra além da chamada de coocorrência.
   const orderBumpProducts = (() => {
     if (cart.length === 0) return [];
     const inCart = new Set(cart.map(i => i.product.id));
+    const frequentlyBought = frequentlyBoughtIds
+      .map((id) => products.find((p) => p.id === id))
+      .filter((p): p is Product => !!p && p.isActive && !inCart.has(p.id));
+
     const isUpsellCat = (p: Product) =>
       p.category?.categoryType === "bebidas" ||
       /bebida|sobremesa|doce|drink|refri|suco|adicional/i.test(p.category?.name || "");
@@ -1869,9 +1919,14 @@ export default function MenuPage() {
     const beverages = products.filter(p => p.isActive && !inCart.has(p.id) && p.category?.categoryType === "bebidas");
     const featured = products.filter(p => p.isActive && !inCart.has(p.id) && !!p.featuredLabel && !beverages.some(b => b.id === p.id));
     const extra = products.filter(p => p.isActive && !inCart.has(p.id) && isUpsellCat(p) && !beverages.some(b => b.id === p.id) && !featured.some(f => f.id === p.id));
-    return [...beverages, ...featured, ...extra].slice(0, 4);
+
+    const combined = [...frequentlyBought, ...beverages, ...featured, ...extra];
+    const seen = new Set<string>();
+    const deduped = combined.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+    return deduped.slice(0, 4);
   })();
-  const orderBumpIsBeverage = orderBumpProducts.some(p => p.category?.categoryType === "bebidas");
+  const orderBumpIsFrequentlyBought = frequentlyBoughtIds.length > 0 && orderBumpProducts.some(p => frequentlyBoughtIds.includes(p.id));
+  const orderBumpIsBeverage = !orderBumpIsFrequentlyBought && orderBumpProducts.some(p => p.category?.categoryType === "bebidas");
   const showFeatured = blockVisible("featured") && featuredProducts.length > 0;
   const featuredBeforeCategories = blockOrder("featured") < blockOrder("categories");
   // Estilo "App" — categorias em avatar circular + cards de produto full-bleed
@@ -2137,6 +2192,22 @@ export default function MenuPage() {
             : (cartCount > 0 ? "calc(10.5rem + env(safe-area-inset-bottom))" : "calc(6rem + env(safe-area-inset-bottom))"),
         }}
       >
+        {/* Transição suave ao trocar de categoria — sem isso a lista trocava
+            de conteúdo sem nenhum feedback visual, parecia "travar". A key
+            usa só activeCategory (não `search`) de propósito: animar a cada
+            letra digitada na busca seria irritante, não "delicioso".
+            Só entrada (sem AnimatePresence/exit) — testado ao vivo que
+            AnimatePresence quebrava a própria troca de categoria nesta
+            árvore (o filho nunca re-renderizava com o novo activeCategory,
+            possivelmente por causa da profundidade/tamanho desta árvore JSX).
+            motion.div com key ainda dispara o "initial→animate" a cada
+            remount do React, que é o efeito que importa aqui. */}
+          <motion.div
+            key={activeCategory}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
         {filtered.length === 0 ? (
           <p className="text-gray-400 text-center py-20">Nenhum produto disponível</p>
         ) : (() => {
@@ -2182,7 +2253,7 @@ export default function MenuPage() {
                       )}
                       <button
                         onClick={() => addToCart(product)}
-                        className="w-full py-1.5 rounded-xl font-black text-white text-sm flex items-center justify-center gap-1 transition mt-1"
+                        className="w-full py-1.5 rounded-xl font-black text-white text-sm flex items-center justify-center gap-1 transition active:scale-90 mt-1"
                         style={{ backgroundColor: theme.primaryColor }}
                       >
                         <Plus size={13} /> Adicionar
@@ -2255,7 +2326,7 @@ export default function MenuPage() {
                           {shouldOpenFlavorBuilder(product) ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); openFlavorModal(product); }}
-                              className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
+                              className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-90 shrink-0"
                               style={{ backgroundColor: theme.primaryColor }}
                             >
                               <Plus size={14} /> Adicionar
@@ -2263,7 +2334,7 @@ export default function MenuPage() {
                           ) : (
                             <button
                               onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                              className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition shrink-0"
+                              className="text-white px-3 py-2 rounded-xl font-black text-xs flex items-center gap-1 transition active:scale-90 shrink-0"
                               style={{ backgroundColor: theme.primaryColor }}
                             >
                               <Plus size={14} /> Adicionar
@@ -2310,7 +2381,7 @@ export default function MenuPage() {
                         {shouldOpenFlavorBuilder(product) ? (
                           <button
                             onClick={() => openFlavorModal(product)}
-                            className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                            className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition active:scale-90 text-sm"
                             style={{ backgroundColor: theme.primaryColor }}
                           >
                             <Plus size={14} /> Adicionar
@@ -2318,7 +2389,7 @@ export default function MenuPage() {
                         ) : (
                           <button
                             onClick={() => addToCart(product)}
-                            className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition text-sm"
+                            className="text-white px-4 py-1.5 rounded-xl font-bold flex items-center gap-1 transition active:scale-90 text-sm"
                             style={{ backgroundColor: theme.primaryColor }}
                           >
                             <Plus size={14} /> Adicionar
@@ -2384,6 +2455,7 @@ export default function MenuPage() {
             </div>
           );
         })()}
+          </motion.div>
       </main>
 
       {/* ─── Complementos modal ───────────────────────────────────────────────── */}
@@ -2424,14 +2496,29 @@ export default function MenuPage() {
           className={`fixed left-0 right-0 z-40 flex justify-center px-4 ${isTotem ? "bottom-6" : "bottom-[76px]"}`}
           style={{ paddingBottom: isTotem ? "env(safe-area-inset-bottom)" : undefined }}
         >
-          <button
+          <motion.button
             onClick={() => setShowCart(true)}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
             className="bg-[var(--color-primary)] hover:opacity-90 text-white px-8 py-4 rounded-2xl font-black text-base shadow-xl shadow-orange-500/40 flex items-center gap-3 transition max-w-sm w-full justify-between"
           >
-            <span className="bg-white/20 rounded-xl px-2.5 py-0.5 text-sm font-black">{cartCount}</span>
+            {/* key={cartCount} força o "pop" toda vez que a quantidade muda —
+                é o feedback de "seu item entrou no carrinho" sem precisar de
+                uma animação de voo (mais barata, mesma sensação de resposta). */}
+            <motion.span
+              key={cartCount}
+              initial={{ scale: 1.5 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 15 }}
+              className="bg-white/20 rounded-xl px-2.5 py-0.5 text-sm font-black"
+            >
+              {cartCount}
+            </motion.span>
             <span>Ver pedido</span>
             <span className="font-black">R$ {cartTotal.toFixed(2)}</span>
-          </button>
+          </motion.button>
         </div>
       )}
 
@@ -2562,7 +2649,7 @@ export default function MenuPage() {
                 <div className="pt-3 mt-1 border-t border-dashed" style={{ borderColor: "var(--menu-border)" }}>
                   <p className="text-sm font-black mb-2.5 flex items-center gap-1.5" style={{ color: "var(--menu-text)" }}>
                     <Sparkles size={15} style={{ color: theme.primaryColor }} />
-                    {orderBumpIsBeverage ? "🥤 Que tal uma bebida?" : "✨ Sugestões pra você"}
+                    {orderBumpIsFrequentlyBought ? "🔥 Combina com seu pedido" : orderBumpIsBeverage ? "🥤 Que tal uma bebida?" : "✨ Sugestões pra você"}
                   </p>
                   <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
                     {orderBumpProducts.map((p) => (

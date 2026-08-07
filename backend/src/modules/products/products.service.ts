@@ -297,6 +297,91 @@ export class ProductsService {
     });
   }
 
+  /**
+   * "Quem pediu isso também pediu" — coocorrência real de pedidos, sem IA
+   * nenhuma: conta, entre os pedidos dos últimos 180 dias que continham
+   * `productId`, quais OUTROS produtos apareceram no mesmo pedido, e devolve
+   * os mais frequentes. Público (cardápio digital chama sem login) porque
+   * não expõe nada sensível — só contagem agregada, sem nome/telefone de
+   * cliente.
+   *
+   * Une Order (PDV/mesa/WhatsApp, tem OrderItem relacional) + OnlineOrder
+   * (cardápio digital/totem, `items` é JSON solto) — mesmo motivo de
+   * ReportsService.getRevenue: o canal mais comum (cardápio digital) ficaria
+   * de fora se só olhasse Order, e a recomendação pareceria sempre vazia ou
+   * genérica pras lojas que vendem majoritariamente pelo link do cardápio.
+   */
+  async getFrequentlyBoughtWith(
+    slugOrId: string,
+    productId: string,
+    limit = 4,
+  ) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    if (!company) return [];
+    const companyId = company.id;
+
+    const since = new Date();
+    since.setDate(since.getDate() - 180);
+
+    const counts = new Map<string, number>();
+    const bump = (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1);
+
+    // ── Order (PDV/mesa/WhatsApp) ────────────────────────────────────────
+    const orders = await this.prisma.order.findMany({
+      where: {
+        companyId,
+        status: { not: 'CANCELLED' },
+        createdAt: { gte: since },
+        items: { some: { productId } },
+      },
+      select: { items: { select: { productId: true } } },
+      take: 500,
+    });
+    for (const order of orders) {
+      for (const item of order.items) {
+        if (item.productId !== productId) bump(item.productId);
+      }
+    }
+
+    // ── OnlineOrder (cardápio digital/totem) ─────────────────────────────
+    const onlineOrders = await this.prisma.onlineOrder.findMany({
+      where: {
+        companyId,
+        orderStatus: { not: 'CANCELED' },
+        createdAt: { gte: since },
+      },
+      select: { items: true },
+      take: 500,
+    });
+    for (const order of onlineOrders) {
+      const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+      const hasTarget = items.some((it) => it?.productId === productId);
+      if (!hasTarget) continue;
+      for (const it of items) {
+        if (it?.productId && it.productId !== productId) bump(it.productId);
+      }
+    }
+
+    if (counts.size === 0) return [];
+
+    const topIds = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([id]) => id);
+
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: topIds }, companyId, isActive: true, deletedAt: null },
+      select: { id: true, name: true, salePrice: true, imageUrl: true },
+    });
+
+    // Reordena pela contagem (findMany não garante a ordem de `in`).
+    const byId = new Map(products.map((p) => [p.id, p]));
+    return topIds.map((id) => byId.get(id)).filter(Boolean);
+  }
+
   async getPublicImage(id: string): Promise<{ mime: string; buffer: Buffer }> {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },

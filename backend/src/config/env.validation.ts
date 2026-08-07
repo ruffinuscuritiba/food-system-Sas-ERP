@@ -35,8 +35,17 @@ const requiredSchema = Joi.object({
   // Credenciais do super-admin: não existe mais fallback no código
   // (super-admin.service.ts), então sem estas o painel de super-admin fica
   // inacessível — falhar no boot é melhor que descobrir isso na hora do uso.
+  //
+  // `tlds: false` é OBRIGATÓRIO aqui: por convenção deste projeto, contas de
+  // serviço/admin internas usam domínio fake `@empresa.internal` (mesmo
+  // padrão de `platform@foodsaas.internal` usado em outros logins do
+  // sistema) — o validador de TLD do Joi (`.email()` sem essa opção) só
+  // aceita TLDs reais da IANA e rejeitaria ".internal", derrubando a
+  // aplicação inteira no boot mesmo com a variável corretamente configurada
+  // (foi exatamente o que aconteceu na primeira tentativa de deploy desta
+  // validação — SUPER_ADMIN_EMAIL de produção real rejeitado por isso).
   SUPER_ADMIN_EMAIL: Joi.string()
-    .email()
+    .email({ tlds: false })
     .invalid('superadmin@system.com')
     .required()
     .messages({

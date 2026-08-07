@@ -72,6 +72,7 @@ export class ClaudeCartService {
     menuContext: string;
     currentCart: CartStatus;
     conversationHistory: { role: 'user' | 'assistant'; content: string }[];
+    storeAddressInfo?: string;
     deliveryContext?: string;
     pizzaBordersContext?: string;
     businessHoursInfo?: string;
@@ -212,6 +213,7 @@ export class ClaudeCartService {
     attendantName: string;
     menuContext: string;
     currentCart: CartStatus;
+    storeAddressInfo?: string;
     deliveryContext?: string;
     pizzaBordersContext?: string;
     businessHoursInfo?: string;
@@ -242,6 +244,7 @@ export class ClaudeCartService {
       : '';
 
     const operationalSection = [
+      params.storeAddressInfo ? `📍 Endereço físico da loja: ${params.storeAddressInfo}` : '',
       params.businessHoursInfo ? `⏰ ${params.businessHoursInfo}` : '',
       params.paymentInfo ? `💳 ${params.paymentInfo}` : '',
     ]
@@ -295,7 +298,7 @@ Você não é apenas um sistema de pedidos. Você é a voz da ${company} no What
 6. Confirme sempre antes de fechar: "Deixa eu confirmar: você quer [itens], entrega em [endereço], pagando com [forma], certo? 😊"
 
 — DÚVIDAS SOBRE O SISTEMA —
-7. Se o cliente perguntar sobre bairros atendidos → responda com as zonas de entrega disponíveis abaixo.
+7. Se o cliente perguntar "qual o endereço", "onde vocês ficam" ou "em que bairro fica a loja/pizzaria" → responda com o endereço físico da loja (📍 acima), nunca confunda com a lista de zonas de entrega. Se perguntar quais bairros a loja ENTREGA (ex: "vocês entregam no meu bairro?") → responda com as zonas de entrega disponíveis abaixo. Se não houver endereço físico cadastrado, diga que não tem essa informação à mão e ofereça conectar com um atendente.
 8. Se perguntar sobre formas de pagamento → explique as opções disponíveis.
 9. Se perguntar sobre horário de funcionamento → informe o horário operacional.
 10. Se perguntar sobre ingredientes ou tamanhos → responda com base no cardápio. Se não souber algo específico, diga: "Não tenho essa informação aqui, mas posso te conectar com um de nossos atendentes!"

@@ -1875,10 +1875,36 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         acceptDebitCard: true,
         acceptMealVoucher: true,
         customPaymentMethods: true,
+        street: true,
+        streetNumber: true,
+        complement: true,
+        neighborhood: true,
+        city: true,
+        state: true,
+        zipCode: true,
       },
     });
     const companyName = company?.name ?? 'nossa loja';
     const attendantName = settings.attendantName ?? 'Atendente';
+
+    // Endereço FÍSICO da loja (onde ela fica) — nunca confundir com as zonas
+    // de entrega abaixo (bairros que ela ENTREGA). Sem isso, "qual o endereço
+    // da pizzaria?"/"onde vocês ficam?" não tinha nenhuma informação no
+    // prompt pra IA responder.
+    let storeAddressInfo = '';
+    if (company?.street) {
+      const parts = [
+        company.street,
+        company.streetNumber ? `nº ${company.streetNumber}` : '',
+        company.complement || '',
+      ].filter(Boolean).join(', ');
+      const cityLine = [company.neighborhood, company.city, company.state]
+        .filter(Boolean)
+        .join(' - ');
+      storeAddressInfo = [parts, cityLine, company.zipCode ? `CEP ${company.zipCode}` : '']
+        .filter(Boolean)
+        .join(' — ');
+    }
 
     let deliveryContext = '';
     try {
@@ -1942,6 +1968,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         menuContext: menuCtx,
         currentCart,
         conversationHistory,
+        storeAddressInfo,
         deliveryContext,
         pizzaBordersContext,
         businessHoursInfo,

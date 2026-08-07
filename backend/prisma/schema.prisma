@@ -2455,3 +2455,19 @@ model CashbackConfig {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Carrinho compartilhado por mesa — pedido em grupo no cardápio digital.
+// Todo mundo que escaneia o mesmo QR (?table=N) cai na mesma linha
+// (companyId+tableNumber) e vê o carrinho de todo mundo em tempo real via
+// socket (ver SocketGateway.emitTableCartUpdated). Sem sessionToken —
+// o próprio QR físico da mesa já é o "convite", não precisa de outro segredo.
+model TableCart {
+  id          String   @id @default(cuid())
+  companyId   String
+  tableNumber String
+  items       Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, tableNumber])
+}

@@ -144,6 +144,33 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Pedido em grupo por mesa: qualquer pessoa que escaneou o QR da mesa
+   * entra na mesma room (sem token — o QR físico já é o "convite") e recebe
+   * o carrinho compartilhado em tempo real. Ver TableCartService.
+   */
+  @SubscribeMessage('joinTableCart')
+  handleJoinTableCart(
+    @MessageBody() data: { companyId: string; tableNumber: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (data?.companyId && data?.tableNumber) {
+      client.join(`table-cart:${data.companyId}:${data.tableNumber}`);
+      return { ok: true };
+    }
+    return { ok: false };
+  }
+
+  emitTableCartUpdated(
+    companyId: string,
+    tableNumber: string,
+    items: unknown[],
+  ) {
+    this.server
+      .to(`table-cart:${companyId}:${tableNumber}`)
+      .emit('tableCartUpdated', { companyId, tableNumber, items });
+  }
+
+  /**
    * Emit para a room específica do pedido (cliente público escutando).
    * Usado em updateKitchenStatus e criação de OnlineOrder.
    */

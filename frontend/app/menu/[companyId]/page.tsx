@@ -1,15 +1,16 @@
 "use client";
-import { apiBaseUrl } from "@/services/env";
+import { apiBaseUrl, socketBaseUrl } from "@/services/env";
 import { useEffect, useState, useCallback, useRef } from "react";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { motion } from "framer-motion";
+import { io } from "socket.io-client";
 import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, ChevronDown,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
   MapPin, Clock, Phone, Search, Copy, Timer, Eye, Sparkles,
-  Home, ClipboardList, Pencil, ArrowLeft,
+  Home, ClipboardList, Pencil, ArrowLeft, Users,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
@@ -257,6 +258,12 @@ export default function MenuPage() {
   // Pizza size configs — maxFlavors per size
   const [pizzaSizeConfigs, setPizzaSizeConfigs] = useState<{ size: string; label: string; slices: number; maxFlavors: number; isActive: boolean }[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  // Carrinho compartilhado por mesa: todo mundo que escaneou o mesmo QR
+  // (?table=N) vê e edita o mesmo carrinho em tempo real via socket — não se
+  // aplica ao Totem (aparelho fixo único, sem múltiplos dispositivos).
+  const [tableCartConnected, setTableCartConnected] = useState(false);
+  const suppressCartSyncRef = useRef(false);
+  const cartSyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(initialTableNumber);
@@ -677,6 +684,67 @@ export default function MenuPage() {
     return () => clearInterval(id);
   }, [isTotem, totemDeviceId, realCompanyId, tableNumber]);
 
+  /* ── Carrinho compartilhado por mesa (pedido em grupo) ───────────
+     Só faz sentido pra mesa via QR próprio (não Totem — aparelho fixo
+     único) e só depois que `loadMenu` resolveu o companyId real, senão
+     entraríamos na room errada (slug em vez do id de verdade). */
+  const sharedCartEnabled = !!tableNumber && !isTotem;
+  useEffect(() => {
+    if (!sharedCartEnabled || loading || !realCompanyId || !tableNumber) return;
+
+    const sock = io(socketBaseUrl, { transports: ["polling", "websocket"] });
+
+    sock.on("connect", () => {
+      setTableCartConnected(true);
+      sock.emit("joinTableCart", { companyId: realCompanyId, tableNumber });
+    });
+    sock.on("disconnect", () => setTableCartConnected(false));
+    sock.on("tableCartUpdated", (payload: { items?: CartItem[] }) => {
+      suppressCartSyncRef.current = true;
+      setCart(Array.isArray(payload?.items) ? payload.items : []);
+    });
+
+    // Hydrata com o que já estiver salvo pra essa mesa (alguém pode ter
+    // adicionado itens antes deste aparelho entrar).
+    fetch(`${apiBaseUrl}/table-cart/${realCompanyId}/${tableNumber}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (Array.isArray(data?.items) && data.items.length > 0) {
+          suppressCartSyncRef.current = true;
+          setCart(data.items);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      sock.disconnect();
+      setTableCartConnected(false);
+    };
+  }, [sharedCartEnabled, loading, realCompanyId, tableNumber]);
+
+  /* Propaga mudanças locais do carrinho pras outras pessoas da mesa —
+     debounced, e pulando o eco de uma atualização que acabou de chegar
+     de outro dispositivo (senão viraria um loop infinito de broadcast). */
+  useEffect(() => {
+    if (!sharedCartEnabled || loading || !realCompanyId || !tableNumber) return;
+    if (suppressCartSyncRef.current) {
+      suppressCartSyncRef.current = false;
+      return;
+    }
+    if (cartSyncDebounceRef.current) clearTimeout(cartSyncDebounceRef.current);
+    cartSyncDebounceRef.current = setTimeout(() => {
+      fetch(`${apiBaseUrl}/table-cart/${realCompanyId}/${tableNumber}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: cart }),
+      }).catch(() => {});
+    }, 500);
+    return () => {
+      if (cartSyncDebounceRef.current) clearTimeout(cartSyncDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, sharedCartEnabled, loading, realCompanyId, tableNumber]);
+
   /* ── PIX payment polling ──────────────────────────────────────── */
   useEffect(() => {
     if (!showPixScreen || !onlineOrderId || pixPaid || pixExpired) return;
@@ -687,6 +755,9 @@ export default function MenuPage() {
         const data = await res.json();
         if (data.paymentStatus === "APPROVED") {
           setPixPaid(true);
+          // Pedido da mesa inteira já foi pago — libera o carrinho compartilhado
+          // pro próximo grupo sem depender de alguém clicar "Fazer novo pedido".
+          setCart([]);
           clearInterval(poll);
         } else if (data.paymentStatus === "REJECTED" || data.paymentStatus === "EXPIRED") {
           clearInterval(poll);
@@ -1970,6 +2041,14 @@ export default function MenuPage() {
             {tableNumber && (
               <span className="shrink-0 bg-white/25 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
                 Mesa {tableNumber}
+              </span>
+            )}
+            {sharedCartEnabled && tableCartConnected && (
+              <span
+                className="shrink-0 flex items-center gap-1 bg-white/25 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                title="Todo mundo na mesa vê e adiciona itens neste mesmo carrinho"
+              >
+                <Users size={11} /> Carrinho compartilhado
               </span>
             )}
           </div>

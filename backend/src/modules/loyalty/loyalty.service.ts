@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '@/database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { normalizePhoneBr } from '@/common/utils/phone';
+import { CompanyService } from '@/modules/company/company.service';
 
 // Regras configuráveis por loja (idealmente viria de Company settings)
 const POINTS_PER_REAL = 1; // 1 ponto por R$ 1,00
@@ -26,7 +27,10 @@ function phoneLast8(raw: string | null | undefined): string | null {
 export class LoyaltyService {
   private readonly logger = new Logger(LoyaltyService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private companyService: CompanyService,
+  ) {}
 
   /**
    * Acha (ou cria) o Customer dono desse telefone nessa empresa — sem isso,
@@ -102,7 +106,9 @@ export class LoyaltyService {
   }
 
   /** Endpoint público (checkout do cardápio) — nunca expõe mais que isso. */
-  async getPublicCashbackConfig(companyId: string) {
+  async getPublicCashbackConfig(companySlugOrId: string) {
+    const companyId = await this.companyService.resolveId(companySlugOrId);
+    if (!companyId) return { isActive: false, ratePercent: 0 };
     const config = await this.getCashbackConfig(companyId);
     return { isActive: config.isActive, ratePercent: Number(config.ratePercent) };
   }
@@ -356,10 +362,13 @@ export class LoyaltyService {
 
   // ── Saldo da conta de fidelidade — por telefone (nunca por customerId:
   // o chamador público, o checkout do cardápio, só conhece o telefone) ──────
-  async getBalance(phone: string, companyId: string) {
+  async getBalance(phone: string, companySlugOrId: string) {
     const empty = { totalPoints: 0, totalCashback: 0, redeemableValue: 0, transactions: [] as any[] };
     const last8 = phoneLast8(phone);
     if (!last8) return empty;
+
+    const companyId = await this.companyService.resolveId(companySlugOrId);
+    if (!companyId) return empty;
 
     const customer = await this.prisma.customer.findFirst({
       where: { companyId, phone: { endsWith: last8 } },

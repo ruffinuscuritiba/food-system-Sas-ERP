@@ -266,6 +266,46 @@ ${contextBlock}`;
       take: 20,
     });
 
+    // Fallback simétrico — sem isso, um 404 de modelo aposentado ou quota
+    // estourada do Gemini derrubava a "Consultora IA" inteira sem nenhuma
+    // rede de segurança (achado real: gemini-1.5-flash aposentado deixou
+    // esse botão sempre quebrado; corrigido o modelo, mas a mesma classe de
+    // falha pode acontecer de novo por quota/billing — mesmo padrão já usado
+    // em claude-cart.service.ts/whatsapp-ai.service.ts).
+    let answer: string;
+    let tokensUsed: number;
+    try {
+      const geminiResult = await this.askGemini(systemInstruction, history, question);
+      answer = geminiResult.answer;
+      tokensUsed = geminiResult.tokensUsed;
+    } catch (err: any) {
+      this.logger.warn(
+        `IaService.ask: Gemini falhou (${err?.message?.slice(0, 120)}) — tentando Anthropic`,
+      );
+      answer = await this.askAnthropic(systemInstruction, history, question);
+      tokensUsed = 0;
+    }
+
+    await this.prisma.aiMessage.createMany({
+      data: [
+        { conversationId: conv.id, role: 'USER', content: question },
+        {
+          conversationId: conv.id,
+          role: 'ASSISTANT',
+          content: answer,
+          tokensUsed,
+        },
+      ],
+    });
+
+    return { conversationId: conv.id, answer, tokensUsed };
+  }
+
+  private async askGemini(
+    systemInstruction: string,
+    history: { role: string; content: string }[],
+    question: string,
+  ): Promise<{ answer: string; tokensUsed: number }> {
     const model = this.genai.getGenerativeModel({
       model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
       systemInstruction,
@@ -283,20 +323,49 @@ ${contextBlock}`;
     const usage = result.response.usageMetadata;
     const tokensUsed =
       (usage?.promptTokenCount ?? 0) + (usage?.candidatesTokenCount ?? 0);
+    return { answer, tokensUsed };
+  }
 
-    await this.prisma.aiMessage.createMany({
-      data: [
-        { conversationId: conv.id, role: 'USER', content: question },
-        {
-          conversationId: conv.id,
-          role: 'ASSISTANT',
-          content: answer,
-          tokensUsed,
-        },
-      ],
+  private async askAnthropic(
+    systemInstruction: string,
+    history: { role: string; content: string }[],
+    question: string,
+  ): Promise<string> {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error('ANTHROPIC_API_KEY ausente — sem fallback disponível');
+
+    const messages = [
+      ...history.map((m) => ({
+        role: m.role === 'USER' ? ('user' as const) : ('assistant' as const),
+        content: m.content,
+      })),
+      { role: 'user' as const, content: question },
+    ];
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+        system: systemInstruction,
+        messages,
+        max_tokens: 1024,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(30_000),
     });
 
-    return { conversationId: conv.id, answer, tokensUsed };
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Anthropic API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = (await res.json()) as any;
+    return (data?.content?.[0]?.text ?? '') as string;
   }
 
   async listConversations(companyId: string) {

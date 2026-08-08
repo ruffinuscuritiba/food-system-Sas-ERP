@@ -1853,7 +1853,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     });
     historyRaw.reverse();
 
-    const conversationHistory: {
+    const rawConversationHistory: {
       role: 'user' | 'assistant';
       content: string;
     }[] = historyRaw
@@ -1862,6 +1862,26 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         role: m.role === 'USER' ? ('user' as const) : ('assistant' as const),
         content: m.content,
       }));
+
+    // A API da Anthropic exige alternância estrita user/assistant — se o
+    // cliente manda 2+ mensagens seguidas antes da IA responder à primeira
+    // (comum: "Que bom" + 😊 em mensagens separadas), o histórico chega com
+    // 2 turns consecutivos do mesmo role e a Anthropic derruba com HTTP 400
+    // invalid_request_error (validado ao vivo em produção — sem lock por
+    // conversa, os dois webhooks concorrentes salvam ambas as mensagens no
+    // banco antes de qualquer um terminar de chamar a IA). Mescla turns
+    // consecutivos do mesmo role em vez de tentar serializar o webhook.
+    const conversationHistory = rawConversationHistory.reduce<
+      { role: 'user' | 'assistant'; content: string }[]
+    >((acc, msg) => {
+      const last = acc[acc.length - 1];
+      if (last && last.role === msg.role) {
+        last.content += `\n${msg.content}`;
+      } else {
+        acc.push({ ...msg });
+      }
+      return acc;
+    }, []);
 
     const menuCtx = this.promptService.buildMenuContext(products, categories);
     const company = await this.prisma.company.findUnique({

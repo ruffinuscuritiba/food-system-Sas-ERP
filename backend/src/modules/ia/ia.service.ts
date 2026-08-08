@@ -267,7 +267,7 @@ ${contextBlock}`;
     });
 
     const model = this.genai.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
       systemInstruction,
     });
 
@@ -452,7 +452,7 @@ ${contextBlock}`;
   ): Promise<void> {
     try {
       const model = this.genai.getGenerativeModel({
-        model: process.env.GEMINI_MODEL ?? 'gemini-1.5-flash',
+        model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
         systemInstruction: systemPrompt,
         generationConfig: { maxOutputTokens: 900 },
       });

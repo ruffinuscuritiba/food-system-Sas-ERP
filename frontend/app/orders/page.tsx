@@ -156,7 +156,7 @@ async function printOrder(order: Order, companyName: string) {
 // ── Edit Notes Modal ──────────────────────────────────────────────────────────
 
 function EditNotesModal({
-  order,
+  order: initialOrder,
   onClose,
   onSaved,
 }: {
@@ -164,6 +164,43 @@ function EditNotesModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // Cópia local que reflete itens/total novos ao vivo (adicionar item não
+  // fecha o modal — operador pode acrescentar vários em sequência); o resto
+  // do modal (desconto, forma de pagamento) usa `order` normalmente.
+  const [order, setOrder] = useState(initialOrder);
+  const orderFinalized = order.status === "DELIVERED" || order.status === "CANCELLED";
+
+  const [products, setProducts] = useState<{ id: string; name: string; salePrice: number; isActive: boolean }[]>([]);
+  const [addProductId, setAddProductId] = useState("");
+  const [addQty, setAddQty] = useState("1");
+  const [addingItem, setAddingItem] = useState(false);
+
+  useEffect(() => {
+    api.get("/products").then((r) => setProducts(r.data || [])).catch(() => {});
+  }, []);
+
+  async function addItem() {
+    if (!addProductId) { toast.error("Escolha um produto"); return; }
+    const qty = parseInt(addQty, 10);
+    if (!qty || qty <= 0) { toast.error("Quantidade inválida"); return; }
+    setAddingItem(true);
+    try {
+      const { data } = await api.post(`/orders/${order.id}/items`, {
+        productId: addProductId,
+        quantity: qty,
+      });
+      setOrder(data);
+      setAddProductId("");
+      setAddQty("1");
+      toast.success("Item acrescentado ao pedido");
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Erro ao acrescentar item");
+    } finally {
+      setAddingItem(false);
+    }
+  }
+
   const [notes, setNotes] = useState(order.notes || "");
   const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod);
   // Desconto pós-criação (ex: caixa sem troco, abateu a diferença depois de
@@ -444,6 +481,54 @@ function EditNotesModal({
               />
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">
+              Itens do pedido
+            </label>
+            <div className="space-y-1.5 mb-2">
+              {order.items.map((it) => (
+                <div key={it.id} className="flex items-center justify-between text-xs bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-1.5">
+                  <span className="text-gray-700">{it.quantity}x {it.productName}</span>
+                  <span className="font-semibold text-gray-600">R$ {Number(it.subtotal).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            {orderFinalized ? (
+              <p className="text-[11px] text-gray-400">
+                Pedido já finalizado/cancelado — não é mais possível acrescentar itens.
+              </p>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={addProductId}
+                  onChange={(e) => setAddProductId(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none bg-white"
+                >
+                  <option value="">Escolher produto...</option>
+                  {products.filter((p) => p.isActive).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — R$ {Number(p.salePrice).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={addQty}
+                  onChange={(e) => setAddQty(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  className="w-12 border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none text-center"
+                />
+                <button
+                  type="button"
+                  onClick={addItem}
+                  disabled={addingItem || !addProductId}
+                  className="shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white p-2 rounded-lg transition"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">

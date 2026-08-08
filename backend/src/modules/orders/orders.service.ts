@@ -1349,6 +1349,172 @@ export class OrdersService {
   }
 
   /**
+   * Acrescenta um item a um pedido já criado (ex: cliente pediu mais uma
+   * pizza depois que o pedido original já tinha sido lançado — antes não
+   * existia caminho nenhum pra isso, o operador precisava criar um 2º
+   * pedido separado). Regras:
+   * - Bloqueado em pedido CANCELLED/DELIVERED (já finalizado).
+   * - Se o pedido ainda está PENDING, o item some junto no consumo normal
+   *   de estoque quando for confirmado (mesmo caminho de sempre) — não
+   *   consome nada aqui.
+   * - Se o pedido já passou de PENDING (estoque dos itens antigos já foi
+   *   consumido em CONFIRMED), consome a receita SÓ do item novo agora,
+   *   na mesma transação, com o mesmo cálculo de CMV/profit do updateStatus.
+   * - Reconcilia o caixa com a MESMA lógica de updateOrderDetails: só mexe
+   *   se o pedido já tinha passado por CONFIRMED (cashId setado) e o
+   *   pagamento é 100% dinheiro (paymentMethod='CASH', nunca SPLIT/PIX/
+   *   cartão) — nesse caso o cashReceived acompanha o novo total sozinho.
+   *   Pagamento dividido/eletrônico não mexe automaticamente: o operador
+   *   ajusta manualmente em "Editar Pedido" se cobrar o adicional à parte.
+   */
+  async addOrderItem(
+    id: string,
+    companyId: string,
+    userId: string,
+    dto: {
+      productId: string;
+      quantity: number;
+      unitPrice?: number;
+      productName?: string;
+      notes?: string;
+    },
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: { id, companyId },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new ForbiddenException('Pedido cancelado não pode ser editado.');
+    }
+    if (order.status === OrderStatus.DELIVERED) {
+      throw new ForbiddenException('Pedido já finalizado não pode ser editado.');
+    }
+
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.productId, companyId },
+    });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+
+    const quantity = Number(dto.quantity);
+    if (!quantity || quantity <= 0) {
+      throw new BadRequestException('Quantidade inválida.');
+    }
+
+    const unitPrice =
+      dto.unitPrice != null && Number(dto.unitPrice) > 0
+        ? Number(dto.unitPrice)
+        : Number(product.salePrice || 0);
+    const itemSubtotal = quantity * unitPrice;
+
+    const oldTotal = Number(order.total);
+    const newSubtotal = Number(order.subtotal) + itemSubtotal;
+    const newTotal = newSubtotal - Number(order.discount) + Number(order.deliveryFee);
+
+    // Pagamento 100% dinheiro acompanha o novo total automaticamente; split/
+    // eletrônico fica como estava (operador reconcilia manualmente).
+    const newCashReceived =
+      order.paymentMethod === 'CASH' ? newTotal : order.cashReceived;
+
+    const updatedOrder = await this.prisma.$transaction(
+      async (tx) => {
+        const createdItem = await tx.orderItem.create({
+          data: {
+            orderId: id,
+            productId: product.id,
+            quantity,
+            unitPrice,
+            subtotal: itemSubtotal,
+            notes: dto.notes,
+            companyId,
+            productName: (dto.productName && dto.productName.trim()) || product.name,
+            productSku: product.sku,
+            productCost: product.costPrice,
+          },
+        });
+
+        // Estoque já foi consumido pros itens antigos na confirmação — o
+        // item novo precisa passar pela receita agora, senão nunca teria
+        // ingrediente debitado nem CMV calculado.
+        if (order.status !== OrderStatus.PENDING) {
+          const recipe = await tx.recipe.findFirst({
+            where: { productId: product.id },
+            include: { items: { include: { ingredient: true } } },
+          });
+          if (recipe) {
+            let itemCmv = 0;
+            for (const recipeItem of recipe.items) {
+              const quantityToConsume = Number(recipeItem.quantity) * quantity;
+              const ingredientCost = Number(
+                recipeItem.ingredient.averageCost || recipeItem.ingredient.cost,
+              );
+              itemCmv += ingredientCost * quantityToConsume;
+              await this.stockService.consumeIngredientTransactional(tx, {
+                ingredientId: recipeItem.ingredientId,
+                quantity: quantityToConsume,
+                companyId,
+                performedById: userId,
+                reason: `Item acrescentado ao pedido ${order.id}`,
+                referenceId: order.id,
+                referenceType: 'ORDER',
+              });
+            }
+            await tx.orderItem.update({
+              where: { id: createdItem.id },
+              data: { cmv: itemCmv, profit: itemSubtotal - itemCmv },
+            });
+          }
+        }
+
+        // Reconciliação do caixa — mesma lógica de updateOrderDetails.
+        const alreadyHitCash = order.status !== OrderStatus.PENDING && !!order.cashId;
+        if (alreadyHitCash) {
+          const oldContribution = this.resolveCashReceived(
+            order.paymentMethod,
+            oldTotal,
+            order.cashReceived,
+          );
+          const newContribution = this.resolveCashReceived(
+            order.paymentMethod,
+            newTotal,
+            newCashReceived,
+          );
+          const delta = newContribution - oldContribution;
+          if (delta > 0) {
+            await tx.cash.updateMany({
+              where: { id: order.cashId!, isOpen: true },
+              data: { balance: { increment: delta }, entries: { increment: delta } },
+            });
+          } else if (delta < 0) {
+            await tx.cash.updateMany({
+              where: { id: order.cashId!, isOpen: true },
+              data: { balance: { decrement: -delta }, exits: { increment: -delta } },
+            });
+          }
+        }
+
+        return tx.order.update({
+          where: { id },
+          data: {
+            subtotal: newSubtotal,
+            total: newTotal,
+            ...(order.paymentMethod === 'CASH' && { cashReceived: newCashReceived }),
+          },
+          include: { items: true },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    this.socketGateway.emitKitchenUpdate(updatedOrder);
+    this.socketGateway.emitOrderStatusChanged(id, {
+      status: updatedOrder.status,
+      source: 'PDV',
+    });
+
+    return updatedOrder;
+  }
+
+  /**
    * KPIs do dashboard (hoje). Unifica Order (PDV/mesa/WhatsApp) + OnlineOrder
    * (cardápio digital/totem) via ReportsService.getRevenue — antes essa
    * função só consultava `Order`, então toda loja que recebe pedido pelo

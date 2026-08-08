@@ -154,6 +154,19 @@ export class OrdersController {
     return this.service.updateOrderDetails(id, companyId, body);
   }
 
+  /** Acrescenta um item a um pedido já criado (ver orders.service.ts addOrderItem). */
+  @Post(':id/items')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER')
+  addItem(
+    @Param('id') id: string,
+    @Body() body: { productId: string; quantity: number; unitPrice?: number; productName?: string; notes?: string },
+    @Request() req: any,
+    @CompanyId() companyId: string,
+  ) {
+    return this.service.addOrderItem(id, companyId, req.user.id, body);
+  }
+
   @Patch(':id/production-status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'KITCHEN')

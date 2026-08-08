@@ -164,10 +164,28 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
     ruaDebounce.current = setTimeout(() => fetchRuaSuggestions(v), 500);
   }
 
-  function selectRuaSuggestion(s: AddressSuggestion) {
-    const bairro = s.bairro || value.bairro || "";
+  // Nominatim/OSM frequentemente devolve o CEP mas não a tag de bairro
+  // (cobertura inconsistente pra ruas menores no Brasil, mesmo problema já
+  // corrigido no cardápio digital — app/menu/[companyId]/page.tsx). Quando
+  // isso acontece, usa o CEP que a sugestão já trouxe pra completar o bairro
+  // via ViaCEP (dado bem mais completo pro Brasil) em vez de deixar o campo
+  // vazio esperando digitação manual do operador.
+  async function resolveBairroViaCep(bairro: string, cep: string): Promise<string> {
+    if (bairro) return bairro;
+    const clean = cep.replace(/\D/g, "");
+    if (clean.length !== 8) return bairro;
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+      if (!r.ok) return bairro;
+      const d = await r.json();
+      return !d.erro && d.bairro ? d.bairro : bairro;
+    } catch { return bairro; }
+  }
+
+  async function selectRuaSuggestion(s: AddressSuggestion) {
     setShowSuggestions(false);
     setRuaSuggestions([]);
+    const bairro = (await resolveBairroViaCep(s.bairro, s.cep)) || value.bairro || "";
     const zone = zones.find(z => z.neighborhood?.toLowerCase().trim() === bairro.toLowerCase().trim()) ?? null;
     setMatchedZone(zone);
     onChange(prev => ({
@@ -254,8 +272,9 @@ export function OrderDetailsForm({ value, onChange, compact, companyId, token, c
       const suggestions: AddressSuggestion[] = await r.json();
       if (suggestions.length === 0) return;
       const best = suggestions[0];
+      const bairro = await resolveBairroViaCep(best.bairro, best.cep);
       const patch: Partial<OrderDetails> = {};
-      if (best.bairro) patch.bairro = best.bairro;
+      if (bairro)      patch.bairro = bairro;
       if (best.cidade) patch.cidade = best.cidade;
       if (best.cep)    patch.cep    = best.cep;
       if (Object.keys(patch).length > 0) {

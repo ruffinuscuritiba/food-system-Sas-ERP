@@ -1083,7 +1083,7 @@ export class SmartImportService {
       msg.includes('404') ||
       msg.includes('not found for API')
     ) {
-      return 'O modelo de IA configurado não existe mais. Atualize GEMINI_MODEL no servidor para gemini-1.5-flash.';
+      return 'O modelo de IA configurado não existe mais. Atualize GEMINI_MODEL no servidor para gemini-2.0-flash.';
     }
     if (
       msg.includes('Gemini 429') ||

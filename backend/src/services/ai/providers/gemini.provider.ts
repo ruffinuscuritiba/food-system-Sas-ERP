@@ -8,9 +8,11 @@ export class GeminiProvider implements AIProvider {
   private apiKey: string;
   private primaryModel: string;
 
-  // Ordered list of models to try if the primary fails
+  // Ordered list of models to try if the primary fails. gemini-1.5-flash
+  // was retired (404 on generateContent since ~08/2026) — removed from the
+  // list entirely, never worth trying again.
   private static readonly FALLBACK_MODELS = [
-    'gemini-1.5-flash',
+    'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
   ];
 
@@ -18,9 +20,8 @@ export class GeminiProvider implements AIProvider {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
     this.apiKey = apiKey;
-    // Default: gemini-1.5-flash (stable free-tier model)
-    // Override via GEMINI_MODEL env var (e.g. gemini-2.0-flash)
-    this.primaryModel = process.env.GEMINI_MODEL ?? 'gemini-1.5-flash';
+    // Default: gemini-2.0-flash. Override via GEMINI_MODEL env var.
+    this.primaryModel = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
   }
 
   async analyzeImage(params: AIImageRequest): Promise<string> {

@@ -17,11 +17,16 @@ type SizeOption    = { size: string; label: string; price: number };
 type SizeConfig    = { maxFlavors: number };
 
 type Props = {
-  flavors:      Flavor[];
-  borders:      Border[];
-  sizes?:       SizeOption[];
-  sizeConfigs?: Record<string, SizeConfig>;
-  onAdd:        (pizza: any) => void;
+  flavors:         Flavor[];
+  borders:         Border[];
+  sizes?:          SizeOption[];
+  sizeConfigs?:    Record<string, SizeConfig>;
+  initialFlavorId?: string;
+  // Override explícito do "Sabores permitidos" cadastrado no produto (ex:
+  // combo com meio a meio liberado, /products) — quando presente, vence o
+  // limite padrão do tamanho, nunca só limita por cima dele.
+  maxFlavorsOverride?: number;
+  onAdd:           (pizza: any) => void;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,7 +95,7 @@ function resolveVariant(norm: NormalizedFlavor, sizeKey: string): FlavorVariant 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Props) {
+export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlavorId, maxFlavorsOverride, onAdd }: Props) {
   const sizeOptions: SizeOption[] =
     sizes && sizes.length > 0
       ? sizes
@@ -103,11 +108,19 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
         ];
 
   const [selectedSize,  setSelectedSize]  = useState<SizeOption>(sizeOptions[0]);
-  const [selectedNorms, setSelectedNorms] = useState<NormalizedFlavor[]>([]);
+  // Pré-seleciona o sabor cujo "ADICIONAR" o operador clicou pra abrir o
+  // construtor — antes o modal sempre abria em branco, obrigando buscar e
+  // selecionar de novo o mesmo sabor já escolhido no card.
+  const [selectedNorms, setSelectedNorms] = useState<NormalizedFlavor[]>(() => {
+    if (!initialFlavorId) return [];
+    const norms = buildNormalizedFlavors(flavors);
+    const match = norms.find(n => Object.values(n.variants).some(v => v.id === initialFlavorId));
+    return match ? [match] : [];
+  });
   const [border,        setBorder]        = useState<Border | null>(null);
   const [notes,         setNotes]         = useState("");
 
-  const maxFlavors = sizeConfigs?.[selectedSize.size]?.maxFlavors ?? 2;
+  const maxFlavors = maxFlavorsOverride ?? sizeConfigs?.[selectedSize.size]?.maxFlavors ?? 2;
 
   const normalizedFlavors = useMemo(
     () => buildNormalizedFlavors(flavors),
@@ -128,7 +141,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, onAdd }: Pr
 
   function changeSize(opt: SizeOption) {
     setSelectedSize(opt);
-    const newMax = sizeConfigs?.[opt.size]?.maxFlavors ?? 2;
+    const newMax = maxFlavorsOverride ?? sizeConfigs?.[opt.size]?.maxFlavors ?? 2;
     setSelectedNorms(prev => prev.slice(0, newMax));
   }
 

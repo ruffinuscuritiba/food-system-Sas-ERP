@@ -10,7 +10,7 @@ import {
   ShoppingCart, X, Plus, Minus, Trash2, ChevronRight, ChevronDown,
   RefreshCw, CreditCard, Loader2, Star, Tag, CheckCircle,
   MapPin, Clock, Phone, Search, Copy, Timer, Eye, Sparkles,
-  Home, ClipboardList, Pencil, ArrowLeft, Users,
+  Home, ClipboardList, Pencil, ArrowLeft, Users, Volume2,
 } from "lucide-react";
 import { MetaPixel, trackPixelPurchase, trackPixelAddToCart } from "@/components/tracking/MetaPixel";
 import { WhatsAppFloatButton } from "@/components/chat/WhatsAppFloatButton";
@@ -166,6 +166,22 @@ function isStoreOpenNow(hours: BusinessHours | null | undefined): boolean {
   return cur >= startMin || cur <= endMin; // horário atravessa a meia-noite
 }
 
+/** Máscara de telefone BR ao digitar — mesmo padrão já usado em LojaTab.tsx.
+ *  Sem isso o campo aceitava qualquer texto e um número mal digitado só era
+ *  descoberto quando o restaurante tentava avisar o cliente e a mensagem não
+ *  chegava (ninguém detecta o erro na hora do pedido). */
+function maskPhone(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
+  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
+}
+
+/** DDD (2) + 8 ou 9 dígitos — formato real de celular/fixo BR. */
+function isValidBrPhone(v: string): boolean {
+  const d = v.replace(/\D/g, "");
+  return d.length === 10 || d.length === 11;
+}
+
 type CartComplement = {
   complementOptionId: string;
   complementName:     string;
@@ -277,6 +293,15 @@ export default function MenuPage() {
   const [companyCity, setCompanyCity] = useState<string | null>(null);
   const [companyState, setCompanyState] = useState<string | null>(null);
   const [companyWhatsapp, setCompanyWhatsapp] = useState<string | undefined>(undefined);
+  // Gamificação de frete grátis — Company.freeDeliveryAbove já existia no
+  // schema e era configurável em Configurações→Entrega, mas nunca era lido
+  // em lugar nenhum: não zerava a taxa no backend nem aparecia pro cliente.
+  // Campo "morto" desde que foi criado (mesma classe de bug do item 123).
+  const [freeDeliveryAbove, setFreeDeliveryAbove] = useState<number | null>(null);
+  // Social proof real — nunca número inventado (ver auditoria de conversão).
+  // "0 pedidos"/sem produto vencedor esconde a faixa inteira em vez de
+  // mostrar um "0" que faria o efeito contrário do pretendido.
+  const [liveStats, setLiveStats] = useState<{ ordersLastHour: number; topProductToday: { id: string; name: string } | null } | null>(null);
   const [assistantName, setAssistantName] = useState<string | undefined>(undefined);
   const [orderSent, setOrderSent] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -366,6 +391,47 @@ export default function MenuPage() {
   });
   // Real company ID (resolved from slug by backend) — used in POST requests
   const [realCompanyId, setRealCompanyId] = useState<string>(companyId);
+
+  // "Login invisível" — pré-preenche nome/telefone/endereço de um pedido
+  // anterior nesta mesma loja/navegador, pra segunda compra não exigir
+  // digitar tudo de novo. Mesma chave `realCompanyId` já usada por
+  // `last_order_${realCompanyId}` (item 168), só roda depois que o slug da
+  // URL já resolveu pro ID real (evita gravar sob duas chaves diferentes).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`menu_customer_${realCompanyId}`);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      setForm((f) => ({
+        ...f,
+        name: saved.name || f.name,
+        phone: saved.phone || f.phone,
+        street: saved.street || f.street,
+        number: saved.number || f.number,
+        neighborhood: saved.neighborhood || f.neighborhood,
+        city: saved.city || f.city,
+        state: saved.state || f.state,
+        zipcode: saved.zipcode || f.zipcode,
+        complement: saved.complement || f.complement,
+      }));
+    } catch { /* silent */ }
+  }, [realCompanyId]);
+
+  // Social proof — busca pedidos da última hora + mais vendido do dia,
+  // refaz a cada 3min pra sentir "vivo" sem virar polling agressivo.
+  useEffect(() => {
+    if (!realCompanyId) return;
+    let cancelled = false;
+    const fetchStats = () => {
+      fetch(`${apiBaseUrl}/products/public/live-stats/${realCompanyId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled && d) setLiveStats(d); })
+        .catch(() => {});
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 3 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [realCompanyId]);
 
   const [onlineOrderId, setOnlineOrderId] = useState<string | null>(null);
   const [showPixScreen, setShowPixScreen] = useState(false);
@@ -461,6 +527,7 @@ export default function MenuPage() {
         if (cd?.whatsapp || cd?.phone) setCompanyWhatsapp(cd.whatsapp || cd.phone);
         if (cd?.city) setCompanyCity(cd.city);
         if (cd?.state) setCompanyState(cd.state);
+        setFreeDeliveryAbove(cd?.freeDeliveryAbove != null ? Number(cd.freeDeliveryAbove) : null);
         // FIX: metaPixelId e googleAnalyticsId são campos da tabela Company
         // (não de CompanyTheme) — antes o código tentava ler esses valores
         // de `themeRes` (endpoint /themes/:id), onde eles nunca existiram.
@@ -1535,6 +1602,13 @@ export default function MenuPage() {
   const instantCashbackDiscount = cashbackMode === "INSTANT" ? cashbackAmount : 0;
   const totalDiscount = (usePoints ? loyaltyDiscount : 0) + couponDiscount + qrPromoDiscount + instantCashbackDiscount;
   const finalCartTotal = Math.max(0, cartTotal - totalDiscount);
+  // Frete grátis (Company.freeDeliveryAbove) — medido pelo subtotal bruto
+  // (mesmo valor que o backend vai conferir em online-orders.service.ts),
+  // não pelo total já descontado, pra não misturar duas promoções.
+  const qualifiesForFreeDelivery =
+    freeDeliveryAbove != null && freeDeliveryAbove > 0 && cartTotal >= freeDeliveryAbove;
+  const effectiveDeliveryFee =
+    form.orderType === "DELIVERY" && qualifiesForFreeDelivery ? 0 : (selectedZone?.clientFee ?? 0);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const filtered = products.filter((p) => {
     const matchCat = activeCategory === "Todos" || (p.category?.name?.trim() || "Outros") === activeCategory;
@@ -1565,6 +1639,7 @@ export default function MenuPage() {
 
   async function submitOrder() {
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
+    if (!isValidBrPhone(form.phone)) { toast.error("Informe um WhatsApp válido (DDD + número)"); return; }
     if (form.orderType === "DINE_IN" && !tableNumber?.trim()) { toast.error("Informe o numero da mesa"); return; }
     if (form.orderType === "DELIVERY" && !form.street?.trim()) { toast.error("Informe a rua para entrega"); return; }
     if (form.orderType === "DELIVERY" && !form.number?.trim()) { toast.error("Informe o numero da casa/apartamento"); return; }
@@ -1576,6 +1651,12 @@ export default function MenuPage() {
       const cartSnapshot = cart.slice();
 
       const selectedOrderType = form.orderType;
+      // Só dígitos pro backend — o input mostra "(41) 99999-0000" pra
+      // digitação, mas Order/OnlineOrder.customerPhone é comparado por
+      // `endsWith(last8)` DIRETO na string salva (whatsapp-ai.service.ts,
+      // loyalty-milestones.service.ts) sem normalizar — gravar com máscara
+      // quebraria essa comparação (o hífen entra nos últimos 8 caracteres).
+      const digitsPhone = form.phone.replace(/\D/g, "");
 
       // Step 1 — create OnlineOrder
       const orderRes = await fetch(`${apiBaseUrl}/online-orders`, {
@@ -1584,7 +1665,7 @@ export default function MenuPage() {
         body: JSON.stringify({
           companyId: realCompanyId,
           customerName:  form.name,
-          customerPhone: form.phone,
+          customerPhone: digitsPhone,
           orderType:     selectedOrderType,
           address:       form.street,
           addressNumber: form.number,
@@ -1619,9 +1700,9 @@ export default function MenuPage() {
           // "INSTANT" já embutiu o desconto acima; "ACCUMULATE" (padrão) só
           // credita o cashback no saldo quando a loja confirmar o pedido.
           cashbackMode:  cashbackConfig?.isActive ? cashbackMode : undefined,
-          deliveryFee:   selectedZone?.clientFee ?? 0,
+          deliveryFee:   effectiveDeliveryFee,
           deliveryZoneId: selectedZone?.id ?? undefined,
-          total:         capturedFinalTotal + (selectedZone?.clientFee ?? 0),
+          total:         capturedFinalTotal + effectiveDeliveryFee,
           paymentMethod: form.paymentMethod,
           notes:         selectedOrderType === "DINE_IN" ? `Mesa ${tableNumber}` : undefined,
           channel:       isTotem ? "TOTEM" : undefined,
@@ -1652,7 +1733,7 @@ export default function MenuPage() {
         fetch(`${apiBaseUrl}/qr-campaigns/checkout/redeem`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: qrPromo.token, orderId: createdOrderId, orderTotal: capturedFinalTotal, customerPhone: form.phone, customerName: form.name }),
+          body: JSON.stringify({ token: qrPromo.token, orderId: createdOrderId, orderTotal: capturedFinalTotal, customerPhone: digitsPhone, customerName: form.name }),
           keepalive: true,
         }).then(() => {
           // limpa o cookie para não re-aplicar
@@ -1672,6 +1753,13 @@ export default function MenuPage() {
       setShowCart(false);
       try {
         localStorage.setItem(`last_order_${realCompanyId}`, createdOrderId);
+        // "Login invisível" (ver useEffect de prefill acima) — próxima visita
+        // nesta loja já vem com nome/telefone/endereço preenchidos.
+        localStorage.setItem(`menu_customer_${realCompanyId}`, JSON.stringify({
+          name: form.name, phone: form.phone, street: form.street, number: form.number,
+          neighborhood: form.neighborhood, city: form.city, state: form.state,
+          zipcode: form.zipcode, complement: form.complement,
+        }));
       } catch {}
 
       // Step 5 — PIX flow: generate QR code and show payment screen
@@ -2149,6 +2237,28 @@ export default function MenuPage() {
         <span className="flex items-center gap-1"><MapPin size={12} /> Delivery e Retirada</span>
       </div>
 
+      {/* ─── Social proof real — pedidos de verdade, nunca número inventado ────── */}
+      {(liveStats?.ordersLastHour ?? 0) > 0 || liveStats?.topProductToday ? (
+        <div className="max-w-2xl mx-auto px-4 pt-2 flex flex-wrap items-center gap-2">
+          {(liveStats?.ordersLastHour ?? 0) > 0 && (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
+              style={{ background: "var(--menu-surface-2)", color: "var(--menu-text)" }}
+            >
+              🔥 {liveStats!.ordersLastHour} {liveStats!.ordersLastHour === 1 ? "pedido saindo" : "pedidos saindo"} agora
+            </span>
+          )}
+          {liveStats?.topProductToday && (
+            <span
+              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full truncate max-w-full"
+              style={{ background: "var(--menu-surface-2)", color: "var(--menu-text)" }}
+            >
+              ⭐ Mais pedido hoje: {liveStats.topProductToday.name}
+            </span>
+          )}
+        </div>
+      ) : null}
+
       {/* ─── Destaques (featured block — before categories) ─────────────────────── */}
       {showFeatured && featuredBeforeCategories && (
         <div className="max-w-2xl mx-auto px-4 pt-4">
@@ -2481,29 +2591,58 @@ export default function MenuPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 relative overflow-hidden">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
-                        onError={(e) => {
-                          const t = e.currentTarget;
-                          t.onerror = null;
-                          t.style.display = "none";
-                          const ph = t.nextElementSibling as HTMLElement;
-                          if (ph) ph.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className="w-full h-full flex items-center justify-center text-3xl"
-                      style={{ display: product.imageUrl ? "none" : "flex", background: "var(--menu-surface-2)" }}
-                    >
-                      🍽️
-                    </div>
-                  </div>
+                  {(() => {
+                    // Vídeo direto (upload/MP4) toca em loop mudo no próprio
+                    // card — "produto suculento em movimento" sem exigir
+                    // clique nenhum. YouTube/Vimeo (embed via iframe) não dá
+                    // pra tocar limpo num thumbnail pequeno (chrome do player,
+                    // marca d'água, custo de 1 iframe por card) — esses
+                    // continuam com a foto normal + botão "Vídeo" de sempre,
+                    // comportamento inalterado.
+                    const inlineVideoSrc = product.videoUrl && getVideoEmbed(product.videoUrl)?.type === "video"
+                      ? getVideoEmbed(product.videoUrl)!.src
+                      : null;
+                    return (
+                      <div
+                        className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 relative overflow-hidden"
+                        onClick={inlineVideoSrc ? (e) => { e.stopPropagation(); setVideoProduct(product); } : undefined}
+                      >
+                        {inlineVideoSrc ? (
+                          <>
+                            <video
+                              src={inlineVideoSrc}
+                              autoPlay muted loop playsInline
+                              className="w-full h-full object-cover cursor-pointer"
+                              aria-label={`Vídeo de ${product.name}`}
+                            />
+                            <span className="absolute bottom-1 right-1 bg-black/60 text-white rounded-full p-1 pointer-events-none">
+                              <Volume2 size={10} />
+                            </span>
+                          </>
+                        ) : product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
+                            onError={(e) => {
+                              const t = e.currentTarget;
+                              t.onerror = null;
+                              t.style.display = "none";
+                              const ph = t.nextElementSibling as HTMLElement;
+                              if (ph) ph.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className="w-full h-full flex items-center justify-center text-3xl"
+                          style={{ display: (inlineVideoSrc || product.imageUrl) ? "none" : "flex", background: "var(--menu-surface-2)" }}
+                        >
+                          🍽️
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
           );
 
@@ -2727,6 +2866,32 @@ export default function MenuPage() {
                 </div>
               ))}
 
+              {/* ─── Gamificação de frete grátis (Company.freeDeliveryAbove) ─── */}
+              {cart.length > 0 && form.orderType === "DELIVERY" && freeDeliveryAbove != null && freeDeliveryAbove > 0 && (
+                <div className="pt-3 mt-1 border-t border-dashed" style={{ borderColor: "var(--menu-border)" }}>
+                  {qualifiesForFreeDelivery ? (
+                    <p className="text-sm font-black flex items-center gap-1.5" style={{ color: "var(--menu-text)" }}>
+                      🎉 Você ganhou <span className="text-emerald-500">frete grátis</span>!
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-black mb-2" style={{ color: "var(--menu-text)" }}>
+                        🚚 Faltam <span style={{ color: theme.primaryColor }}>R$ {(freeDeliveryAbove - cartTotal).toFixed(2).replace(".", ",")}</span> para frete grátis!
+                      </p>
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--menu-border)" }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(100, (cartTotal / freeDeliveryAbove) * 100)}%`,
+                            background: theme.primaryColor,
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* ─── Order bump (upsell antes de finalizar) ─── */}
               {cart.length > 0 && orderBumpProducts.length > 0 && (
                 <div className="pt-3 mt-1 border-t border-dashed" style={{ borderColor: "var(--menu-border)" }}>
@@ -2878,18 +3043,24 @@ export default function MenuPage() {
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             />
             <input
-              placeholder="Telefone / WhatsApp *"
+              type="tel"
+              inputMode="tel"
+              placeholder="WhatsApp * — (41) 99999-0000"
               value={form.phone}
+              maxLength={15}
               onChange={(e) => {
-                const phone = e.target.value;
+                const phone = maskPhone(e.target.value);
                 setForm((f) => ({ ...f, phone }));
                 setUsePoints(false);
                 setLoyaltyPoints(0);
                 setLoyaltyDiscount(0);
-                if (phone.length >= 8) fetchLoyaltyBalance(phone);
+                if (isValidBrPhone(phone)) fetchLoyaltyBalance(phone);
               }}
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 outline-none focus:border-orange-400 text-sm"
             />
+            {form.phone.length > 0 && !isValidBrPhone(form.phone) && (
+              <p className="text-xs text-red-500 -mt-2 px-1">Informe o DDD + número completo</p>
+            )}
 
             <label className="flex items-start gap-2.5 px-1 cursor-pointer">
               <input
@@ -3239,18 +3410,20 @@ export default function MenuPage() {
               {form.orderType === "DELIVERY" && (
                 <div className="flex justify-between text-sm text-gray-500">
                   <span className="flex items-center gap-1"><MapPin size={11} /> Taxa de entrega</span>
-                  <span>
-                    {selectedZone
-                      ? `R$ ${selectedZone.clientFee.toFixed(2).replace(".", ",")}`
-                      : form.neighborhood
-                        ? "Bairro sem cobertura"
-                        : "Informe o bairro"}
+                  <span className={qualifiesForFreeDelivery ? "text-emerald-600 font-bold" : ""}>
+                    {qualifiesForFreeDelivery
+                      ? "Grátis 🎉"
+                      : selectedZone
+                        ? `R$ ${selectedZone.clientFee.toFixed(2).replace(".", ",")}`
+                        : form.neighborhood
+                          ? "Bairro sem cobertura"
+                          : "Informe o bairro"}
                   </span>
                 </div>
               )}
               <div className="flex justify-between text-base font-black text-gray-900 pt-1 border-t border-gray-100">
                 <span>Total</span>
-                <span className="text-orange-500">R$ {(finalCartTotal + (form.orderType === "DELIVERY" ? (selectedZone?.clientFee ?? 0) : 0)).toFixed(2)}</span>
+                <span className="text-orange-500">R$ {(finalCartTotal + (form.orderType === "DELIVERY" ? effectiveDeliveryFee : 0)).toFixed(2)}</span>
               </div>
             </div>
 

@@ -56,6 +56,7 @@ interface Product {
   barCode?: string | null;
   sku?: string | null;
   eanCode?: string | null;
+  maxFlavors?: number | null;
 }
 
 interface SelectedComplement {
@@ -248,6 +249,11 @@ export default function PDVPage() {
   const [loading, setLoading]                   = useState(true);
   const [videoProduct, setVideoProduct]         = useState<Product | null>(null);
   const [cart, setCart]                         = useState<CartItem[]>([]);
+  // Upsell real ("quem pediu isso também pediu") — mesma coocorrência de
+  // pedidos já usada no cardápio digital (products.service.ts
+  // getFrequentlyBoughtWith, público, sem IA). O PDV nunca teve nenhuma
+  // sugestão de venda adicional; aqui é o operador que vê e oferece.
+  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
   const [showCart, setShowCart]                 = useState(false);
   const [discountAmount, setDiscountAmount]     = useState(0);
   const [companyCity, setCompanyCity]           = useState("");
@@ -527,9 +533,13 @@ export default function PDVPage() {
       // caía no construtor de pizza (Product.categoryId aponta pro filho).
       const pizzaCatIds = new Set(
         cats.filter(c => {
-          if (c.name.toLowerCase().includes("pizza")) return true;
+          // categoryType="pizza" cobre também "Combos Promocionais" (item 179) —
+          // sem isso, um combo configurado com maxFlavors>1 pro admin (dropdown
+          // "Sabores permitidos" em /products) nunca abria o construtor de sabores
+          // aqui no PDV pra montar meio a meio, só no cardápio digital.
+          if (c.categoryType === "pizza" || c.name.toLowerCase().includes("pizza")) return true;
           const parent = c.parentCategoryId ? cats.find(p => p.id === c.parentCategoryId) : null;
-          return !!parent && parent.name.toLowerCase().includes("pizza");
+          return !!parent && (parent.categoryType === "pizza" || parent.name.toLowerCase().includes("pizza"));
         }).map(c => c.id)
       );
       setPizzaCategories(pizzaCatIds);
@@ -568,8 +578,22 @@ export default function PDVPage() {
     requestAnimationFrame(() => searchRef.current?.focus());
   }, []);
 
+  /** Produto travado em 1 sabor só (combo de composição fixa) — mesma regra do
+   *  cardápio digital (isLockedSingleFlavorProduct): um maxFlavors explícito
+   *  no cadastro sempre vence; sem valor, um combo (nome de categoria contém
+   *  "combo") cai travado por padrão, senão viraria "sabor" de si mesmo. */
+  const isLockedSingleFlavorProduct = useCallback((product: Product) => {
+    if (typeof product.maxFlavors === "number") return product.maxFlavors === 1;
+    const cat = categories.find(c => c.id === product.categoryId);
+    return !!cat?.name?.toLowerCase().includes("combo");
+  }, [categories]);
+
   const openProductAdd = useCallback(async (product: Product) => {
-    if (product.categoryId && pizzaCategories.has(product.categoryId)) {
+    const isPizzaCat = !!(product.categoryId && pizzaCategories.has(product.categoryId));
+    // Combo com "Sabores permitidos" > 1 (dropdown em /products) abre o
+    // construtor pra montar meio a meio; combo travado em 1 (padrão) segue
+    // pro fluxo normal de Complementos, como sempre foi.
+    if (isPizzaCat && !isLockedSingleFlavorProduct(product)) {
       setPizzaProduct(product);
       return;
     }
@@ -587,7 +611,7 @@ export default function PDVPage() {
     } finally {
       setComplementLoading(false);
     }
-  }, [pizzaCategories, companyId, addCartItem]);
+  }, [pizzaCategories, companyId, addCartItem, isLockedSingleFlavorProduct]);
 
   const addPizzaToCart = useCallback((pizza: any) => {
     const pizzaItem: CartItem = {
@@ -618,6 +642,29 @@ export default function PDVPage() {
     toast.success(`${pizza.name} adicionada`, { duration: 1500, icon: "🍕" });
     setShowCart(true);
   }, []);
+
+  // Upsell real: busca "quem pediu isso também pediu" pro ÚLTIMO item
+  // adicionado (mesmo endpoint público já usado no cardápio digital,
+  // products.service.ts getFrequentlyBoughtWith — coocorrência de pedidos
+  // reais, não IA). Refaz a cada item novo; carrinho vazio limpa a lista.
+  const lastAddedProductId = cart.length > 0 ? cart[cart.length - 1].product.id : null;
+  useEffect(() => {
+    if (!lastAddedProductId || !companyId) { setSuggestedProducts([]); return; }
+    let cancelled = false;
+    api.get(`/products/public/frequently-bought-with/${companyId}/${lastAddedProductId}`)
+      .then((res) => {
+        if (cancelled) return;
+        const ids: string[] = Array.isArray(res.data) ? res.data.map((d: { id: string }) => d.id) : [];
+        const inCart = new Set(cart.map((i) => i.product.id));
+        const matched = ids
+          .map((id) => products.find((p) => p.id === id))
+          .filter((p): p is Product => !!p && p.isActive && !inCart.has(p.id));
+        setSuggestedProducts(matched);
+      })
+      .catch(() => { if (!cancelled) setSuggestedProducts([]); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAddedProductId, companyId, products]);
 
   const removeFromCart = useCallback((id: string) => {
     setCart(prev => prev.filter(i => i.product.id !== id));
@@ -1631,6 +1678,31 @@ export default function PDVPage() {
                     );
                   })}
 
+                  {/* Upsell — "quem pediu isso também pediu" (coocorrência real,
+                      mesmo dado do cardápio digital). Só aparece quando existe
+                      sugestão de verdade pro último item — nunca inventa. */}
+                  {suggestedProducts.length > 0 && (
+                    <div className="rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card,#0b0f1b)] p-3">
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">🔥 Combina com o pedido</p>
+                      <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+                        {suggestedProducts.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => openProductAdd(p)}
+                            disabled={complementLoading}
+                            className="shrink-0 w-28 rounded-xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card,#161b2d)] p-2 text-left hover:border-blue-500 transition disabled:opacity-50"
+                          >
+                            {p.imageUrl
+                              ? <img src={p.imageUrl} className="w-full h-16 rounded-lg object-cover mb-1.5" />
+                              : <div className="w-full h-16 rounded-lg bg-[var(--pdv-card,#0b0f1b)] flex items-center justify-center text-xl mb-1.5">🍽️</div>}
+                            <p className="text-[11px] font-semibold text-[var(--pdv-text,#fff)] truncate">{p.name}</p>
+                            <p className="text-[11px] font-bold text-blue-400">{fmt(Number(p.salePrice) || 0)}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Formulário dentro do scroll */}
                   <div className="rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card,#0b0f1b)] p-4">
                     <OrderDetailsForm value={pdvOrderDetails} onChange={setPdvOrderDetails} compact companyId={companyId} token={authToken} cityHint={companyCity} stateHint={companyState} />
@@ -1660,6 +1732,15 @@ export default function PDVPage() {
             {/* Botão(ões) fixo(s) no rodapé — sempre visível */}
             {cart.length > 0 && (
               <div className="border-t border-[var(--pdv-border,#161b2d)] p-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+                {/* Continuar comprando: fecha o carrinho de volta pro catálogo —
+                    o único jeito de sair antes disso era o X pequeno do cabeçalho
+                    ou clicar fora (que nem existe no mobile, cart ocupa a tela
+                    inteira), então quem queria pedir mais ficava sem entender
+                    como voltar. */}
+                <button onClick={() => setShowCart(false)}
+                  className="w-full mb-2 py-2.5 rounded-2xl border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#e5e7eb)] hover:bg-white/5 active:scale-[0.98] transition font-semibold text-sm flex items-center justify-center gap-1.5">
+                  ← Continuar Comprando
+                </button>
                 {pdvOrderDetails.orderType === "DINE_IN" ? (
                   <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
                     {/* Limpar: fica colado no Lançar/Fechar Conta, nunca sozinho, sempre com confirmação */}
@@ -1921,10 +2002,15 @@ export default function PDVPage() {
                 // subcategorias tipo Clássica/Especial), nunca só a aba ativa do PDV —
                 // senão o operador só via os sabores da aba em que clicou "Adicionar" e
                 // não conseguia montar uma pizza meio-a-meio cruzando as duas categorias.
-                flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "")).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
+                // Combos travados (composição fixa, isLockedSingleFlavorProduct)
+                // ficam de fora da lista de sabores combináveis — senão um combo
+                // vizinho aparecia como se fosse ele mesmo um sabor de pizza.
+                flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "") && !isLockedSingleFlavorProduct(p)).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={pizzaBorders}
                 sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0 }))}
                 sizeConfigs={pizzaSizeConfigs}
+                initialFlavorId={pizzaProduct.id}
+                maxFlavorsOverride={typeof pizzaProduct.maxFlavors === "number" ? pizzaProduct.maxFlavors : undefined}
                 onAdd={addPizzaToCart}
               />
             </div>

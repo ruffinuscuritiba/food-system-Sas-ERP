@@ -5,6 +5,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { PrismaModule } from './database/prisma.module';
+import { MenuCacheModule } from './common/services/menu-cache.module';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -72,6 +73,7 @@ import { validateEnv } from './config/env.validation';
     ScheduleModule.forRoot(),
 
     PrismaModule,
+    MenuCacheModule,
     AuditModule,
     AuthModule,
     UsersModule,

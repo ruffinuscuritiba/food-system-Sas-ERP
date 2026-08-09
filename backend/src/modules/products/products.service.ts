@@ -6,6 +6,10 @@ import { PrismaService } from '@/database/prisma.service';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
+import { getStartOfTodayBrazil } from '@/common/utils/timezone';
+
+import { MenuCacheService } from '@/common/services/menu-cache.service';
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -14,6 +18,8 @@ export class ProductsService {
     private auditService: AuditService,
 
     private config: ConfigService,
+
+    private menuCache: MenuCacheService,
   ) {}
 
   findAll(companyId: string) {
@@ -159,6 +165,7 @@ export class ProductsService {
       },
     });
 
+    this.menuCache.invalidate(data.companyId);
     return product;
   }
 
@@ -187,7 +194,7 @@ export class ProductsService {
       }
     }
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id, companyId: data.companyId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
@@ -237,6 +244,9 @@ export class ProductsService {
         sizes: { orderBy: { size: 'asc' } },
       },
     });
+
+    if (data.companyId) this.menuCache.invalidate(data.companyId);
+    return updated;
   }
 
   async publicMenu(slugOrId: string) {
@@ -246,6 +256,13 @@ export class ProductsService {
     });
     if (!company) return [];
     const companyId = company.id;
+
+    // Cache em memória (30s) — cardápio digital chama isso a cada
+    // carregamento de página, sempre pela mesma companyId real (nunca
+    // pelo slug, resolvido acima) pra não duplicar entrada de cache.
+    const cached = this.menuCache.get(companyId);
+    if (cached) return cached;
+
     const products = await this.prisma.product.findMany({
       where: {
         companyId,
@@ -286,7 +303,7 @@ export class ProductsService {
       this.config.get<string>('BACKEND_URL') ||
       'https://api.srv1747711.hstgr.cloud'
     ).replace(/\/$/, '');
-    return products.map((p) => {
+    const result = products.map((p) => {
       if (p.imageUrl && p.imageUrl.startsWith('data:')) {
         return {
           ...p,
@@ -295,6 +312,8 @@ export class ProductsService {
       }
       return p;
     });
+    this.menuCache.set(companyId, result);
+    return result;
   }
 
   /**
@@ -382,6 +401,80 @@ export class ProductsService {
     return topIds.map((id) => byId.get(id)).filter(Boolean);
   }
 
+  /**
+   * Social proof REAL pro cardápio digital — nunca inventa número. Dois
+   * dados, ambos derivados de pedidos de verdade (Order + OnlineOrder, mesmo
+   * union de getFrequentlyBoughtWith):
+   *  - `ordersLastHour`: quantos pedidos (qualquer canal) saíram na última
+   *    hora — "X pedidos saindo agora".
+   *  - `topProductToday`: produto mais vendido HOJE (dia comercial de
+   *    Brasília, ver common/utils/timezone.ts) por quantidade, não por
+   *    contagem de pedidos — "Mais pedido do dia".
+   * Se não houver nenhum pedido na hora/dia, devolve null/0 — o frontend
+   * esconde a seção inteira em vez de mostrar "0 pedidos" (isso não é prova
+   * social, é o oposto).
+   */
+  async getLiveSocialProof(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { id: true },
+    });
+    if (!company) return { ordersLastHour: 0, topProductToday: null };
+    const companyId = company.id;
+
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const todayStart = getStartOfTodayBrazil();
+
+    const [ordersLastHourCount, onlineOrdersLastHourCount, todayOrders, todayOnlineOrders] =
+      await Promise.all([
+        this.prisma.order.count({
+          where: { companyId, status: { not: 'CANCELLED' }, createdAt: { gte: hourAgo } },
+        }),
+        this.prisma.onlineOrder.count({
+          where: { companyId, orderStatus: { not: 'CANCELED' }, createdAt: { gte: hourAgo } },
+        }),
+        this.prisma.order.findMany({
+          where: { companyId, status: { not: 'CANCELLED' }, createdAt: { gte: todayStart } },
+          select: { items: { select: { productId: true, quantity: true } } },
+          take: 500,
+        }),
+        this.prisma.onlineOrder.findMany({
+          where: { companyId, orderStatus: { not: 'CANCELED' }, createdAt: { gte: todayStart } },
+          select: { items: true },
+          take: 500,
+        }),
+      ]);
+
+    const qty = new Map<string, number>();
+    const bumpQty = (id: string, n: number) => qty.set(id, (qty.get(id) ?? 0) + n);
+    for (const order of todayOrders) {
+      for (const item of order.items) {
+        if (item.productId) bumpQty(item.productId, Number(item.quantity) || 1);
+      }
+    }
+    for (const order of todayOnlineOrders) {
+      const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+      for (const it of items) {
+        if (it?.productId) bumpQty(it.productId, Number(it.quantity) || 1);
+      }
+    }
+
+    let topProductToday: { id: string; name: string } | null = null;
+    if (qty.size > 0) {
+      const [topId] = [...qty.entries()].sort((a, b) => b[1] - a[1])[0];
+      const top = await this.prisma.product.findFirst({
+        where: { id: topId, companyId, isActive: true, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      if (top) topProductToday = top;
+    }
+
+    return {
+      ordersLastHour: ordersLastHourCount + onlineOrdersLastHourCount,
+      topProductToday,
+    };
+  }
+
   async getPublicImage(id: string): Promise<{ mime: string; buffer: Buffer }> {
     const product = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },
@@ -422,6 +515,7 @@ export class ProductsService {
       ),
     );
 
+    this.menuCache.invalidate(companyId);
     return { ok: true, updated: items.length };
   }
 
@@ -475,6 +569,7 @@ export class ProductsService {
       },
     });
 
+    this.menuCache.invalidate(companyId);
     return product;
   }
   async remove(id: string, companyId: string) {
@@ -507,6 +602,7 @@ export class ProductsService {
       },
     });
 
+    this.menuCache.invalidate(companyId);
     return product;
   }
 }

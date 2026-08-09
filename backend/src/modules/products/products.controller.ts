@@ -172,6 +172,14 @@ export class ProductsController {
     return this.service.getFrequentlyBoughtWith(companyId, productId);
   }
 
+  // Social proof real (pedidos na última hora + mais vendido do dia) —
+  // nunca número inventado, só agregado de Order/OnlineOrder de verdade.
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('public/live-stats/:companyId')
+  liveStats(@Param('companyId') companyId: string) {
+    return this.service.getLiveSocialProof(companyId);
+  }
+
   // Serve sob demanda a imagem de um produto que ainda está salva como
   // base64 no banco (sem Cloudinary configurado) — ver publicMenu().
   @Get('public/image/:id')

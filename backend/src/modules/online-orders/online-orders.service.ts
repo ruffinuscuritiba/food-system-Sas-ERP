@@ -102,7 +102,7 @@ export class OnlineOrdersService {
     // ── 1. Validations ──────────────────────────────────────────────────────
     const company = await this.prisma.company.findFirst({
       where: { OR: [{ id: dto.companyId }, { slug: dto.companyId }] },
-      select: { id: true, isBlocked: true, name: true },
+      select: { id: true, isBlocked: true, name: true, freeDeliveryAbove: true },
     });
 
     if (!company) throw new NotFoundException('Empresa não encontrada.');
@@ -143,6 +143,17 @@ export class OnlineOrdersService {
       if (zone) {
         if (deliveryFee === 0) deliveryFee = Number(zone.clientFee);
         deliveryZoneId = zone.id;
+      }
+      // Frete grátis (Company.freeDeliveryAbove) — campo existia desde a Fase
+      // A de Entrega mas nunca era lido em lugar nenhum (configurável em
+      // Configurações→Entrega, sem nenhum efeito real). Autoritativo aqui:
+      // nunca confia no `deliveryFee` que o frontend mandou pra decidir isso,
+      // sempre reconfere contra o subtotal real do pedido.
+      if (
+        company.freeDeliveryAbove != null &&
+        subtotal >= Number(company.freeDeliveryAbove)
+      ) {
+        deliveryFee = 0;
       }
     }
 

@@ -1184,6 +1184,11 @@ model Cash {
   orders Order[]
 
   @@index([companyId])
+  // findFirst(companyId, isOpen:true, orderBy createdAt desc) — chamado em
+  // TODO pedido criado (gate de caixa, item 151) + toda tela que abre o PDV/
+  // Financeiro. Era o único índice sem composto na query mais frequente do
+  // módulo de caixa.
+  @@index([companyId, isOpen, createdAt])
 }
 
 model CompanyFiscalConfig {
@@ -1825,6 +1830,11 @@ model OnlineOrder {
   @@index([paymentStatus])
   @@index([orderStatus])
   @@index([createdAt])
+  // Compostos p/ os padrões reais mais quentes: findAllForKitchen (board da
+  // cozinha, toda atualização) filtra só companyId+createdAt; reports/
+  // menu-analytics filtram companyId+orderStatus(<>CANCELED)+intervalo.
+  @@index([companyId, createdAt])
+  @@index([companyId, orderStatus, createdAt])
 }
 
 model PaymentWebhook {

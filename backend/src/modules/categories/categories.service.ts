@@ -2,9 +2,14 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 
 import { PrismaService } from 'src/database/prisma.service';
 
+import { MenuCacheService } from '@/common/services/menu-cache.service';
+
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private menuCache: MenuCacheService,
+  ) {}
 
   async create(data: any) {
     const max = await this.prisma.category.aggregate({
@@ -13,7 +18,7 @@ export class CategoriesService {
     });
     const nextSort = (max._max.sortOrder ?? 0) + 1;
 
-    return this.prisma.category.create({
+    const category = await this.prisma.category.create({
       data: {
         name: data.name,
         allowMultipleFlavors: data.allowMultipleFlavors ?? false,
@@ -28,6 +33,9 @@ export class CategoriesService {
         company: { connect: { id: data.companyId } },
       },
     });
+
+    this.menuCache.invalidate(data.companyId);
+    return category;
   }
 
   findAll(companyId: string) {
@@ -64,7 +72,7 @@ export class CategoriesService {
     });
   }
 
-  update(
+  async update(
     id: string,
     companyId: string,
     data: {
@@ -77,7 +85,7 @@ export class CategoriesService {
       parentCategoryId?: string | null;
     },
   ) {
-    return this.prisma.category.update({
+    const category = await this.prisma.category.update({
       where: { id, companyId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
@@ -91,6 +99,9 @@ export class CategoriesService {
         }),
       },
     });
+
+    this.menuCache.invalidate(companyId);
+    return category;
   }
 
   async reorder(companyId: string, items: { id: string; sortOrder: number }[]) {
@@ -117,12 +128,16 @@ export class CategoriesService {
       ),
     );
 
+    this.menuCache.invalidate(companyId);
     return { ok: true, updated: items.length };
   }
 
-  remove(id: string, companyId: string) {
-    return this.prisma.category.delete({
+  async remove(id: string, companyId: string) {
+    const category = await this.prisma.category.delete({
       where: { id, companyId },
     });
+
+    this.menuCache.invalidate(companyId);
+    return category;
   }
 }

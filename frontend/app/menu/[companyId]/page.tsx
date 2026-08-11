@@ -1046,7 +1046,11 @@ export default function MenuPage() {
     if (product) trackProductView(product.id);
     setSelectedPizzaSize("");
     setFlavorParts(1);
-    setFlavorSlots(product ? [product] : [null]);
+    // Nunca planta o produto clicado como "sabor 1" quando ele é o próprio
+    // combo/container (categoria "combo" com maxFlavors>1, ex: meio-a-meio
+    // liberado num combo) — senão o nome do combo vira "sabor 1" no pedido
+    // (bug real: pedido saiu com o nome do combo em vez dos 2 sabores reais).
+    setFlavorSlots(product && !isComboProduct(product) ? [product] : [null]);
     setFlavorFilter("");
     setFlavorPickerSlot(null);
     setSizeDropdownOpen(false);

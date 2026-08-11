@@ -588,6 +588,15 @@ export default function PDVPage() {
     return !!cat?.name?.toLowerCase().includes("combo");
   }, [categories]);
 
+  /** Produto é o próprio combo/container (categoria "combo"), independente do
+   *  maxFlavors — nunca deve entrar na lista de sabores combináveis nem ser
+   *  pré-selecionado como "sabor 1" de si mesmo (bug real: pedido saiu com o
+   *  nome do combo em vez dos 2 sabores reais escolhidos). */
+  const isComboCategoryProduct = useCallback((product: Product) => {
+    const cat = categories.find(c => c.id === product.categoryId);
+    return !!cat?.name?.toLowerCase().includes("combo");
+  }, [categories]);
+
   const openProductAdd = useCallback(async (product: Product) => {
     const isPizzaCat = !!(product.categoryId && pizzaCategories.has(product.categoryId));
     // Combo com "Sabores permitidos" > 1 (dropdown em /products) abre o
@@ -2005,11 +2014,11 @@ export default function PDVPage() {
                 // Combos travados (composição fixa, isLockedSingleFlavorProduct)
                 // ficam de fora da lista de sabores combináveis — senão um combo
                 // vizinho aparecia como se fosse ele mesmo um sabor de pizza.
-                flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "") && !isLockedSingleFlavorProduct(p)).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
+                flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "") && !isLockedSingleFlavorProduct(p) && !isComboCategoryProduct(p)).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={pizzaBorders}
                 sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0 }))}
                 sizeConfigs={pizzaSizeConfigs}
-                initialFlavorId={pizzaProduct.id}
+                initialFlavorId={isComboCategoryProduct(pizzaProduct) ? undefined : pizzaProduct.id}
                 maxFlavorsOverride={typeof pizzaProduct.maxFlavors === "number" ? pizzaProduct.maxFlavors : undefined}
                 onAdd={addPizzaToCart}
               />

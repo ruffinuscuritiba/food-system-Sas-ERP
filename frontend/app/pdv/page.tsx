@@ -2125,7 +2125,7 @@ function DiscountRow({ subtotal, onDiscount }: { subtotal: number; onDiscount: (
             {(["PERCENTAGE", "FIXED"] as const).map((t) => (
               <button key={t} type="button"
                 onClick={() => { setType(t); apply(t, value); }}
-                className={`flex-1 px-3 py-1.5 text-xs font-bold transition ${type === t ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-zinc-400"}`}>
+                className={`flex-1 px-3 py-1.5 text-xs font-bold transition ${type === t ? "bg-[var(--color-primary,#2563eb)] text-white" : "bg-[var(--pdv-card-hover,#0c101d)] text-[var(--pdv-text,#ffffff)] opacity-70"}`}>
                 {t === "PERCENTAGE" ? "%" : "R$"}
               </button>
             ))}
@@ -2134,7 +2134,7 @@ function DiscountRow({ subtotal, onDiscount }: { subtotal: number; onDiscount: (
             placeholder={type === "PERCENTAGE" ? "Ex: 10" : "Ex: 5,00"}
             value={value}
             onChange={(e) => { setValue(e.target.value); apply(type, e.target.value); }}
-            className="flex-1 min-w-0 bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-white rounded-xl px-3 py-1.5 text-xs outline-none focus:border-green-500 placeholder-zinc-600"
+            className="flex-1 min-w-0 bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] rounded-xl px-3 py-1.5 text-xs outline-none focus:border-green-500 placeholder-zinc-500"
           />
         </div>
       )}

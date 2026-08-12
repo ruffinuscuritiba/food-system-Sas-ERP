@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -11,6 +12,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 import { getStartOfTodayBrazil } from '@/common/utils/timezone';
+import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 
 const DRIVER_INVITE_PURPOSE = 'driver_invite';
 
@@ -22,7 +24,36 @@ export class DriversService {
     private socketGateway: SocketGateway,
     private jwtService: JwtService,
     private config: ConfigService,
+    @Optional() private whatsappAiService?: WhatsappAiService,
   ) {}
+
+  // Notifica o entregador por WhatsApp assim que ele é selecionado no painel
+  // (despacho inicial OU troca de entregador) — antes disso o entregador só
+  // ficava sabendo abrindo o app manualmente. Fire-and-forget: nunca atrasa
+  // nem derruba a atribuição se o WhatsApp falhar (mesmo padrão de
+  // sendOrderNotification já usado pra avisar o cliente).
+  private notifyDriverAssignment(
+    driver: { phone: string | null },
+    order: { id: string; number: number; deliveryAddress: string | null; neighborhood: string | null; customerName: string | null },
+    companyId: string,
+  ) {
+    if (!this.whatsappAiService || !driver.phone) return;
+    setImmediate(() => {
+      const address = order.deliveryAddress || order.neighborhood || '';
+      const mapsLink = address
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+        : null;
+      const lines = [
+        `🛵 Novo pedido pra você — #${order.number}`,
+        order.customerName ? `Cliente: ${order.customerName}` : null,
+        address ? `Endereço: ${address}` : null,
+        mapsLink ? `Ver rota: ${mapsLink}` : null,
+      ].filter(Boolean);
+      this.whatsappAiService!
+        .sendTextMessage(companyId, driver.phone!, lines.join('\n'))
+        .catch(() => {});
+    });
+  }
 
   // FIX: agora retorna, para cada entregador, quantas entregas ele já
   // finalizou (_count.orders, filtrado por status DELIVERED) e o total já
@@ -244,6 +275,8 @@ export class DriversService {
       where: { id: orderId },
       data: { driverId, assignedAt: new Date() },
     });
+
+    this.notifyDriverAssignment(driver, order, companyId);
 
     if (isInitialDispatch) {
       // Delegate status transition via OrdersService (stock, socket, loyalty, audit)

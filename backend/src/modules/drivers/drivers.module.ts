@@ -7,9 +7,10 @@ import { OrdersModule } from '@/modules/orders/orders.module';
 import { SocketModule } from '@/socket/socket.module';
 import { ModuleGuard } from '@/common/guards/module.guard';
 import { AuthModule } from '@/modules/auth/auth.module';
+import { WhatsappAiModule } from '@/modules/whatsapp-ai/whatsapp-ai.module';
 
 @Module({
-  imports: [OrdersModule, SocketModule, AuthModule],
+  imports: [OrdersModule, SocketModule, AuthModule, WhatsappAiModule],
   controllers: [DriversController, DriverInviteController],
   providers: [DriversService, PrismaService, ModuleGuard],
   exports: [DriversService],

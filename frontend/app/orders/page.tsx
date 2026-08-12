@@ -8,7 +8,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import {
   ShoppingCart, Printer, Clock, Truck, CheckCircle2, History,
   Phone, User, MapPin, X, Save, ChevronRight, RefreshCw,
-  SplitSquareHorizontal, Plus, Minus,
+  SplitSquareHorizontal, Plus, Minus, Navigation,
 } from "lucide-react";
 import { type PrintableOrder } from "@/components/printing/printTicket";
 import { PrintRouterService } from "@/components/printing/PrintRouterService";
@@ -901,11 +901,26 @@ export default function OrdersPage() {
                       </div>
                     )}
 
-                    {/* Address */}
+                    {/* Address — clicável, abre direto no Maps/Waze (mesmo padrão do app do entregador) */}
                     {order.deliveryAddress && (
-                      <p className="text-xs text-gray-400 flex items-center gap-1">
-                        <MapPin size={11} /> {order.deliveryAddress}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gray-400 hover:text-primary flex items-center gap-1 underline decoration-dotted"
+                        >
+                          <MapPin size={11} /> {order.deliveryAddress}
+                        </a>
+                        <a
+                          href={`https://waze.com/ul?q=${encodeURIComponent(order.deliveryAddress)}&navigate=yes`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-sky-500 hover:text-sky-600 flex items-center gap-1 font-semibold"
+                        >
+                          <Navigation size={11} /> Waze
+                        </a>
+                      </div>
                     )}
 
                     {/* Notes */}

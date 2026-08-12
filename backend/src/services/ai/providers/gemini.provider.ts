@@ -9,19 +9,24 @@ export class GeminiProvider implements AIProvider {
   private primaryModel: string;
 
   // Ordered list of models to try if the primary fails. gemini-1.5-flash
-  // was retired (404 on generateContent since ~08/2026) — removed from the
-  // list entirely, never worth trying again.
+  // (retired ~08/2026) e gemini-2.0-flash/gemini-2.0-flash-lite (desligados
+  // pela Google em 01/06/2026, achado real: P0 de 11/08/2026 — a Kely caiu
+  // sem rede de segurança porque o fallback tentava um modelo morto) foram
+  // removidos da lista. "gemini-flash-latest" é um alias oficial da Google
+  // que sempre aponta pro Flash estável mais recente — nunca fica obsoleto
+  // sozinho, evita repetir esse mesmo incidente a cada aposentadoria de modelo.
   private static readonly FALLBACK_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
+    'gemini-flash-latest',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
   ];
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
     this.apiKey = apiKey;
-    // Default: gemini-2.0-flash. Override via GEMINI_MODEL env var.
-    this.primaryModel = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+    // Default: alias sempre-atual da Google. Override via GEMINI_MODEL env var.
+    this.primaryModel = process.env.GEMINI_MODEL ?? 'gemini-flash-latest';
   }
 
   async analyzeImage(params: AIImageRequest): Promise<string> {

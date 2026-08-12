@@ -307,7 +307,7 @@ ${contextBlock}`;
     question: string,
   ): Promise<{ answer: string; tokensUsed: number }> {
     const model = this.genai.getGenerativeModel({
-      model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+      model: process.env.GEMINI_MODEL ?? 'gemini-flash-latest',
       systemInstruction,
     });
 
@@ -521,7 +521,7 @@ ${contextBlock}`;
   ): Promise<void> {
     try {
       const model = this.genai.getGenerativeModel({
-        model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+        model: process.env.GEMINI_MODEL ?? 'gemini-flash-latest',
         systemInstruction: systemPrompt,
         generationConfig: { maxOutputTokens: 900 },
       });

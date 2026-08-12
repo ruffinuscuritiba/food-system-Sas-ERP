@@ -133,8 +133,14 @@ export class ClaudeCartService {
       },
       body: JSON.stringify({
         model,
-        cache_control: { type: 'ephemeral' },
-        system: systemPrompt,
+        // cache_control só é válido DENTRO de um bloco de conteúdo (aqui, no
+        // system), nunca como campo de nível raiz do body — achado real: um
+        // `cache_control` solto no topo (formato antigo, "tolerado" pela API
+        // até aqui per histórico) começou a voltar HTTP 400 invalid_request_error,
+        // derrubando a Kely sempre que o fallback Gemini também falhava.
+        system: [
+          { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+        ],
         messages: params.conversationHistory,
         // 1024 truncava a resposta no meio do JSON quando o cliente pedia o
         // cardápio completo (muitos sabores/tamanhos/preços) -- o corte
@@ -167,7 +173,7 @@ export class ClaudeCartService {
       conversationHistory: { role: 'user' | 'assistant'; content: string }[];
     },
   ): Promise<StructuredResponse> {
-    const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL ?? 'gemini-flash-latest';
 
     // Gemini usa role "model" para assistente
     const contents = params.conversationHistory.map((m) => ({

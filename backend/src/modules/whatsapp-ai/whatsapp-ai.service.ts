@@ -380,8 +380,12 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       },
       body: JSON.stringify({
         model,
-        cache_control: { type: 'ephemeral' },
-        system: systemPrompt,
+        // cache_control só é válido dentro de um bloco de conteúdo do
+        // system, nunca solto no topo do body — mesmo bug/fix do
+        // claude-cart.service.ts (achado real: P0 de 11/08/2026).
+        system: [
+          { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+        ],
         messages: messages.map((m) => ({ role: m.role, content: m.text })),
         max_tokens: 2048,
       }),
@@ -489,7 +493,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         aiModel:
           provisionProvider === 'CLAUDE'
             ? 'claude-haiku-4-5-20251001'
-            : 'gemini-2.0-flash',
+            : 'gemini-flash-latest',
       },
     });
 
@@ -1206,7 +1210,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
           aiModel:
             healingProvider === 'CLAUDE'
               ? 'claude-haiku-4-5-20251001'
-              : 'gemini-2.0-flash',
+              : 'gemini-flash-latest',
         },
       })) as unknown as WaSettings;
     }
@@ -1424,7 +1428,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
     const companyId = connection.companyId;
 
     const _diagProvider = settings.aiProvider ?? 'GEMINI';
-    const _diagModel = settings.aiModel ?? this.config.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+    const _diagModel = settings.aiModel ?? this.config.get('GEMINI_MODEL') ?? 'gemini-flash-latest';
     log.warn(
       `[DIAG][runAiResponse] START conv=${conv.id} provider=${_diagProvider} model=${_diagModel} ` +
         `GEMINI_KEY=${!!this.config.get('GEMINI_API_KEY')} ANTHROPIC_KEY=${!!this.config.get('ANTHROPIC_API_KEY')}`,
@@ -1569,7 +1573,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         const geminiModel =
           this.config.get('GEMINI_MODEL') ??
           settings.aiModel ??
-          'gemini-2.0-flash';
+          'gemini-flash-latest';
         rawResponse = await this.geminiChat(
           geminiModel,
           systemPrompt,

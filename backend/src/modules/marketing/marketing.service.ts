@@ -64,7 +64,7 @@ export class MarketingService {
 
     // Gemini text-only call with JSON mode
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+    const model = process.env.GEMINI_MODEL ?? 'gemini-flash-latest';
 
     if (!apiKey) {
       throw new BadRequestException(

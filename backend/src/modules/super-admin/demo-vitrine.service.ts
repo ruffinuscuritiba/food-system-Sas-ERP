@@ -1086,7 +1086,7 @@ export class DemoVitrineService {
         connectionId: conn.id,
         companyId: cid,
         aiProvider: 'GEMINI',
-        aiModel: 'gemini-2.0-flash',
+        aiModel: 'gemini-flash-latest',
         attendantName: 'Carol',
         mode: 'AUTO',
         isActive: true,

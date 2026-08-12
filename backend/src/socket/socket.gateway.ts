@@ -107,6 +107,28 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Notificação de novo pedido pro entregador (WhatsApp com endereço +
+   * link do Maps) falhou de verdade — mesma classe de bug do
+   * emitWhatsappDeliveryFailed acima, mas nesse ponto (notifyDriverAssignment
+   * em drivers.service.ts) o envio era fire-and-forget com `.catch(()=>{})`
+   * sem nenhuma visibilidade: se a Evolution estivesse fora do ar ou o
+   * número do entregador errado, ninguém percebia — o sintoma real era
+   * "não chegou endereço no app do entregador" (não chegava nada mesmo).
+   */
+  emitDriverNotificationFailed(
+    companyId: string,
+    data: {
+      orderId: string;
+      orderNumber: number;
+      driverName?: string | null;
+      driverPhone: string;
+      address: string;
+    },
+  ) {
+    this.server.to(`company:${companyId}`).emit('driverNotificationFailed', data);
+  }
+
+  /**
    * Cliente mandou mensagem no WhatsApp — dispara em TODA mensagem recebida
    * (não só quando pede humano), pra quem está no painel poder acompanhar a
    * conversa em tempo real e decidir se quer assumir, mesmo sem estar com a

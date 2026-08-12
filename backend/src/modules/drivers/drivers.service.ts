@@ -33,13 +33,25 @@ export class DriversService {
   // nem derruba a atribuição se o WhatsApp falhar (mesmo padrão de
   // sendOrderNotification já usado pra avisar o cliente).
   private notifyDriverAssignment(
-    driver: { phone: string | null },
+    driver: { phone: string | null; name?: string | null },
     order: { id: string; number: number; deliveryAddress: string | null; neighborhood: string | null; customerName: string | null },
     companyId: string,
   ) {
-    if (!this.whatsappAiService || !driver.phone) return;
-    setImmediate(() => {
-      const address = order.deliveryAddress || order.neighborhood || '';
+    const address = order.deliveryAddress || order.neighborhood || '';
+    if (!this.whatsappAiService || !driver.phone) {
+      // Sem WhatsApp configurado ou entregador sem telefone cadastrado —
+      // mesmo alerta de falha que uma falha de envio real, porque o efeito
+      // pro entregador é idêntico: ele nunca soube do pedido/endereço.
+      this.socketGateway.emitDriverNotificationFailed(companyId, {
+        orderId: order.id,
+        orderNumber: order.number,
+        driverName: driver.name ?? null,
+        driverPhone: driver.phone ?? '',
+        address,
+      });
+      return;
+    }
+    setImmediate(async () => {
       const mapsLink = address
         ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
         : null;
@@ -49,9 +61,29 @@ export class DriversService {
         address ? `Endereço: ${address}` : null,
         mapsLink ? `Ver rota: ${mapsLink}` : null,
       ].filter(Boolean);
-      this.whatsappAiService!
-        .sendTextMessage(companyId, driver.phone!, lines.join('\n'))
-        .catch(() => {});
+      // sendTextMessage() nunca rejeita (dispatchMessage engole o erro e
+      // resolve `false`) — por isso o `.catch(()=>{})` de antes nunca disparava
+      // e a falha real ficava 100% invisível (só um log.error no backend, sem
+      // ninguém no painel saber). Checar o retorno é o que faltava.
+      let sent = false;
+      try {
+        sent = await this.whatsappAiService!.sendTextMessage(
+          companyId,
+          driver.phone!,
+          lines.join('\n'),
+        );
+      } catch {
+        sent = false;
+      }
+      if (!sent) {
+        this.socketGateway.emitDriverNotificationFailed(companyId, {
+          orderId: order.id,
+          orderNumber: order.number,
+          driverName: driver.name ?? null,
+          driverPhone: driver.phone!,
+          address,
+        });
+      }
     });
   }
 
@@ -260,6 +292,7 @@ export class DriversService {
   ) {
     const driver = await this.prisma.driverProfile.findFirst({
       where: { id: driverId, companyId },
+      include: { user: { select: { name: true } } },
     });
     if (!driver) throw new NotFoundException('Entregador não encontrado');
 
@@ -276,7 +309,11 @@ export class DriversService {
       data: { driverId, assignedAt: new Date() },
     });
 
-    this.notifyDriverAssignment(driver, order, companyId);
+    this.notifyDriverAssignment(
+      { phone: driver.phone, name: driver.user?.name ?? null },
+      order,
+      companyId,
+    );
 
     if (isInitialDispatch) {
       // Delegate status transition via OrdersService (stock, socket, loyalty, audit)

@@ -246,6 +246,13 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [waFailureAlerts, setWaFailureAlerts] = useState<
     { conversationId: string; customerPhone: string; customerName?: string | null; preview: string; at: number }[]
   >([]);
+  // Notificação de pedido pro entregador (WhatsApp com endereço+Maps, ver
+  // drivers.service.ts) falhou de verdade — antes era 100% silenciosa
+  // (fire-and-forget com .catch(()=>{}) que descartava o retorno), sintoma
+  // real reportado: "não chegou endereço no app do entregador".
+  const [driverNotifAlerts, setDriverNotifAlerts] = useState<
+    { orderId: string; orderNumber: number; driverName?: string | null; driverPhone: string; address: string; at: number }[]
+  >([]);
   // Cliente conversando no WhatsApp agora — dispara em toda mensagem recebida
   // (não só pedido de humano), pra acompanhar em tempo real e decidir se
   // assume. Dedupe por conversationId: nova mensagem da MESMA conversa
@@ -410,6 +417,14 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       });
     }
 
+    function handleDriverNotifFailed(data: { orderId: string; orderNumber: number; driverName?: string | null; driverPhone: string; address: string }) {
+      console.error("[alertas] evento driverNotificationFailed recebido", data);
+      setDriverNotifAlerts((prev) => {
+        const withoutDup = prev.filter((a) => a.orderId !== data.orderId);
+        return [...withoutDup, { ...data, at: Date.now() }];
+      });
+    }
+
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
@@ -417,6 +432,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     socket.on("orderCreated", handleOrderCreated);
     socket.on("whatsappDeliveryFailed", handleWaDeliveryFailed);
     socket.on("whatsappCustomerMessage", handleCustomerMessage);
+    socket.on("driverNotificationFailed", handleDriverNotifFailed);
     return () => {
       clearInterval(reconnectTimer);
       socket.off("connect", handleConnect);
@@ -426,6 +442,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       socket.off("orderCreated", handleOrderCreated);
       socket.off("whatsappDeliveryFailed", handleWaDeliveryFailed);
       socket.off("whatsappCustomerMessage", handleCustomerMessage);
+      socket.off("driverNotificationFailed", handleDriverNotifFailed);
       // Não desconecta — outras páginas (kitchen/orders/tables) também
       // gerenciam o mesmo socket compartilhado.
     };
@@ -474,7 +491,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   // modos escolhíveis pelo operador: campainha (mp3) ou voz (fala o pedido
   // via Web Speech API, sem depender de nenhum arquivo de áudio novo).
   useEffect(() => {
-    const pendingCount = humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length;
+    const pendingCount = humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length + driverNotifAlerts.length;
     if (pendingCount === 0) {
       const el = humanAlertAudioRef.current;
       if (el) { el.pause(); el.currentTime = 0; }
@@ -487,6 +504,8 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
         ? "Atenção! Cliente pediu atendimento humano."
         : waFailureAlerts.length > 0
         ? "Atenção! Uma mensagem não foi entregue no WhatsApp."
+        : driverNotifAlerts.length > 0
+        ? "Atenção! O entregador não recebeu o endereço do pedido."
         : orderAlerts.length > 0
         ? "Novo pedido! Olha o pedido."
         : "Cliente conversando no WhatsApp.";
@@ -533,7 +552,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       timers.forEach(clearTimeout);
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
     };
-  }, [humanAlerts.length, orderAlerts.length, waFailureAlerts.length, chatAlerts.length, alertSoundMode]);
+  }, [humanAlerts.length, orderAlerts.length, waFailureAlerts.length, chatAlerts.length, driverNotifAlerts.length, alertSoundMode]);
 
   function dismissOrderAlert(orderId: string) {
     setOrderAlerts((prev) => prev.filter((a) => a.orderId !== orderId));
@@ -549,6 +568,10 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   function dismissWaFailureAlert(conversationId: string) {
     setWaFailureAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
+  }
+
+  function dismissDriverNotifAlert(orderId: string) {
+    setDriverNotifAlerts((prev) => prev.filter((a) => a.orderId !== orderId));
   }
 
   useEffect(() => {
@@ -769,7 +792,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
       <Toaster position="top-right" />
       <audio ref={humanAlertAudioRef} src="/notification.wav" preload="auto" />
 
-      {audioBlocked && alertSoundMode !== "muted" && (humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length > 0) && (
+      {audioBlocked && alertSoundMode !== "muted" && (humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length + driverNotifAlerts.length > 0) && (
         <button
           type="button"
           onClick={(e) => {
@@ -856,8 +879,51 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
         </div>
       )}
 
+      {driverNotifAlerts.length > 0 && (
+        <div className="fixed top-3 right-3 z-[9998] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: (humanAlerts.length * 96) + (waFailureAlerts.length * 108) }}>
+          {driverNotifAlerts.map((a) => {
+            const waMessage = `Pedido #${a.orderNumber}${a.address ? ` — Endereço: ${a.address}` : ""}`;
+            return (
+              <div
+                key={a.orderId}
+                className="bg-orange-600 text-white rounded-xl shadow-2xl p-3.5 flex items-start gap-3 animate-pulse"
+              >
+                <Bike size={18} className="mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm">Entregador NÃO recebeu o pedido</p>
+                  <p className="text-xs text-orange-100 truncate">
+                    {a.driverName || "Entregador"} · Pedido #{a.orderNumber}
+                  </p>
+                  {a.address && <p className="text-xs text-orange-50 mt-1 line-clamp-2">{a.address}</p>}
+                  <p className="text-[11px] text-orange-100 mt-1">WhatsApp não entregou — avise manualmente.</p>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {a.driverPhone && (
+                      <a
+                        href={`https://wa.me/${a.driverPhone.replace(/\D/g, "")}?text=${encodeURIComponent(waMessage)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => dismissDriverNotifAlert(a.orderId)}
+                        className="text-xs font-semibold bg-white text-orange-700 px-2.5 py-1 rounded-lg hover:bg-orange-50 transition"
+                      >
+                        Abrir WhatsApp
+                      </a>
+                    )}
+                    <button
+                      onClick={() => dismissDriverNotifAlert(a.orderId)}
+                      className="text-xs font-semibold text-orange-100 px-2.5 py-1 rounded-lg hover:bg-orange-700 transition"
+                    >
+                      Dispensar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {orderAlerts.length > 0 && (
-        <div className="fixed top-3 right-3 z-[9999] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: (humanAlerts.length * 96) + (waFailureAlerts.length * 108) }}>
+        <div className="fixed top-3 right-3 z-[9999] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]" style={{ marginTop: (humanAlerts.length * 96) + (waFailureAlerts.length * 108) + (driverNotifAlerts.length * 132) }}>
           {orderAlerts.map((a) => (
             <div
               key={a.orderId}
@@ -893,7 +959,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
       {chatAlerts.length > 0 && (
         <div
           className="fixed top-3 right-3 z-[9997] flex flex-col gap-2 max-w-[calc(100vw-1.5rem)] w-[360px]"
-          style={{ marginTop: (humanAlerts.length * 96) + (waFailureAlerts.length * 108) + (orderAlerts.length * 96) }}
+          style={{ marginTop: (humanAlerts.length * 96) + (waFailureAlerts.length * 108) + (driverNotifAlerts.length * 132) + (orderAlerts.length * 96) }}
         >
           {chatAlerts.map((a) => (
             <div

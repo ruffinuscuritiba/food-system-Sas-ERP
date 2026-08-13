@@ -286,6 +286,51 @@ function normalizePaymentMethod(
   return null;
 }
 
+/**
+ * Mapeia formaPagamento (texto livre extraído pelo Claude) pro enum real
+ * PaymentMethod do Order. Achado real (12/08/2026): o mapa anterior só
+ * tinha pix/credit_card/debit_card e caía num `?? 'PIX'` silencioso pra
+ * qualquer outro valor — "dinheiro" (opção que a própria Kely OFERECE
+ * verbalmente ao cliente) e "depósito"/"transferência" (o cliente pode
+ * simplesmente digitar isso, mesmo sem ser oferecido) viravam PIX sem
+ * ninguém perceber. Isso quebra 2 coisas na prática: (1) o caixa físico
+ * nunca é creditado pra uma venda que na verdade foi em dinheiro (só
+ * `paymentMethod==='CASH'` credita, ver orders.service.ts), e (2)
+ * cozinha/entregador veem "PIX" no pedido quando o cliente vai pagar na
+ * entrega — pode sair sem levar troco. Sem match nenhum, cai em PIX só
+ * como último recurso (mantém compatibilidade com o comportamento restrito
+ * do prompt de sempre confirmar uma das opções antes de finalizar) mas
+ * loga um warning, pra parar de ser 100% invisível.
+ */
+function resolveOrderPaymentMethod(raw: string | null | undefined): string {
+  if (!raw) return 'PIX';
+  const s = raw
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+  if (s.includes('pix')) return 'PIX';
+  if (s.includes('debito') || s.includes('debit')) return 'DEBIT_CARD';
+  if (
+    s.includes('credito') ||
+    s.includes('credit') ||
+    s.includes('cartao') ||
+    s.includes('card')
+  )
+    return 'CREDIT_CARD';
+  if (s.includes('dinheiro') || s.includes('cash') || s.includes('especie'))
+    return 'CASH';
+  if (
+    s.includes('deposito') ||
+    s.includes('transferencia') ||
+    s.includes('transfer')
+  )
+    return 'TRANSFER';
+  log.warn(
+    `[WA] formaPagamento "${raw}" não reconhecida — usando PIX como fallback (pode estar errado, checar manualmente)`,
+  );
+  return 'PIX';
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -2097,8 +2142,16 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
               | null)
           : (status_carrinho.formaPagamento ?? null);
         const metodo = normalizePaymentMethod(rawMetodo);
+        // "dinheiro" nunca passa por normalizePaymentMethod (ela só cobre os
+        // 3 métodos que geram cobrança automática, de propósito) — sem essa
+        // checagem à parte, um pedido em dinheiro caía no `if (metodo &&...)`
+        // como falso e o cliente NUNCA recebia nenhuma mensagem de
+        // confirmação depois de finalizar o pedido (achado real: 12/08/2026,
+        // usuário reportou "a IA não tirou o pedido sozinha" — o pedido era
+        // criado normalmente, só a confirmação pro cliente que nunca saía).
+        const isCash = resolveOrderPaymentMethod(rawMetodo) === 'CASH';
 
-        if (metodo && orderId) {
+        if (orderId) {
           const orderTotal = cartForOrder.reduce(
             (s, i) => s + i.price * i.qty,
             0,
@@ -2108,7 +2161,10 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
             .join(', ');
 
           try {
-            if (metodo === 'pix') {
+            if (isCash) {
+              const cashMsg = `Pedido registrado! 🎉 Total: R$ ${orderTotal.toFixed(2).replace('.', ',')} — pagamento em dinheiro na entrega/retirada. Já estamos preparando! 🍕`;
+              await this.sendAssistantReply(connection, conv, companyId, cashMsg);
+            } else if (metodo === 'pix') {
               const pix = await this.waPayment.createPix({
                 orderId,
                 companyId,
@@ -2135,6 +2191,13 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
                   : 'Cartão de Débito';
               const linkMsg = `Perfeito! Você pode realizar o pagamento com segurança através deste link oficial 🔒:\n\n${linkResult.paymentUrl}\n\nEssa é a forma de pagamento: *${methodLabel}*. Qualquer dúvida, é só falar! 😊`;
               await this.sendAssistantReply(connection, conv, companyId, linkMsg);
+            } else {
+              // Forma de pagamento não reconhecida por nenhum dos ramos acima
+              // (não deveria acontecer — o prompt exige uma das 4 opções
+              // antes de finalizar — mas nunca deixar o cliente sem NENHUMA
+              // confirmação é mais importante que ter certeza da causa raiz).
+              const genericMsg = `Pedido registrado! 🎉 Em breve enviaremos as instruções de pagamento.`;
+              await this.sendAssistantReply(connection, conv, companyId, genericMsg);
             }
           } catch (payErr: unknown) {
             log.warn(
@@ -2218,12 +2281,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       );
     }
 
-    const paymentMethodMap: Record<string, string> = {
-      pix: 'PIX',
-      credit_card: 'CREDIT_CARD',
-      debit_card: 'DEBIT_CARD',
-    };
-    const paymentMethod = paymentMethodMap[formaPagamento ?? ''] ?? 'PIX';
+    const paymentMethod = resolveOrderPaymentMethod(formaPagamento);
 
     const order = await this.ordersService.create({
       companyId,

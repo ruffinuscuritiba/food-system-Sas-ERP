@@ -141,6 +141,24 @@ export class DriversController {
     );
   }
 
+  // Manda pro CLIENTE (não pro entregador) um WhatsApp com a localização
+  // atual do entregador em tempo real — pedido explícito do usuário pra
+  // usar quando o cliente liga perguntando "cadê meu pedido".
+  @Post('share-location')
+  @UseGuards(RolesGuard, ModuleGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  @RequiredModule('delivery')
+  shareDriverLocation(
+    @Body() body: { orderId: string; source?: string },
+    @Req() req: any,
+  ) {
+    return this.service.shareDriverLocation(
+      body.orderId,
+      req.user.companyId,
+      body.source,
+    );
+  }
+
   // ── Admin: earnings & payments ───────────────────────────────────────────
 
   @Get(':id/deliveries-today')

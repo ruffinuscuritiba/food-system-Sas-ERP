@@ -416,6 +416,73 @@ export class DriversService {
     return this.prisma.onlineOrder.findFirst({ where: { id: orderId } });
   }
 
+  // Manda pro CLIENTE (não pro entregador — ver notifyDriverAssignment
+  // acima, que é o inverso) um WhatsApp com a localização ATUAL do
+  // entregador em tempo real. Pedido explícito do usuário: quando o
+  // cliente liga perguntando "cadê meu pedido", o operador clica um botão
+  // em vez de ficar de operador humano de central de rastreamento.
+  async shareDriverLocation(orderId: string, companyId: string, source?: string) {
+    let driverId: string | null;
+    let customerPhone: string | null;
+    let customerName: string | null;
+
+    if (source === 'ONLINE') {
+      const order = await this.prisma.onlineOrder.findFirst({
+        where: { id: orderId, companyId },
+      });
+      if (!order) throw new NotFoundException('Pedido não encontrado');
+      driverId = order.driverId;
+      customerPhone = order.customerPhone;
+      customerName = order.customerName;
+    } else {
+      const order = await this.prisma.order.findFirst({
+        where: { id: orderId, companyId },
+        include: { customer: true },
+      });
+      if (!order) throw new NotFoundException('Pedido não encontrado');
+      driverId = order.driverId;
+      customerPhone = order.customer?.phone ?? order.customerPhone ?? null;
+      customerName = order.customer?.name ?? order.customerName ?? null;
+    }
+
+    if (!driverId)
+      throw new BadRequestException('Este pedido ainda não tem entregador atribuído.');
+    if (!customerPhone)
+      throw new BadRequestException('Pedido sem telefone de cliente cadastrado.');
+
+    const driver = await this.prisma.driverProfile.findUnique({
+      where: { id: driverId },
+    });
+    if (!driver?.currentLat || !driver?.currentLng) {
+      // GPS só chega depois que o app do entregador conecta e emite pelo
+      // menos uma vez (ver TrackingGateway.handleLocation) — sem isso não
+      // há coordenada nenhuma pra mandar, e mandar um link vazio seria pior
+      // que não mandar nada.
+      throw new BadRequestException(
+        'Localização do entregador ainda não disponível — peça pra ele abrir o app com o GPS ativo.',
+      );
+    }
+
+    if (!this.whatsappAiService)
+      throw new BadRequestException('WhatsApp não configurado nesta empresa.');
+
+    const mapsLink = `https://www.google.com/maps/search/?api=1&query=${driver.currentLat},${driver.currentLng}`;
+    const greeting = customerName ? `Olá, ${customerName}! ` : '';
+    const message = `${greeting}🛵 Seu entregador está a caminho! Acompanhe a localização em tempo real:\n${mapsLink}`;
+
+    const sent = await this.whatsappAiService.sendTextMessage(
+      companyId,
+      customerPhone,
+      message,
+    );
+    if (!sent)
+      throw new BadRequestException(
+        'Falha ao enviar WhatsApp — verifique a conexão em /whatsapp-ia.',
+      );
+
+    return { ok: true };
+  }
+
   async updateMyLocation(userId: string, lat: number, lng: number) {
     const profile = await this.prisma.driverProfile.findUnique({
       where: { userId },
@@ -461,22 +528,74 @@ export class DriversService {
     });
   }
 
+  // Une Order (PDV/WhatsApp/iFood) + OnlineOrder (cardápio digital/totem) —
+  // achado real: 13/08/2026, o app do entregador só listava pedidos do PDV;
+  // um pedido do cardápio digital atribuído pelo painel admin (ver
+  // assignOrder/assignOnlineOrder acima) nunca aparecia pro entregador,
+  // mesmo o WhatsApp de notificação já chegando certo. Normaliza os dois
+  // pro MESMO formato que o app já espera (customer:{name,phone}), pra não
+  // precisar mudar a tipagem do frontend.
   async availableOrders(userId: string) {
     const profile = await this.prisma.driverProfile.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
 
-    return this.prisma.order.findMany({
-      where: {
-        companyId: profile.companyId,
-        status: OrderStatus.READY,
-        driverId: null,
-      },
-      orderBy: { readyAt: 'desc' },
-      take: 50,
-      include: { items: { select: { productName: true, quantity: true } } },
-    });
+    const [pdv, online] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          companyId: profile.companyId,
+          status: OrderStatus.READY,
+          driverId: null,
+        },
+        orderBy: { readyAt: 'desc' },
+        take: 50,
+        include: {
+          customer: true,
+          items: { select: { productName: true, quantity: true } },
+        },
+      }),
+      this.prisma.onlineOrder.findMany({
+        where: {
+          companyId: profile.companyId,
+          orderStatus: 'READY',
+          driverId: null,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    const pdvMapped = pdv.map((o) => ({
+      id: o.id,
+      source: 'PDV' as const,
+      total: Number(o.total),
+      driverFee: o.driverFee != null ? Number(o.driverFee) : null,
+      deliveryAddress: o.deliveryAddress,
+      customer: o.customer
+        ? { name: o.customer.name, phone: o.customer.phone }
+        : o.customerName
+          ? { name: o.customerName, phone: o.customerPhone ?? '' }
+          : null,
+      items: o.items,
+    }));
+
+    const onlineMapped = online.map((o) => ({
+      id: o.id,
+      source: 'ONLINE' as const,
+      total: Number(o.total),
+      driverFee: null,
+      deliveryAddress:
+        [o.address, o.addressNumber, o.neighborhood, o.city]
+          .filter(Boolean)
+          .join(', ') || null,
+      customer: { name: o.customerName, phone: o.customerPhone },
+      items: (Array.isArray(o.items) ? (o.items as any[]) : []).map(
+        (it) => ({ productName: it.productName, quantity: it.quantity }),
+      ),
+    }));
+
+    return [...pdvMapped, ...onlineMapped];
   }
 
   async acceptOrder(userId: string, orderId: string) {
@@ -484,6 +603,14 @@ export class DriversService {
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
+
+    // orderId é cuid globalmente único — nunca colide entre Order e
+    // OnlineOrder, então dá pra checar qual tabela tem o registro sem
+    // precisar que o app mande a origem.
+    const onlineOrder = await this.prisma.onlineOrder.findFirst({
+      where: { id: orderId, companyId: profile.companyId },
+    });
+    if (onlineOrder) return this.acceptOnlineOrder(profile, userId, onlineOrder);
 
     // Serializable transaction: check-and-assign atomically to prevent double-assignment
     await this.prisma.$transaction(
@@ -514,20 +641,104 @@ export class DriversService {
     );
   }
 
+  private async acceptOnlineOrder(
+    profile: { id: string; companyId: string },
+    userId: string,
+    onlineOrder: { id: string; driverId: string | null },
+  ) {
+    await this.prisma.$transaction(
+      async (tx) => {
+        const fresh = await tx.onlineOrder.findFirst({
+          where: { id: onlineOrder.id, companyId: profile.companyId },
+        });
+        if (!fresh) throw new NotFoundException('Pedido não encontrado');
+        if (fresh.driverId !== null)
+          throw new ConflictException(
+            'Pedido já foi aceito por outro entregador',
+          );
+
+        await tx.onlineOrder.update({
+          where: { id: onlineOrder.id },
+          data: { driverId: profile.id, assignedAt: new Date() },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    return this.ordersService.updateKitchenStatus(
+      'ONLINE',
+      onlineOrder.id,
+      'OUT_FOR_DELIVERY',
+      userId,
+      profile.companyId,
+    );
+  }
+
   async myOrders(userId: string) {
     const profile = await this.prisma.driverProfile.findUnique({
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Perfil não encontrado');
 
-    return this.prisma.order.findMany({
-      where: {
-        driverId: profile.id,
-        status: { in: ['READY', 'OUT_FOR_DELIVERY', 'DELIVERED'] },
-      },
-      orderBy: { assignedAt: 'desc' },
-      take: 20,
-      include: { customer: true },
+    const [pdv, online] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          driverId: profile.id,
+          status: { in: ['READY', 'OUT_FOR_DELIVERY', 'DELIVERED'] },
+        },
+        orderBy: { assignedAt: 'desc' },
+        take: 20,
+        include: { customer: true },
+      }),
+      this.prisma.onlineOrder.findMany({
+        where: {
+          driverId: profile.id,
+          orderStatus: { in: ['READY', 'DELIVERING', 'COMPLETED'] },
+        },
+        orderBy: { assignedAt: 'desc' },
+        take: 20,
+      }),
+    ]);
+
+    const ONLINE_STATUS_MAP: Record<string, string> = {
+      READY: 'READY',
+      DELIVERING: 'OUT_FOR_DELIVERY',
+      COMPLETED: 'DELIVERED',
+    };
+
+    const pdvMapped = pdv.map((o) => ({
+      id: o.id,
+      source: 'PDV' as const,
+      status: o.status,
+      total: Number(o.total),
+      driverFee: o.driverFee != null ? Number(o.driverFee) : null,
+      deliveryAddress: o.deliveryAddress,
+      customer: o.customer
+        ? { name: o.customer.name, phone: o.customer.phone }
+        : o.customerName
+          ? { name: o.customerName, phone: o.customerPhone ?? '' }
+          : null,
+      assignedAt: o.assignedAt,
+    }));
+
+    const onlineMapped = online.map((o) => ({
+      id: o.id,
+      source: 'ONLINE' as const,
+      status: ONLINE_STATUS_MAP[o.orderStatus] ?? o.orderStatus,
+      total: Number(o.total),
+      driverFee: null,
+      deliveryAddress:
+        [o.address, o.addressNumber, o.neighborhood, o.city]
+          .filter(Boolean)
+          .join(', ') || null,
+      customer: { name: o.customerName, phone: o.customerPhone },
+      assignedAt: o.assignedAt,
+    }));
+
+    return [...pdvMapped, ...onlineMapped].sort((a, b) => {
+      const at = a.assignedAt ? new Date(a.assignedAt).getTime() : 0;
+      const bt = b.assignedAt ? new Date(b.assignedAt).getTime() : 0;
+      return bt - at;
     });
   }
 

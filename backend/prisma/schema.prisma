@@ -1830,6 +1830,7 @@ model OnlineOrder {
   driverId                String?
   driver                  DriverProfile? @relation(fields: [driverId], references: [id])
   assignedAt              DateTime?
+  pickedUpAt              DateTime?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 

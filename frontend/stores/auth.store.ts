@@ -49,9 +49,20 @@ export const useAuthStore =
       user,
     ) => {
 
+      // Sem `expires`, js-cookie grava um cookie de SESSÃO — some assim que o
+      // processo do navegador/PWA fecha (comum no celular: Android/iOS
+      // costumam encerrar a aba/atalho em segundo plano pra liberar memória).
+      // middleware.ts só enxerga esse cookie (não localStorage, que é
+      // client-side e roda depois do middleware barrar a rota) — o JWT
+      // continua válido por 7d, mas o entregador era jogado pro /login de
+      // novo a cada abertura do app, mesmo o token ainda sendo válido
+      // (achado real: 13/08/2026, "toda vez que vai entrar precisa
+      // cadastrar a senha"). 7 dias casa com o expiresIn do JWT em si
+      // (auth.module.ts).
       Cookies.set(
         "token",
         token,
+        { expires: 7, sameSite: "lax" },
       );
 
       localStorage.setItem(

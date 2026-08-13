@@ -102,7 +102,11 @@ export class TrackingGateway
     });
   }
 
-  // Driver marks order as picked up
+  // Driver marks order as picked up. orderId é cuid globalmente único —
+  // tenta Order (PDV) primeiro; se não existir, é um pedido do cardápio
+  // digital (OnlineOrder) — achado real: 13/08/2026, pedido ONLINE
+  // atribuído a um entregador nunca registrava a coleta porque este
+  // handler só sabia escrever na tabela Order.
   @SubscribeMessage('driver:picked_up')
   async handlePickedUp(@MessageBody() payload: { orderId: string }) {
     this.logger.log(`[PICKUP] orderId=${payload.orderId}`);
@@ -112,7 +116,14 @@ export class TrackingGateway
         data: { pickedUpAt: new Date() },
       });
     } catch (err: any) {
-      this.logger.warn(`[PICKUP] DB update failed for order=${payload.orderId}: ${err?.message}`);
+      try {
+        await this.prisma.onlineOrder.update({
+          where: { id: payload.orderId },
+          data: { pickedUpAt: new Date() },
+        });
+      } catch (err2: any) {
+        this.logger.warn(`[PICKUP] DB update failed for order=${payload.orderId}: ${err2?.message}`);
+      }
     }
     this.server
       .to(`order:${payload.orderId}`)
@@ -137,12 +148,29 @@ export class TrackingGateway
     this.logger.log(`[DELIVERED] orderId=${payload.orderId} userId=${userId} companyId=${companyId}`);
 
     try {
-      await this.ordersService.updateStatus(
-        payload.orderId,
-        OrderStatus.DELIVERED,
-        userId,
-        companyId,
-      );
+      // Mesma checagem de origem do PICKUP acima — Order primeiro, senão
+      // ONLINE (via o adapter já usado pelo board da cozinha, que trata
+      // estoque/fidelidade/socket certos pro pedido do cardápio digital).
+      const pdvOrder = await this.prisma.order.findFirst({
+        where: { id: payload.orderId, companyId },
+        select: { id: true },
+      });
+      if (pdvOrder) {
+        await this.ordersService.updateStatus(
+          payload.orderId,
+          OrderStatus.DELIVERED,
+          userId,
+          companyId,
+        );
+      } else {
+        await this.ordersService.updateKitchenStatus(
+          'ONLINE',
+          payload.orderId,
+          'DELIVERED',
+          userId,
+          companyId,
+        );
+      }
       this.logger.log(`[DELIVERED] status updated OK — orderId=${payload.orderId}`);
     } catch (err: any) {
       this.logger.error(`[DELIVERED] updateStatus failed: ${err?.message}`, err?.stack);

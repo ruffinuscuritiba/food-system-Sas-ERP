@@ -621,6 +621,7 @@ export default function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [assigningOrderId, setAssigningOrderId] = useState<string | null>(null);
+  const [sharingLocationId, setSharingLocationId] = useState<string | null>(null);
   // Trava contra clique duplo no botão Imprimir — sem isso, 2-3 cliques rápidos
   // no mesmo pedido abrem 2-3 janelas de impressão (o pop-up não bloqueia o clique seguinte).
   const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
@@ -665,6 +666,18 @@ export default function OrdersPage() {
       toast.error(err?.response?.data?.message || "Erro ao atribuir entregador");
     } finally {
       setAssigningOrderId(null);
+    }
+  }
+
+  async function shareDriverLocation(orderId: string, source?: string) {
+    setSharingLocationId(orderId);
+    try {
+      await api.post("/drivers/share-location", { orderId, source });
+      toast.success("Localização enviada pro cliente por WhatsApp");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Erro ao enviar localização");
+    } finally {
+      setSharingLocationId(null);
     }
   }
 
@@ -1029,6 +1042,20 @@ export default function OrdersPage() {
                           ))}
                         </select>
                       </div>
+                    )}
+
+                    {/* Manda a localização ATUAL do entregador pro cliente via WhatsApp —
+                        pra usar quando o cliente liga perguntando "cadê meu pedido". */}
+                    {order.status === "OUT_FOR_DELIVERY" && order.driverId && (
+                      <button
+                        onClick={() => shareDriverLocation(order.id, (order as any).source)}
+                        disabled={sharingLocationId === order.id}
+                        title="Enviar localização do entregador pro cliente por WhatsApp"
+                        className="flex items-center gap-1.5 border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-600 px-3 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-60"
+                      >
+                        <Navigation size={12} />
+                        {sharingLocationId === order.id ? "Enviando..." : "Enviar localização"}
+                      </button>
                     )}
 
                     {/* Finalizar */}

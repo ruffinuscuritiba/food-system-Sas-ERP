@@ -654,11 +654,11 @@ export default function OrdersPage() {
     }
   }
 
-  async function assignDriver(orderId: string, driverId: string) {
+  async function assignDriver(orderId: string, driverId: string, source?: string) {
     if (!driverId) return;
     setAssigningOrderId(orderId);
     try {
-      await api.post("/drivers/assign", { orderId, driverId });
+      await api.post("/drivers/assign", { orderId, driverId, source });
       toast.success("Entregador atualizado");
       fetchOrders();
     } catch (err: any) {
@@ -989,7 +989,7 @@ export default function OrdersPage() {
                       <select
                         disabled={assigningOrderId === order.id}
                         defaultValue=""
-                        onChange={(e) => e.target.value && assignDriver(order.id, e.target.value)}
+                        onChange={(e) => e.target.value && assignDriver(order.id, e.target.value, (order as any).source)}
                         style={{ colorScheme: "dark" }}
                         className="border border-purple-500/30 bg-purple-500/15 text-purple-200 px-3 py-2 rounded-xl outline-none text-sm font-bold disabled:opacity-60"
                       >
@@ -1020,7 +1020,7 @@ export default function OrdersPage() {
                         <select
                           disabled={assigningOrderId === order.id}
                           value={order.driverId ?? ""}
-                          onChange={(e) => e.target.value && assignDriver(order.id, e.target.value)}
+                          onChange={(e) => e.target.value && assignDriver(order.id, e.target.value, (order as any).source)}
                           className="border border-gray-200 text-gray-600 px-2 py-1.5 rounded-lg outline-none text-xs font-medium disabled:opacity-60"
                         >
                           <option value="" disabled>Trocar...</option>

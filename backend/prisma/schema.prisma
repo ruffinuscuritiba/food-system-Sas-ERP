@@ -741,6 +741,7 @@ model DriverProfile {
   companyId    String
   company      Company  @relation(fields: [companyId], references: [id])
   orders       Order[]
+  onlineOrders OnlineOrder[]
   earnings     DriverEarning[]
   payments     DriverPayment[]
   createdAt    DateTime @default(now())
@@ -1823,6 +1824,12 @@ model OnlineOrder {
   grossAmount             Decimal? @db.Decimal(10, 2)
   feeAmount               Decimal? @db.Decimal(10, 2)
   netAmount               Decimal? @db.Decimal(10, 2)
+  // Entregador — OnlineOrder nunca teve isso (achado real: 13/08/2026,
+  // atribuir entregador num pedido do cardápio digital dava 404 "Pedido não
+  // encontrado", porque POST /drivers/assign só olhava a tabela Order/PDV).
+  driverId                String?
+  driver                  DriverProfile? @relation(fields: [driverId], references: [id])
+  assignedAt              DateTime?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -1830,6 +1837,7 @@ model OnlineOrder {
   @@index([paymentStatus])
   @@index([orderStatus])
   @@index([createdAt])
+  @@index([driverId])
   // Compostos p/ os padrões reais mais quentes: findAllForKitchen (board da
   // cozinha, toda atualização) filtra só companyId+createdAt; reports/
   // menu-analytics filtram companyId+orderStatus(<>CANCELED)+intervalo.

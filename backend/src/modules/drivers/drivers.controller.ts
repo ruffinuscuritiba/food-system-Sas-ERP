@@ -129,7 +129,7 @@ export class DriversController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER')
   @RequiredModule('delivery')
   assignOrder(
-    @Body() body: { orderId: string; driverId: string },
+    @Body() body: { orderId: string; driverId: string; source?: string },
     @Req() req: any,
   ) {
     return this.service.assignOrder(
@@ -137,6 +137,7 @@ export class DriversController {
       body.driverId,
       req.user.companyId,
       req.user.userId,
+      body.source,
     );
   }
 

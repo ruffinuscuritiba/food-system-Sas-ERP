@@ -1625,6 +1625,9 @@ export class OrdersService {
         where: { companyId },
         orderBy: { createdAt: 'desc' },
         take: 200,
+        include: {
+          driver: { include: { user: { select: { name: true } } } },
+        },
       }),
     ]);
 
@@ -1709,6 +1712,8 @@ export class OrdersService {
         // cobrar na entrega ou se já estava quitado.
         paymentStatus: o.paymentStatus ?? null,
         notes: o.notes ?? null,
+        driverId: o.driverId ?? null,
+        driverName: o.driver?.user?.name ?? null,
         items: rawItems.map((it: any) => ({
           productName: it.productName,
           quantity: Number(it.quantity ?? 1),

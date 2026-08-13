@@ -38,6 +38,12 @@ export class DriversService {
     companyId: string,
   ) {
     const address = order.deliveryAddress || order.neighborhood || '';
+    // OnlineOrder não tem número sequencial (esse campo é exclusivo de
+    // Order/PDV, ver item 95 do CLAUDE.md) — sem esse fallback, o WhatsApp
+    // pro entregador mostraria sempre "#0" pra qualquer pedido do cardápio.
+    const orderLabel = order.number
+      ? `#${order.number}`
+      : `#${order.id.slice(-6).toUpperCase()}`;
     if (!this.whatsappAiService || !driver.phone) {
       // Sem WhatsApp configurado ou entregador sem telefone cadastrado —
       // mesmo alerta de falha que uma falha de envio real, porque o efeito
@@ -56,7 +62,7 @@ export class DriversService {
         ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
         : null;
       const lines = [
-        `🛵 Novo pedido pra você — #${order.number}`,
+        `🛵 Novo pedido pra você — ${orderLabel}`,
         order.customerName ? `Cliente: ${order.customerName}` : null,
         address ? `Endereço: ${address}` : null,
         mapsLink ? `Ver rota: ${mapsLink}` : null,
@@ -289,12 +295,25 @@ export class DriversService {
     driverId: string,
     companyId: string,
     userId: string,
+    source?: string,
   ) {
     const driver = await this.prisma.driverProfile.findFirst({
       where: { id: driverId, companyId },
       include: { user: { select: { name: true } } },
     });
     if (!driver) throw new NotFoundException('Entregador não encontrado');
+
+    // Pedido do cardápio digital/totem vive na tabela OnlineOrder, não Order
+    // — sem esse desvio, a busca abaixo nunca encontrava nada e o painel
+    // sempre dava 404 "Pedido não encontrado" pra qualquer pedido ONLINE
+    // (achado real: 13/08/2026, todo pedido do cardápio ficava impossível
+    // de despachar pra um entregador).
+    if (source === 'ONLINE') {
+      return this.assignOnlineOrder(orderId, driverId, companyId, userId, {
+        phone: driver.phone,
+        name: driver.user?.name ?? null,
+      });
+    }
 
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, companyId },
@@ -334,6 +353,67 @@ export class DriversService {
       where: { id: orderId },
       include: { customer: true },
     });
+  }
+
+  // Espelha assignOrder() acima pra pedidos ONLINE (cardápio digital/totem) —
+  // tabela e enum de status diferentes (OnlineOrder.orderStatus), então não
+  // dá pra só reaproveitar a query de Order. mapeamento de endereço replica
+  // exatamente a mesma concatenação de orders.service.ts findAllForKitchen().
+  private async assignOnlineOrder(
+    orderId: string,
+    driverId: string,
+    companyId: string,
+    userId: string,
+    driver: { phone: string | null; name: string | null },
+  ) {
+    const order = await this.prisma.onlineOrder.findFirst({
+      where: { id: orderId, companyId },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+
+    const isInitialDispatch =
+      order.driverId === null && order.orderStatus === 'READY';
+
+    await this.prisma.onlineOrder.update({
+      where: { id: orderId },
+      data: { driverId, assignedAt: new Date() },
+    });
+
+    const deliveryAddress =
+      [order.address, order.addressNumber, order.neighborhood, order.city]
+        .filter(Boolean)
+        .join(', ') || null;
+
+    this.notifyDriverAssignment(
+      driver,
+      {
+        id: order.id,
+        number: 0,
+        deliveryAddress,
+        neighborhood: order.neighborhood,
+        customerName: order.customerName,
+      },
+      companyId,
+    );
+
+    if (isInitialDispatch) {
+      // Mesmo caminho usado pelo board da cozinha pra ONLINE — consumo de
+      // estoque, fidelidade, socket, tudo já tratado ali (ver
+      // orders.service.ts updateKitchenStatus).
+      return this.ordersService.updateKitchenStatus(
+        'ONLINE',
+        orderId,
+        'OUT_FOR_DELIVERY',
+        userId,
+        companyId,
+      );
+    }
+
+    this.socketGateway.emitOrderStatusChanged(orderId, {
+      status: order.orderStatus,
+      source: 'ONLINE',
+    });
+    return this.prisma.onlineOrder.findFirst({ where: { id: orderId } });
   }
 
   async updateMyLocation(userId: string, lat: number, lng: number) {

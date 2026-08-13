@@ -2090,7 +2090,17 @@ export default function MenuPage() {
     const combined = [...frequentlyBought, ...beverages, ...featured, ...extra];
     const seen = new Set<string>();
     const deduped = combined.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
-    return deduped.slice(0, 4);
+    let result = deduped.slice(0, 4);
+    // Garante pelo menos 1 bebida entre as 4 vagas. Sem isso, um produto com
+    // muito histórico de coocorrência (ex: pizza de promoção popular) enche
+    // sozinho as 4 vagas com frequentlyBought — nenhuma bebida chega a
+    // aparecer mesmo tendo uma disponível, contradizendo a prioridade
+    // "bebida sempre primeiro" acima (achado real: 13/08/2026, "pizza da
+    // promoção nunca mostra opção de refrigerante ao finalizar").
+    if (beverages.length > 0 && !result.some((p) => p.category?.categoryType === "bebidas")) {
+      result = [...result.slice(0, 3), beverages[0]];
+    }
+    return result;
   })();
   const orderBumpIsFrequentlyBought = frequentlyBoughtIds.length > 0 && orderBumpProducts.some(p => frequentlyBoughtIds.includes(p.id));
   const orderBumpIsBeverage = !orderBumpIsFrequentlyBought && orderBumpProducts.some(p => p.category?.categoryType === "bebidas");

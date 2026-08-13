@@ -933,15 +933,35 @@ export default function OrdersPage() {
                     {/* Items */}
                     <div className="space-y-1">
                       {items.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-700">
-                            <span className="font-bold text-primary">{item.quantity}x</span>{" "}
-                            {item.productName}
-                            {item.notes && <span className="text-gray-400 ml-2 text-xs">({item.notes})</span>}
-                          </span>
-                          <span className="text-gray-500 font-medium">
-                            R$ {Number(item.subtotal).toFixed(2)}
-                          </span>
+                        <div key={item.id} className="text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-700">
+                              <span className="font-bold text-primary">{item.quantity}x</span>{" "}
+                              {item.productName}
+                              {item.notes && <span className="text-gray-400 ml-2 text-xs">({item.notes})</span>}
+                            </span>
+                            <span className="text-gray-500 font-medium">
+                              R$ {Number(item.subtotal).toFixed(2)}
+                            </span>
+                          </div>
+                          {/* Sabor/complementos escolhidos — sem isso, um produto travado em
+                              1 sabor (ex: combo de promoção) aparece só com o nome genérico
+                              do combo, sem indicar QUAL sabor o cliente escolheu (achado real:
+                              13/08/2026, cozinha recebendo "As Mais Mais do Dia" sem saber
+                              qual das 4 opções preparar — o dado já vinha certo da API, só
+                              nunca era renderizado aqui). Mesmo padrão visual do KitchenBoard. */}
+                          {Array.isArray(item.selectedComplements) && item.selectedComplements.length > 0 && (
+                            <ul className="ml-4 mt-0.5 space-y-0.5">
+                              {item.selectedComplements.map((c, ci) => (
+                                <li key={ci} className="text-gray-600 text-xs">
+                                  + {c.quantity}x {c.optionName}
+                                  {Number(c.price) > 0 && (
+                                    <span className="text-gray-400 ml-1">(R$ {Number(c.price).toFixed(2)})</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       ))}
                     </div>

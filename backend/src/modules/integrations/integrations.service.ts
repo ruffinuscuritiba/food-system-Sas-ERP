@@ -53,9 +53,32 @@ export class IntegrationsService {
       saved.apiKeyEncrypted
     ) {
       try {
-        await this.getValidToken(saved);
+        await this.getValidToken(saved, 'IFOOD');
       } catch (e: any) {
         this.logger.warn(`[Integrations] OAuth2 iFood na upsertConfig falhou: ${e?.message}`);
+      }
+    }
+
+    // Para 99Food: a assinatura do webhook usa o mesmo app_secret (não há um
+    // "webhook secret" separado na plataforma deles) — espelha automaticamente
+    // se o cliente não informou um webhookSecret próprio.
+    if (dto.provider === 'NINETY_NINE_FOOD' && clientSecret && !dto.webhookSecret) {
+      await this.prisma.integrationConfig.update({
+        where: { id: saved.id },
+        data: { webhookSecret: clientSecret },
+      });
+    }
+    if (
+      dto.provider === 'NINETY_NINE_FOOD' &&
+      dto.isActive &&
+      saved.clientId &&
+      saved.apiKeyEncrypted &&
+      saved.merchantId
+    ) {
+      try {
+        await this.getValidToken(saved, 'NINETY_NINE_FOOD');
+      } catch (e: any) {
+        this.logger.warn(`[Integrations] auth_token 99Food na upsertConfig falhou: ${e?.message}`);
       }
     }
 
@@ -244,17 +267,20 @@ export class IntegrationsService {
       body,
     );
 
-    // 5. Dispara ACK para iFood imediatamente (< 10 s do PLACED)
-    if (providerName === 'IFOOD' && event.type === 'ORDER_CREATED') {
-      const ifoodProvider = provider as any;
-      if (typeof ifoodProvider.sendAck === 'function') {
-        this.getValidToken(config)
+    // 5. Dispara ACK para iFood/99Food imediatamente (janela curta: 10s / 5min)
+    if (
+      (providerName === 'IFOOD' || providerName === 'NINETY_NINE_FOOD') &&
+      event.type === 'ORDER_CREATED'
+    ) {
+      const ackProvider = provider as any;
+      if (typeof ackProvider.sendAck === 'function') {
+        this.getValidToken(config, providerName)
           .then((token) => {
             if (token) {
-              ifoodProvider
+              ackProvider
                 .sendAck(event.externalOrderId, token)
                 .catch((e: any) =>
-                  this.logger.warn(`[Integrations] iFood ACK falhou: ${e?.message}`),
+                  this.logger.warn(`[Integrations] ${providerName} ACK falhou: ${e?.message}`),
                 );
             }
           })
@@ -272,14 +298,20 @@ export class IntegrationsService {
     return { received: true };
   }
 
-  // ── Token OAuth2 iFood (cache DB + in-memory) ──────────────────────────────
-  private async getValidToken(config: {
-    id: string;
-    clientId?: string | null;
-    apiKeyEncrypted?: string | null;
-    accessToken?: string | null;
-    tokenExpiresAt?: Date | null;
-  }): Promise<string | null> {
+  // ── Token de acesso por provider (cache DB + in-memory) ────────────────────
+  // iFood: OAuth2 client_credentials (1 token pra conta inteira).
+  // 99Food: auth_token por loja (app_id + app_secret + app_shop_id=merchantId).
+  private async getValidToken(
+    config: {
+      id: string;
+      clientId?: string | null;
+      apiKeyEncrypted?: string | null;
+      merchantId?: string | null;
+      accessToken?: string | null;
+      tokenExpiresAt?: Date | null;
+    },
+    providerName: string = 'IFOOD',
+  ): Promise<string | null> {
     if (!config.clientId || !config.apiKeyEncrypted) {
       return config.accessToken ?? null;
     }
@@ -293,13 +325,28 @@ export class IntegrationsService {
       return config.accessToken;
     }
 
-    // Refresh via IfoodProvider (in-memory cache + novo fetch)
-    const ifoodProvider = this.providerFactory.get('IFOOD') as any;
-    const token: string = await ifoodProvider.getAccessToken(
-      config.clientId,
-      config.apiKeyEncrypted,
-    );
-    const expiresAt = new Date(ifoodProvider.tokenExpiry as number);
+    let token: string;
+    let expiresAt: Date;
+
+    if (providerName === 'NINETY_NINE_FOOD') {
+      if (!config.merchantId) return null; // app_shop_id obrigatório
+      const provider = this.providerFactory.get('NINETY_NINE_FOOD') as any;
+      const result = await provider.getAuthToken(
+        config.clientId,
+        config.apiKeyEncrypted,
+        config.merchantId,
+      );
+      token = result.token;
+      expiresAt = new Date(result.expiresAt);
+    } else {
+      // Refresh via IfoodProvider (in-memory cache + novo fetch)
+      const ifoodProvider = this.providerFactory.get('IFOOD') as any;
+      token = await ifoodProvider.getAccessToken(
+        config.clientId,
+        config.apiKeyEncrypted,
+      );
+      expiresAt = new Date(ifoodProvider.tokenExpiry as number);
+    }
 
     // Persiste no DB para sobreviver a restarts
     await this.prisma.integrationConfig.update({
@@ -361,7 +408,7 @@ export class IntegrationsService {
         throw new BadRequestException('Informe Client ID e Client Secret antes de validar.');
       }
       try {
-        await this.getValidToken(config);
+        await this.getValidToken(config, 'IFOOD');
       } catch (e: any) {
         throw new BadRequestException(
           `Client ID/Secret inválidos ou iFood indisponível: ${e?.message ?? 'erro desconhecido'}`,
@@ -373,6 +420,25 @@ export class IntegrationsService {
           ? 'Client ID e Secret válidos — token OAuth2 obtido com sucesso.'
           : 'Client ID e Secret válidos. Informe o Merchant ID para habilitar o Merchant Portal completo.',
       };
+    }
+
+    if (providerName === 'NINETY_NINE_FOOD') {
+      if (!config.clientId || !config.apiKeyEncrypted) {
+        throw new BadRequestException('Informe App ID e App Secret antes de validar.');
+      }
+      if (!config.merchantId) {
+        throw new BadRequestException(
+          'Informe o App Shop ID (identificador da loja no 99Food) no campo Merchant ID antes de validar.',
+        );
+      }
+      try {
+        await this.getValidToken(config, 'NINETY_NINE_FOOD');
+      } catch (e: any) {
+        throw new BadRequestException(
+          `App ID/Secret/Shop ID inválidos ou 99Food indisponível: ${e?.message ?? 'erro desconhecido'}`,
+        );
+      }
+      return { ok: true, message: 'Credenciais válidas — auth_token da loja obtido com sucesso.' };
     }
 
     throw new BadRequestException(`Validação ainda não implementada para ${providerName}.`);

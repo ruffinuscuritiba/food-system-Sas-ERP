@@ -52,7 +52,7 @@ const PROVIDER_LABELS: Record<Provider, { label: string; color: string; icon: st
     label: "99Food", color: "bg-yellow-100 text-yellow-700", icon: "9️⃣",
     // Logo oficial (Google Play — 99Food para Parceiros), não emoji: apps/marcas reais usam o ícone real.
     iconUrl: "https://play-lh.googleusercontent.com/nfaQypUllRKXUlc5YsratEEtwkLwUuL4fLtxzJvjjZdm0c0MUHT13FfWjyCN0D39EmZAbKk5OmK2NpK-jUKeSdU=s128-rw",
-    desc: "Integração com 99Food (padrão Open Delivery). Em breve.",
+    desc: "Receba pedidos do 99Food automaticamente. Crie o App em developer-food.99app.com > Gerenciamento de aplicativo.",
   },
 };
 
@@ -352,23 +352,23 @@ export default function IntegracoesPage() {
                         </div>
                       )}
 
-                      {/* Credenciais OAuth2 — iFood apenas */}
-                      {p === "IFOOD" && (
+                      {/* Credenciais — iFood (OAuth2) e 99Food (app_id/app_secret) */}
+                      {(p === "IFOOD" || p === "NINETY_NINE_FOOD") && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Client ID <span className="text-red-500">*</span>
+                              {p === "IFOOD" ? "Client ID" : "App ID"} <span className="text-red-500">*</span>
                             </label>
                             <input
                               value={clientId}
                               onChange={(e) => setClientId(e.target.value)}
-                              placeholder="UUID do painel iFood Partners"
+                              placeholder={p === "IFOOD" ? "UUID do painel iFood Partners" : "APP ID em Gerenciamento de aplicativo"}
                               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                             />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Client Secret <span className="text-red-500">*</span>
+                              {p === "IFOOD" ? "Client Secret" : "App Secret"} <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="password"
@@ -381,7 +381,7 @@ export default function IntegracoesPage() {
                         </div>
                       )}
 
-                      {p === "IFOOD" && (
+                      {(p === "IFOOD" || p === "NINETY_NINE_FOOD") && (
                         <div>
                           <button
                             onClick={() => validateConnection(p)}
@@ -392,7 +392,9 @@ export default function IntegracoesPage() {
                             {validating ? "Validando..." : "Validar Conexão"}
                           </button>
                           <p className="text-xs text-gray-400 mt-1.5">
-                            Salve o Client ID/Secret primeiro, depois valide — tentamos obter um token OAuth2 real do iFood.
+                            {p === "IFOOD"
+                              ? "Salve o Client ID/Secret primeiro, depois valide — tentamos obter um token OAuth2 real do iFood."
+                              : "Salve App ID/Secret e o App Shop ID (campo Merchant ID abaixo) primeiro, depois valide — tentamos obter o auth_token real da loja."}
                           </p>
                         </div>
                       )}
@@ -400,12 +402,12 @@ export default function IntegracoesPage() {
                       {p !== "MOCK" && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Merchant ID
+                            {p === "NINETY_NINE_FOOD" ? "App Shop ID (identificador da loja no 99Food)" : "Merchant ID"}
                           </label>
                           <input
                             value={merchantId}
                             onChange={(e) => setMerchantId(e.target.value)}
-                            placeholder="ex: 123e4567-e89b-12d3..."
+                            placeholder={p === "NINETY_NINE_FOOD" ? "ex: 7093 (escolhido por você, único por loja)" : "ex: 123e4567-e89b-12d3..."}
                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>

@@ -18,6 +18,16 @@ const PUBLIC_ROUTES = [
   '/r',
   '/termos',
   '/driver-invite',
+  // /driver roda como app "Adicionar à Tela de Início" no iPhone do
+  // entregador (standalone WKWebView) — cookie setado via JS
+  // (document.cookie, não header Set-Cookie do servidor) não sobrevive de
+  // forma confiável entre aberturas nesse modo (achado real: 13/08/2026,
+  // "toda vez que abro o app preciso logar de novo" mesmo com o token
+  // ainda válido por 7 dias no localStorage, que É confiável nesse
+  // contexto). O gate desse grupo de rotas passou a ser 100% client-side
+  // (ver DriverLayout), lendo localStorage em vez de depender do cookie
+  // que o middleware (server-side) enxerga.
+  '/driver',
 ]
 
 export function middleware(request: NextRequest) {

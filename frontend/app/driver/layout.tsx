@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Home, Package, DollarSign, History, User } from "lucide-react";
 import { api } from "@/services/api";
+import { useAuthStore } from "@/stores/auth.store";
 import { InstallBanner } from "@/components/driver/InstallBanner";
 
 const NAV = [
@@ -17,16 +18,45 @@ const NAV = [
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // /driver virou rota pública no middleware.ts (server-side) — cookie
+  // setado via JS não sobrevive de forma confiável quando o entregador
+  // abre pelo ícone "Adicionar à Tela de Início" no iPhone (WKWebView
+  // standalone isolado; achado real: 13/08/2026, login pedido toda vez
+  // mesmo com token válido por 7d). O gate agora é 100% client-side, lendo
+  // localStorage (useAuthStore), que persiste de forma confiável nesse
+  // mesmo contexto. Lê o estado direto do store logo após loadAuth() —
+  // não confia no valor do hook antes do effect rodar, que na 1ª
+  // renderização ainda reflete o estado inicial (não autenticado).
+  useEffect(() => {
+    useAuthStore.getState().loadAuth();
+    if (!useAuthStore.getState().isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+    setAuthChecked(true);
+  }, [router]);
 
   // Heartbeat — "Online" no painel do admin passa a exigir atividade real
   // (app aberto nos últimos minutos), não só o toggle manual que nasce
   // ligado. Roda em qualquer tela do app do entregador, não só na Home.
   useEffect(() => {
+    if (!authChecked) return;
     const ping = () => api.post("/drivers/me/heartbeat").catch(() => {});
     ping();
     const id = setInterval(ping, 30_000);
     return () => clearInterval(id);
-  }, []);
+  }, [authChecked]);
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

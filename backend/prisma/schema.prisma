@@ -1831,6 +1831,11 @@ model OnlineOrder {
   driver                  DriverProfile? @relation(fields: [driverId], references: [id])
   assignedAt              DateTime?
   pickedUpAt              DateTime?
+  // Repasse do entregador — snapshot no momento da criação (mesmo padrão de
+  // Order.driverFee, vem de DeliveryZone.driverShare), pra habilitar
+  // DriverEarning em pedido do cardápio digital entregue pelo app.
+  driverFee               Decimal? @db.Decimal(10, 2)
+  driverEarning           DriverEarning?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -2036,8 +2041,16 @@ enum DriverPaymentStatus {
 
 model DriverEarning {
   id              String              @id @default(cuid())
-  orderId         String              @unique
-  order           Order               @relation(fields: [orderId], references: [id])
+  // orderId virou opcional + onlineOrderId novo: Prisma não tem relação
+  // polimórfica — um DriverEarning agora referencia OU um pedido do PDV OU
+  // um pedido do cardápio digital, nunca os dois (achado real: 13/08/2026,
+  // repasse do entregador nunca contava pedido ONLINE porque essa tabela só
+  // sabia apontar pra Order). Índice único em cada um preserva 1:1 por
+  // pedido igual antes; múltiplos NULLs são permitidos pelo Postgres.
+  orderId         String?             @unique
+  order           Order?              @relation(fields: [orderId], references: [id])
+  onlineOrderId   String?             @unique
+  onlineOrder     OnlineOrder?        @relation(fields: [onlineOrderId], references: [id])
   companyId       String
   company         Company             @relation(fields: [companyId], references: [id])
   driverProfileId String

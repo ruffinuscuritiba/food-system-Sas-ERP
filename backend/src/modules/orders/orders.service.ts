@@ -1767,6 +1767,9 @@ export class OrdersService {
           customerName: true,
           total: true,
           instantCashbackApplied: true,
+          driverId: true,
+          driverFee: true,
+          deliveryFee: true,
         },
       });
       if (!onlineOrder)
@@ -1810,6 +1813,41 @@ export class OrdersService {
           .catch((e: any) =>
             this.logger.warn(`[ONLINE] restauração de estoque falhou (${id}): ${e?.message}`),
           );
+      }
+
+      // Driver Earning — mesmo gatilho/regra do PDV (updateStatus acima):
+      // só em entrega concluída, com entregador atribuído e repasse > 0.
+      // Achado real: 13/08/2026, pedido do cardápio digital entregue pelo
+      // app do entregador nunca gerava ganho registrado, porque
+      // DriverEarning.orderId apontava só pra Order/PDV.
+      if (
+        mapped === 'COMPLETED' &&
+        onlineOrder.driverId &&
+        Number(onlineOrder.driverFee) > 0
+      ) {
+        setImmediate(async () => {
+          try {
+            const customerFee = Number(onlineOrder.deliveryFee);
+            const driverAmount = Number(onlineOrder.driverFee);
+            const platformFee = Math.max(0, customerFee - driverAmount);
+            await this.prisma.driverEarning.upsert({
+              where: { onlineOrderId: id },
+              create: {
+                onlineOrderId: id,
+                companyId,
+                driverProfileId: onlineOrder.driverId!,
+                customerFee,
+                driverAmount,
+                platformFee,
+              },
+              update: {},
+            });
+          } catch (e) {
+            this.logger.warn(
+              `[ONLINE] DriverEarning falhou para pedido ${id}: ${(e as Error)?.message}`,
+            );
+          }
+        });
       }
 
       try {

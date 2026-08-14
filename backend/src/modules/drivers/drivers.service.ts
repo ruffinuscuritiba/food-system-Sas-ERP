@@ -751,20 +751,43 @@ export class DriversService {
 
   // ── Earnings & Payments ─────────────────────────────────────────────────
 
-  listEarnings(driverProfileId: string, companyId: string) {
-    return this.prisma.driverEarning.findMany({
+  // `order` sempre vem preenchido, seja o ganho de um pedido PDV ou ONLINE —
+  // achado real: 13/08/2026, ganho de pedido do cardápio digital passou a
+  // existir (ver updateKitchenStatus em orders.service.ts) mas apontava só
+  // pra onlineOrderId; sem essa normalização, o frontend (que só lê
+  // `earning.order`) mostraria "Pedido —" pra qualquer ganho ONLINE mesmo
+  // com o dado certo no banco.
+  async listEarnings(driverProfileId: string, companyId: string) {
+    const rows = await this.prisma.driverEarning.findMany({
       where: { driverProfileId, companyId },
       orderBy: { createdAt: 'desc' },
       include: {
         order: {
-          select: {
-            id: true,
-            createdAt: true,
-            total: true,
-            deliveryAddress: true,
-          },
+          select: { id: true, createdAt: true, total: true, deliveryAddress: true },
+        },
+        onlineOrder: {
+          select: { id: true, createdAt: true, total: true, address: true, addressNumber: true, neighborhood: true, city: true },
         },
       },
+    });
+    return rows.map((r) => {
+      const { onlineOrder, ...rest } = r;
+      if (rest.order) return rest;
+      if (onlineOrder) {
+        return {
+          ...rest,
+          order: {
+            id: onlineOrder.id,
+            createdAt: onlineOrder.createdAt,
+            total: Number(onlineOrder.total),
+            deliveryAddress:
+              [onlineOrder.address, onlineOrder.addressNumber, onlineOrder.neighborhood, onlineOrder.city]
+                .filter(Boolean)
+                .join(', ') || null,
+          },
+        };
+      }
+      return rest;
     });
   }
 

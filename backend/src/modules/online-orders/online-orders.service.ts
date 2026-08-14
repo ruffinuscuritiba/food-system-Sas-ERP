@@ -132,6 +132,10 @@ export class OnlineOrdersService {
 
     // Zone lookup: resolve real deliveryFee for DELIVERY orders (menu always sends 0)
     let deliveryZoneId: string | undefined;
+    // Repasse do entregador — snapshot da zona no momento da criação, mesmo
+    // padrão de Order.driverFee (item 76). Sem isso, DriverEarning nunca
+    // tinha de onde tirar o valor pra pedido do cardápio digital.
+    let driverFee: number | undefined;
     if (orderType === 'DELIVERY') {
       const addressLine = [dto.address, dto.addressNumber, dto.neighborhood, dto.city]
         .filter(Boolean)
@@ -143,6 +147,7 @@ export class OnlineOrdersService {
       if (zone) {
         if (deliveryFee === 0) deliveryFee = Number(zone.clientFee);
         deliveryZoneId = zone.id;
+        driverFee = Number(zone.driverShare);
       }
       // Frete grátis (Company.freeDeliveryAbove) — campo existia desde a Fase
       // A de Entrega mas nunca era lido em lugar nenhum (configurável em
@@ -303,6 +308,7 @@ export class OnlineOrdersService {
         notes: dto.notes?.trim() || null,
         channel: dto.channel === 'TOTEM' ? 'TOTEM' : 'ONLINE',
         instantCashbackApplied: dto.cashbackMode === 'INSTANT',
+        driverFee,
       },
     });
 

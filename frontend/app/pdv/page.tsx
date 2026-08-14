@@ -267,6 +267,14 @@ export default function PDVPage() {
   const [loadedComplements, setLoadedComplements] = useState<ComplementGroup[]>([]);
   const [complementSelections, setComplementSelections] = useState<Record<string, SelectedComplement[]>>({});
   const [complementLoading, setComplementLoading] = useState(false);
+  // Cache de complementos por produto (ref, não state — não precisa re-render).
+  // Sem isso, CADA clique em "+Adicionar" refazia a busca de rede (mesmo pra
+  // um produto sem complemento nenhum, ex: esfiha avulsa) e desabilitava
+  // TODOS os botões da lista até a resposta voltar — pedir "5 esfihas de
+  // carne" clicando 5x virava 5 pausas em sequência (achado real:
+  // 14/08/2026, "tive que ficar escolhendo e voltando"). A partir do 2º
+  // clique no mesmo produto, a resposta já em cache deixa o clique instantâneo.
+  const complementsCacheRef = useRef<Map<string, ComplementGroup[]>>(new Map());
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   // Trava síncrona (ref, não state) contra duplo-toque — o guard por `paymentSubmitting`
   // sozinho tem uma janela de corrida: setState é assíncrono/batched, então 2 cliques a
@@ -607,10 +615,21 @@ export default function PDVPage() {
       return;
     }
     if (!companyId) { addCartItem(product); return; }
+
+    const cached = complementsCacheRef.current.get(product.id);
+    if (cached !== undefined) {
+      if (cached.length === 0) { addCartItem(product); return; }
+      setLoadedComplements(cached);
+      setComplementSelections({});
+      setComplementProduct(product);
+      return;
+    }
+
     setComplementLoading(true);
     try {
       const res = await api.get(`/complements/public/product/${product.id}?companyId=${companyId}`);
       const groups: ComplementGroup[] = Array.isArray(res.data) ? res.data : [];
+      complementsCacheRef.current.set(product.id, groups);
       if (groups.length === 0) { addCartItem(product); return; }
       setLoadedComplements(groups);
       setComplementSelections({});
@@ -1426,7 +1445,16 @@ export default function PDVPage() {
               </div>
             ) : (
               <div className="space-y-5">
-                {dedupedPizzaProducts.map((product) => (
+                {dedupedPizzaProducts.map((product) => {
+                  // Quantas unidades desse produto (sem complemento nenhum
+                  // selecionado) já estão no carrinho — mostra progresso
+                  // visual ao clicar "+Adicionar" várias vezes seguidas (ex:
+                  // "5 esfihas de carne"), sem precisar abrir o carrinho pra
+                  // conferir quanto já foi lançado.
+                  const qtyInCart = cart
+                    .filter((i) => i.product.id === product.id && !i.complements?.length)
+                    .reduce((s, i) => s + i.qty, 0);
+                  return (
                   <div key={product.id} className="min-h-[160px] w-full overflow-hidden rounded-[32px] bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] shadow-[var(--pdv-shadow,none)] flex items-center px-6">
                     <div className="w-[120px] xl:w-[160px] h-[100px] xl:h-[130px] rounded-3xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center shrink-0 text-4xl relative overflow-hidden">
                       <span>🍽️</span>
@@ -1449,13 +1477,21 @@ export default function PDVPage() {
                         {productPriceLabel(product)}
                       </span>
                       {product.costPrice != null && <span className="text-zinc-600 text-xs mt-1">Custo: {fmt(product.costPrice)}</span>}
-                      <button onClick={() => openProductAdd(product)} disabled={complementLoading}
-                        className="mt-4 h-[50px] px-8 rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50">
-                        ADICIONAR
-                      </button>
+                      <div className="mt-4 flex items-center gap-2">
+                        {qtyInCart > 0 && (
+                          <span className="h-[50px] min-w-[42px] px-2 rounded-2xl bg-[var(--pdv-card-hover,#151c2d)] border border-[var(--pdv-border,#1d2336)] text-[var(--pdv-text,#ffffff)] font-black text-lg flex items-center justify-center">
+                            {qtyInCart}
+                          </span>
+                        )}
+                        <button onClick={() => openProductAdd(product)} disabled={complementLoading}
+                          className="h-[50px] px-8 rounded-2xl bg-[var(--color-primary,#2563eb)] hover:opacity-90 active:scale-95 transition text-base font-bold disabled:opacity-50">
+                          + ADICIONAR
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

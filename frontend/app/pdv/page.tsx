@@ -570,7 +570,9 @@ export default function PDVPage() {
   }, []);
 
   const addCartItem = useCallback((product: Product, complements?: SelectedComplement[]) => {
+    let wasEmpty = false;
     setCart(prev => {
+      wasEmpty = prev.length === 0;
       if (complements && complements.length > 0) {
         return [...prev, { product, qty: 1, complements }];
       }
@@ -581,7 +583,14 @@ export default function PDVPage() {
       return [...prev, { product, qty: 1 }];
     });
     toast.success(`${product.name} adicionado`, { duration: 1500, icon: "🛒" });
-    setShowCart(true);
+    // Só abre o carrinho sozinho no 1º item (carrinho vazio) — antes abria
+    // em TODO clique, cobrindo a lista de produtos; pedir várias unidades
+    // do mesmo item (ex: "5 esfihas de carne") virava fechar o carrinho,
+    // rolar a tela até achar o produto de novo, clicar, fechar de novo...
+    // (achado real: 14/08/2026, "tive que ficar escolhendo e voltando").
+    // O toast acima já avisa a cada clique; o operador abre o carrinho
+    // manualmente quando quiser conferir/fechar a conta.
+    if (wasEmpty) setShowCart(true);
     // Devolve foco ao campo de busca para o próximo bip do leitor
     requestAnimationFrame(() => searchRef.current?.focus());
   }, []);

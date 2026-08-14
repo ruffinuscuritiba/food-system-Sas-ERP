@@ -77,9 +77,8 @@ export function ComplementsModal({
   const requiredTotal   = groups.filter((g) => g.required).length;
   const requiredFilled  = groups.filter((g) => {
     if (!g.required) return false;
-    const sel = selections[g.id] || [];
     const min = g.minOptions || 1;
-    return sel.length >= min;
+    return groupQty(g) >= min;
   }).length;
 
   if (!open) return null;
@@ -106,19 +105,71 @@ export function ComplementsModal({
       return;
     }
 
-    if (group.maxOptions > 0 && current.length >= group.maxOptions) {
+    if (group.maxOptions > 0 && groupQty(group) >= group.maxOptions) {
       toast.error(`Máximo ${group.maxOptions} em "${group.name}"`);
       return;
     }
     setSelections((p) => ({ ...p, [group.id]: [...current, newSel] }));
   }
 
+  // Soma de unidades do grupo — não confundir com current.length: um grupo
+  // pode ter só 1 opção selecionada (ex: "Carne") mas com quantity:6 (achado
+  // real: 14/08/2026, cliente pediu "6 esfihas de carne" e não tinha como
+  // marcar o mesmo sabor mais de uma vez — cada opção era 0 ou 1, nunca N).
+  function groupQty(group: ComplementGroup) {
+    return (selections[group.id] || []).reduce((s, x) => s + x.quantity, 0);
+  }
+
+  // Incrementa a quantidade de UMA opção específica dentro de um grupo de
+  // múltipla escolha — permite "6x Carne" em vez de exigir 6 sabores
+  // diferentes. Respeita o teto do grupo (maxOptions) como soma total.
+  function incrementOption(group: ComplementGroup, option: ComplementOption) {
+    if (group.maxOptions > 0 && groupQty(group) >= group.maxOptions) {
+      toast.error(`Máximo ${group.maxOptions} em "${group.name}"`);
+      return;
+    }
+    const current = selections[group.id] || [];
+    const existing = current.find((s) => s.complementOptionId === option.id);
+    if (existing) {
+      setSelections((p) => ({
+        ...p,
+        [group.id]: current.map((s) =>
+          s.complementOptionId === option.id ? { ...s, quantity: s.quantity + 1 } : s,
+        ),
+      }));
+      return;
+    }
+    const newSel: SelectedComplement = {
+      complementOptionId: option.id,
+      complementName:     group.name,
+      optionName:         option.name,
+      price:              group.chargesExtra ? Number(option.price) : 0,
+      quantity:           1,
+    };
+    setSelections((p) => ({ ...p, [group.id]: [...current, newSel] }));
+  }
+
+  function decrementOption(group: ComplementGroup, option: ComplementOption) {
+    const current = selections[group.id] || [];
+    const existing = current.find((s) => s.complementOptionId === option.id);
+    if (!existing) return;
+    if (existing.quantity <= 1) {
+      setSelections((p) => ({ ...p, [group.id]: current.filter((s) => s.complementOptionId !== option.id) }));
+      return;
+    }
+    setSelections((p) => ({
+      ...p,
+      [group.id]: current.map((s) =>
+        s.complementOptionId === option.id ? { ...s, quantity: s.quantity - 1 } : s,
+      ),
+    }));
+  }
+
   function confirm() {
     for (const g of groups) {
       if (!g.required) continue;
-      const sel = selections[g.id] || [];
       const min = g.minOptions || 1;
-      if (sel.length < min) {
+      if (groupQty(g) < min) {
         toast.error(`Selecione ao menos ${min} em "${g.name}"`);
         return;
       }
@@ -200,8 +251,10 @@ export function ComplementsModal({
             const selected = selections[group.id] || [];
             // Contador regressivo: quantos ainda faltam escolher neste grupo
             // (ex.: "Escolha os 10 Sabores" começa em 10 e vai zerando a cada clique).
+            // Soma quantity, não conta opções distintas — "6x Carne" preenche
+            // o grupo igual a "1x de 6 sabores diferentes".
             const hasCountdown = group.multipleChoice && group.maxOptions > 1;
-            const remaining = hasCountdown ? Math.max(0, group.maxOptions - selected.length) : null;
+            const remaining = hasCountdown ? Math.max(0, group.maxOptions - groupQty(group)) : null;
             return (
               <div key={group.id}>
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -226,7 +279,72 @@ export function ComplementsModal({
 
                 <div className="space-y-2">
                   {group.options.map((option) => {
-                    const isSelected = selected.some((s) => s.complementOptionId === option.id);
+                    const sel = selected.find((s) => s.complementOptionId === option.id);
+                    const qty = sel?.quantity ?? 0;
+                    const isSelected = qty > 0;
+
+                    // Grupo de múltipla escolha: contador +/- por opção, em
+                    // vez de um checkbox liga/desliga — permite pedir a
+                    // mesma opção mais de uma vez (ex: "6x Carne" num combo
+                    // de 6 esfihas, achado real: 14/08/2026, antes só dava
+                    // pra marcar cada sabor 1 vez, no máximo 1 de cada).
+                    if (group.multipleChoice) {
+                      const atMax = hasCountdown && remaining === 0;
+                      const disabledInc = atMax && !isSelected;
+                      return (
+                        <div
+                          key={option.id}
+                          className={`${cls.optionBase} ${isSelected ? cls.optionOn : cls.optionOff}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {option.imageUrl && (
+                              <img
+                                src={option.imageUrl}
+                                alt=""
+                                className="w-10 h-10 rounded-lg object-cover shrink-0 border border-black/10"
+                                loading="lazy"
+                              />
+                            )}
+                            <span className="text-sm font-medium text-left truncate">{option.name}</span>
+                            {group.chargesExtra && Number(option.price) > 0 && (
+                              <span className="font-bold text-xs shrink-0 text-primary">
+                                +R$ {fmt(Number(option.price))}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {qty > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => decrementOption(group, option)}
+                                aria-label={`Diminuir ${option.name}`}
+                                className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-lg leading-none ${
+                                  isDark ? "border-zinc-600 text-white hover:bg-white/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                                }`}
+                              >
+                                −
+                              </button>
+                            )}
+                            {qty > 0 && <span className="w-5 text-center font-bold text-sm">{qty}</span>}
+                            <button
+                              type="button"
+                              onClick={() => !disabledInc && incrementOption(group, option)}
+                              disabled={disabledInc}
+                              aria-label={`Adicionar ${option.name}`}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg leading-none transition ${
+                                disabledInc
+                                  ? isDark ? "bg-zinc-800 text-zinc-600 cursor-not-allowed" : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                                  : "bg-primary text-white hover:opacity-90 active:scale-95"
+                              }`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Grupo de escolha única (radio) — comportamento original.
                     const disabledByMax = hasCountdown && !isSelected && remaining === 0;
                     return (
                       <button
@@ -236,19 +354,13 @@ export function ComplementsModal({
                         className={`${cls.optionBase} ${isSelected ? cls.optionOn : disabledByMax ? cls.optionDisabled : cls.optionOff}`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          {/* Radio/Checkbox visual */}
-                          <span className={`w-5 h-5 rounded-${group.multipleChoice ? "md" : "full"} border-2 flex items-center justify-center shrink-0 ${
+                          <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
                             isSelected
                               ? "border-primary bg-primary"
                               : isDark ? "border-zinc-600" : "border-gray-300"
                           }`}>
-                            {isSelected && (
-                              group.multipleChoice
-                                ? <span className="text-white text-xs leading-none">✓</span>
-                                : <span className="w-2 h-2 bg-white rounded-full" />
-                            )}
+                            {isSelected && <span className="w-2 h-2 bg-white rounded-full" />}
                           </span>
-                          {/* M-01 — imagem da opção quando cadastrada */}
                           {option.imageUrl && (
                             <img
                               src={option.imageUrl}

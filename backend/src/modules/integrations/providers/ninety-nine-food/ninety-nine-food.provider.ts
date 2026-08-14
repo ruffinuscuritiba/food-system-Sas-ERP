@@ -123,7 +123,9 @@ export class NinetyNineFoodProvider implements IIntegrationProvider {
     const orderId = data?.order_id ?? data?.order_info?.order_id;
 
     if (!orderId) {
-      throw new BadRequestException('NinetyNineFoodProvider: payload sem order_id.');
+      throw new BadRequestException(
+        `NinetyNineFoodProvider: payload sem order_id. body=${JSON.stringify(body).slice(0, 800)}`,
+      );
     }
 
     const eventType = this.mapEventCode(type);

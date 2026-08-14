@@ -829,17 +829,28 @@ export default function OrdersPage() {
                         {statusInfo.label}
                       </span>
                       {/* Adapter Item 4 — fonte do pedido */}
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide ${
-                        (order as any).source === "ONLINE"
-                          ? "bg-blue-100 text-blue-700 border border-blue-200"
-                          : (order as any).source === "MOCK"
-                            ? "bg-purple-100 text-purple-700 border border-purple-200"
-                            : (order as any).source === "IFOOD"
-                              ? "bg-red-100 text-red-700 border border-red-200"
-                              : "bg-gray-100 text-gray-600 border border-gray-200"
-                      }`}>
-                        {(order as any).source ?? "PDV"}
-                      </span>
+                      {(order as any).source === "NINETY_NINE_FOOD" ? (
+                        <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide bg-yellow-100 text-yellow-800 border border-yellow-300">
+                          <img
+                            src="https://play-lh.googleusercontent.com/nfaQypUllRKXUlc5YsratEEtwkLwUuL4fLtxzJvjjZdm0c0MUHT13FfWjyCN0D39EmZAbKk5OmK2NpK-jUKeSdU=s128-rw"
+                            alt="99Food"
+                            className="w-3.5 h-3.5 rounded-sm object-cover"
+                          />
+                          99FOOD
+                        </span>
+                      ) : (
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide ${
+                          (order as any).source === "ONLINE"
+                            ? "bg-blue-100 text-blue-700 border border-blue-200"
+                            : (order as any).source === "MOCK"
+                              ? "bg-purple-100 text-purple-700 border border-purple-200"
+                              : (order as any).source === "IFOOD"
+                                ? "bg-red-100 text-red-700 border border-red-200"
+                                : "bg-gray-100 text-gray-600 border border-gray-200"
+                        }`}>
+                          {(order as any).source ?? "PDV"}
+                        </span>
+                      )}
                       {/* Fase 2: badge de tipo de atendimento */}
                       {order.orderType === "DELIVERY" && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">

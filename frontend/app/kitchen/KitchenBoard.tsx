@@ -67,17 +67,28 @@ function Column({
                           </h3>
                         </div>
                         {/* Adapter Item 4 — fonte do pedido */}
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide shrink-0 ${
-                          order.source === "ONLINE"
-                            ? "bg-blue-100 text-blue-700 border border-blue-200"
-                            : order.source === "MOCK"
-                              ? "bg-purple-100 text-purple-700 border border-purple-200"
-                              : order.source === "IFOOD"
-                                ? "bg-red-100 text-red-700 border border-red-200"
-                                : "bg-gray-100 text-gray-600 border border-gray-200"
-                        }`}>
-                          {order.source ?? "PDV"}
-                        </span>
+                        {order.source === "NINETY_NINE_FOOD" ? (
+                          <span className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide shrink-0 bg-yellow-100 text-yellow-800 border border-yellow-300">
+                            <img
+                              src="https://play-lh.googleusercontent.com/nfaQypUllRKXUlc5YsratEEtwkLwUuL4fLtxzJvjjZdm0c0MUHT13FfWjyCN0D39EmZAbKk5OmK2NpK-jUKeSdU=s128-rw"
+                              alt="99Food"
+                              className="w-3.5 h-3.5 rounded-sm object-cover"
+                            />
+                            99FOOD
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md tracking-wide shrink-0 ${
+                            order.source === "ONLINE"
+                              ? "bg-blue-100 text-blue-700 border border-blue-200"
+                              : order.source === "MOCK"
+                                ? "bg-purple-100 text-purple-700 border border-purple-200"
+                                : order.source === "IFOOD"
+                                  ? "bg-red-100 text-red-700 border border-red-200"
+                                  : "bg-gray-100 text-gray-600 border border-gray-200"
+                          }`}>
+                            {order.source ?? "PDV"}
+                          </span>
+                        )}
                       </div>
                       <span className={`
                         px-3 py-1 rounded-full text-xs font-bold text-white shrink-0

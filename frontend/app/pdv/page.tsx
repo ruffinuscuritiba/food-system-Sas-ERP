@@ -1190,7 +1190,7 @@ export default function PDVPage() {
         <header className="shrink-0 border-b border-[var(--pdv-border,#161b2d)] bg-[var(--pdv-header,transparent)] shadow-[0_2px_4px_rgba(0,0,0,0.1)] flex items-center justify-between px-2 sm:px-3 md:px-6 h-14 md:h-[92px] gap-1.5 sm:gap-2">
           {/* Search */}
           <div className="flex-1 min-w-0 h-9 md:h-[54px] bg-[var(--pdv-card-hover,#0c101d)] border border-[var(--pdv-border,#1d2336)] rounded-xl md:rounded-2xl flex items-center px-2.5 md:px-5 gap-2 md:gap-4">
-            <Search size={15} className="text-zinc-200 shrink-0" />
+            <Search size={15} className="text-[var(--pdv-text,#ffffff)] opacity-70 shrink-0" />
             <input
               ref={searchRef}
               autoFocus
@@ -1203,7 +1203,7 @@ export default function PDVPage() {
                 }
               }}
               placeholder="Buscar ou bipar código..."
-              className="bg-transparent outline-none w-full text-sm text-white placeholder-zinc-400 min-w-0"
+              className="bg-transparent outline-none w-full text-sm text-[var(--pdv-text,#ffffff)] placeholder:text-[var(--pdv-text,#ffffff)] placeholder:opacity-50 min-w-0"
             />
           </div>
           {/* Controles de Caixa — Abrir/Entrada/Saída/Sangria direto no PDV.

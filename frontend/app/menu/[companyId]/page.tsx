@@ -367,6 +367,13 @@ export default function MenuPage() {
   const [showFlavorModal, setShowFlavorModal] = useState(false);
   const [flavorParts, setFlavorParts] = useState(2);
   const [flavorSlots, setFlavorSlots] = useState<(Product | null)[]>([null, null]);
+  // Combo de promoção sem ProductSize (ex: "As Mais Mais do Dia", R$29,99
+  // tamanho único) que abriu o construtor — quando presente, o preço final
+  // NUNCA varia por sabor escolhido (nem soma, nem média). Achado real:
+  // 14/08/2026 — habilitar meio-a-meio nesses combos sem isso fazia o preço
+  // saltar pro valor avulso do(s) sabor(es) real(is) escolhido(s) (R$67+),
+  // muito acima do valor real da promoção.
+  const [flavorModalComboProduct, setFlavorModalComboProduct] = useState<Product | null>(null);
   const [flavorFilter, setFlavorFilter] = useState("");
   // Picker de sabor em tela cheia (aberto ao tocar num slot) — null = fechado
   const [flavorPickerSlot, setFlavorPickerSlot] = useState<number | null>(null);
@@ -1051,6 +1058,9 @@ export default function MenuPage() {
     // liberado num combo) — senão o nome do combo vira "sabor 1" no pedido
     // (bug real: pedido saiu com o nome do combo em vez dos 2 sabores reais).
     setFlavorSlots(product && !isComboProduct(product) ? [product] : [null]);
+    setFlavorModalComboProduct(
+      product && isComboProduct(product) && (!product.sizes || product.sizes.length === 0) ? product : null,
+    );
     setFlavorFilter("");
     setFlavorPickerSlot(null);
     setSizeDropdownOpen(false);
@@ -1066,6 +1076,13 @@ export default function MenuPage() {
     setSelectedPizzaSize(item.pizzaSize || "");
     setFlavorParts(item.flavors.length);
     setFlavorSlots(item.flavors);
+    // Gap consciente: CartItem não guarda o ID do combo original (só os
+    // sabores reais escolhidos), então reabrir pra editar um item que veio
+    // de um combo de preço fixo não tem como recuperar esse contexto — cai
+    // de volta no cálculo por sabor. Path raro (editar um combo já no
+    // carrinho); se virar problema real, CartItem precisa passar a guardar
+    // esse ID também.
+    setFlavorModalComboProduct(null);
     setFlavorFilter("");
     setFlavorPickerSlot(null);
     setSizeDropdownOpen(false);
@@ -1212,6 +1229,9 @@ export default function MenuPage() {
   }
 
   function calcPizzaPrice(flavors: Product[], size?: string) {
+    // Combo de promoção — preço nunca varia por sabor escolhido (nem soma,
+    // nem média do sabor avulso).
+    if (flavorModalComboProduct) return Number(flavorModalComboProduct.salePrice) || 0;
     const prices = flavors.map((f) => size ? getProductSizePrice(f, size) : Number(f.salePrice));
     if (theme.pizzaPricingMode === "HALF") {
       return prices.reduce((a, b) => a + b, 0) / prices.length;
@@ -1521,9 +1541,15 @@ export default function MenuPage() {
                         <p className="text-sm font-bold truncate" style={{ color: "var(--menu-text)" }}>{p.name}</p>
                         {p.description && <p className="text-xs truncate" style={{ color: "var(--menu-text-2)" }}>{p.description}</p>}
                       </div>
-                      <span className="text-sm font-black shrink-0" style={{ color: theme.primaryColor }}>
-                        R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}
-                      </span>
+                      {/* Preço avulso do sabor não se aplica dentro de um combo de
+                          preço fixo — mostrar o valor do sabor sozinho ao lado de
+                          uma promoção de preço fechado é enganoso, o total nunca
+                          usa esse valor (ver calcPizzaPrice). */}
+                      {!flavorModalComboProduct && (
+                        <span className="text-sm font-black shrink-0" style={{ color: theme.primaryColor }}>
+                          R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

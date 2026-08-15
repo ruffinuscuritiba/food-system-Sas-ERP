@@ -26,6 +26,16 @@ type Props = {
   // combo com meio a meio liberado, /products) — quando presente, vence o
   // limite padrão do tamanho, nunca só limita por cima dele.
   maxFlavorsOverride?: number;
+  // Preço fixo do produto (ex: combo de promoção "As Mais Mais do Dia",
+  // R$29,99 tamanho único) — quando presente, o total NUNCA varia por sabor
+  // escolhido (nem pelo mais caro, nem pela média) e a seção "1. Escolha o
+  // Tamanho" nem aparece, já que esses combos só existem no tamanho descrito
+  // no próprio nome/descrição (Grande 8 fatias). Achado real: 14/08/2026 —
+  // sem isso, habilitar meio-a-meio (maxFlavorsOverride>1) nesses combos
+  // fazia o preço saltar pra R$67+ (preço avulso do sabor), muito acima do
+  // valor real da promoção (R$29,99), e mostrava 5 tamanhos que nunca
+  // existiram pra esse produto.
+  fixedPrice?: number;
   onAdd:           (pizza: any) => void;
 };
 
@@ -95,10 +105,16 @@ function resolveVariant(norm: NormalizedFlavor, sizeKey: string): FlavorVariant 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlavorId, maxFlavorsOverride, onAdd }: Props) {
+export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlavorId, maxFlavorsOverride, fixedPrice, onAdd }: Props) {
+  // Combo de preço fixo sem ProductSize cadastrado (o caso normal pra esses
+  // promos) nunca teve tamanho de verdade — trava em "Grande" só pra ter uma
+  // chave válida na hora de calcular preço de borda (PizzaBorderSize é por
+  // tamanho), nunca mostra a seção de escolha.
   const sizeOptions: SizeOption[] =
     sizes && sizes.length > 0
       ? sizes
+      : fixedPrice != null
+      ? [{ size: "GRANDE", label: "Grande", price: 0 }]
       : [
           { size: "PEQUENA",      label: "Pequena",     price: 0 },
           { size: "MEDIA",        label: "Média",       price: 0 },
@@ -150,7 +166,10 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
   const pizzaPrice = useMemo(() => {
     let base = 0;
 
-    if (selectedSize.price > 0) {
+    if (fixedPrice != null) {
+      // Combo de promoção — preço nunca varia por sabor escolhido.
+      base = fixedPrice;
+    } else if (selectedSize.price > 0) {
       base = selectedSize.price;
     } else if (selectedNorms.length > 0) {
       // Cobra pelo valor do sabor mais caro selecionado (Regra padrão)
@@ -161,7 +180,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
     }
 
     return base + (border ? borderPriceForSize(border, selectedSize.size) : 0);
-  }, [selectedNorms, border, selectedSize]);
+  }, [selectedNorms, border, selectedSize, fixedPrice]);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
@@ -202,6 +221,11 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
     <div className="space-y-6">
 
       {/* ── Tamanho ─────────────────────────────────────────────────────────── */}
+      {/* Só existe escolha de tamanho quando há mais de 1 opção — combo de
+          preço fixo (fixedPrice) força sizeOptions pra 1 item só (Grande),
+          então essa seção nem faz sentido aparecer (nunca existiu escolha
+          real: "Tam. Grande 8 fatias" já vem descrito no nome do combo). */}
+      {sizeOptions.length > 1 && (
       <div>
         <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-3">
           1. Escolha o Tamanho
@@ -238,12 +262,13 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
           })}
         </div>
       </div>
+      )}
 
       {/* ── Sabores ─────────────────────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide">
-            2. Escolha os Sabores
+            {sizeOptions.length > 1 ? "2. Escolha os Sabores" : "1. Escolha os Sabores"}
           </p>
           <span
             className={`text-xs font-semibold px-2.5 py-1 rounded-full transition ${
@@ -315,9 +340,14 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
                     )}
                     <span className="font-semibold text-sm truncate">{norm.displayName}</span>
                   </div>
-                  <span className="text-xs font-mono font-semibold opacity-80 shrink-0">
-                    {fmt(showPrice)}
-                  </span>
+                  {/* Preço avulso do sabor não se aplica num combo de preço
+                      fixo — mostrar R$67,99 ao lado de um sabor dentro de um
+                      combo de R$29,99 é enganoso, o total nunca usa esse valor. */}
+                  {fixedPrice == null && (
+                    <span className="text-xs font-mono font-semibold opacity-80 shrink-0">
+                      {fmt(showPrice)}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -329,7 +359,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
       {borders.length > 0 && (
         <div>
           <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">
-            3. Borda Recheada (Opcional)
+            {sizeOptions.length > 1 ? "3. Borda Recheada (Opcional)" : "2. Borda Recheada (Opcional)"}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <button

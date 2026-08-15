@@ -2065,6 +2065,12 @@ export default function PDVPage() {
                 sizeConfigs={pizzaSizeConfigs}
                 initialFlavorId={isComboCategoryProduct(pizzaProduct) ? undefined : pizzaProduct.id}
                 maxFlavorsOverride={typeof pizzaProduct.maxFlavors === "number" ? pizzaProduct.maxFlavors : undefined}
+                // Combo de promoção sem ProductSize cadastrado (ex: "As Mais
+                // Mais do Dia", R$29,99 tamanho único) — sem isso, habilitar
+                // meio-a-meio nele fazia o preço saltar pro valor avulso do
+                // sabor mais caro (R$67+) em vez do preço fixo da promoção
+                // (achado real: 14/08/2026).
+                fixedPrice={!pizzaProduct.sizes?.length ? (Number(pizzaProduct.salePrice) || undefined) : undefined}
                 onAdd={addPizzaToCart}
               />
             </div>

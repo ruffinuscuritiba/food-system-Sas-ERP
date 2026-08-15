@@ -1255,13 +1255,21 @@ export default function MenuPage() {
   // sabor único, com Pequena/Média/Grande). Um combo de preço fixo sem
   // tamanho nenhum (`sizes: []`) nunca deve pedir isso — mesma checagem que
   // já existia isolada dentro de confirmFlavors, agora compartilhada.
-  const needsSizeSelection = flavorSlots.some((f) => f?.sizes && f.sizes.length > 1);
+  // IMPORTANTE: em combo de preço fixo (flavorModalComboProduct), o tamanho
+  // é sempre único (a promoção em si não tem sizes) — mas os SABORES
+  // individuais escolhidos dentro do combo (ex: "Bacon") podem ter várias
+  // ProductSize cadastradas para venda avulsa, o que fazia esse `.some()`
+  // virar `true` assim que o cliente escolhia um sabor, reabrindo a etapa
+  // de tamanho dentro de uma promoção de tamanho único. Combo de preço fixo
+  // nunca precisa dessa etapa, então força `false` independente do sabor.
+  const needsSizeSelection = !flavorModalComboProduct && flavorSlots.some((f) => f?.sizes && f.sizes.length > 1);
 
   function confirmFlavors() {
     const chosen = flavorSlots.filter(Boolean) as Product[];
     if (chosen.length < 1) { toast.error("Selecione ao menos 1 sabor"); return; }
-    // Exigir seleção de tamanho se houver tamanhos disponíveis
-    const hasMultipleSizes = chosen.some(f => f.sizes && f.sizes.length > 1);
+    // Exigir seleção de tamanho se houver tamanhos disponíveis — combo de
+    // preço fixo nunca exige (mesmo raciocínio de needsSizeSelection acima).
+    const hasMultipleSizes = !flavorModalComboProduct && chosen.some(f => f.sizes && f.sizes.length > 1);
     if (hasMultipleSizes && !selectedPizzaSize) {
       toast.error("Selecione o tamanho da pizza");
       return;

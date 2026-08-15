@@ -703,6 +703,32 @@ export default function PDVPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastAddedProductId, companyId, products]);
 
+  // Fallback quando não há coocorrência real ainda (produto novo/promoção
+  // recém-criada, ex: "As Mais Mais do Dia") — mesmo heurístico já usado no
+  // cardápio digital (menu/[companyId]/page.tsx orderBumpProducts, achado
+  // real 13/08/2026 "pizza da promoção nunca mostra opção de refrigerante ao
+  // finalizar"): garante pelo menos 1 bebida entre as sugestões, mesmo sem
+  // histórico de pedido. O PDV nunca tinha esse fallback — suggestedProducts
+  // sozinho fica [] pra qualquer item sem venda anterior, silenciando o
+  // upsell de bebida por completo (achado 15/08/2026, mesma classe de bug,
+  // só que no PDV em vez do cardápio digital).
+  const orderBumpProducts = cart.length === 0 ? [] : (() => {
+    const inCart = new Set(cart.map((i) => i.product.id));
+    const catTypeById = new Map(categories.map((c) => [c.id, c.categoryType ?? "normal"]));
+    const isBeverage = (p: Product) => catTypeById.get(p.categoryId ?? "") === "bebidas";
+    const frequentlyBought = suggestedProducts.filter((p) => !inCart.has(p.id));
+    const beverages = products.filter((p) => p.isActive && !inCart.has(p.id) && isBeverage(p));
+    const combined = [...frequentlyBought, ...beverages];
+    const seen = new Set<string>();
+    const deduped = combined.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+    let result = deduped.slice(0, 4);
+    if (beverages.length > 0 && !result.some(isBeverage)) {
+      result = [...result.slice(0, 3), beverages[0]];
+    }
+    return result;
+  })();
+  const orderBumpIsFrequentlyBought = suggestedProducts.length > 0 && orderBumpProducts.some((p) => suggestedProducts.some((s) => s.id === p.id));
+
   const removeFromCart = useCallback((id: string) => {
     setCart(prev => prev.filter(i => i.product.id !== id));
   }, []);
@@ -1733,13 +1759,16 @@ export default function PDVPage() {
                   })}
 
                   {/* Upsell — "quem pediu isso também pediu" (coocorrência real,
-                      mesmo dado do cardápio digital). Só aparece quando existe
-                      sugestão de verdade pro último item — nunca inventa. */}
-                  {suggestedProducts.length > 0 && (
+                      mesmo dado do cardápio digital); sem histórico ainda (item
+                      novo/promoção recém-criada), cai no fallback de bebida —
+                      nunca fica vazio, mesmo padrão já usado no cardápio digital. */}
+                  {orderBumpProducts.length > 0 && (
                     <div className="rounded-2xl border border-[var(--pdv-border,#1d2336)] bg-[var(--pdv-card,#0b0f1b)] p-3">
-                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">🔥 Combina com o pedido</p>
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-wide mb-2">
+                        {orderBumpIsFrequentlyBought ? "🔥 Combina com o pedido" : "🥤 Que tal uma bebida?"}
+                      </p>
                       <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
-                        {suggestedProducts.map((p) => (
+                        {orderBumpProducts.map((p) => (
                           <button
                             key={p.id}
                             onClick={() => openProductAdd(p)}

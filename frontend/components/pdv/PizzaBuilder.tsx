@@ -288,7 +288,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
           <div className="mb-3 flex items-center gap-2 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
             <CheckCircle2 size={14} className="text-amber-400 shrink-0" />
             <span>
-              <span className="text-white font-semibold">
+              <span className="text-[var(--pdv-text,#ffffff)] font-semibold">
                 {selectedNorms.map(n => n.displayName).join(", ")}
               </span>
               <span className="text-amber-400 font-medium">

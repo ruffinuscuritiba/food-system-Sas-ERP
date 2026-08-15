@@ -1456,9 +1456,13 @@ export default function MenuPage() {
                 {slot ? (
                   <span className="flex-1 min-w-0">
                     <span className="block font-semibold text-sm truncate" style={{ color: "var(--menu-text)" }}>{slot.name}</span>
-                    <span className="block text-xs" style={{ color: theme.primaryColor }}>
-                      R$ {(selectedPizzaSize ? getProductSizePrice(slot, selectedPizzaSize) : Number(slot.salePrice)).toFixed(2)}
-                    </span>
+                    {/* Mesmo tratamento do flavor-picker: preço avulso do
+                        sabor é enganoso dentro de um combo de preço fixo. */}
+                    {!flavorModalComboProduct && (
+                      <span className="block text-xs" style={{ color: theme.primaryColor }}>
+                        R$ {(selectedPizzaSize ? getProductSizePrice(slot, selectedPizzaSize) : Number(slot.salePrice)).toFixed(2)}
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="flex-1 text-sm font-semibold" style={{ color: "var(--menu-text-2)" }}>Escolher sabor {i + 1}</span>
@@ -3037,7 +3041,9 @@ export default function MenuPage() {
               <div>
                 <h2 className="text-xl font-black" style={{ color: "var(--menu-text)" }}>{editingCartKey ? "Editar Pizza" : "Montar Pizza"}</h2>
                 <p className="text-xs mt-0.5" style={{ color: "var(--menu-text-2)" }}>
-                  {theme.pizzaPricingMode === "HALF" ? "Preço = média dos sabores" : "Preço = sabor mais caro"}
+                  {flavorModalComboProduct
+                    ? "Preço fixo da promoção — não muda por sabor"
+                    : theme.pizzaPricingMode === "HALF" ? "Preço = média dos sabores" : "Preço = sabor mais caro"}
                 </p>
               </div>
               <button onClick={() => setShowFlavorModal(false)} style={{ color: "var(--menu-text-2)" }}>

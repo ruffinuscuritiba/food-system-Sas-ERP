@@ -208,7 +208,16 @@ function buildDedupedPizzaProducts(prods: Product[]): Product[] {
           const normalizedKey = normalizeSizeKey(s.size);
           if (!seen.has(normalizedKey)) {
             seen.add(normalizedKey);
-            mergedSizes.push({ size: normalizedKey, price: Number(s.price) });
+            mergedSizes.push({
+              size: normalizedKey,
+              price: Number(s.price),
+              // Sem isso, o preço promocional por tamanho (item novo) some
+              // pro operador nessa listagem — o construtor de pizza abre a
+              // partir de dedupedPizzaProducts (visão "lista"), não do
+              // produto cru de `products`. Achado real: 16/08/2026, ao
+              // validar ao vivo o recém-criado "Original R$" por tamanho.
+              originalPrice: s.originalPrice != null ? Number(s.originalPrice) : undefined,
+            });
           }
         }
       } else if (sizeKey && !seen.has(sizeKey)) {

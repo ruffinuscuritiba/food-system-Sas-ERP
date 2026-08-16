@@ -1,9 +1,12 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '@/database/prisma.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { CreateCampaignDto, UpdateCampaignDto } from './dto/create-campaign.dto';
 import { AddContactsDto } from './dto/add-contacts.dto';
 import { normalizePhoneBr } from '@/common/utils/phone';
+
+const DEFAULT_INACTIVE_DAYS = 15;
 
 /**
  * Campanhas recorrentes de WhatsApp — reengajamento de cliente.
@@ -88,6 +91,161 @@ export class WhatsappCampaignsService {
   }
 
   /**
+   * Contatos elegíveis pra campanha de reengajamento automática (clientes
+   * que "sumiram"): mesma base de opt-in + mesma exclusão de "recém-
+   * contatado por qualquer campanha" já usada em getEligibleContacts, com
+   * um filtro A MAIS — só entra quem TEM pelo menos 1 pedido no passado
+   * (Order + OnlineOrder, cruzado por telefone normalizado, mesmo padrão
+   * de reports.service.ts getCustomerStats) e cujo ÚLTIMO pedido foi há
+   * `inactiveDaysThreshold` dias ou mais. Cliente que nunca comprou não
+   * entra aqui — "sumiu" pressupõe que já foi cliente ativo antes; lead
+   * que nunca converteu é problema de aquisição, não de reengajamento.
+   */
+  private async getInactiveCustomerContacts(
+    companyId: string,
+    minIntervalDays: number,
+    inactiveDaysThreshold: number,
+  ) {
+    const normalize = (phone: string | null | undefined): string | null => {
+      if (!phone) return null;
+      const digits = phone.replace(/\D/g, '');
+      return digits.length >= 8 ? digits.slice(-8) : null;
+    };
+
+    const [optedIn, orders, onlineOrders] = await Promise.all([
+      this.prisma.customer.findMany({
+        where: { companyId, marketingOptIn: true },
+        select: { id: true, name: true, phone: true },
+      }),
+      this.prisma.order.findMany({
+        where: { companyId, customerPhone: { not: null } },
+        select: { customerPhone: true, createdAt: true },
+      }),
+      this.prisma.onlineOrder.findMany({
+        where: { companyId },
+        select: { customerPhone: true, createdAt: true },
+      }),
+    ]);
+    if (optedIn.length === 0) return [];
+
+    const lastOrderByPhone = new Map<string, number>();
+    for (const o of [...orders, ...onlineOrders]) {
+      const key = normalize(o.customerPhone);
+      if (!key) continue;
+      const ts = o.createdAt.getTime();
+      if (!lastOrderByPhone.has(key) || ts > lastOrderByPhone.get(key)!) {
+        lastOrderByPhone.set(key, ts);
+      }
+    }
+
+    const inactiveCutoff = Date.now() - inactiveDaysThreshold * 24 * 60 * 60_000;
+    const everOrderedAndInactive = optedIn.filter((c) => {
+      const key = normalize(c.phone);
+      const lastOrder = key ? lastOrderByPhone.get(key) : undefined;
+      return lastOrder != null && lastOrder <= inactiveCutoff;
+    });
+    if (everOrderedAndInactive.length === 0) return [];
+
+    // Mesma proteção anti-spam de getEligibleContacts: nunca reenvia pro
+    // mesmo telefone antes de minIntervalDays, contado em QUALQUER campanha.
+    const sendCutoff = new Date(Date.now() - minIntervalDays * 24 * 60 * 60_000);
+    const [recentlySent, lastSentByPhone] = await Promise.all([
+      this.prisma.whatsappCampaignSend.findMany({
+        where: { companyId, status: 'SENT', sentAt: { gte: sendCutoff } },
+        select: { phone: true },
+      }),
+      this.prisma.whatsappCampaignSend.groupBy({
+        by: ['phone'],
+        where: { companyId, status: 'SENT' },
+        _max: { sentAt: true },
+      }),
+    ]);
+    const recentPhones = new Set(recentlySent.map((s) => s.phone));
+    const lastSentMap = new Map(
+      lastSentByPhone.map((r) => [r.phone, r._max.sentAt?.getTime() ?? 0]),
+    );
+
+    return everOrderedAndInactive
+      .filter((c) => c.phone && !recentPhones.has(c.phone))
+      .sort((a, b) => (lastSentMap.get(a.phone) ?? 0) - (lastSentMap.get(b.phone) ?? 0));
+  }
+
+  /**
+   * Cron diário — só olha campanhas ACTIVE do tipo INACTIVE_CUSTOMERS, de
+   * TODAS as empresas. Diferente de runCampaign (disparo manual único),
+   * essa não muda status pro final — fica ACTIVE rodando todo dia até o
+   * admin pausar/arquivar. Horário (9h) escolhido pra chegar em horário
+   * comercial, não de madrugada.
+   */
+  @Cron('0 9 * * *')
+  async runAutoRecurringCampaigns() {
+    const campaigns = await this.prisma.whatsappCampaign.findMany({
+      where: { status: 'ACTIVE', triggerType: 'INACTIVE_CUSTOMERS' },
+    });
+    if (campaigns.length === 0) return;
+
+    this.logger.log(`[AutoRecurring] ${campaigns.length} campanha(s) de reengajamento pra rodar hoje`);
+    for (const campaign of campaigns) {
+      try {
+        await this.runInactiveCustomersBatch(campaign.id);
+      } catch (e: any) {
+        this.logger.error(`[AutoRecurring][Campaign ${campaign.id}] falhou: ${e?.message}`);
+      }
+    }
+  }
+
+  private async runInactiveCustomersBatch(campaignId: string): Promise<void> {
+    const campaign = await this.prisma.whatsappCampaign.findUnique({ where: { id: campaignId } });
+    if (!campaign || campaign.status !== 'ACTIVE' || campaign.triggerType !== 'INACTIVE_CUSTOMERS') return;
+
+    const threshold = campaign.inactiveDaysThreshold ?? DEFAULT_INACTIVE_DAYS;
+    const allEligible = await this.getInactiveCustomerContacts(
+      campaign.companyId,
+      campaign.minIntervalDays,
+      threshold,
+    );
+    const cap = campaign.maxPerRun ?? 50;
+    const contacts = allEligible.slice(0, cap);
+    this.logger.log(
+      `[AutoRecurring][Campaign ${campaignId}] ${contacts.length}/${allEligible.length} cliente(s) inativo(s) há ${threshold}+ dias` +
+        (allEligible.length > contacts.length ? ` — restante fica pro próximo dia (limite de ${cap}/execução)` : ''),
+    );
+
+    for (const contact of contacts) {
+      const current = await this.prisma.whatsappCampaign.findUnique({
+        where: { id: campaignId },
+        select: { status: true },
+      });
+      if (current?.status !== 'ACTIVE') {
+        this.logger.log(`[AutoRecurring][Campaign ${campaignId}] pausada/arquivada — parando execução de hoje`);
+        return;
+      }
+      if (!contact.phone) {
+        await this.logSend(campaignId, campaign.companyId, contact.id, '', 'SKIPPED_NO_PHONE');
+        continue;
+      }
+
+      const text = campaign.message.replace(/\{\{\s*nome\s*\}\}/gi, contact.name || 'cliente');
+      try {
+        const delivered = campaign.imageUrl
+          ? await this.whatsappAi.sendMediaMessage(campaign.companyId, contact.phone, campaign.imageUrl, text)
+          : await this.whatsappAi.sendTextMessage(campaign.companyId, contact.phone, text);
+        await this.logSend(
+          campaignId, campaign.companyId, contact.id, contact.phone,
+          delivered ? 'SENT' : 'FAILED',
+          delivered ? undefined : 'Sem conexão de WhatsApp ativa ou falha no envio',
+        );
+      } catch (e: any) {
+        await this.logSend(campaignId, campaign.companyId, contact.id, contact.phone, 'FAILED', e?.message);
+      }
+      await new Promise((resolve) => setTimeout(resolve, this.SEND_DELAY_MS));
+    }
+    // Nunca transiciona pra COMPLETED/PAUSED por causa do lote — fica ACTIVE
+    // de propósito, pra rodar de novo amanhã sozinha. Quem sobrou do cap
+    // reaparece naturalmente na lista de amanhã (continuam inativos).
+  }
+
+  /**
    * Adiciona contatos manualmente à base de opt-in (ex.: lista de convite
    * pra inauguração) — o admin está explicitamente afirmando que esses
    * números podem receber, então marca marketingOptIn=true na hora. Não
@@ -162,6 +320,8 @@ export class WhatsappCampaignsService {
         minIntervalDays: dto.minIntervalDays ?? 15,
         maxPerRun: dto.maxPerRun ?? 50,
         imageUrl: dto.imageUrl || null,
+        triggerType: (dto.triggerType as any) ?? 'MANUAL',
+        inactiveDaysThreshold: dto.inactiveDaysThreshold ?? null,
         createdById: userId,
         status: 'DRAFT',
       },
@@ -182,6 +342,8 @@ export class WhatsappCampaignsService {
         ...(dto.minIntervalDays !== undefined && { minIntervalDays: dto.minIntervalDays }),
         ...(dto.maxPerRun !== undefined && { maxPerRun: dto.maxPerRun }),
         ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl || null }),
+        ...(dto.triggerType !== undefined && { triggerType: dto.triggerType as any }),
+        ...(dto.inactiveDaysThreshold !== undefined && { inactiveDaysThreshold: dto.inactiveDaysThreshold }),
       },
     });
   }
@@ -198,6 +360,13 @@ export class WhatsappCampaignsService {
       where: { id },
       data: { status: 'ACTIVE' },
     });
+
+    // Campanha automática (reengajamento de inativos) não dispara na hora —
+    // fica ACTIVE esperando o cron diário (runAutoRecurringCampaigns), que
+    // já vai pegá-la na próxima execução. Só MANUAL dispara o envio agora.
+    if (campaign.triggerType === 'INACTIVE_CUSTOMERS') {
+      return updated;
+    }
 
     // Dispara o envio em background — não bloqueia a resposta HTTP.
     setImmediate(() => {

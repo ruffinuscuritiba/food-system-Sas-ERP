@@ -2404,6 +2404,11 @@ enum CampaignStatus {
   ARCHIVED
 }
 
+enum CampaignTriggerType {
+  MANUAL
+  INACTIVE_CUSTOMERS
+}
+
 enum CampaignSendStatus {
   SENT
   FAILED
@@ -2431,6 +2436,18 @@ model WhatsappCampaign {
   // sem contato) e volta a campanha pra PAUSED — clique em "Retomar" dispara
   // o próximo lote de N, até a lista se esgotar.
   maxPerRun       Int            @default(50)
+  // MANUAL (padrão) = admin clica "Ativar" e a campanha roda uma vez (com
+  // gotejamento se sobrar gente). INACTIVE_CUSTOMERS = campanha de
+  // reengajamento automática — enquanto status=ACTIVE, um cron diário
+  // (WhatsappCampaignsService.runAutoRecurringCampaigns) recalcula sozinho
+  // quem "sumiu" (sem pedido há inactiveDaysThreshold dias) e envia, todo
+  // dia, sem precisar reativar manualmente. Reaproveita TODA a proteção
+  // já existente (opt-in, minIntervalDays contra qualquer campanha) — só
+  // adiciona o filtro extra de inatividade na fonte de contatos.
+  triggerType     CampaignTriggerType @default(MANUAL)
+  // Só usado quando triggerType=INACTIVE_CUSTOMERS. Null = usa o default
+  // de 15 dias no código.
+  inactiveDaysThreshold Int?
   createdById     String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

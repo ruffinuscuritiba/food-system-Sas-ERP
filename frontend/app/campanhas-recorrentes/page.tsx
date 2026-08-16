@@ -25,6 +25,8 @@ interface Campaign {
   imageUrl: string | null;
   createdAt: string;
   stats: CampaignStats;
+  triggerType: "MANUAL" | "INACTIVE_CUSTOMERS";
+  inactiveDaysThreshold: number | null;
 }
 
 interface Summary {
@@ -55,7 +57,11 @@ export default function CampanhasRecorrentesPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50, imageUrl: null as string | null });
+  const [form, setForm] = useState({
+    name: "", message: "", minIntervalDays: 15, maxPerRun: 50, imageUrl: null as string | null,
+    triggerType: "MANUAL" as "MANUAL" | "INACTIVE_CUSTOMERS",
+    inactiveDaysThreshold: 15,
+  });
   const [contactsText, setContactsText] = useState("");
 
   async function load() {
@@ -86,7 +92,10 @@ export default function CampanhasRecorrentesPage() {
       await api.post("/whatsapp-campaigns", form);
       toast.success("Campanha criada como rascunho!");
       setShowModal(false);
-      setForm({ name: "", message: "", minIntervalDays: 15, maxPerRun: 50, imageUrl: null as string | null });
+      setForm({
+        name: "", message: "", minIntervalDays: 15, maxPerRun: 50, imageUrl: null as string | null,
+        triggerType: "MANUAL", inactiveDaysThreshold: 15,
+      });
       load();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao criar campanha");
@@ -263,6 +272,15 @@ export default function CampanhasRecorrentesPage() {
                               <ImageIcon size={13} className="text-gray-400" />
                             </span>
                           )}
+                          {c.triggerType === "INACTIVE_CUSTOMERS" && (
+                            <span
+                              title={`Roda sozinha todo dia às 9h — clientes sem pedido há ${c.inactiveDaysThreshold ?? 15}+ dias`}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[10px] font-bold"
+                            >
+                              <Repeat size={10} />
+                              Auto {c.inactiveDaysThreshold ?? 15}d
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className="px-5 py-3">
@@ -286,7 +304,9 @@ export default function CampanhasRecorrentesPage() {
                               className="flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700 font-semibold text-xs disabled:opacity-50"
                             >
                               {busyId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
-                              {c.status === "DRAFT" ? "Ativar" : "Retomar"}
+                              {c.status === "DRAFT"
+                                ? (c.triggerType === "INACTIVE_CUSTOMERS" ? "Ativar (roda todo dia)" : "Ativar")
+                                : "Retomar"}
                             </button>
                           )}
                           {c.status === "ACTIVE" && (
@@ -294,6 +314,7 @@ export default function CampanhasRecorrentesPage() {
                               onClick={() => pause(c.id)}
                               disabled={busyId === c.id}
                               className="flex items-center gap-1.5 text-amber-600 hover:text-amber-700 font-semibold text-xs disabled:opacity-50"
+                              title={c.triggerType === "INACTIVE_CUSTOMERS" ? "Para de rodar o cron diário" : undefined}
                             >
                               {busyId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Pause size={13} />}
                               Pausar
@@ -350,6 +371,47 @@ export default function CampanhasRecorrentesPage() {
             </div>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tipo de campanha</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, triggerType: "MANUAL" })}
+                    className={`text-left p-3 rounded-xl border transition ${
+                      form.triggerType === "MANUAL" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-800">Manual</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Você clica em "Ativar" e ela dispara uma vez.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, triggerType: "INACTIVE_CUSTOMERS" })}
+                    className={`text-left p-3 rounded-xl border transition ${
+                      form.triggerType === "INACTIVE_CUSTOMERS" ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-800">Automática</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Roda sozinha todo dia, achando quem sumiu.</p>
+                  </button>
+                </div>
+                {form.triggerType === "INACTIVE_CUSTOMERS" && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Cliente "sumiu" depois de quantos dias sem pedir?</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={form.inactiveDaysThreshold}
+                      onChange={(e) => setForm({ ...form, inactiveDaysThreshold: Math.min(365, Math.max(1, Number(e.target.value) || 15)) })}
+                      className="w-28 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-primary"
+                    />
+                    <p className="text-xs text-gray-400 mt-2">
+                      Todo dia às 9h, o sistema procura sozinho clientes com opt-in que já compraram antes mas não pedem há esse tanto de dias, e manda essa mensagem — sem precisar clicar em nada depois de ativar.
+                    </p>
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Nome da campanha</label>
                 <input

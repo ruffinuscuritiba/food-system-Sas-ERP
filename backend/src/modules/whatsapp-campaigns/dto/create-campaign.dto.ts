@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, Min, Max, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min, Max, MaxLength, IsIn } from 'class-validator';
 
 // Limites de gotejamento por lote — min evita ativações inúteis (1-2 por
 // vez), max evita a plataforma virar ferramenta de disparo em massa.
@@ -33,6 +33,20 @@ export class CreateCampaignDto {
   @MaxLength(5_000_000)
   @IsOptional()
   imageUrl?: string;
+
+  // MANUAL (padrão) = dispara uma vez ao clicar "Ativar". INACTIVE_CUSTOMERS
+  // = campanha de reengajamento que roda sozinha todo dia (cron), enquanto
+  // status=ACTIVE, recalculando quem "sumiu" a cada execução.
+  @IsIn(['MANUAL', 'INACTIVE_CUSTOMERS'])
+  @IsOptional()
+  triggerType?: string;
+
+  // Só relevante quando triggerType=INACTIVE_CUSTOMERS.
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  @IsOptional()
+  inactiveDaysThreshold?: number;
 }
 
 export class UpdateCampaignDto {
@@ -61,4 +75,14 @@ export class UpdateCampaignDto {
   @MaxLength(5_000_000)
   @IsOptional()
   imageUrl?: string;
+
+  @IsIn(['MANUAL', 'INACTIVE_CUSTOMERS'])
+  @IsOptional()
+  triggerType?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  @IsOptional()
+  inactiveDaysThreshold?: number;
 }

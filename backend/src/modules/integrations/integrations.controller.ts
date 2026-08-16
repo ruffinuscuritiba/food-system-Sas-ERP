@@ -103,6 +103,13 @@ export class IntegrationsController {
     return this.service.pushCatalog(req.user.companyId, body.provider);
   }
 
+  @Get('99food/menu')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...ADMIN_ROLES)
+  getNinetyNineFoodMenu(@Req() req: any) {
+    return this.service.getNinetyNineFoodMenu(req.user.companyId);
+  }
+
   // ── Event log ──────────────────────────────────────────────────────────────
 
   @Get('events')

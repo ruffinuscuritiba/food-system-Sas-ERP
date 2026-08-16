@@ -93,6 +93,43 @@ export class NinetyNineFoodProvider implements IIntegrationProvider {
     await this.orderAction('confirm', orderId, authToken);
   }
 
+  /** Lista o cardápio real da loja no 99Food — útil pra mapear app_item_id/mdu_id
+   * → produto interno mesmo quando o cardápio foi cadastrado direto no painel deles
+   * (sem passar pela nossa API), caso em que app_item_id vem vazio. */
+  async getMenu(authToken: string): Promise<{
+    items: Array<{ app_item_id: string; item_name: string; price: number; status: number }>;
+    categories: Array<{ app_category_id: string; category_name: string; app_item_ids: string[] }>;
+  }> {
+    const qs = new URLSearchParams({ auth_token: authToken }).toString();
+    // Get Store Menu Details é versionado em /v3, diferente do resto da API (/v1).
+    const res = await fetch(`https://openapi.99food.com/v3/item/item/list?${qs}`, { method: 'GET' });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`99Food menu/list falhou: ${res.status} — ${text}`);
+    }
+    const json = (await res.json()) as {
+      errno: number;
+      errmsg: string;
+      data?: { items?: any[]; categories?: any[] };
+    };
+    if (json.errno !== 0 || !json.data) {
+      throw new Error(`99Food menu/list erro ${json.errno}: ${json.errmsg}`);
+    }
+    return {
+      items: (json.data.items ?? []).map((i: any) => ({
+        app_item_id: i.app_item_id ?? '',
+        item_name: i.item_name ?? '',
+        price: Number(i.price ?? 0) / 100,
+        status: Number(i.status ?? 1),
+      })),
+      categories: (json.data.categories ?? []).map((c: any) => ({
+        app_category_id: c.app_category_id ?? '',
+        category_name: c.category_name ?? '',
+        app_item_ids: Array.isArray(c.app_item_ids) ? c.app_item_ids : [],
+      })),
+    };
+  }
+
   async orderAction(
     action: 'confirm' | 'ready' | 'delivered' | 'cancel',
     orderId: string,

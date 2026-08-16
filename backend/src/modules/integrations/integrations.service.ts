@@ -444,6 +444,35 @@ export class IntegrationsService {
     throw new BadRequestException(`Validação ainda não implementada para ${providerName}.`);
   }
 
+  // ── Cardápio real da loja no 99Food (pra mapear item→produto manualmente) ─
+
+  async getNinetyNineFoodMenu(companyId: string) {
+    const config = await this.prisma.integrationConfig.findUnique({
+      where: { companyId_provider: { companyId, provider: 'NINETY_NINE_FOOD' as any } },
+    });
+    if (!config || !config.clientId || !config.apiKeyEncrypted || !config.merchantId) {
+      throw new BadRequestException('Configure e valide a integração 99Food antes de listar o cardápio.');
+    }
+    const token = await this.getValidToken(config, 'NINETY_NINE_FOOD');
+    if (!token) {
+      throw new BadRequestException('Não foi possível obter o auth_token da loja.');
+    }
+    const provider = this.providerFactory.get('NINETY_NINE_FOOD') as any;
+    const menu = await provider.getMenu(token);
+
+    // Já indica quais itens já têm mapeamento pra facilitar a conferência.
+    const existingMaps = await this.prisma.productCatalogMap.findMany({
+      where: { companyId, provider: 'NINETY_NINE_FOOD' as any, isActive: true },
+      select: { externalProductId: true },
+    });
+    const mappedIds = new Set(existingMaps.map((m) => m.externalProductId));
+
+    return {
+      items: menu.items.map((i: any) => ({ ...i, alreadyMapped: mappedIds.has(i.app_item_id) })),
+      categories: menu.categories,
+    };
+  }
+
   // ── Sincronização de catálogo (PASSO 5 — pushCatalog) ────────────────────
 
   async pushCatalog(companyId: string, providerName: string) {

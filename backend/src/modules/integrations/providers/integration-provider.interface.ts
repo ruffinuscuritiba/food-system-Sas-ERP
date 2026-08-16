@@ -2,7 +2,8 @@ export type IntegrationEventType =
   | 'ORDER_CREATED'
   | 'STATUS_CHANGED'
   | 'ORDER_CANCELLED'
-  | 'CATALOG_SYNC';
+  | 'CATALOG_SYNC'
+  | 'IGNORED';
 
 export interface CanonicalCustomer {
   name: string;

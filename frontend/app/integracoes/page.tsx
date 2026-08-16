@@ -42,6 +42,22 @@ interface IntegrationOrder {
   createdAt: string;
 }
 
+interface CatalogMap {
+  id: string;
+  provider: Provider;
+  externalProductId: string;
+  externalVariantId?: string;
+  internalProductId: string;
+  isActive: boolean;
+  updatedAt: string;
+  product?: { id: string; name: string; imageUrl?: string; salePrice: number };
+}
+
+interface ProductLite {
+  id: string;
+  name: string;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const PROVIDER_LABELS: Record<Provider, { label: string; color: string; icon: string; iconUrl?: string; desc: string }> = {
@@ -88,6 +104,14 @@ export default function IntegracoesPage() {
   const [syncing,       setSyncing]       = useState(false);
   const [catalogMapCount, setCatalogMapCount] = useState<number | null>(null);
 
+  // Mapeamento manual de catálogo
+  const [catalogProvider, setCatalogProvider] = useState<Provider>("NINETY_NINE_FOOD");
+  const [catalogMaps,   setCatalogMaps]   = useState<CatalogMap[]>([]);
+  const [products,      setProducts]      = useState<ProductLite[]>([]);
+  const [mapExternalId, setMapExternalId] = useState("");
+  const [mapInternalId, setMapInternalId] = useState("");
+  const [mapSaving,     setMapSaving]     = useState(false);
+
   // Simulação mock
   const [simName,    setSimName]    = useState("Maria Silva");
   const [simPhone,   setSimPhone]   = useState("11999990000");
@@ -117,6 +141,11 @@ export default function IntegracoesPage() {
 
   useEffect(() => { load(); }, []);
   useEffect(() => { if (tab === "catalog") loadCatalogMapCount("IFOOD"); }, [tab]);
+  useEffect(() => {
+    if (tab !== "catalog") return;
+    loadCatalogMaps(catalogProvider);
+    if (products.length === 0) loadProducts();
+  }, [tab, catalogProvider]);
 
   function loadConfigForProvider(p: Provider) {
     const cfg = configs.find((c) => c.provider === p);
@@ -170,6 +199,58 @@ export default function IntegracoesPage() {
       setCatalogMapCount(Array.isArray(data) ? data.length : 0);
     } catch {
       setCatalogMapCount(null);
+    }
+  }
+
+  async function loadCatalogMaps(provider: Provider) {
+    try {
+      const { data } = await api.get(`/integrations/catalog/maps?provider=${provider}`);
+      setCatalogMaps(Array.isArray(data) ? data : []);
+    } catch {
+      setCatalogMaps([]);
+    }
+  }
+
+  async function loadProducts() {
+    try {
+      const { data } = await api.get("/products");
+      setProducts(Array.isArray(data) ? data : []);
+    } catch {
+      setProducts([]);
+    }
+  }
+
+  async function addCatalogMap() {
+    if (!mapExternalId.trim() || !mapInternalId) {
+      toast.error("Preencha o ID/código externo e escolha o produto interno.");
+      return;
+    }
+    setMapSaving(true);
+    try {
+      await api.put("/integrations/catalog/maps", {
+        provider: catalogProvider,
+        externalProductId: mapExternalId.trim(),
+        internalProductId: mapInternalId,
+      });
+      toast.success("Mapeamento salvo.");
+      setMapExternalId("");
+      setMapInternalId("");
+      loadCatalogMaps(catalogProvider);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Erro ao salvar mapeamento.");
+    } finally {
+      setMapSaving(false);
+    }
+  }
+
+  async function removeCatalogMap(id: string) {
+    if (!confirm("Remover este mapeamento? Pedidos futuros com esse item externo voltarão a falhar até ser remapeado.")) return;
+    try {
+      await api.delete(`/integrations/catalog/maps/${id}`);
+      toast.success("Mapeamento removido.");
+      loadCatalogMaps(catalogProvider);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Erro ao remover mapeamento.");
     }
   }
 
@@ -530,13 +611,95 @@ export default function IntegracoesPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Mapeamento de Catálogo</h2>
             <p className="text-sm text-gray-500 mb-6">
-              Associe o ID de cada produto no marketplace ao produto interno do FoodSaaS.
+              Associe o ID/código de cada item do marketplace ao produto interno do FoodSaaS.
+              Sem esse vínculo, um pedido que chegar com aquele item é rejeitado com
+              &ldquo;nenhum item pôde ser mapeado&rdquo; e nunca aparece em Pedidos.
               No modo <strong>Mock</strong>, esse mapeamento não é necessário (IDs são iguais).
             </p>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
-              <AlertCircle className="inline w-4 h-4 mr-2" />
-              Disponível após ativar uma integração com iFood ou Rappi. No Mock, pedidos chegam
-              usando o <code className="bg-yellow-100 px-1 rounded">internalProductId</code> diretamente.
+
+            <div className="flex items-center gap-3 mb-4">
+              <label className="text-sm font-medium text-gray-700">Marketplace</label>
+              <select
+                value={catalogProvider}
+                onChange={(e) => setCatalogProvider(e.target.value as Provider)}
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="NINETY_NINE_FOOD">99Food</option>
+                <option value="IFOOD">iFood</option>
+                <option value="RAPPI">Rappi</option>
+              </select>
+            </div>
+
+            {/* Novo mapeamento */}
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex-1 w-full">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  ID/código do item no marketplace
+                </label>
+                <input
+                  value={mapExternalId}
+                  onChange={(e) => setMapExternalId(e.target.value)}
+                  placeholder={catalogProvider === "NINETY_NINE_FOOD" ? "mdu_id do item (ver Log de Eventos)" : "externalProductId"}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex-1 w-full">
+                <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Produto interno correspondente
+                </label>
+                <select
+                  value={mapInternalId}
+                  onChange={(e) => setMapInternalId(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Selecione um produto...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={addCatalogMap}
+                disabled={mapSaving}
+                className="shrink-0 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-sm font-medium transition"
+              >
+                {mapSaving ? "Salvando..." : "Adicionar"}
+              </button>
+            </div>
+
+            {/* Lista de mapeamentos existentes */}
+            <div className="mt-5">
+              {catalogMaps.length === 0 ? (
+                <p className="text-sm text-gray-400 py-4 text-center">Nenhum mapeamento cadastrado para este marketplace ainda.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">ID externo</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produto interno</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {catalogMaps.map((m) => (
+                        <tr key={m.id} className="border-b border-gray-50">
+                          <td className="px-3 py-2 font-mono text-xs text-gray-600 break-all">{m.externalProductId}</td>
+                          <td className="px-3 py-2 text-gray-800">{m.product?.name ?? m.internalProductId}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => removeCatalogMap(m.id)}
+                              className="text-xs text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Remover
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Sincronização de catálogo — iFood */}

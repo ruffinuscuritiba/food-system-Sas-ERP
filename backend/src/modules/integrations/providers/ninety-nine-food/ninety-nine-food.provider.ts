@@ -123,6 +123,17 @@ export class NinetyNineFoodProvider implements IIntegrationProvider {
     const orderId = data?.order_id ?? data?.order_info?.order_id;
 
     if (!orderId) {
+      // Eventos de nível de loja (status aberta/fechada, vínculo de app)
+      // não trazem order_id — não é erro, só não gera nenhuma ação no
+      // FoodSaaS (nada de pedido pra processar).
+      if (this.isShopLevelEvent(type)) {
+        return {
+          type: 'IGNORED',
+          externalOrderId: `shop:${b?.app_shop_id ?? 'unknown'}:${type}:${b?.timestamp ?? Date.now()}`,
+          externalStatus: type,
+          rawPayload: body,
+        };
+      }
       throw new BadRequestException(
         `NinetyNineFoodProvider: payload sem order_id. body=${JSON.stringify(body).slice(0, 800)}`,
       );
@@ -150,7 +161,12 @@ export class NinetyNineFoodProvider implements IIntegrationProvider {
         zipCode: address?.postalCode ?? '',
       },
       items: items.map((i: any) => ({
-        externalProductId: i.app_item_id ?? String(i.item_id ?? ''),
+        // app_item_id só existe se o cardápio foi sincronizado via nossa API
+        // (Menu API, ainda não implementada). Quando o lojista cadastra o
+        // cardápio direto no painel do 99Food, esse campo vem vazio ("") —
+        // cai pro mdu_id (ID interno do item no 99Food, sempre presente e
+        // estável), que dá pra mapear manualmente em Mapeamento de Catálogo.
+        externalProductId: i.app_item_id || i.mdu_id || String(i.item_id ?? ''),
         externalVariantId: i.app_external_id ?? undefined,
         productName: i.name ?? 'Item 99Food',
         quantity: Number(i.amount ?? 1),
@@ -183,6 +199,10 @@ export class NinetyNineFoodProvider implements IIntegrationProvider {
     // já caiu na conta da 99Food, nunca é "dinheiro na entrega" do lado
     // da loja. Mapeado como PIX (mesmo tratamento dado a "ONLINE" no iFood).
     return 'PIX';
+  }
+
+  private isShopLevelEvent(type: string): boolean {
+    return ['shopStatus', 'shopBindStatus', 'shopBind', 'shopUnbind'].includes(type);
   }
 
   private mapEventCode(type: string): IntegrationEvent['type'] {

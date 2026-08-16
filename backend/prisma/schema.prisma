@@ -561,6 +561,12 @@ model ProductSize {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   size      String
   price     Decimal  @db.Decimal(10, 2)
+  // Preço riscado (promoção) ESPECÍFICO deste tamanho — independente do
+  // Product.originalPrice (que só se aplica a produto sem sizes, ver item
+  // 153). Ex: pizza com Pequena/Média/Grande, só a Grande em promoção —
+  // null = sem promo nesse tamanho, nunca afeta o preço realmente cobrado
+  // (isso continua sendo `price`).
+  originalPrice Decimal? @db.Decimal(10, 2)
   companyId String
   createdAt DateTime @default(now())
 

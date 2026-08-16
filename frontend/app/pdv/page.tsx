@@ -43,7 +43,7 @@ interface Category {
   parentCategoryId?: string | null;
   children?: Category[];
 }
-interface ProductSize { size: string; price: number; }
+interface ProductSize { size: string; price: number; originalPrice?: number | null; }
 interface PizzaBorderData { id: string; name: string; isActive?: boolean; sizes: { size: string; price: number }[]; }
 interface Product {
   id: string; name: string; description?: string;
@@ -2090,7 +2090,7 @@ export default function PDVPage() {
                 // vizinho aparecia como se fosse ele mesmo um sabor de pizza.
                 flavors={products.filter(p => p.isActive && p.categoryId && pizzaCategories.has(p.categoryId || "") && !isLockedSingleFlavorProduct(p) && !isComboCategoryProduct(p)).map(p => ({ id: p.id, name: p.name, price: Number(p.salePrice) || 0 }))}
                 borders={pizzaBorders}
-                sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0 }))}
+                sizes={pizzaProduct.sizes?.slice().sort((a, b) => getPizzaSizeOrder(a.size) - getPizzaSizeOrder(b.size)).map(s => ({ size: s.size, label: s.size.charAt(0).toUpperCase() + s.size.slice(1).toLowerCase().replace("_", " "), price: Number(s.price) || 0, originalPrice: s.originalPrice != null ? Number(s.originalPrice) : undefined }))}
                 sizeConfigs={pizzaSizeConfigs}
                 initialFlavorId={isComboCategoryProduct(pizzaProduct) ? undefined : pizzaProduct.id}
                 maxFlavorsOverride={typeof pizzaProduct.maxFlavors === "number" ? pizzaProduct.maxFlavors : undefined}

@@ -13,7 +13,9 @@ type Flavor        = FlavorVariant;
 // esconder a borda inteira só porque um tamanho específico ficou sem preço.
 type Border        = { id: string; name: string; sizes: { size: string; price: number }[] };
 type ResolvedBorder = { id: string; name: string; price: number };
-type SizeOption    = { size: string; label: string; price: number };
+// originalPrice opcional: preço riscado (promoção) só desse tamanho —
+// ver ProductSize.originalPrice. Nunca afeta o valor cobrado (price).
+type SizeOption    = { size: string; label: string; price: number; originalPrice?: number };
 type SizeConfig    = { maxFlavors: number };
 
 type Props = {
@@ -247,6 +249,11 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
                 }`}
               >
                 <span className="block leading-tight">{opt.label}</span>
+                {opt.originalPrice != null && opt.originalPrice > opt.price && (
+                  <span className={`block text-[10px] line-through opacity-60 ${isSelected ? "text-white" : "text-zinc-400"}`}>
+                    {fmt(opt.originalPrice)}
+                  </span>
+                )}
                 {opt.price > 0 && (
                   <span className="block text-xs font-normal opacity-90 mt-1">
                     {fmt(opt.price)}

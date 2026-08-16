@@ -50,7 +50,7 @@ export class ProductsService {
 
   async create(data: any) {
     const rawSizes = data.sizes ?? [];
-    const sizes: Array<{ size: string; price: number }> =
+    const sizes: Array<{ size: string; price: number; originalPrice?: number | null }> =
       typeof rawSizes === 'string' ? JSON.parse(rawSizes) : rawSizes;
 
     // Próximo sortOrder dentro da empresa (drag-and-drop)
@@ -135,6 +135,10 @@ export class ProductsService {
             create: sizes.map((s) => ({
               size: s.size,
               price: Number(s.price),
+              originalPrice:
+                s.originalPrice != null && Number(s.originalPrice) > 0
+                  ? Number(s.originalPrice)
+                  : null,
               companyId: data.companyId,
             })),
           },
@@ -171,7 +175,9 @@ export class ProductsService {
 
   async update(id: string, data: any) {
     const rawSizes = data.sizes;
-    const sizes: Array<{ size: string; price: number }> | undefined =
+    const sizes:
+      | Array<{ size: string; price: number; originalPrice?: number | null }>
+      | undefined =
       rawSizes === undefined
         ? undefined
         : typeof rawSizes === 'string'
@@ -188,6 +194,10 @@ export class ProductsService {
             productId: id,
             size: s.size,
             price: Number(s.price),
+            originalPrice:
+              s.originalPrice != null && Number(s.originalPrice) > 0
+                ? Number(s.originalPrice)
+                : null,
             companyId: data.companyId ?? '',
           })),
         });

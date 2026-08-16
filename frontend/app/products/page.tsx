@@ -22,13 +22,14 @@ interface SizeRow {
   cost: number;   // R$
   margin: number; // %
   price: number;  // R$
+  originalPrice: number; // R$ — preço riscado (promoção) só deste tamanho; 0 = sem promo
 }
 
 const defaultSizes = (): SizeRow[] => [
-  { size: "Pequena", cost: 0, margin: 0, price: 0 },
-  { size: "Média",   cost: 0, margin: 0, price: 0 },
-  { size: "Grande",  cost: 0, margin: 0, price: 0 },
-  { size: "Família", cost: 0, margin: 0, price: 0 },
+  { size: "Pequena", cost: 0, margin: 0, price: 0, originalPrice: 0 },
+  { size: "Média",   cost: 0, margin: 0, price: 0, originalPrice: 0 },
+  { size: "Grande",  cost: 0, margin: 0, price: 0, originalPrice: 0 },
+  { size: "Família", cost: 0, margin: 0, price: 0, originalPrice: 0 },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ function SizesTable({ rows, onChange }: { rows: SizeRow[]; onChange: (r: SizeRow
         </span>
         <button
           type="button"
-          onClick={() => onChange([...rows, { size: `Tamanho ${rows.length + 1}`, cost: 0, margin: 0, price: 0 }])}
+          onClick={() => onChange([...rows, { size: `Tamanho ${rows.length + 1}`, cost: 0, margin: 0, price: 0, originalPrice: 0 }])}
           className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 font-bold bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg transition"
         >
           <Plus size={12} /> Adicionar
@@ -111,11 +112,12 @@ function SizesTable({ rows, onChange }: { rows: SizeRow[]; onChange: (r: SizeRow
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_120px_90px_130px_36px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-wider">
+      <div className="grid grid-cols-[1fr_100px_70px_110px_100px_36px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-wider">
         <span>Tamanho</span>
         <span className="text-right">Custo R$</span>
         <span className="text-right">Margem %</span>
         <span className="text-right">Venda R$</span>
+        <span className="text-right">Original R$</span>
         <span />
       </div>
 
@@ -124,7 +126,7 @@ function SizesTable({ rows, onChange }: { rows: SizeRow[]; onChange: (r: SizeRow
         {rows.map((row, i) => (
           <div
             key={i}
-            className="grid grid-cols-[1fr_120px_90px_130px_36px] gap-2 items-center px-4 py-2.5 hover:bg-gray-50/50 transition"
+            className="grid grid-cols-[1fr_100px_70px_110px_100px_36px] gap-2 items-center px-4 py-2.5 hover:bg-gray-50/50 transition"
           >
             {/* Tamanho inline edit */}
             {editIdx === i ? (
@@ -185,6 +187,14 @@ function SizesTable({ rows, onChange }: { rows: SizeRow[]; onChange: (r: SizeRow
               className="w-full border border-orange-200 focus:border-orange-400 focus:ring-1 focus:ring-orange-100 rounded-lg px-2.5 py-1.5 text-xs text-right font-black text-orange-600 bg-orange-50/50 outline-none"
             />
 
+            {/* Promo — preço riscado só deste tamanho, opcional (0 = sem promo).
+                Não mexe em Custo/Margem/Venda dos outros tamanhos nem deste. */}
+            <CurrencyInputBR
+              value={row.originalPrice}
+              onChange={(v) => update(i, { originalPrice: v })}
+              className="w-full border border-rose-200 focus:border-rose-400 focus:ring-1 focus:ring-rose-100 rounded-lg px-2.5 py-1.5 text-xs text-right font-medium text-rose-600 bg-rose-50/40 outline-none"
+            />
+
             {/* Remove */}
             <button
               type="button"
@@ -197,8 +207,9 @@ function SizesTable({ rows, onChange }: { rows: SizeRow[]; onChange: (r: SizeRow
         ))}
       </div>
 
-      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400">
-        Venda = Custo × (1 + Margem%). Editando Venda recalcula Margem automaticamente.
+      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 space-y-0.5">
+        <p>Venda = Custo × (1 + Margem%). Editando Venda recalcula Margem automaticamente.</p>
+        <p>Original R$ (opcional) = preço riscado exibido pro cliente, só nesse tamanho — ex: Grande "De R$67,99 por R$36,99" preenche Venda=36,99 e Original=67,99. Vazio = sem promoção nesse tamanho.</p>
       </div>
     </div>
   );
@@ -400,6 +411,7 @@ export default function ProductsPage() {
       size: r.size.trim(),
       price: r.price,
       cost: r.cost,
+      originalPrice: r.originalPrice > 0 ? r.originalPrice : null,
     }));
   }
 
@@ -481,6 +493,7 @@ export default function ProductsPage() {
             cost:   Number(ps.cost)  || 0,
             margin: calcMarginFromCostPrice(Number(ps.cost), Number(ps.price)),
             price:  Number(ps.price) || 0,
+            originalPrice: Number(ps.originalPrice) || 0,
           }))
         : defaultSizes()
     );

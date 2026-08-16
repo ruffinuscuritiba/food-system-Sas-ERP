@@ -37,6 +37,9 @@ export interface WaSettings {
   characteristics: string | null;
   principles: string | null;
   humor: string | null;
+  // FULL_SALES (padrão, motor consultivo completo) | GREETER_ONLY (só saudação
+  // fixa + link do cardápio, zero chamada de IA no fluxo de pedido).
+  engineMode: string | null;
 }
 
 export interface WaConversation {

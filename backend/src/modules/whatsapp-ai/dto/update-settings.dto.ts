@@ -108,4 +108,8 @@ export class UpdateSettingsDto {
   @IsString()
   @IsOptional()
   orderHandlingMode?: string; // LINK_ONLY | LINK_THEN_HUMAN_3 | LINK_THEN_HUMAN_2 | ALWAYS_HUMAN
+
+  @IsString()
+  @IsOptional()
+  engineMode?: string; // FULL_SALES | GREETER_ONLY
 }

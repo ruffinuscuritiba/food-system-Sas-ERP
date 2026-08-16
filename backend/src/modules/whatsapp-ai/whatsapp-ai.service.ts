@@ -624,6 +624,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         menuLinkStyle: true,
         conversationalOrdering: true,
         orderHandlingMode: true,
+        engineMode: true,
       },
     });
   }
@@ -1275,7 +1276,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     // Lê businessHours centralizado de Company (nova fonte) com fallback para settings (legado)
     const companyRow = await this.prisma.company.findUnique({
       where: { id: connection.companyId },
-      select: { businessHours: true, slug: true },
+      select: { businessHours: true, slug: true, name: true },
     });
     const companyHours = companyRow?.businessHours as
       | Record<string, CompanyBusinessHoursDay>
@@ -1330,6 +1331,26 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       }
     }
 
+    // Motor "só saudação" — zero chamada de IA no fluxo de pedido, cliente
+    // pede sozinho pelo cardápio digital. Roda DEPOIS de horário/transferência
+    // (ambos determinísticos, continuam funcionando igual) e ANTES de
+    // qualquer engine de IA — nunca chama Gemini/Anthropic/Claude nessa
+    // conversa, que é exatamente o ponto (créditos + confiabilidade, ver
+    // REGRA PRINCIPAL/IA.md). Config do motor completo (Provedor de
+    // IA/Personalidade) continua salva no banco, intocada, pra quando a loja
+    // quiser voltar pro atendimento consultivo — só fica sem efeito enquanto
+    // engineMode=GREETER_ONLY.
+    if (settings.engineMode === 'GREETER_ONLY') {
+      await this.runGreeterOnlyResponse(
+        connection,
+        conv,
+        connection.companyId,
+        companyRow?.name || 'nossa loja',
+        companyRow?.slug,
+      );
+      return;
+    }
+
     try {
       await this.runAiResponse(connection, settings, conv, text);
     } catch (err: unknown) {
@@ -1340,6 +1361,52 @@ export class WhatsappAiService implements OnApplicationBootstrap {
         'Desculpe, tive um problema temporário. Pode repetir sua mensagem?';
       await this.sendAssistantReply(connection, conv, connection.companyId, fallback);
     }
+  }
+
+  /** "Bom dia"/"Boa tarde"/"Boa noite" pelo horário real de Brasília. */
+  private saudacaoPorHorario(): string {
+    const hour = Number(
+      new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        hour12: false,
+      }).format(new Date()),
+    );
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  /**
+   * Motor GREETER_ONLY: nunca chama Gemini/Anthropic/Claude — primeira
+   * mensagem da conversa recebe uma saudação fixa com o link do cardápio
+   * digital (mesmo texto que o usuário pediu como referência); qualquer
+   * mensagem seguinte recebe um lembrete curto, também fixo, reforçando o
+   * link e o atalho pra falar com um humano (transferKeywords já cobre isso
+   * de forma determinística, antes de chegar aqui). Zero custo de IA.
+   */
+  private async runGreeterOnlyResponse(
+    connection: WaConnection,
+    conv: WaConversation,
+    companyId: string,
+    companyName: string,
+    companySlug: string | null | undefined,
+  ) {
+    const assistantCount = await this.prisma.whatsappMessage.count({
+      where: { conversationId: conv.id, role: 'ASSISTANT' },
+    });
+    const frontendUrl = this.config.get<string>('FRONTEND_URL');
+    const menuLine =
+      frontendUrl && companySlug
+        ? `\n\n📋 Nosso cardápio completo: ${frontendUrl.replace(/\/$/, '')}/menu/${companySlug}`
+        : '';
+
+    const msg =
+      assistantCount === 0
+        ? `${this.saudacaoPorHorario()}! 😊 Bem-vindo à ${companyName}! O que você vai querer hoje?${menuLine}`
+        : `Você pode fazer seu pedido direto pelo nosso cardápio digital, é rapidinho${menuLine}\n\nSe precisar falar com alguém da equipe, é só digitar "atendente".`;
+
+    await this.sendAssistantReply(connection, conv, companyId, msg);
   }
 
   /**

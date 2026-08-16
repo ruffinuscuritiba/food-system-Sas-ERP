@@ -1927,6 +1927,19 @@ model WhatsappAiSettings {
   // LINK_ONLY | LINK_THEN_HUMAN_3 | LINK_THEN_HUMAN_2 | ALWAYS_HUMAN
   orderHandlingMode      String  @default("LINK_ONLY")
 
+  // Motor de conversa: FULL_SALES = fluxo consultivo completo (Carol/claude-cart,
+  // descoberta→recomendação→upsell→fechamento, várias chamadas de IA por pedido);
+  // GREETER_ONLY = só saudação fixa com link do cardápio (zero chamada de IA no
+  // dia a dia) — cliente pede sozinho pelo cardápio digital, IA só reaparece se
+  // pedirem "atendente" (transferKeywords, já determinístico) ou no feedback
+  // pós-entrega (DeliveryFeedback, já baseado em keyword). Não apaga a config do
+  // motor completo — usuário pode voltar pra FULL_SALES a qualquer momento sem
+  // perder nada (Provedor de IA/Personalidade continuam salvos, só ficam sem
+  // efeito enquanto GREETER_ONLY estiver ativo). Sofre a mesma regressão de
+  // reconexão via QR que aiProvider (schema default reaplicado) — reconferir
+  // após reconectar (ver REGRA PRINCIPAL/IA.md).
+  engineMode             String  @default("FULL_SALES") // FULL_SALES | GREETER_ONLY
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

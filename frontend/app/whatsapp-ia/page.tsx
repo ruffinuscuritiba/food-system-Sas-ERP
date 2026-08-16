@@ -46,6 +46,8 @@ type AiSettings = {
   menuLinkStyle: string;
   conversationalOrdering: boolean;
   orderHandlingMode: string;
+  // FULL_SALES (motor consultivo completo) | GREETER_ONLY (só saudação + link)
+  engineMode: string;
 };
 
 type Conversation = {
@@ -922,6 +924,7 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
     menuLinkStyle: "BUTTON",
     conversationalOrdering: false,
     orderHandlingMode: "LINK_ONLY",
+    engineMode: "FULL_SALES",
   };
 
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS);
@@ -996,6 +999,50 @@ function ConfigTab({ connections, selectedConn, onSelect, onRefresh }: {
                   <p className="text-xs opacity-70">{m.desc}</p>
                 </button>
               ))}
+            </div>
+          </Card>
+
+          {/* Engine mode — só saudação x atendimento consultivo completo */}
+          <Card title="Abordagem ao Cliente" icon={<Send size={16} />}>
+            <div className="space-y-2">
+              {[
+                {
+                  value: "FULL_SALES",
+                  label: "Atendimento completo (Carol)",
+                  desc: "A IA conduz a conversa inteira — descobre, recomenda, oferece upsell e fecha o pedido pelo chat. Consome IA a cada mensagem.",
+                },
+                {
+                  value: "GREETER_ONLY",
+                  label: "Saudação + link do cardápio",
+                  desc: "A IA só dá boas-vindas com o link do cardápio digital — o cliente pede sozinho por lá. Zero custo de IA no dia a dia, sem risco de resposta errada no meio de um pedido.",
+                },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSettings({ ...settings, engineMode: opt.value })}
+                  className={`w-full p-3 rounded-xl border text-left transition flex items-start gap-3 ${
+                    settings.engineMode === opt.value
+                      ? "border-green-500 bg-green-900/20 text-white"
+                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  <span className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    settings.engineMode === opt.value ? "border-green-400" : "border-slate-500"
+                  }`}>
+                    {settings.engineMode === opt.value && <span className="w-1.5 h-1.5 rounded-full bg-green-400 block" />}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">{opt.label}</p>
+                    <p className="text-xs opacity-70">{opt.desc}</p>
+                  </div>
+                </button>
+              ))}
+              {settings.engineMode === "GREETER_ONLY" && (
+                <p className="text-xs text-amber-400/90 bg-amber-900/10 border border-amber-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                  <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                  Provedor de IA e Personalidade abaixo continuam salvos, só ficam sem efeito enquanto essa abordagem estiver ativa — nada é apagado, pode voltar pra "Atendimento completo" quando quiser.
+                </p>
+              )}
             </div>
           </Card>
 

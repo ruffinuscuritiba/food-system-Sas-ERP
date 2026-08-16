@@ -594,6 +594,20 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     const CHIME_GAP_MS = 1300;
     const BURST_SIZE = 3;
     const PAUSE_BETWEEN_BURSTS_MS = 9000;
+    // Trava de segurança: apesar de todo esforço pra dispensar/parar o som
+    // corretamente (dismiss, kitchenUpdate, conversationReplied,
+    // wa-conversation-viewed, hardStopAlertSound), o usuário relatou
+    // repetidas vezes o alerta continuando indefinidamente mesmo depois de
+    // clicar em "Atender agora"/"Dispensar" — o padrão que sempre resolvia
+    // era fechar e reabrir a aba, o que aponta pra um travamento fora do
+    // alcance do nosso JS (motor de voz/áudio do navegador, não o estado da
+    // aplicação). Em vez de continuar perseguindo esse bug indefinidamente,
+    // um teto de repetições garante que a rajada NUNCA toca pra sempre,
+    // mesmo se algum caminho de dismiss ainda não coberto aparecer no
+    // futuro — depois de MAX_BURSTS rajadas (~10, uns 2 minutos) sem
+    // ninguém dispensar, para sozinho e loga um aviso.
+    const MAX_BURSTS = 10;
+    let burstCount = 0;
 
     function ringOnce() {
       if (cancelled) return;
@@ -617,8 +631,13 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
     function burst() {
       if (cancelled) return;
+      burstCount += 1;
       for (let i = 0; i < BURST_SIZE; i++) {
         timers.push(setTimeout(ringOnce, i * CHIME_GAP_MS));
+      }
+      if (burstCount >= MAX_BURSTS) {
+        console.error(`[alertas] limite de ${MAX_BURSTS} rajadas atingido — parando automaticamente (alerta continua visível no banner, só o som para)`);
+        return;
       }
       timers.push(
         setTimeout(burst, BURST_SIZE * CHIME_GAP_MS + PAUSE_BETWEEN_BURSTS_MS),

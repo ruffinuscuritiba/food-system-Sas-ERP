@@ -439,6 +439,21 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       setOrderAlerts((prev) => prev.filter((a) => a.orderId !== data.id));
     }
 
+    // Mesma classe de bug do handleKitchenUpdateForAlert acima, agora pro
+    // alerta de "cliente pediu humano"/mensagem de chat: só parava clicando
+    // em "Atender agora"/"Dispensar" do próprio banner — se o operador
+    // respondesse pela aba Conversas sem passar por esses botões, o alerta
+    // nunca saía do estado (achado real: 16/08/2026, "ainda continua com o
+    // aviso sonoro e já respondi"). conversationReplied dispara ao enviar
+    // mensagem manual pela aba Conversas (sendManualMessage). Não cobre
+    // resposta direta pelo WhatsApp nativo no celular (fromMe:true é
+    // ignorado de propósito no webhook) — só resposta feita pelo painel.
+    function handleConversationReplied(data: { conversationId?: string }) {
+      if (!data?.conversationId) return;
+      setHumanAlerts((prev) => prev.filter((a) => a.conversationId !== data.conversationId));
+      setChatAlerts((prev) => prev.filter((a) => a.conversationId !== data.conversationId));
+    }
+
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
@@ -448,6 +463,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     socket.on("whatsappDeliveryFailed", handleWaDeliveryFailed);
     socket.on("whatsappCustomerMessage", handleCustomerMessage);
     socket.on("driverNotificationFailed", handleDriverNotifFailed);
+    socket.on("conversationReplied", handleConversationReplied);
     return () => {
       clearInterval(reconnectTimer);
       socket.off("connect", handleConnect);
@@ -459,6 +475,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       socket.off("whatsappDeliveryFailed", handleWaDeliveryFailed);
       socket.off("whatsappCustomerMessage", handleCustomerMessage);
       socket.off("driverNotificationFailed", handleDriverNotifFailed);
+      socket.off("conversationReplied", handleConversationReplied);
       // Não desconecta — outras páginas (kitchen/orders/tables) também
       // gerenciam o mesmo socket compartilhado.
     };

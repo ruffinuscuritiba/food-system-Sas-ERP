@@ -148,6 +148,21 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Operador respondeu manualmente pela aba Conversas (sendManualMessage) —
+   * sinal de "já respondi" pro alerta sonoro de humanHelpRequested/chat
+   * parar sozinho, sem depender de clicar especificamente "Atender agora"/
+   * "Dispensar" no banner (achado real: 16/08/2026, mesma classe de bug já
+   * corrigida pra orderAlerts via kitchenUpdate — "ainda continua com o
+   * aviso sonoro e já respondi"). NÃO cobre resposta direta pelo WhatsApp
+   * nativo no celular (fromMe:true é ignorado no webhook de propósito, pra
+   * não reprocessar a própria mensagem da Kely como se fosse do cliente) —
+   * só cobre resposta manual dentro do painel.
+   */
+  emitConversationReplied(companyId: string, data: { conversationId: string }) {
+    this.server.to(`company:${companyId}`).emit('conversationReplied', data);
+  }
+
+  /**
    * Cliente público entra na room do próprio pedido para receber atualizações
    * de status em tempo real. Não precisa de token — orderId já é o "segredo".
    * Cliente conecta ao socket → emite 'joinOrder' com orderId → recebe

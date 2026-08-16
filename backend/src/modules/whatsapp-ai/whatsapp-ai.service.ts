@@ -716,6 +716,9 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       companyId,
       text,
     );
+    this.socketGateway?.emitConversationReplied(companyId, {
+      conversationId: conv.id,
+    });
     return { ok: sent };
   }
 

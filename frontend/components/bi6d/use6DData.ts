@@ -225,53 +225,6 @@ function buildLoyaltyPoints(
   }));
 }
 
-function buildVisitPoints(
-  demoStats:   { total: number; today: number; thisWeek: number; thisMonth: number } | null,
-  iaDemoStats: { total: number; today: number; thisWeek: number; thisMonth: number } | null,
-  leadCount:   number,
-  days: number,
-): DataPoint6D[] {
-  const points: DataPoint6D[] = [];
-  const totalVisits = (demoStats?.thisMonth ?? 0) + (iaDemoStats?.thisMonth ?? 0);
-  const convRate    = totalVisits > 0 ? clamp(leadCount / totalVisits) : 0;
-
-  if (demoStats) {
-    points.push({
-      id:     "visit-demo",
-      layer:  "visits",
-      x:      10,
-      y:      norm(demoStats.thisMonth, Math.max(demoStats.total, 1)),
-      z:      LAYER_META.visits.zOffset - 0.5,
-      t:      1,
-      weight: 0.1 + clamp(demoStats.thisMonth / 100) * 0.8,
-      health: convRate,
-      probability: convRate, // taxa de conversão real = probabilidade de virar lead
-      label:  "/demo",
-      value:  demoStats.thisMonth,
-      detail: `${demoStats.thisMonth} visitas/mês · ${demoStats.today} hoje`,
-      date:   new Date().toISOString().slice(0, 10),
-    });
-  }
-  if (iaDemoStats) {
-    points.push({
-      id:     "visit-iademo",
-      layer:  "visits",
-      x:      16,
-      y:      norm(iaDemoStats.thisMonth, Math.max(iaDemoStats.total, 1)),
-      z:      LAYER_META.visits.zOffset + 0.5,
-      t:      1,
-      weight: 0.1 + clamp(iaDemoStats.thisMonth / 50) * 0.8,
-      health: convRate,
-      probability: convRate,
-      label:  "/ia-demo",
-      value:  iaDemoStats.thisMonth,
-      detail: `${iaDemoStats.thisMonth} visitas/mês · ${leadCount} leads`,
-      date:   new Date().toISOString().slice(0, 10),
-    });
-  }
-  return points;
-}
-
 // ── Funil de conversão do cardápio digital ────────────────────────────────────
 // Fonte de dado mais honesta pra Hierarquia + Fluxo de Rede: cada estágio é
 // literalmente filho do anterior (parentId) e a "probabilidade" de cada
@@ -332,8 +285,22 @@ export function use6DData(from: string, to: string, activeLayers: Set<DataLayer>
 
     async function load() {
       try {
-        // Dispara todas as chamadas em paralelo — apenas endpoints já existentes
-        const [kpiR, reportR, stockR, driversR, financialR, feedbackR, visitsR, iaDemoR, leadsR, funnelR] =
+        // Dispara todas as chamadas em paralelo — apenas endpoints já existentes.
+        // A camada "visits" NUNCA teve endpoint próprio por tenant — chamava
+        // /visits/stats (visitas às páginas de marketing DA PLATAFORMA, /demo
+        // e /ia-demo) e /super-admin/leads, ambos atrás de SuperAdminGuard.
+        // Pra qualquer login normal de loja (ADMIN/MANAGER, não
+        // SYSTEM_SUPER_ADMIN), os 3 sempre voltam 401 — e mesmo protegidos por
+        // Promise.allSettled aqui (que só evita o throw NESTA função), o
+        // interceptor global do axios reage a QUALQUER 401 da aplicação
+        // limpando localStorage/cookie e redirecionando pra /login, derrubando
+        // a sessão inteira (achado real: 16/08/2026, "quando clico em análise
+        // 6D some tudo" — não era crash de render, era logout forçado
+        // client-side). Removidas as 3 chamadas; a camada "visits" continua
+        // existindo na UI (toggle, legenda) mas sempre com 0 pontos — não tem
+        // dado real por tenant pra mostrar mesmo (é uma métrica da própria
+        // plataforma, não do restaurante).
+        const [kpiR, reportR, stockR, driversR, financialR, feedbackR, funnelR] =
           await Promise.allSettled([
             activeLayers.has("orders")  ? api.get(`/reports/executive?from=${from}&to=${to}`)     : Promise.resolve(null),
             activeLayers.has("orders")  ? api.get(`/reports/revenue?from=${from}&to=${to}`)        : Promise.resolve(null),
@@ -341,9 +308,6 @@ export function use6DData(from: string, to: string, activeLayers: Set<DataLayer>
             activeLayers.has("drivers") ? api.get("/drivers")                                      : Promise.resolve(null),
             activeLayers.has("loyalty") ? api.get("/financial/summary")                            : Promise.resolve(null),
             activeLayers.has("loyalty") ? api.get("/reports/feedback")                              : Promise.resolve(null),
-            activeLayers.has("visits")  ? api.get("/visits/stats?page=/demo")                      : Promise.resolve(null),
-            activeLayers.has("visits")  ? api.get("/visits/stats?page=/ia-demo")                   : Promise.resolve(null),
-            activeLayers.has("visits")  ? api.get("/super-admin/leads?limit=1000")                 : Promise.resolve(null),
             activeLayers.has("funnel")  ? api.get(`/menu-analytics/summary?from=${from}&to=${to}`) : Promise.resolve(null),
           ]);
 
@@ -356,9 +320,6 @@ export function use6DData(from: string, to: string, activeLayers: Set<DataLayer>
         const drivers     = get<any>(driversR);
         const financial   = get<any>(financialR);
         const feedback    = get<any>(feedbackR);
-        const visitDemo   = get<any>(visitsR);
-        const visitIA     = get<any>(iaDemoR);
-        const leadsData   = get<any>(leadsR);
         const funnelData  = get<any>(funnelR);
 
         const series      = report?.dailySeries ?? [];
@@ -367,7 +328,6 @@ export function use6DData(from: string, to: string, activeLayers: Set<DataLayer>
         const orderConfidence = clamp(1 - (kpi?.cancelRate ?? 0));
         const satisfactionRate = feedback?.satisfactionRate ?? 0.7;
         const movements   = Array.isArray(stockMov) ? stockMov : (stockMov?.movements ?? []);
-        const leadCount   = leadsData?.items?.length ?? leadsData?.total ?? 0;
 
         // Earnings não tem endpoint de listagem global — usa dados do driver se disponível
         const allDrivers = Array.isArray(drivers) ? drivers : [];
@@ -385,7 +345,8 @@ export function use6DData(from: string, to: string, activeLayers: Set<DataLayer>
           ...(activeLayers.has("stock")   ? buildStockPoints(movements)        : []),
           ...(activeLayers.has("drivers") ? buildDriverPoints(fakeEarnings)    : []),
           ...(activeLayers.has("loyalty") ? buildLoyaltyPoints(financial, days, satisfactionRate) : []),
-          ...(activeLayers.has("visits")  ? buildVisitPoints(visitDemo, visitIA, leadCount, days) : []),
+          // "visits" (marketing da plataforma, não por tenant) sempre vazio —
+          // ver nota grande acima de onde os fetches costumavam ficar.
           ...(activeLayers.has("funnel")  ? buildFunnelPoints(funnelData?.funnel ?? null) : []),
         ];
 

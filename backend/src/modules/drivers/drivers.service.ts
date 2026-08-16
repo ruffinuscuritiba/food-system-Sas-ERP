@@ -13,6 +13,7 @@ import { OrdersService } from '@/modules/orders/orders.service';
 import { SocketGateway } from '@/socket/socket.gateway';
 import { getStartOfTodayBrazil } from '@/common/utils/timezone';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
+import { TrackingGateway } from '@/modules/tracking/tracking.gateway';
 
 const DRIVER_INVITE_PURPOSE = 'driver_invite';
 
@@ -25,18 +26,28 @@ export class DriversService {
     private jwtService: JwtService,
     private config: ConfigService,
     @Optional() private whatsappAiService?: WhatsappAiService,
+    @Optional() private trackingGateway?: TrackingGateway,
   ) {}
 
-  // Notifica o entregador por WhatsApp assim que ele é selecionado no painel
-  // (despacho inicial OU troca de entregador) — antes disso o entregador só
-  // ficava sabendo abrindo o app manualmente. Fire-and-forget: nunca atrasa
-  // nem derruba a atribuição se o WhatsApp falhar (mesmo padrão de
+  // Notifica o entregador assim que ele é selecionado no painel (despacho
+  // inicial OU troca de entregador) — antes disso o entregador só ficava
+  // sabendo abrindo o app manualmente/reiniciando-o. 2 canais: (1) socket em
+  // tempo real (driver:orderAssigned, sala driver:${driverId}) — o app do
+  // entregador escuta e recarrega a lista sozinho, sem precisar sair/entrar
+  // de novo (achado real: 15/08/2026); (2) WhatsApp, fire-and-forget, nunca
+  // atrasa nem derruba a atribuição se falhar (mesmo padrão de
   // sendOrderNotification já usado pra avisar o cliente).
   private notifyDriverAssignment(
+    driverId: string,
     driver: { phone: string | null; name?: string | null },
     order: { id: string; number: number; deliveryAddress: string | null; neighborhood: string | null; customerName: string | null },
     companyId: string,
   ) {
+    this.trackingGateway?.emitOrderAssignedToDriver(driverId, {
+      orderId: order.id,
+      orderNumber: order.number || null,
+    });
+
     const address = order.deliveryAddress || order.neighborhood || '';
     // OnlineOrder não tem número sequencial (esse campo é exclusivo de
     // Order/PDV, ver item 95 do CLAUDE.md) — sem esse fallback, o WhatsApp
@@ -329,6 +340,7 @@ export class DriversService {
     });
 
     this.notifyDriverAssignment(
+      driverId,
       { phone: driver.phone, name: driver.user?.name ?? null },
       order,
       companyId,
@@ -385,6 +397,7 @@ export class DriversService {
         .join(', ') || null;
 
     this.notifyDriverAssignment(
+      driverId,
       driver,
       {
         id: order.id,

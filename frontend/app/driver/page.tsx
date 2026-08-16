@@ -80,6 +80,15 @@ export default function DriverHome() {
       setGpsActive(false);
     });
 
+    // Pedido atribuído (despacho inicial ou reatribuição) chega em tempo real
+    // pela sala driver:${driverId} (já entrada via driver:register logo
+    // abaixo) — sem isso o app só descobria o pedido novo saindo e entrando
+    // de novo (achado real: 15/08/2026).
+    sock.on("driver:orderAssigned", () => {
+      toast.success("🛵 Novo pedido pra você!");
+      load();
+    });
+
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);

@@ -8,9 +8,10 @@ import { SocketModule } from '@/socket/socket.module';
 import { ModuleGuard } from '@/common/guards/module.guard';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { WhatsappAiModule } from '@/modules/whatsapp-ai/whatsapp-ai.module';
+import { TrackingModule } from '@/modules/tracking/tracking.module';
 
 @Module({
-  imports: [OrdersModule, SocketModule, AuthModule, WhatsappAiModule],
+  imports: [OrdersModule, SocketModule, AuthModule, WhatsappAiModule, TrackingModule],
   controllers: [DriversController, DriverInviteController],
   providers: [DriversService, PrismaService, ModuleGuard],
   exports: [DriversService],

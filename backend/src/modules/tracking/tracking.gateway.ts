@@ -70,6 +70,19 @@ export class TrackingGateway
     client.emit('driver:registered', { driverId });
   }
 
+  // Avisa o app do entregador em tempo real quando um pedido é atribuído a
+  // ele — sem isso, o app só descobria o pedido novo ao ser reaberto do zero
+  // (achado real: 15/08/2026, "tem que sair do app e entrar de novo pra
+  // carregar o novo pedido"). Chamado por DriversService.notifyDriverAssignment
+  // (despacho inicial e reatribuição), reaproveitando a mesma sala
+  // `driver:${driverId}` que o app já entra via driver:register.
+  emitOrderAssignedToDriver(
+    driverId: string,
+    payload: { orderId: string; orderNumber: number | null },
+  ) {
+    this.server.to(`driver:${driverId}`).emit('driver:orderAssigned', payload);
+  }
+
   // Driver sends GPS location — persists + broadcasts to tracking customers
   @SubscribeMessage('driver:location')
   async handleLocation(

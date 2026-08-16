@@ -777,3 +777,54 @@ sessão de debug remoto via Chrome MCP revelou stack de causas combinadas. **Bug
 - App de TESTE: `APP ID 5764607692033755127` / Secret `9478a3cb42fdabe6542131b98f3b51e5` / App Shop ID `ruffinus-pizzaria-01` (loja de teste vinculada a ele foi desvinculada em 14/08/2026 — ver acima).
 - **App de PRODUÇÃO (em uso pelo FoodSaaS hoje)**: `APP ID 5764607777723385900` / Secret `246321d37bb6120a2c2f889259dfb696` / App Shop ID `ruffinus-pizzaria-prod` / **Shop ID real `5764614354239229659`**.
 - Empresa no 99Food: `RUFFINU S PIZZARIA LTDA`, ID da empresa `5764659088159015767`.
+
+185. **fix(integrations) P0 real: pedido do 99Food sumia sem aparecer no sistema + mapeamento de catálogo construído do zero (16/08/2026, commits `fbf5f349` + `6fbde887`, DEPLOYADO)**: usuário reportou "hoje saiu um pedido do 99food e não apareceu no sistema". Investigação via `GET /integrations/events` achou o pedido real: cliente Douglas, Coca-Cola 2L + Combo família, R$115,98, recebido com sucesso (assinatura MD5 validada, `is_test:0`) mas **rejeitado com "nenhum item pôde ser mapeado"** — a loja cadastrou o cardápio inteiro direto no painel do 99Food (`merchant.99app.com`), nunca via nossa API, então todo item chega no webhook com `app_item_id` **vazio** (só é preenchido quando o cardápio é sincronizado via API, que não existe pro 99Food ainda — Menu API, ver pendência do item 183).
+
+**(A) Fix de código**: `NinetyNineFoodProvider.parseEvent` agora cai pro `mdu_id` (ID interno do 99Food, sempre presente mesmo quando `app_item_id` está vazio) ao montar `externalProductId` — permite mapear via `ProductCatalogMap` mesmo sem sync de cardápio. Eventos de nível de loja sem `order_id` (`shopStatus`/`shopBindStatus`, notificação de loja aberta/fechada) que antes geravam `PARSE_ERROR` em loop no log agora são reconhecidos e ignorados silenciosamente (`IntegrationEventType` ganhou o valor `IGNORED`). A aba **Mapeamento de Catálogo** em `/integracoes` — que desde sempre foi só um aviso estático, nunca teve formulário de verdade — ganhou CRUD funcional (adicionar por ID externo + produto interno, listar, remover) com seletor de provider incluindo 99Food.
+
+**(B) Mapeados os 2 itens do pedido perdido** via `mdu_id` direto (Coca-Cola 2L → produto `cmrteeda4003zzejrp3xx0wn7`, Combo família → `cmrfu43pg007btzfe76qg6pgc`) — confirmado o usuário escolheu qual das duas "Coca-Cola 2L" duplicadas usar. **O pedido do Douglas em si não foi recriado** (risco de duplicar se a equipe já atendeu ele manualmente/pelo app nativo do 99Food) — fica pro usuário conferir.
+
+**(C) Descoberta técnica pra mapear o cardápio inteiro (68 itens) de uma vez**: o endpoint oficial `GET /v3/item/item/list` ("Get Store Menu Details") lista os itens mas **não retorna `mdu_id`**, só serve pra ver `app_item_id`/nome (implementado como `NinetyNineFoodProvider.getMenu()` + `GET /api/integrations/99food/menu`, novo). O endpoint oficial `Update One Item` **não serve pra popular o `app_item_id` pela primeira vez** — ele exige já saber o `app_item_id` atual pra identificar qual item atualizar, e todos os 68 estão vazios (documentação da própria 99Food admite isso é "só pra referência", não pra resubmissão). **Achado real, validado ao vivo**: o painel do lojista (`merchant.99app.com/.../merchant-item/detail?itemId=X`) tem um campo **"Código PDV"** no formulário de edição de item — preenchendo esse campo com o **ID do produto do FoodSaaS** e clicando "Enviar", o campo aparece como `app_item_id` na chamada `GET /v3/item/item/list` na hora seguinte (confirmado via nossa API `/integrations/99food/menu`, campo `alreadyMapped:true`). Ou seja: **dá pra usar o próprio ID do produto FoodSaaS como o `externalProductId` do `ProductCatalogMap`** (mapeamento `id→id`, sem precisar decifrar nenhum ID do lado do 99Food) — só precisa ser preenchido individualmente por item na tela deles (sem API de lote disponível, nem oficial nem interna — tentativa de replicar a chamada interna do painel `b.99app.com/item/itemv4/listIdsWithMenuAndCate` falhou por exigir autenticação própria do painel, não replicável de fora da sessão deles).
+
+**Workflow validado pra cada item** (usado nos 6 já feitos): abrir `Cardápio da loja` → campo "Pesquisar" → nome do item → Enter → clicar na linha do item (abre `.../detail?itemId=X`) → no formulário, o campo "Código PDV" é o **6º input/textarea da página** (índice 5, 0-based) → setar valor via `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el, PRODUCT_ID)` + `dispatchEvent(new Event('input',{bubbles:true}))` (nativo, pro React perceber) → clicar botão "Enviar" (pode existir um 2º "Enviar" de um dialog de confirmação escondido no DOM — só clicar de novo se a URL não voltar pra lista). Sucesso confirmado pela URL voltando pra `.../menu?tab=store-menu` e/ou toast "Salvo com sucesso" no `get_page_text`.
+
+**41 dos 68 itens do cardápio já têm correspondência automática/manual confirmada no FoodSaaS** (`ProductCatalogMap` já criado via API em lote, `externalProductId=internalProductId`, pronto pra funcionar assim que o "Código PDV" for preenchido) — **6 já têm o Código PDV preenchido e confirmado** (`Frango Catupiry "Uma explosão..."`, `Presunto`, `Combo Executivo`, `Combo família`, `Coca-Cola 2l`, `Calabresa`). **34 itens ainda faltam só a etapa manual na tela do 99Food** (o `ProductCatalogMap` já existe pra todos, só falta preencher "Código PDV" seguindo o workflow acima) — lista completa pronta pra continuar sem precisar refazer nenhuma análise:
+
+```
+Guaraná Antártica 2l::cmrtecejv003wzejrivswjw1c
+Fanta Laranja 2l::cmrteagyt003tzejrhmrqd4sj
+Coca-Cola  600ml::cmrtej3fu0042zejrtjn53vve
+Coca-Cola Zero 600ml::cmrtekbga0045zejrkdkyzpxu
+Combo Festival de Esfihas (6 unid)::cms52i2de005cmlh7vv37c089
+Combo Festival de Esfihas (10 unid)::cms52y3sn005fmlh7grt2ra01
+Calabresa com alho e bacon::cmrfu43ng0053tzfen875fou7
+Calabresa com Catupiry::cmrfu43nm0058tzfek1o6b9qa
+Baiana Apimentada::cmrfu43nr005dtzfe0sq3hj5f
+Marguerita::cmrfu43nx005itzfezrcna95x
+Quatro Queijos::cmrfu43o1005ntzfeap8bxoax
+Frango Catupiry::cmrfu43o5005stzfecn312bvj
+Frango Com Cheddar::cmrfu43oa005xtzfe1swa0x3r
+Frango Com Milho::cmrfu43oe0062tzfexn5xhz36
+Portuguesa::cmrfu43oh0067tzfet7h3qw6g
+Catupiry::cmrfu43ol006ctzfegb37grhc
+Bacon::cmrfu43oq006htzfeqh4sko8b
+Bacon com Catupiry::cmrfu43ou006mtzfeog3u5r25
+Banana com Canela::cmrfu43oy006rtzfeql96z7g6
+Banana Nevada::cmrfu43p2006wtzfe8jlziks0
+Chocolate ao leite::cmrfu43p70071tzfeglrrqu8m
+Dois Amores::cmrfu43pb0076tzfetmi0l4sc
+Esfiha de Carne::cmrfu43pl007ftzfe8pz6ejxp
+Esfiha de Queijo::cmrfu43po007htzfep13cpbmj
+Esfiha de Frango::cmrfu43pt007ltzfefiompc2b
+Esfiha de Chocolate::cmrfu43pv007ntzfezzn68dfv
+Esfiha de Banana::cmrfu43py007ptzfe8k209b8v
+Calzone de Frango::cmrfu43q0007rtzfe1s0bqcj7
+Coca-Cola Original 2L::cmrteeda4003zzejrp3xx0wn7 (nome duplicado do "Coca-Cola 2l" já feito — categoria/itemId diferente)
+Guaraná Antártica 2L::cmrtecejv003wzejrivswjw1c (idem, verificar se é outro itemId)
+Coca-Cola 600ml::cmrtej3fu0042zejrtjn53vve (idem)
+Coca-Cola Zero 600ml::cmrtekbga0045zejrkdkyzpxu (idem)
+```
+
+**Achado paralelo, não corrigido**: duplicatas reais no catálogo interno do FoodSaaS atrapalharam o matching automático — "Marguerita" existe 2x (uma em "Pizzas Clássicas" R$67,99, outra em categoria "Guirlanda" R$67,00 — essa 2ª é componente da "Guirlanda de Pizza", não pizza avulsa, então a de Pizzas Clássicas foi a usada). Usuário deu uma regra geral pra próxima limpeza de catálogo: **duplicatas com o MESMO preço → apagar uma; com preços DIFERENTES → manter as duas, a menos que uma seja complemento de um grupo/subgrupo** (aplica-se a outras duplicatas ainda não auditadas, ex. "Coca_Cola 2lts" vs "Coca_Cola 2l"). **27 itens do cardápio do 99Food ficaram de fora do plano por não terem correspondência seguem no FoodSaaS** (menu 100% diferente/mais granular do que o cardápio interno — ex. "3 Esfihas abertas de X" avulsas, bordas avulsas, sachês de molho, "❤️ Combo Favorito dos Clientes", "Guirlanda de Pizza") — precisam de produto novo cadastrado no FoodSaaS antes de poder ser mapeados, decisão de negócio do usuário, não implementado.
+
+`tsc --noEmit` limpo em backend (provider+service+controller) e frontend (`/integracoes`). Deploy backend via pipeline automático (item 143). Sessão terminou com o usuário ausente — autorizou "faça o que você recomendar"; parei em um checkpoint sólido (6/40 completos, incluindo os 2 itens que realmente causaram o pedido perdido) em vez de continuar gastando dezenas de ações de automação de navegador por item sem supervisão, e documentei o resto pronto pra retomar.

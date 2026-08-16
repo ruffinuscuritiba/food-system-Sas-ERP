@@ -425,11 +425,26 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       });
     }
 
+    // Alerta sonoro de "novo pedido" (orderAlerts) só parava clicando no
+    // "Ver pedido"/"Dispensar" do próprio banner — se o operador visse e
+    // tratasse o pedido por qualquer outro caminho (lista de /orders, board
+    // da cozinha, PDV), o alerta nunca saía do estado e a rajada de som
+    // repetia pra sempre (achado real: 16/08/2026, "mesmo depois de ver o
+    // pedido continua apitando sem parar"). kitchenUpdate já dispara em toda
+    // transição de status (PDV e ONLINE, orders.service.ts) — sair de
+    // PENDING é justamente "alguém tratou esse pedido", então limpa o
+    // alerta sozinho, sem depender de qual tela o operador usou.
+    function handleKitchenUpdateForAlert(data: { id?: string; status?: string }) {
+      if (!data?.id || !data.status || data.status === "PENDING") return;
+      setOrderAlerts((prev) => prev.filter((a) => a.orderId !== data.id));
+    }
+
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
     socket.on("humanHelpRequested", handleHumanHelp);
     socket.on("orderCreated", handleOrderCreated);
+    socket.on("kitchenUpdate", handleKitchenUpdateForAlert);
     socket.on("whatsappDeliveryFailed", handleWaDeliveryFailed);
     socket.on("whatsappCustomerMessage", handleCustomerMessage);
     socket.on("driverNotificationFailed", handleDriverNotifFailed);
@@ -440,6 +455,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       socket.off("connect_error", handleConnectError);
       socket.off("humanHelpRequested", handleHumanHelp);
       socket.off("orderCreated", handleOrderCreated);
+      socket.off("kitchenUpdate", handleKitchenUpdateForAlert);
       socket.off("whatsappDeliveryFailed", handleWaDeliveryFailed);
       socket.off("whatsappCustomerMessage", handleCustomerMessage);
       socket.off("driverNotificationFailed", handleDriverNotifFailed);

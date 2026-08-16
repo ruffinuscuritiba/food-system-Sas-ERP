@@ -272,6 +272,30 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   });
   const [soundMenuOpen, setSoundMenuOpen] = useState(false);
 
+  // Corte "de verdade" do som/voz — chamado sempre que precisamos garantir
+  // silêncio (mute explícito, alertas zerados, troca de modo). Chrome tem
+  // bug conhecido (ainda aberto no rastreador do Chromium) de
+  // speechSynthesis.cancel() não interromper uma fala já em andamento numa
+  // única chamada — cancel()+pause()+resume()+cancel() de novo é o
+  // workaround prático mais citado; repetir com um pequeno delay cobre o
+  // caso de uma nova fala ter sido enfileirada bem no meio do primeiro
+  // cancel (achado real: 16/08/2026, "CLIQUEI EM SILENCIAR E CONTINUA" +
+  // depois "e continua apitando" com zero pedidos pendentes em /orders e
+  // /kitchen ao mesmo tempo — o travamento é do MOTOR de voz do navegador,
+  // não do estado da aplicação, e sobrevive à navegação entre páginas
+  // porque é SPA, o document nunca recarrega de verdade).
+  function hardStopAlertSound() {
+    const el = humanAlertAudioRef.current;
+    if (el) { el.pause(); el.currentTime = 0; }
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const ss = window.speechSynthesis;
+    ss.cancel();
+    try { ss.pause(); ss.resume(); } catch {}
+    ss.cancel();
+    setTimeout(() => { try { ss.cancel(); } catch {} }, 60);
+    setTimeout(() => { try { ss.cancel(); } catch {} }, 300);
+  }
+
   function previewAlertSound(mode: "bell" | "voice" | "muted") {
     if (mode === "muted") return;
     if (mode === "voice" && typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -292,7 +316,14 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     setAlertSoundMode(mode);
     localStorage.setItem("alert_sound_mode", mode);
     setSoundMenuOpen(false);
-    previewAlertSound(mode);
+    if (mode === "muted") {
+      // "Silenciar" clicado com o modo Voz ativo continuava falando — antes
+      // disso o corte dependia 100% do useEffect (abaixo) perceber a troca
+      // de alertSoundMode e rodar sua cleanup. Ver hardStopAlertSound.
+      hardStopAlertSound();
+    } else {
+      previewAlertSound(mode);
+    }
   }
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -526,9 +557,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const pendingCount = humanAlerts.length + orderAlerts.length + waFailureAlerts.length + chatAlerts.length + driverNotifAlerts.length;
     if (pendingCount === 0) {
-      const el = humanAlertAudioRef.current;
-      if (el) { el.pause(); el.currentTime = 0; }
-      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      hardStopAlertSound();
       return;
     }
 
@@ -584,6 +613,12 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
       cancelled = true;
       timers.forEach(clearTimeout);
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      // Não usa hardStopAlertSound() aqui (o setTimeout duplo dela sobrevive
+      // à cleanup e cancelaria uma fala LEGÍTIMA da rajada seguinte, que
+      // pode já ter começado a falar entre esta cleanup e o próximo efeito)
+      // — só o cancel simples, suficiente pra transição normal entre
+      // rajadas. O corte "forte" fica reservado pra quando o objetivo é
+      // realmente silenciar tudo (pendingCount===0 / mute explícito).
     };
   }, [humanAlerts.length, orderAlerts.length, waFailureAlerts.length, chatAlerts.length, driverNotifAlerts.length, alertSoundMode]);
 

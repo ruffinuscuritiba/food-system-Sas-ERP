@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock, Bike } from "lucide-react";
 import toast from "react-hot-toast";
@@ -25,6 +25,24 @@ export default function DriverInvitePage({ params }: Props) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Muitos entregadores dão "Adicionar à Tela de Início" direto nesta
+  // página (o 1º link que abrem no WhatsApp), em vez de esperar cair em
+  // /driver e usar o InstallBanner de lá — o ícone no celular fica apontando
+  // pra cá pra sempre. Sem esse check, TODA abertura reexibe "defina sua
+  // senha", mesmo já logado com sessão válida (achado real: 15/08/2026,
+  // "toda vez que loga tem que recriar a senha" — não era o bug de
+  // persistência do /driver, era este formulário nunca checar sessão
+  // existente). Se já tem token válido, pula direto pro app.
+  useEffect(() => {
+    useAuthStore.getState().loadAuth();
+    if (useAuthStore.getState().isAuthenticated) {
+      router.replace("/driver");
+      return;
+    }
+    setCheckingSession(false);
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +65,14 @@ export default function DriverInvitePage({ params }: Props) {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (

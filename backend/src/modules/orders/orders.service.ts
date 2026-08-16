@@ -1349,6 +1349,86 @@ export class OrdersService {
   }
 
   /**
+   * Corrige o endereço de entrega quando o cliente informou errado — texto
+   * puro, NUNCA recalcula taxa/total (o pedido pode já estar pago via PIX;
+   * mudar cobrança retroativamente por causa de um endereço errado seria um
+   * problema financeiro à parte, não o que foi pedido: "cliente anotou o
+   * endereço errado, como corrijo?"). Roteia por source como
+   * updateKitchenStatus: PDV/Order tem um campo único (deliveryAddress);
+   * ONLINE/OnlineOrder tem campos estruturados (achado real: 16/08/2026 —
+   * antes disso não existia NENHUM jeito de editar endereço de um pedido
+   * que já nascia como DELIVERY, só na conversão retirada->entrega, e
+   * OnlineOrder nunca era suportado nem nessa conversão).
+   */
+  async updateDeliveryAddress(
+    source: string,
+    id: string,
+    companyId: string,
+    dto: {
+      deliveryAddress?: string;
+      address?: string;
+      addressNumber?: string;
+      complement?: string;
+      neighborhood?: string;
+      city?: string;
+    },
+  ) {
+    if (source === 'ONLINE') {
+      const order = await this.prisma.onlineOrder.findFirst({
+        where: { id, companyId },
+      });
+      if (!order) throw new NotFoundException('Pedido não encontrado');
+      if (order.orderStatus === 'CANCELED') {
+        throw new ForbiddenException('Pedido cancelado não pode ser editado.');
+      }
+
+      const data: Record<string, any> = {};
+      if (dto.address !== undefined) data.address = dto.address.trim() || null;
+      if (dto.addressNumber !== undefined)
+        data.addressNumber = dto.addressNumber.trim() || null;
+      if (dto.complement !== undefined)
+        data.complement = dto.complement.trim() || null;
+      if (dto.neighborhood !== undefined)
+        data.neighborhood = dto.neighborhood.trim() || null;
+      if (dto.city !== undefined) data.city = dto.city.trim() || null;
+      if (Object.keys(data).length === 0) return order;
+
+      const updated = await this.prisma.onlineOrder.update({
+        where: { id },
+        data,
+      });
+      this.socketGateway.emitKitchenUpdate({
+        companyId,
+        id,
+        status: order.orderStatus,
+        source: 'ONLINE',
+      } as any);
+      return updated;
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: { id, companyId },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new ForbiddenException('Pedido cancelado não pode ser editado.');
+    }
+    if (dto.deliveryAddress === undefined) return order;
+
+    const updated = await this.prisma.order.update({
+      where: { id },
+      data: {
+        deliveryAddress: dto.deliveryAddress.trim() || null,
+        ...(dto.neighborhood !== undefined && {
+          neighborhood: dto.neighborhood.trim() || null,
+        }),
+      },
+    });
+    this.socketGateway.emitKitchenUpdate(updated);
+    return updated;
+  }
+
+  /**
    * Acrescenta um item a um pedido já criado (ex: cliente pediu mais uma
    * pizza depois que o pedido original já tinha sido lançado — antes não
    * existia caminho nenhum pra isso, o operador precisava criar um 2º
@@ -1661,6 +1741,7 @@ export class OrdersService {
       customerName: o.customer?.name ?? o.customerName ?? null,
       customerPhone: o.customer?.phone ?? o.customerPhone ?? null,
       deliveryAddress: o.deliveryAddress ?? o.customer?.address ?? null,
+      neighborhood: o.neighborhood ?? null,
       orderType: o.orderType ?? 'DINE_IN',
       subtotal: Number(o.subtotal ?? o.total),
       discount: Number(o.discount ?? 0),
@@ -1703,6 +1784,14 @@ export class OrdersService {
           [o.address, o.addressNumber, o.neighborhood, o.city]
             .filter(Boolean)
             .join(', ') || null,
+        // Campos crus (não concatenados) — usados só pra popular o form de
+        // "Corrigir Endereço" com os valores reais, já que OnlineOrder
+        // guarda endereço estruturado, diferente do texto único de Order.
+        address: o.address ?? null,
+        addressNumber: o.addressNumber ?? null,
+        complement: o.complement ?? null,
+        neighborhood: o.neighborhood ?? null,
+        city: o.city ?? null,
         orderType: o.orderType ?? 'DELIVERY',
         total: Number(o.total),
         paymentMethod: o.paymentMethod ?? null,

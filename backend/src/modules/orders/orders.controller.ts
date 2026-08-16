@@ -112,6 +112,31 @@ export class OrdersController {
     );
   }
 
+  // Corrige endereço de entrega digitado errado pelo cliente — sem mexer em
+  // taxa/total já cobrado (correção de TEXTO, não recálculo de cobrança).
+  // PDV (Order) tem um campo de endereço único (deliveryAddress); ONLINE
+  // (OnlineOrder) tem campos estruturados (address/addressNumber/etc) —
+  // mesmo padrão source-routed do endpoint de status acima.
+  @Patch('kitchen/:source/:id/address')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'KITCHEN')
+  updateDeliveryAddress(
+    @Param('source') source: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      deliveryAddress?: string;
+      address?: string;
+      addressNumber?: string;
+      complement?: string;
+      neighborhood?: string;
+      city?: string;
+    },
+    @CompanyId() companyId: string,
+  ) {
+    return this.service.updateDeliveryAddress(source, id, companyId, body);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER')

@@ -41,6 +41,13 @@ type Order = {
   customerName?: string;    // legacy / pode vir de alguns fluxos
   customerPhone?: string;
   deliveryAddress?: string;
+  // Campos crus só em pedidos ONLINE (OnlineOrder guarda endereço
+  // estruturado) — usados pra popular o form de corrigir endereço.
+  address?: string | null;
+  addressNumber?: string | null;
+  complement?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
   paymentMethod: string;
   cashReceived?: number | null;
   paymentStatus?: string | null;
@@ -212,6 +219,32 @@ function EditNotesModal({
   const [neighborhood, setNeighborhood] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Corrigir endereço — pedido do usuário: "quando o cliente anota o
+  // endereço errado como faço pra editar?" Antes só dava pra editar
+  // endereço na CONVERSÃO retirada->entrega; um pedido que já nasce como
+  // entrega (o caso real, pedido ONLINE) não tinha nenhum jeito de corrigir
+  // o texto. ONLINE guarda endereço estruturado (OnlineOrder), diferente do
+  // texto único de PDV/Order — dois grupos de estado, um pra cada formato.
+  const orderSource = ((order as Order & { source?: string }).source ?? "PDV") as string;
+  const isOnlineOrder = orderSource === "ONLINE";
+  const [correctAddress, setCorrectAddress] = useState(order.deliveryAddress || "");
+  const [correctNeighborhood, setCorrectNeighborhood] = useState(order.neighborhood || "");
+  const [onlineAddr, setOnlineAddr] = useState(order.address || "");
+  const [onlineAddrNumber, setOnlineAddrNumber] = useState(order.addressNumber || "");
+  const [onlineComplement, setOnlineComplement] = useState(order.complement || "");
+  const [onlineNeighborhood, setOnlineNeighborhood] = useState(order.neighborhood || "");
+  const [onlineCity, setOnlineCity] = useState(order.city || "");
+  const canCorrectAddress =
+    !orderFinalized && order.status !== "CANCELLED" && (orderType === "DELIVERY" || order.orderType === "DELIVERY");
+  const addressChanged = isOnlineOrder
+    ? onlineAddr !== (order.address || "") ||
+      onlineAddrNumber !== (order.addressNumber || "") ||
+      onlineComplement !== (order.complement || "") ||
+      onlineNeighborhood !== (order.neighborhood || "") ||
+      onlineCity !== (order.city || "")
+    : correctAddress !== (order.deliveryAddress || "") ||
+      correctNeighborhood !== (order.neighborhood || "");
+
   // Nome/telefone do pedido -- snapshot próprio do Order, não o cadastro
   // vinculado (Customer). Usa o valor cru (não o helper de exibição com
   // fallback "Cliente sem cadastro"/"—"), senão o input nasceria com esse
@@ -326,6 +359,23 @@ function EditNotesModal({
           ...(nameChanged && { customerName: editCustomerName.trim() }),
           ...(phoneChanged && { customerPhone: editCustomerPhone.trim() }),
           ...(discountChanged && { discount: discountValue }),
+        });
+      }
+
+      // Corrigir endereço — independente do bloco acima (que só cobre
+      // Order/PDV e só durante a conversão retirada->entrega). Endpoint
+      // source-routed próprio, cobre PDV e ONLINE, texto puro sem recalcular
+      // taxa/total (pedido pode já estar pago).
+      if (canCorrectAddress && addressChanged) {
+        await api.patch(`/orders/kitchen/${orderSource}/${order.id}/address`, isOnlineOrder ? {
+          address: onlineAddr.trim(),
+          addressNumber: onlineAddrNumber.trim(),
+          complement: onlineComplement.trim(),
+          neighborhood: onlineNeighborhood.trim(),
+          city: onlineCity.trim(),
+        } : {
+          deliveryAddress: correctAddress.trim(),
+          neighborhood: correctNeighborhood.trim(),
         });
       }
 
@@ -479,6 +529,70 @@ function EditNotesModal({
                 placeholder="Bairro (pra calcular a taxa)"
                 className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
               />
+            </div>
+          )}
+
+          {/* Corrigir endereço — pedido já nasceu (ou já está) como entrega;
+              cliente digitou errado no cardápio/PDV. Nunca mexe em taxa/total
+              já cobrado, só corrige o texto que a cozinha/entregador vê. */}
+          {!convertingToDelivery && canCorrectAddress && (
+            <div className="space-y-2 bg-blue-50 border border-blue-100 rounded-xl p-3">
+              <p className="text-[11px] font-semibold text-blue-700">
+                Corrigir endereço de entrega (não altera a taxa já cobrada)
+              </p>
+              {isOnlineOrder ? (
+                <>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <input
+                      value={onlineAddr}
+                      onChange={(e) => setOnlineAddr(e.target.value)}
+                      placeholder="Rua"
+                      className="col-span-2 w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                    <input
+                      value={onlineAddrNumber}
+                      onChange={(e) => setOnlineAddrNumber(e.target.value)}
+                      placeholder="Número"
+                      className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
+                  <input
+                    value={onlineComplement}
+                    onChange={(e) => setOnlineComplement(e.target.value)}
+                    placeholder="Complemento (opcional)"
+                    className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <input
+                      value={onlineNeighborhood}
+                      onChange={(e) => setOnlineNeighborhood(e.target.value)}
+                      placeholder="Bairro"
+                      className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                    <input
+                      value={onlineCity}
+                      onChange={(e) => setOnlineCity(e.target.value)}
+                      placeholder="Cidade"
+                      className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input
+                    value={correctAddress}
+                    onChange={(e) => setCorrectAddress(e.target.value)}
+                    placeholder="Endereço completo (rua, número)"
+                    className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                  <input
+                    value={correctNeighborhood}
+                    onChange={(e) => setCorrectNeighborhood(e.target.value)}
+                    placeholder="Bairro"
+                    className="w-full border border-gray-200 focus:border-primary rounded-lg px-3 py-2 text-sm outline-none"
+                  />
+                </>
+              )}
             </div>
           )}
 

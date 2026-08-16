@@ -513,6 +513,23 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
+  // Só ABRIR a conversa (aba Conversas) já deve parar o alerta — pedido
+  // explícito do usuário: "por correto quando eu respondesse o cliente ou
+  // visualizasse a conversa já devia parar o alerta e não eu ter que entrar
+  // no sistema e por como lido". Evento simples via window (não é socket —
+  // acontece só neste mesmo navegador, sem round-trip com o backend), a
+  // página /whatsapp-ia dispara ao clicar numa conversa (openConversation).
+  useEffect(() => {
+    function handleConversationViewed(e: Event) {
+      const conversationId = (e as CustomEvent<{ conversationId?: string }>).detail?.conversationId;
+      if (!conversationId) return;
+      setHumanAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
+      setChatAlerts((prev) => prev.filter((a) => a.conversationId !== conversationId));
+    }
+    window.addEventListener("wa-conversation-viewed", handleConversationViewed);
+    return () => window.removeEventListener("wa-conversation-viewed", handleConversationViewed);
+  }, []);
+
   // Desbloqueia o áudio na PRIMEIRA interação do usuário com a página
   // (click/touch/tecla, em qualquer lugar do app — não precisa ser no botão
   // de alerta). Navegadores modernos (Chrome/Safari/Edge) bloqueiam

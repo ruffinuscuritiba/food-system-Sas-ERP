@@ -147,6 +147,14 @@ export default function WhatsappIaPage() {
   const openConversation = (conv: Conversation) => {
     setSelectedConv(conv);
     loadMessages(conv.id);
+    // Só abrir/visualizar a conversa já conta como "operador viu" — pedido
+    // explícito do usuário ("por correto quando eu... visualizasse a
+    // conversa já devia parar o alerta e não eu ter que entrar no sistema e
+    // por como lido"). ClientShell (fora desta página) escuta este evento
+    // pra dispensar o banner/som sem precisar de nenhuma ação adicional.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("wa-conversation-viewed", { detail: { conversationId: conv.id } }));
+    }
   };
 
   // ── Send manual message ────────────────────────────────────────────────────

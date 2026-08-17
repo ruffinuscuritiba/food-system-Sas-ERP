@@ -10,6 +10,7 @@ import { NotificationsModule } from '@/modules/notifications/notifications.modul
 import { WhatsappAiController } from './whatsapp-ai.controller';
 import { WhatsappAiService } from './whatsapp-ai.service';
 import { WhisperService } from './services/whisper.service';
+import { VisionService } from './services/vision.service';
 import { ClaudeCartService } from './services/claude-cart.service';
 import { OrderNotificationService } from './services/order-notification.service';
 import { ReceiptImageService } from './services/receipt-image.service';
@@ -35,6 +36,7 @@ import { EvolutionProvisionService } from './services/evolution-provision.servic
   providers: [
     WhatsappAiService,
     WhisperService,
+    VisionService,
     ClaudeCartService,
     OrderNotificationService,
     ReceiptImageService,

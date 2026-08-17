@@ -14,6 +14,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { CreateConnectionDto } from './dto/create-connection.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { WhisperService } from './services/whisper.service';
+import { VisionService } from './services/vision.service';
 import {
   ClaudeCartService,
   CartStatus,
@@ -339,6 +340,7 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     private prisma: PrismaService,
     private config: ConfigService,
     private whisper: WhisperService,
+    private vision: VisionService,
     private claudeCart: ClaudeCartService,
     private waPayment: WaPaymentService,
     private promptService: WhatsappAiPromptService,
@@ -859,6 +861,38 @@ export class WhatsappAiService implements OnApplicationBootstrap {
       }
     }
 
+    // ── Suporte a imagem sem legenda / figurinha ──────────────────────────
+    // Antes disso, imagem sem legenda e sticker caíam no "empty phone/text"
+    // logo abaixo e a mensagem era descartada em silêncio — cliente nunca
+    // recebia resposta nenhuma (achado real do item 186).
+    const imageMsg = message?.imageMessage as Record<string, unknown> | undefined;
+    const stickerMsg = message?.stickerMessage as Record<string, unknown> | undefined;
+    if (!text.trim() && imageMsg?.url) {
+      try {
+        const connection = await this.prisma.whatsappConnection.findUnique({
+          where: { id: connectionId },
+        });
+        const headers: Record<string, string> = connection?.apiToken
+          ? { apikey: String(connection.apiToken) }
+          : {};
+        const description = await this.vision.describeFromUrl(
+          imageMsg.url as string,
+          (imageMsg.mimetype as string) ?? 'image/jpeg',
+          headers,
+        );
+        if (description) text = `[Imagem] ${description}`;
+      } catch (err: unknown) {
+        log.warn(
+          `Evolution image analysis failed: ${(err as Error)?.message}`,
+        );
+      }
+    } else if (!text.trim() && stickerMsg) {
+      // Figurinha não carrega informação de pedido relevante o suficiente
+      // pra justificar uma chamada de visão — Carol só precisa saber que
+      // algo chegou, pra não ficar muda e conseguir puxar a conversa.
+      text = '[Cliente enviou uma figurinha/sticker]';
+    }
+
     if (rawPhone.includes('@g.us') || rawPhone.includes('@broadcast'))
       return { ok: true };
 
@@ -1031,6 +1065,34 @@ export class WhatsappAiService implements OnApplicationBootstrap {
                 `Cloud API audio transcription failed: ${(err as Error)?.message}`,
               );
             }
+          } else if (msg.type === 'image') {
+            // Legenda primeiro (nunca era lida aqui — imagem com texto era
+            // descartada igual imagem sem texto); sem legenda, cai pra visão.
+            const image = msg.image as Record<string, unknown> | undefined;
+            text = (image?.caption as string) ?? '';
+            if (!text.trim() && image?.id) {
+              try {
+                const connection = await this.prisma.whatsappConnection.findUnique({
+                  where: { id: connectionId },
+                });
+                const token = connection?.apiToken ?? '';
+                if (token) {
+                  const mediaUrl = await this.whisper.fetchMetaMediaUrl(image.id as string, token);
+                  if (mediaUrl) {
+                    const description = await this.vision.describeFromUrl(
+                      mediaUrl,
+                      (image?.mime_type as string) ?? 'image/jpeg',
+                      { Authorization: `Bearer ${token}` },
+                    );
+                    if (description) text = `[Imagem] ${description}`;
+                  }
+                }
+              } catch (err: unknown) {
+                log.warn(`Cloud API image analysis failed: ${(err as Error)?.message}`);
+              }
+            }
+          } else if (msg.type === 'sticker') {
+            text = '[Cliente enviou uma figurinha/sticker]';
           }
 
           if (!text.trim()) continue;

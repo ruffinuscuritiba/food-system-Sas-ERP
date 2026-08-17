@@ -720,6 +720,35 @@ export default function MenuPage() {
     }
   }
 
+  /* ── Modo Totem: tela cheia real (esconde barra de endereço/navegação do
+     Android) — Fullscreen API só pode ser pedida dentro de um gesto do
+     usuário, então mostra um overlay "Toque para começar" que serve os
+     dois propósitos: primeira interação do dia E o gesto que autoriza o
+     requestFullscreen. Reaparece sozinho se o SO derrubar o fullscreen
+     (ex: notificação do Android) — sem precisar de admin pra desbloquear. */
+  const [kioskNeedsTap, setKioskNeedsTap] = useState(false);
+  useEffect(() => {
+    if (!isTotem || typeof document === "undefined") return;
+    setKioskNeedsTap(!document.fullscreenElement);
+    const handleFsChange = () => {
+      if (!document.fullscreenElement) setKioskNeedsTap(true);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, [isTotem]);
+
+  function activateKiosk() {
+    try {
+      const el = document.documentElement as any;
+      const req = el.requestFullscreen ?? el.webkitRequestFullscreen ?? el.mozRequestFullScreen;
+      const result = req?.call(el);
+      if (result?.catch) result.catch(() => {});
+    } catch {
+      // Sem suporte a Fullscreen API — segue sem tela cheia, não bloqueia o uso.
+    }
+    setKioskNeedsTap(false);
+  }
+
   /* ── Modo Totem: reseta sozinho após o pedido para o próximo cliente ── */
   const [totemCountdown, setTotemCountdown] = useState(0);
   useEffect(() => {
@@ -768,11 +797,15 @@ export default function MenuPage() {
   useEffect(() => {
     if (!isTotem || typeof window === "undefined") return;
 
-    // Empilha uma entrada "buffer" no histórico; sempre que o navegador
-    // tentar voltar (gesto/botão), reempilha na hora — o usuário nunca
-    // sai da página, só vê o carrinho/tela atual "tremer" e ficar igual.
+    // Empilha 2 entradas "buffer" no histórico (não só 1) — um único gesto
+    // físico de voltar sempre reempilha a tempo, mas isso também absorve um
+    // clique duplo acidental sem escapar. Sempre que o navegador tentar
+    // voltar, reempilha na hora — o usuário nunca sai da página, só vê o
+    // carrinho/tela atual "tremer" e ficar igual.
+    window.history.pushState({ kiosk: true }, "", window.location.href);
     window.history.pushState({ kiosk: true }, "", window.location.href);
     const handlePopState = () => {
+      window.history.pushState({ kiosk: true }, "", window.location.href);
       window.history.pushState({ kiosk: true }, "", window.location.href);
     };
     window.addEventListener("popstate", handlePopState);
@@ -2236,7 +2269,35 @@ export default function MenuPage() {
   const menuThemeMode = theme.darkMode ? "dark" : "light";
 
   return (
-    <div className="min-h-screen" data-menu-theme={menuThemeMode} style={{ background: "var(--menu-bg)" }}>
+    <div
+      className="min-h-screen"
+      data-menu-theme={menuThemeMode}
+      style={{
+        background: "var(--menu-bg)",
+        // Endurece contra pinch-zoom, seleção de texto e o menu de
+        // "copiar/compartilhar" de toque longo — só no Totem; um cliente
+        // navegando no próprio celular continua com o comportamento normal.
+        ...(isTotem
+          ? {
+              touchAction: "manipulation",
+              WebkitUserSelect: "none",
+              userSelect: "none",
+              WebkitTouchCallout: "none",
+            }
+          : {}),
+      }}
+    >
+      {isTotem && kioskNeedsTap && (
+        <button
+          onClick={activateKiosk}
+          className="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-4 text-center px-8"
+          style={{ background: "var(--menu-bg)", color: "var(--menu-text)" }}
+        >
+          <span className="text-5xl">🍕</span>
+          <span className="text-2xl font-bold">Toque para começar</span>
+          <span className="text-sm opacity-60">Bem-vindo(a)! Toque em qualquer lugar da tela.</span>
+        </button>
+      )}
       <Toaster position="top-center" toastOptions={{ style: { borderRadius: "12px", fontWeight: 600 } }} />
 
       {metaPixelId && <MetaPixel pixelId={metaPixelId} />}

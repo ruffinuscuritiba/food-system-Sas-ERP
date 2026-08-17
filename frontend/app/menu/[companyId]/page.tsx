@@ -759,6 +759,52 @@ export default function MenuPage() {
     return () => clearInterval(id);
   }, [isTotem, totemDeviceId, realCompanyId, tableNumber]);
 
+  /* ── Modo Totem: trava de kiosk — impede sair sem querer no botão
+     "voltar" do navegador (gesto comum em tablet touch, sem nenhuma
+     barra de navegação visível pro cliente apertar sem querer) e mantém
+     a tela sempre ligada (Wake Lock) enquanto o app fica aberto o dia
+     inteiro no balcão/mesa. Nenhum dos dois é usado em lugar nenhum do
+     app pra fechar modal — seguro adicionar sem quebrar nada existente. */
+  useEffect(() => {
+    if (!isTotem || typeof window === "undefined") return;
+
+    // Empilha uma entrada "buffer" no histórico; sempre que o navegador
+    // tentar voltar (gesto/botão), reempilha na hora — o usuário nunca
+    // sai da página, só vê o carrinho/tela atual "tremer" e ficar igual.
+    window.history.pushState({ kiosk: true }, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState({ kiosk: true }, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
+
+    let sentinel: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          sentinel = await (navigator as any).wakeLock.request("screen");
+        }
+      } catch {
+        // Sem suporte (ex: navegador antigo) ou permissão negada — degrada
+        // silenciosamente, tablet só precisa configurar "nunca desligar tela"
+        // manualmente nas configurações do Android como fallback.
+      }
+    };
+    requestWakeLock();
+
+    // O SO libera o Wake Lock sozinho quando a aba perde visibilidade
+    // (ex: tocou em outro app um instante) — reconquista ao voltar.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") requestWakeLock();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      sentinel?.release?.().catch(() => {});
+    };
+  }, [isTotem]);
+
   /* ── Carrinho compartilhado por mesa (pedido em grupo) ───────────
      Só faz sentido pra mesa via QR próprio (não Totem — aparelho fixo
      único) e só depois que `loadMenu` resolveu o companyId real, senão

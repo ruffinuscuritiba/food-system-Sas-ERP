@@ -35,6 +35,9 @@ export class CategoriesController {
       categoryType?: string;
       displayColumns?: number;
       bannerImage?: string | null;
+      availableFrom?: string | null;
+      availableTo?: string | null;
+      availableDays?: string | null;
     },
     @Request() req: any,
   ) {
@@ -61,6 +64,9 @@ export class CategoriesController {
       categoryType?: string;
       displayColumns?: number;
       bannerImage?: string | null;
+      availableFrom?: string | null;
+      availableTo?: string | null;
+      availableDays?: string | null;
     },
     @Request() req: any,
   ) {

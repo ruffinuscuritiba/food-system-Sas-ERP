@@ -133,6 +133,20 @@ export class CreateProductDto {
   @IsString()
   featuredLabel?: string;
 
+  // Happy hour automático — janela em que originalPrice fica visível
+  // (riscado). Todos vazios = promoção sempre visível, sem restrição.
+  @IsOptional()
+  @IsString()
+  promoStartTime?: string;
+
+  @IsOptional()
+  @IsString()
+  promoEndTime?: string;
+
+  @IsOptional()
+  @IsString()
+  promoDays?: string;
+
   // Quantos sabores de pizza este produto permite (1-4). Vazio/undefined =
   // usa o padrão do tamanho/categoria (comportamento herdado).
   @IsOptional()

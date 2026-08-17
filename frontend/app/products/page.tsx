@@ -254,6 +254,56 @@ function MoneyField({ label, value, onChange, required }: {
   );
 }
 
+const WEEKDAY_SHORT_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
+const ALL_DAYS = "0,1,2,3,4,5,6";
+
+/** "Happy hour automático" — janela em que o preço riscado (promoção) fica visível. */
+function PromoWindowFields({
+  enabled, onToggle, from, onFrom, to, onTo, days, onDays,
+}: {
+  enabled: boolean; onToggle: (v: boolean) => void;
+  from: string; onFrom: (v: string) => void;
+  to: string; onTo: (v: string) => void;
+  days: string; onDays: (v: string) => void;
+}) {
+  const selectedDays = new Set((days || ALL_DAYS).split(",").map(Number));
+  function toggleDay(d: number) {
+    const next = new Set(selectedDays);
+    if (next.has(d)) next.delete(d); else next.add(d);
+    onDays([...next].sort().join(","));
+  }
+  return (
+    <div className="mt-2">
+      <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+        <div
+          onClick={() => onToggle(!enabled)}
+          className={`w-9 h-5 rounded-full transition-colors relative ${enabled ? "bg-primary" : "bg-gray-200"}`}
+        >
+          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-4" : "translate-x-0.5"}`} />
+        </div>
+        <span className="text-[11px] font-semibold text-gray-500">Ativa só em horário específico (happy hour)</span>
+      </label>
+      {enabled && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="time" value={from} onChange={(e) => onFrom(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-primary" />
+          <span className="text-xs text-gray-400">até</span>
+          <input type="time" value={to} onChange={(e) => onTo(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-primary" />
+          <div className="flex gap-1">
+            {WEEKDAY_SHORT_PT.map((label, d) => (
+              <button key={d} type="button" onClick={() => toggleDay(d)}
+                className={`w-6 h-6 rounded-md text-[10px] font-bold transition ${selectedDays.has(d) ? "bg-primary text-white" : "bg-gray-100 text-gray-400"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Form state ────────────────────────────────────────────────────────────────
 
 const FEATURED_LABEL_OPTIONS: { value: string; label: string }[] = [
@@ -276,6 +326,9 @@ const emptyForm = () => ({
   categoryId: "", unit: "", weight: "",
   costPrice: 0, profitMargin: 0, salePrice: 0,
   originalPrice: 0,
+  promoStartTime: "11:00" as string,
+  promoEndTime: "14:00" as string,
+  promoDays: ALL_DAYS as string,
   featuredLabel: "" as string,
   maxFlavors: "" as string,
   imageUrl: null as string | null,
@@ -311,6 +364,7 @@ export default function ProductsPage() {
   const [form, setForm]           = useState(emptyForm());
   const [formSizes, setFormSizes] = useState<SizeRow[]>(defaultSizes());
   const [formPizza, setFormPizza] = useState(false);
+  const [promoTimeEnabled, setPromoTimeEnabled] = useState(false);
 
   // Beverage modal
   const [showBeverageModal, setShowBeverageModal] = useState(false);
@@ -322,6 +376,7 @@ export default function ProductsPage() {
   const [editSizes, setEditSizes]       = useState<SizeRow[]>(defaultSizes());
   const [editPizza, setEditPizza]       = useState(false);
   const [saving, setSaving]             = useState(false);
+  const [editPromoTimeEnabled, setEditPromoTimeEnabled] = useState(false);
 
   // Derived
   const isFormPizza = formPizza || isPizzaCat(form.categoryId, categories);
@@ -444,6 +499,11 @@ export default function ProductsPage() {
       }
 
       if (form.originalPrice > 0) fd.append("originalPrice", String(form.originalPrice));
+      if (promoTimeEnabled) {
+        fd.append("promoStartTime", form.promoStartTime);
+        fd.append("promoEndTime", form.promoEndTime);
+        fd.append("promoDays", form.promoDays);
+      }
       if (form.featuredLabel) fd.append("featuredLabel", form.featuredLabel);
       if (form.maxFlavors) fd.append("maxFlavors", form.maxFlavors);
 
@@ -455,7 +515,7 @@ export default function ProductsPage() {
 
       await api.post("/products", fd);
       toast.success("Produto criado!");
-      setForm(emptyForm()); setFormSizes(defaultSizes()); setFormPizza(false); setShowForm(false);
+      setForm(emptyForm()); setFormSizes(defaultSizes()); setFormPizza(false); setShowForm(false); setPromoTimeEnabled(false);
       fetchProducts();
     } catch (e: any) {
       const msg = e?.response?.data?.message;
@@ -480,12 +540,16 @@ export default function ProductsPage() {
       profitMargin: 0,
       salePrice:   Number(product.salePrice)   || 0,
       originalPrice: Number(product.originalPrice) || 0,
+      promoStartTime: product.promoStartTime || "11:00",
+      promoEndTime: product.promoEndTime || "14:00",
+      promoDays: product.promoDays || ALL_DAYS,
       featuredLabel: product.featuredLabel || "",
       maxFlavors:  product.maxFlavors != null ? String(product.maxFlavors) : "",
       imageUrl:    product.imageUrl    || null,
       imageZoom:   product.imageZoom   ?? 100,
       videoUrl:    product.videoUrl    || "",
     });
+    setEditPromoTimeEnabled(!!(product.promoStartTime && product.promoEndTime));
     setEditSizes(
       hasSizes
         ? product.sizes.map((ps: any) => ({
@@ -530,6 +594,9 @@ export default function ProductsPage() {
       }
 
       fd.append("originalPrice", editForm.originalPrice > 0 ? String(editForm.originalPrice) : "");
+      fd.append("promoStartTime", editPromoTimeEnabled ? editForm.promoStartTime : "");
+      fd.append("promoEndTime", editPromoTimeEnabled ? editForm.promoEndTime : "");
+      fd.append("promoDays", editPromoTimeEnabled ? editForm.promoDays : "");
       fd.append("featuredLabel", editForm.featuredLabel || "");
       fd.append("maxFlavors", editForm.maxFlavors || "");
 
@@ -678,6 +745,14 @@ export default function ProductsPage() {
                 <div>
                   <MoneyField label="Preço original (promoção) — opcional" value={form.originalPrice} onChange={(v) => setForm({ ...form, originalPrice: v })} />
                   <p className="text-[11px] text-gray-400 mt-1">Deixe em branco se não estiver em promoção. Aparece riscado no cardápio.</p>
+                  {form.originalPrice > 0 && (
+                    <PromoWindowFields
+                      enabled={promoTimeEnabled} onToggle={setPromoTimeEnabled}
+                      from={form.promoStartTime} onFrom={(v) => setForm({ ...form, promoStartTime: v })}
+                      to={form.promoEndTime} onTo={(v) => setForm({ ...form, promoEndTime: v })}
+                      days={form.promoDays} onDays={(v) => setForm({ ...form, promoDays: v })}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Destacar produto</label>
@@ -982,6 +1057,14 @@ export default function ProductsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <MoneyField label="Preço original (promoção)" value={editForm.originalPrice} onChange={(v) => setEditForm({ ...editForm, originalPrice: v })} />
+                  {editForm.originalPrice > 0 && (
+                    <PromoWindowFields
+                      enabled={editPromoTimeEnabled} onToggle={setEditPromoTimeEnabled}
+                      from={editForm.promoStartTime} onFrom={(v) => setEditForm({ ...editForm, promoStartTime: v })}
+                      to={editForm.promoEndTime} onTo={(v) => setEditForm({ ...editForm, promoEndTime: v })}
+                      days={editForm.promoDays} onDays={(v) => setEditForm({ ...editForm, promoDays: v })}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Destacar produto</label>

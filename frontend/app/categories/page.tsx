@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
 import { api } from "@/services/api";
-import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical, Image as ImageIcon, Sparkles } from "lucide-react";
+import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical, Image as ImageIcon, Sparkles, Clock } from "lucide-react";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import { CATEGORY_BANNERS, type PresetBanner } from "@/lib/category-banners";
 
@@ -26,6 +26,74 @@ const CATEGORY_TYPE_ICON: Record<string, string> = {
   lanche:  "🍔",
 };
 
+const WEEKDAY_SHORT_PT = ["D", "S", "T", "Q", "Q", "S", "S"];
+const ALL_DAYS = "0,1,2,3,4,5,6";
+
+/** Bloco compacto "Cardápio por ocasião" — usado tanto no form de criar quanto no de editar. */
+function AvailabilityWindowFields({
+  enabled, onToggle, from, onFrom, to, onTo, days, onDays, compact,
+}: {
+  enabled: boolean; onToggle: (v: boolean) => void;
+  from: string; onFrom: (v: string) => void;
+  to: string; onTo: (v: string) => void;
+  days: string; onDays: (v: string) => void;
+  compact?: boolean;
+}) {
+  const selectedDays = new Set((days || ALL_DAYS).split(",").map(Number));
+  function toggleDay(d: number) {
+    const next = new Set(selectedDays);
+    if (next.has(d)) next.delete(d); else next.add(d);
+    onDays([...next].sort().join(","));
+  }
+  return (
+    <div className={compact ? "" : "mt-4"}>
+      <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+        <div
+          onClick={() => onToggle(!enabled)}
+          className={`rounded-full transition-colors relative ${compact ? "w-8 h-4" : "w-10 h-5"} ${enabled ? "bg-primary" : "bg-gray-200"}`}
+        >
+          <span className={`absolute top-0.5 bg-white rounded-full shadow transition-transform ${compact ? "w-3 h-3" : "w-4 h-4"} ${enabled ? (compact ? "translate-x-4" : "translate-x-5") : "translate-x-0.5"}`} />
+        </div>
+        <span className={`font-semibold text-gray-600 flex items-center gap-1 ${compact ? "text-xs" : "text-xs"}`}>
+          <Clock size={compact ? 11 : 13} className="text-gray-400" />
+          Só aparece em horário específico (ex: almoço)
+        </span>
+      </label>
+      {enabled && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="time"
+            value={from}
+            onChange={(e) => onFrom(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-primary"
+          />
+          <span className="text-xs text-gray-400">até</span>
+          <input
+            type="time"
+            value={to}
+            onChange={(e) => onTo(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none focus:border-primary"
+          />
+          <div className="flex gap-1">
+            {WEEKDAY_SHORT_PT.map((label, d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggleDay(d)}
+                className={`w-6 h-6 rounded-md text-[10px] font-bold transition ${
+                  selectedDays.has(d) ? "bg-primary text-white" : "bg-gray-100 text-gray-400"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CategoriesPage() {
   const [categories, setCategories]               = useState<any[]>([]);
   const [name, setName]                           = useState("");
@@ -44,6 +112,15 @@ export default function CategoriesPage() {
   const [editBannerZoom, setEditBannerZoom]       = useState(100);
   // Modal de biblioteca de banners prontos — abre com target ("new" | "edit")
   const [bannerPickerFor, setBannerPickerFor]     = useState<"new" | "edit" | null>(null);
+  // Cardápio por ocasião — janela de horário/dias em que a categoria aparece
+  const [newTimeEnabled, setNewTimeEnabled]       = useState(false);
+  const [newFrom, setNewFrom]                     = useState("11:00");
+  const [newTo, setNewTo]                         = useState("14:30");
+  const [newDays, setNewDays]                     = useState(ALL_DAYS);
+  const [editTimeEnabled, setEditTimeEnabled]     = useState(false);
+  const [editFrom, setEditFrom]                   = useState("11:00");
+  const [editTo, setEditTo]                       = useState("14:30");
+  const [editDays, setEditDays]                   = useState(ALL_DAYS);
 
   function selectPresetBanner(b: PresetBanner) {
     if (bannerPickerFor === "new")  setNewBannerImage(b.url);
@@ -74,6 +151,9 @@ export default function CategoriesPage() {
         categoryType: newCategoryType,
         bannerImage: newBannerImage,
         bannerImageZoom: newBannerZoom,
+        availableFrom: newTimeEnabled ? newFrom : null,
+        availableTo: newTimeEnabled ? newTo : null,
+        availableDays: newTimeEnabled ? newDays : null,
       });
       toast.success("Categoria criada");
       setName("");
@@ -81,6 +161,8 @@ export default function CategoriesPage() {
       setNewCategoryType("normal");
       setNewBannerImage(null);
       setNewBannerZoom(100);
+      setNewTimeEnabled(false);
+      setNewDays(ALL_DAYS);
       fetchCategories();
     } catch {
       toast.error("Erro ao criar categoria");
@@ -96,6 +178,10 @@ export default function CategoriesPage() {
     setEditCategoryType(category.categoryType ?? "normal");
     setEditBannerImage(category.bannerImage ?? null);
     setEditBannerZoom(category.bannerImageZoom ?? 100);
+    setEditTimeEnabled(!!(category.availableFrom && category.availableTo));
+    setEditFrom(category.availableFrom || "11:00");
+    setEditTo(category.availableTo || "14:30");
+    setEditDays(category.availableDays || ALL_DAYS);
   }
 
   async function saveEdit(id: string) {
@@ -107,6 +193,9 @@ export default function CategoriesPage() {
         categoryType: editCategoryType,
         bannerImage: editBannerImage,  // pode ser null (remoção)
         bannerImageZoom: editBannerZoom,
+        availableFrom: editTimeEnabled ? editFrom : null,
+        availableTo: editTimeEnabled ? editTo : null,
+        availableDays: editTimeEnabled ? editDays : null,
       });
       toast.success("Categoria atualizada");
       setEditingId(null);
@@ -249,6 +338,13 @@ export default function CategoriesPage() {
               previewHeightClassName="h-24"
             />
           </div>
+
+          <AvailabilityWindowFields
+            enabled={newTimeEnabled} onToggle={setNewTimeEnabled}
+            from={newFrom} onFrom={setNewFrom}
+            to={newTo} onTo={setNewTo}
+            days={newDays} onDays={setNewDays}
+          />
         </div>
 
         {/* Lista */}
@@ -373,6 +469,14 @@ export default function CategoriesPage() {
                         </button>
                       )}
                     </div>
+
+                    <AvailabilityWindowFields
+                      enabled={editTimeEnabled} onToggle={setEditTimeEnabled}
+                      from={editFrom} onFrom={setEditFrom}
+                      to={editTo} onTo={setEditTo}
+                      days={editDays} onDays={setEditDays}
+                      compact
+                    />
                   </div>
                 ) : (
                   <div>
@@ -417,6 +521,14 @@ export default function CategoriesPage() {
                         {category.allowMultipleFlavors && (
                           <span className="text-xs font-semibold bg-primary/5 text-primary border border-orange-100 px-2 py-0.5 rounded-full">
                             🍕 Multi-sabores
+                          </span>
+                        )}
+                        {category.availableFrom && category.availableTo && (
+                          <span
+                            className="text-xs font-semibold bg-violet-50 text-violet-600 border border-violet-100 px-2 py-0.5 rounded-full flex items-center gap-1"
+                            title="Só aparece no cardápio nesse horário"
+                          >
+                            <Clock size={10} /> {category.availableFrom}–{category.availableTo}
                           </span>
                         )}
                         {!category.bannerImage && (

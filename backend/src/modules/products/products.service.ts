@@ -6,7 +6,7 @@ import { PrismaService } from '@/database/prisma.service';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
-import { getStartOfTodayBrazil } from '@/common/utils/timezone';
+import { getStartOfTodayBrazil, isWithinTimeWindow } from '@/common/utils/timezone';
 
 import { MenuCacheService } from '@/common/services/menu-cache.service';
 
@@ -96,6 +96,12 @@ export class ProductsService {
         featuredLabel: data.featuredLabel || null,
 
         isFeatured: !!data.featuredLabel,
+
+        promoStartTime: data.promoStartTime || null,
+
+        promoEndTime: data.promoEndTime || null,
+
+        promoDays: data.promoDays || null,
 
         maxFlavors:
           data.maxFlavors !== undefined && data.maxFlavors !== ''
@@ -227,6 +233,9 @@ export class ProductsService {
           featuredLabel: data.featuredLabel || null,
           isFeatured: !!data.featuredLabel,
         }),
+        ...(data.promoStartTime !== undefined && { promoStartTime: data.promoStartTime || null }),
+        ...(data.promoEndTime !== undefined && { promoEndTime: data.promoEndTime || null }),
+        ...(data.promoDays !== undefined && { promoDays: data.promoDays || null }),
         ...(data.maxFlavors !== undefined && {
           maxFlavors:
             data.maxFlavors === '' || data.maxFlavors === null
@@ -295,12 +304,32 @@ export class ProductsService {
             allowMultipleFlavors: true,
             sortOrder: true,
             parentCategoryId: true,
+            availableFrom: true,
+            availableTo: true,
+            availableDays: true,
           },
         },
         sizes: { orderBy: { size: 'asc' } },
       },
 
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+
+    // Cardápio por ocasião — categoria com janela configurada
+    // (availableFrom/To/Days) some do cardápio digital/Totem/Kely fora dela;
+    // categoria sem nada configurado (o caso comum) passa direto, igual antes.
+    // Avaliado UMA vez por chamada (não por produto) — mesmo `now` pra todos,
+    // evita um produto da mesma categoria decidir diferente do vizinho por
+    // ter cruzado a virada do minuto no meio do loop.
+    const now = new Date();
+    const visibleByOccasion = products.filter((p) => {
+      if (!p.category) return true;
+      return isWithinTimeWindow(
+        p.category.availableFrom,
+        p.category.availableTo,
+        p.category.availableDays,
+        now,
+      );
     });
 
     // Produtos com foto salva como base64 direto no banco (sem Cloudinary
@@ -313,14 +342,26 @@ export class ProductsService {
       this.config.get<string>('BACKEND_URL') ||
       'https://api.srv1747711.hstgr.cloud'
     ).replace(/\/$/, '');
-    const result = products.map((p) => {
-      if (p.imageUrl && p.imageUrl.startsWith('data:')) {
+    const result = visibleByOccasion.map((p) => {
+      // Happy hour automático — fora da janela do produto, esconde o preço
+      // "de" (originalPrice) tanto do produto quanto de cada tamanho; o
+      // preço realmente cobrado (salePrice/ProductSize.price) nunca muda,
+      // só o selo visual de promoção liga/desliga sozinho.
+      const promoActive = isWithinTimeWindow(p.promoStartTime, p.promoEndTime, p.promoDays, now);
+      const withPromoGate = promoActive
+        ? p
+        : {
+            ...p,
+            originalPrice: null,
+            sizes: p.sizes.map((s) => ({ ...s, originalPrice: null })),
+          };
+      if (withPromoGate.imageUrl && withPromoGate.imageUrl.startsWith('data:')) {
         return {
-          ...p,
+          ...withPromoGate,
           imageUrl: `${backendUrl}/api/products/public/image/${p.id}?v=${p.updatedAt.getTime()}`,
         };
       }
-      return p;
+      return withPromoGate;
     });
     this.menuCache.set(companyId, result);
     return result;

@@ -30,6 +30,9 @@ export class CategoriesService {
         ...(data.parentCategoryId !== undefined && data.parentCategoryId !== null && {
           parent: { connect: { id: data.parentCategoryId } },
         }),
+        ...(data.availableFrom !== undefined && { availableFrom: data.availableFrom || null }),
+        ...(data.availableTo !== undefined && { availableTo: data.availableTo || null }),
+        ...(data.availableDays !== undefined && { availableDays: data.availableDays || null }),
         company: { connect: { id: data.companyId } },
       },
     });
@@ -52,6 +55,9 @@ export class CategoriesService {
         sortOrder: true,
         companyId: true,
         parentCategoryId: true,
+        availableFrom: true,
+        availableTo: true,
+        availableDays: true,
         children: {
           select: {
             id: true,
@@ -64,6 +70,9 @@ export class CategoriesService {
             sortOrder: true,
             companyId: true,
             parentCategoryId: true,
+            availableFrom: true,
+            availableTo: true,
+            availableDays: true,
           },
           orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         },
@@ -83,6 +92,9 @@ export class CategoriesService {
       bannerImage?: string | null;
       bannerImageZoom?: number;
       parentCategoryId?: string | null;
+      availableFrom?: string | null;
+      availableTo?: string | null;
+      availableDays?: string | null;
     },
   ) {
     const category = await this.prisma.category.update({
@@ -97,6 +109,9 @@ export class CategoriesService {
         ...(data.parentCategoryId !== undefined && {
           parentCategoryId: data.parentCategoryId,
         }),
+        ...(data.availableFrom !== undefined && { availableFrom: data.availableFrom || null }),
+        ...(data.availableTo !== undefined && { availableTo: data.availableTo || null }),
+        ...(data.availableDays !== undefined && { availableDays: data.availableDays || null }),
       },
     });
 

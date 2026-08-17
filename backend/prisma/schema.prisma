@@ -438,6 +438,14 @@ model Category {
   parent           Category?  @relation("CategoryParent", fields: [parentCategoryId], references: [id], onDelete: SetNull)
   children         Category[] @relation("CategoryParent")
 
+  // Cardápio por ocasião — categoria só aparece no cardápio digital/Totem/
+  // Kely dentro dessa janela (ex: "Almoço Executivo" 11:00-14:30). Todos
+  // null/vazio (padrão) = sempre disponível, comportamento atual preservado.
+  // Nunca afeta o PDV — a equipe sempre vê o catálogo completo.
+  availableFrom String? // "HH:mm"
+  availableTo   String? // "HH:mm"
+  availableDays String? // "0,1,2,3,4,5,6" (0=domingo)
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -516,6 +524,15 @@ model Product {
 
   // Rótulo mostrado no card do cardápio digital: null | "DESTAQUE" | "NOVIDADE" | "RECOMENDADO"
   featuredLabel String?
+
+  // Happy hour automático — a promoção (originalPrice / ProductSize.originalPrice
+  // já existentes) só aparece riscada durante essa janela; fora dela, mostra
+  // o preço normal sem risco. Nunca afeta o preço realmente cobrado no
+  // pedido (sempre salePrice/ProductSize.price) — é só o selo visual.
+  // Todos null/vazio (padrão) = promoção sempre visível, sem restrição.
+  promoStartTime String? // "HH:mm"
+  promoEndTime   String? // "HH:mm"
+  promoDays      String? // "0,1,2,3,4,5,6" (0=domingo)
 
   // Quantos sabores de pizza este produto permite escolher no cardápio digital
   // (1-4). Null = usa o padrão do tamanho selecionado (comportamento herdado

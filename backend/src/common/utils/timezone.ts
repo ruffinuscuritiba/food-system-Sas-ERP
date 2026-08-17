@@ -81,3 +81,55 @@ export function parseBrazilFlexibleEnd(value: string): Date {
   }
   return parseBrazilDateEnd(value);
 }
+
+/**
+ * Checa se "agora" (fuso Brasília) cai dentro de uma janela de horário +
+ * dias da semana — usado por cardápio por ocasião (Category.availableFrom/
+ * To/Days) e promoção com horário automático (Product.promoStartTime/End/
+ * Days). Mesma lógica overnight-aware já corrigida em whatsapp-ai.service.ts
+ * isBusinessHours() (achado real do item 159: sem o `endMin < startMin`,
+ * uma janela tipo 18h-02h nunca batia) — replicada aqui em vez de importada
+ * pra não criar dependência cruzada entre módulos por uma função pequena.
+ *
+ * `start`/`end` em "HH:mm". `daysCsv` é "0,1,2..6" (0=domingo). Qualquer
+ * combinação vazia/nula = sem restrição naquele eixo — os 3 nulos juntos
+ * sempre retornam true (comportamento "sempre disponível", preserva 100%
+ * o comportamento de categorias/produtos que nunca configuraram isso).
+ */
+export function isWithinTimeWindow(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  daysCsv: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!start && !end && !daysCsv) return true;
+
+  const brFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = brFormatter.formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const DAY_MAP: Record<string, number> = {
+    dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sáb: 6, sab: 6,
+  };
+  const day = DAY_MAP[get('weekday').toLowerCase()] ?? now.getDay();
+
+  if (daysCsv) {
+    const days = daysCsv.split(',').map(Number);
+    if (!days.includes(day)) return false;
+  }
+
+  if (!start || !end) return true;
+
+  const cur = parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10);
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const endMin = eh * 60 + em;
+  if (endMin < startMin) return cur >= startMin || cur <= endMin;
+  return cur >= startMin && cur <= endMin;
+}

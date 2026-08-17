@@ -280,6 +280,7 @@ export default function MenuPage() {
   const [tableCartConnected, setTableCartConnected] = useState(false);
   const suppressCartSyncRef = useRef(false);
   const cartSyncDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abandonedCartDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [tableNumber, setTableNumber] = useState<string | null>(initialTableNumber);
@@ -818,6 +819,43 @@ export default function MenuPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, sharedCartEnabled, loading, realCompanyId, tableNumber]);
+
+  /* Carrinho abandonado — assim que o cliente digita um telefone válido no
+     checkout com itens no carrinho, salva um snapshot no backend (debounced).
+     Se ele sumir e não finalizar em 30min, um cron manda WhatsApp lembrando.
+     Nunca dispara se já enviou o pedido (orderSent). */
+  useEffect(() => {
+    if (loading || orderSent || !realCompanyId || cart.length === 0) return;
+    if (!isValidBrPhone(form.phone)) return;
+    if (abandonedCartDebounceRef.current) clearTimeout(abandonedCartDebounceRef.current);
+    abandonedCartDebounceRef.current = setTimeout(() => {
+      // cartTotal só é declarado mais abaixo no componente (depois do early
+      // return de pizza builder) — recalcula aqui pra não depender da ordem
+      // de declaração (mesma fórmula, ver `const cartTotal` mais abaixo).
+      const snapshotTotal = cart.reduce((acc, i) => {
+        const compExtra = (i.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
+        return acc + (Number(i.product.salePrice) + compExtra) * i.quantity;
+      }, 0);
+      fetch(`${apiBaseUrl}/abandoned-cart/track`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: realCompanyId,
+          phone: form.phone,
+          customerName: form.name || undefined,
+          items: cart.map((i) => ({
+            name: i.flavors ? i.flavors.map((f) => f.name).join(" + ") : i.product.name,
+            quantity: i.quantity,
+          })),
+          total: snapshotTotal,
+        }),
+      }).catch(() => {});
+    }, 2000);
+    return () => {
+      if (abandonedCartDebounceRef.current) clearTimeout(abandonedCartDebounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, form.phone, form.name, loading, orderSent, realCompanyId]);
 
   /* ── PIX payment polling ──────────────────────────────────────── */
   useEffect(() => {

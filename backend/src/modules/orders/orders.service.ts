@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { QrCampaignsService } from '@/modules/qr-campaigns/qr-campaigns.service';
 import { LoyaltyMilestonesService } from '@/modules/loyalty-milestones/loyalty-milestones.service';
+import { AbandonedCartService } from '@/modules/abandoned-cart/abandoned-cart.service';
 
 import { OrderStatus, Prisma } from '@prisma/client';
 
@@ -95,6 +96,9 @@ export class OrdersService {
 
     @Optional()
     private reportsService?: ReportsService,
+
+    @Optional()
+    private abandonedCartService?: AbandonedCartService,
   ) {}
 
   /**
@@ -500,6 +504,20 @@ export class OrdersService {
       } catch (e: any) {
         this.logger.warn(
           `[ClienteFiel] falha ao checar marco para order=${order.id}: ${e?.message}`,
+        );
+      }
+    });
+
+    // ── Carrinho abandonado — fecha episódio em aberto pro mesmo telefone ──
+    // Cliente comprou por outro canal (PDV/WhatsApp) depois de ter mexido no
+    // cardápio digital — nunca deve receber o lembrete de "esqueceu algo".
+    setImmediate(async () => {
+      try {
+        if (!this.abandonedCartService || !phone) return;
+        await this.abandonedCartService.markRecovered(companyId, phone);
+      } catch (e: any) {
+        this.logger.warn(
+          `[CarrinhoAbandonado] falha ao marcar recuperado para order=${order.id}: ${e?.message}`,
         );
       }
     });

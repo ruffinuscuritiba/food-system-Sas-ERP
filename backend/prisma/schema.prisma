@@ -188,6 +188,8 @@ model Company {
 
   menuAnalyticsEvents MenuAnalyticsEvent[]
 
+  abandonedCarts AbandonedCart[]
+
   recipes Recipe[]
 
   stockMovements StockMovement[]
@@ -1019,6 +1021,48 @@ model MenuAnalyticsEvent {
 
   @@index([companyId, type, createdAt])
   @@index([companyId, productId])
+}
+
+// Carrinho abandonado no cardápio digital — recuperação automática por
+// WhatsApp. Um "episódio" nasce quando o cliente digita um telefone válido
+// no checkout com itens no carrinho (frontend chama /abandoned-cart/track a
+// cada mudança, debounced); fica em aberto (recoveredAt e notifiedAt nulos)
+// até: (a) o cron mandar o lembrete 30min depois de inatividade
+// (notifiedAt), ou (b) um pedido real ser criado com o mesmo telefone, por
+// QUALQUER canal — PDV, WhatsApp/Kely ou o próprio cardápio (recoveredAt) —
+// o que acontecer primeiro. Nunca manda 2 lembretes pro mesmo episódio.
+model AbandonedCart {
+  id String @id @default(cuid())
+
+  companyId String
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  // Mesmo formato bruto de OnlineOrder.customerPhone (dígitos como o
+  // cliente digitou, sem normalizar) — comparação em todo o módulo é por
+  // endsWith(últimos 8 dígitos), igual loyalty-milestones/whatsapp-ai.
+  phone String
+
+  customerName String?
+
+  // [{name, quantity}] — snapshot só do necessário pra montar a mensagem de
+  // lembrete; nunca usado pra recriar o pedido de verdade.
+  items Json
+
+  total Decimal @db.Decimal(10, 2)
+
+  lastActivityAt DateTime @default(now())
+
+  notifiedAt DateTime?
+
+  recoveredAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, phone])
+  @@index([notifiedAt, recoveredAt, lastActivityAt])
 }
 
 model Recipe {

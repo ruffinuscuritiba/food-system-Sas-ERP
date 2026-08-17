@@ -17,6 +17,7 @@ import { PrintersModule } from '../printers/printers.module';
 import { OnlineOrdersModule } from '../online-orders/online-orders.module';
 import { LoyaltyMilestonesModule } from '../loyalty-milestones/loyalty-milestones.module';
 import { ReportsModule } from '../reports/reports.module';
+import { AbandonedCartModule } from '../abandoned-cart/abandoned-cart.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ReportsModule } from '../reports/reports.module';
     forwardRef(() => OnlineOrdersModule),
     LoyaltyMilestonesModule,
     ReportsModule,
+    AbandonedCartModule,
   ],
 
   controllers: [OrdersController],

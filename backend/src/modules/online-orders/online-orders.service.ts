@@ -15,6 +15,7 @@ import { LoyaltyService } from '@/modules/loyalty/loyalty.service';
 import { StockService } from '@/modules/stock/stock.service';
 import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { PrintersService } from '@/modules/printers/printers.service';
+import { AbandonedCartService } from '@/modules/abandoned-cart/abandoned-cart.service';
 import { normalizePhoneBr } from '@/common/utils/phone';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
@@ -86,6 +87,7 @@ export class OnlineOrdersService {
     @Optional() private readonly printersService?: PrintersService,
     @Optional() private readonly loyaltyMilestones?: LoyaltyMilestonesService,
     @Optional() private readonly loyaltyService?: LoyaltyService,
+    @Optional() private readonly abandonedCart?: AbandonedCartService,
   ) {}
 
   /**
@@ -387,6 +389,15 @@ export class OnlineOrdersService {
           void loyaltyMilestones
             .checkAndRegisterMilestone(dto.companyId, dto.customerPhone, dto.customerName)
             .catch((e: any) => logger.warn(`[ClienteFiel] falha ao checar marco: ${e?.message}`));
+        }
+
+        // → Carrinho abandonado: se existia um episódio em aberto pra esse
+        // telefone, fecha ele agora — o cliente completou a compra por este
+        // mesmo canal, nunca deve receber o lembrete de "você esqueceu algo".
+        if (this.abandonedCart) {
+          this.abandonedCart
+            .markRecovered(dto.companyId, dto.customerPhone)
+            .catch((e: any) => this.logger.warn(`[CarrinhoAbandonado] falha ao marcar recuperado: ${e?.message}`));
         }
 
         // → New order confirmation email (fire-and-forget — never blocks the order)

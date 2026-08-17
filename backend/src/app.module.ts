@@ -55,6 +55,7 @@ import { WalletModule } from './modules/wallet/wallet.module';
 import { VisitsModule } from './modules/visits/visits.module';
 import { QrCampaignsModule } from './modules/qr-campaigns/qr-campaigns.module';
 import { LoyaltyMilestonesModule } from './modules/loyalty-milestones/loyalty-milestones.module';
+import { AbandonedCartModule } from './modules/abandoned-cart/abandoned-cart.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { TotemModule } from './modules/totem/totem.module';
@@ -119,6 +120,7 @@ import { validateEnv } from './config/env.validation';
     VisitsModule,
     QrCampaignsModule,
     LoyaltyMilestonesModule,
+    AbandonedCartModule,
     UploadModule,
     FiscalModule,
     TotemModule,

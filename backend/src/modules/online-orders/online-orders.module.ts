@@ -9,6 +9,7 @@ import { WhatsappAiModule } from '@/modules/whatsapp-ai/whatsapp-ai.module';
 import { PrintersModule } from '@/modules/printers/printers.module';
 import { LoyaltyMilestonesModule } from '@/modules/loyalty-milestones/loyalty-milestones.module';
 import { LoyaltyModule } from '@/modules/loyalty/loyalty.module';
+import { AbandonedCartModule } from '@/modules/abandoned-cart/abandoned-cart.module';
 import { OnlineOrdersService } from './online-orders.service';
 import { OnlineOrdersController } from './online-orders.controller';
 
@@ -24,6 +25,7 @@ import { OnlineOrdersController } from './online-orders.controller';
     PrintersModule,
     LoyaltyMilestonesModule,
     LoyaltyModule,
+    AbandonedCartModule,
   ],
   controllers: [OnlineOrdersController],
   providers: [OnlineOrdersService],

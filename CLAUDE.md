@@ -788,34 +788,23 @@ sessão de debug remoto via Chrome MCP revelou stack de causas combinadas. **Bug
 
 **Workflow validado pra cada item** (usado nos 6 já feitos): abrir `Cardápio da loja` → campo "Pesquisar" → nome do item → Enter → clicar na linha do item (abre `.../detail?itemId=X`) → no formulário, o campo "Código PDV" é o **6º input/textarea da página** (índice 5, 0-based) → setar valor via `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el, PRODUCT_ID)` + `dispatchEvent(new Event('input',{bubbles:true}))` (nativo, pro React perceber) → clicar botão "Enviar" (pode existir um 2º "Enviar" de um dialog de confirmação escondido no DOM — só clicar de novo se a URL não voltar pra lista). Sucesso confirmado pela URL voltando pra `.../menu?tab=store-menu` e/ou toast "Salvo com sucesso" no `get_page_text`.
 
-**41 dos 68 itens do cardápio já têm correspondência automática/manual confirmada no FoodSaaS** (`ProductCatalogMap` já criado via API em lote, `externalProductId=internalProductId`, pronto pra funcionar assim que o "Código PDV" for preenchido) — **7 já têm o Código PDV preenchido e confirmado** (`Frango Catupiry "Uma explosão..."`, `Presunto`, `Combo Executivo`, `Combo família`, `Coca-Cola 2l`, `Calabresa`, `Combo Festival de Esfihas (10 unid)`). **33 itens ainda faltam só a etapa manual na tela do 99Food** (o `ProductCatalogMap` já existe pra todos, só falta preencher "Código PDV" seguindo o workflow acima) — lista completa pronta pra continuar sem precisar refazer nenhuma análise:
+**41 dos 68 itens do cardápio já têm correspondência automática/manual confirmada no FoodSaaS** (`ProductCatalogMap` já criado via API em lote, `externalProductId=internalProductId`, pronto pra funcionar assim que o "Código PDV" for preenchido) — **18 já têm o Código PDV preenchido e confirmado** (dos 7 do addendum 17/08 + 11 mapeados em 17/08 à noite, priorizados pelo ranking real de vendas via `GET /reports/products`: `Frango Catupiry` — as 2 variantes, com e sem a tagline "Uma explosão de sabores" —, `Presunto`, `Combo Executivo`, `Combo família`, `Coca-Cola 2l`, `Calabresa`, `Combo Festival de Esfihas (10 unid)`, `Combo Festival de Esfihas (6 unid)`, `Esfiha de Carne`, `Esfiha de Frango`, `Esfiha de Queijo`, `Calabresa com alho e bacon`, `Esfiha de Chocolate`, `Quatro Queijos`, `Bacon`, `Bacon com Catupiry`, `Chocolate ao leite`). **22 itens ainda faltam só a etapa manual na tela do 99Food** (o `ProductCatalogMap` já existe pra todos, só falta preencher "Código PDV" seguindo o workflow acima) — lista completa pronta pra continuar sem precisar refazer nenhuma análise:
 
 ```
 Guaraná Antártica 2l::cmrtecejv003wzejrivswjw1c
 Fanta Laranja 2l::cmrteagyt003tzejrhmrqd4sj
 Coca-Cola  600ml::cmrtej3fu0042zejrtjn53vve
 Coca-Cola Zero 600ml::cmrtekbga0045zejrkdkyzpxu
-Combo Festival de Esfihas (6 unid)::cms52i2de005cmlh7vv37c089
-Calabresa com alho e bacon::cmrfu43ng0053tzfen875fou7
 Calabresa com Catupiry::cmrfu43nm0058tzfek1o6b9qa
 Baiana Apimentada::cmrfu43nr005dtzfe0sq3hj5f
 Marguerita::cmrfu43nx005itzfezrcna95x
-Quatro Queijos::cmrfu43o1005ntzfeap8bxoax
-Frango Catupiry::cmrfu43o5005stzfecn312bvj
 Frango Com Cheddar::cmrfu43oa005xtzfe1swa0x3r
 Frango Com Milho::cmrfu43oe0062tzfexn5xhz36
 Portuguesa::cmrfu43oh0067tzfet7h3qw6g
 Catupiry::cmrfu43ol006ctzfegb37grhc
-Bacon::cmrfu43oq006htzfeqh4sko8b
-Bacon com Catupiry::cmrfu43ou006mtzfeog3u5r25
 Banana com Canela::cmrfu43oy006rtzfeql96z7g6
 Banana Nevada::cmrfu43p2006wtzfe8jlziks0
-Chocolate ao leite::cmrfu43p70071tzfeglrrqu8m
 Dois Amores::cmrfu43pb0076tzfetmi0l4sc
-Esfiha de Carne::cmrfu43pl007ftzfe8pz6ejxp
-Esfiha de Queijo::cmrfu43po007htzfep13cpbmj
-Esfiha de Frango::cmrfu43pt007ltzfefiompc2b
-Esfiha de Chocolate::cmrfu43pv007ntzfezzn68dfv
 Esfiha de Banana::cmrfu43py007ptzfe8k209b8v
 Calzone de Frango::cmrfu43q0007rtzfe1s0bqcj7
 Coca-Cola Original 2L::cmrteeda4003zzejrp3xx0wn7 (nome duplicado do "Coca-Cola 2l" já feito — categoria/itemId diferente)
@@ -823,6 +812,8 @@ Guaraná Antártica 2L::cmrtecejv003wzejrivswjw1c (idem, verificar se é outro i
 Coca-Cola 600ml::cmrtej3fu0042zejrtjn53vve (idem)
 Coca-Cola Zero 600ml::cmrtekbga0045zejrkdkyzpxu (idem)
 ```
+
+**Ranking de prioridade usado (17/08/2026 à noite)**: pedido do usuário "quiser, posso seguir agora mapeando os itens mais vendidos primeiro" → `sim`. Consultado `GET /reports/products?limit=200` (dados reais de venda), cruzado com os 33 itens restantes do addendum anterior, ordenado por `quantity` desc. Mapeados os 10 primeiros do ranking + 1 bônus (Bacon com Catupiry, achado junto na mesma busca de "Bacon"): Frango Catupiry (9 vendas), Esfiha de Carne (6), Esfiha de Frango (6), Esfiha de Queijo (4), Calabresa com alho e bacon (3), Esfiha de Chocolate (3), Combo Festival de Esfihas 6un (2), Quatro Queijos (2), Bacon (2), Chocolate ao leite (2), Bacon com Catupiry (1). As bebidas (Coca/Guaraná/Fanta) ficaram com 0 vendas no ranking — provavelmente vendidas majoritariamente como parte de combos (que já têm Código PDV próprio), não como item avulso — por isso não entraram na leva prioritária. Todos os 11 confirmados via `GET /integrations/99food/menu` → `alreadyMapped:true`.
 
 **Achado paralelo, não corrigido**: duplicatas reais no catálogo interno do FoodSaaS atrapalharam o matching automático — "Marguerita" existe 2x (uma em "Pizzas Clássicas" R$67,99, outra em categoria "Guirlanda" R$67,00 — essa 2ª é componente da "Guirlanda de Pizza", não pizza avulsa, então a de Pizzas Clássicas foi a usada). Usuário deu uma regra geral pra próxima limpeza de catálogo: **duplicatas com o MESMO preço → apagar uma; com preços DIFERENTES → manter as duas, a menos que uma seja complemento de um grupo/subgrupo** (aplica-se a outras duplicatas ainda não auditadas, ex. "Coca_Cola 2lts" vs "Coca_Cola 2l"). **27 itens do cardápio do 99Food ficaram de fora do plano por não terem correspondência seguem no FoodSaaS** (menu 100% diferente/mais granular do que o cardápio interno — ex. "3 Esfihas abertas de X" avulsas, bordas avulsas, sachês de molho, "❤️ Combo Favorito dos Clientes", "Guirlanda de Pizza") — precisam de produto novo cadastrado no FoodSaaS antes de poder ser mapeados, decisão de negócio do usuário, não implementado.
 

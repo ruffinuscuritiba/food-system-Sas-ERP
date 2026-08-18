@@ -1893,6 +1893,11 @@ model OnlineOrder {
   // impressão (Totem não imprime pré-conta pro cliente). NÃO afeta o roteamento
   // de status em updateKitchenStatus, que continua chaveado por source==='ONLINE'.
   channel                 String   @default("ONLINE")
+  // Pedido feito com a loja fechada, agendado pra quando reabrir — cliente
+  // escolheu "agendar" em vez de tentar pedir agora (loja fechada não aceita
+  // pedido imediato, ver OnlineOrdersService.create). Null = pedido normal,
+  // imediato, loja estava aberta no momento da compra.
+  scheduledFor            DateTime?
   // Cliente escolheu "usar cashback agora" neste pedido (já embutido em
   // `discount`) — impede creditar cashback de novo pra este pedido quando
   // ele for confirmado (só pontos/Cliente Fiel continuam normalmente).

@@ -31,6 +31,19 @@ export class CompanyController {
     return this.service.getPublicLayout(companyId);
   }
 
+  /**
+   * GET /company/business-status/public?companyId=X — a loja está aberta
+   * agora? Sem auth (cardápio digital chama antes do checkout). Cálculo
+   * sempre no servidor — nunca confia no relógio/fuso do navegador do
+   * cliente pra decidir se pode ou não criar pedido (achado real do usuário:
+   * pedido aceito com a loja fechada há 40min).
+   */
+  @Get('business-status/public')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  getBusinessStatus(@Query('companyId') companyId: string) {
+    return this.service.getBusinessStatus(companyId);
+  }
+
   /** GET /company/settings — retorna dados de configuração da empresa logada */
   @Get('settings')
   @UseGuards(JwtAuthGuard, RolesGuard)

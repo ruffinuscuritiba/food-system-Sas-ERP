@@ -17,6 +17,7 @@ import { WhatsappAiService } from '@/modules/whatsapp-ai/whatsapp-ai.service';
 import { PrintersService } from '@/modules/printers/printers.service';
 import { AbandonedCartService } from '@/modules/abandoned-cart/abandoned-cart.service';
 import { normalizePhoneBr } from '@/common/utils/phone';
+import { isCompanyOpenNow, getNextOpening, type CompanyBusinessHours } from '@/common/utils/timezone';
 
 const ORDER_TYPES = ['DELIVERY', 'DINE_IN', 'PICKUP'] as const;
 const PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'] as const;
@@ -70,6 +71,9 @@ export interface CreateOnlineOrderDto {
   channel?: string;
   /** Opt-in de marketing marcado no checkout — nunca revoga se vier false/ausente. */
   marketingOptIn?: boolean;
+  /** ISO datetime — cliente confirmou "agendar" sabendo que a loja está
+   *  fechada agora. Sem isso, pedido com a loja fechada é rejeitado (400). */
+  scheduledFor?: string;
 }
 
 @Injectable()
@@ -104,7 +108,7 @@ export class OnlineOrdersService {
     // ── 1. Validations ──────────────────────────────────────────────────────
     const company = await this.prisma.company.findFirst({
       where: { OR: [{ id: dto.companyId }, { slug: dto.companyId }] },
-      select: { id: true, isBlocked: true, name: true, freeDeliveryAbove: true },
+      select: { id: true, isBlocked: true, name: true, freeDeliveryAbove: true, businessHours: true },
     });
 
     if (!company) throw new NotFoundException('Empresa não encontrada.');
@@ -113,6 +117,27 @@ export class OnlineOrdersService {
     if (company.isBlocked)
       throw new BadRequestException('Empresa não está aceitando pedidos.');
     if (!dto.items?.length) throw new BadRequestException('Pedido sem itens.');
+
+    // ── Horário de funcionamento — achado real: pedido aceito com a loja
+    // fechada há 40min, cozinha só percebeu depois. Gate SEMPRE no backend
+    // (nunca confia no relógio do navegador do cliente pra isso) — o
+    // frontend já deve esconder o botão de pedido imediato quando fechado
+    // (GET /company/business-status/public), mas essa é a trava real.
+    // `scheduledFor` = cliente confirmou explicitamente "agendar sabendo
+    // que está fechado" — passa direto, sem bloquear.
+    let scheduledFor: Date | null = null;
+    const businessHours = company.businessHours as CompanyBusinessHours | null;
+    if (!isCompanyOpenNow(businessHours)) {
+      if (!dto.scheduledFor) {
+        const next = getNextOpening(businessHours);
+        throw new BadRequestException(
+          next
+            ? `Estamos fechados agora. Reabrimos ${next.label} — você pode agendar seu pedido pra esse horário.`
+            : 'Estamos fechados agora e sem horário de funcionamento configurado. Tente novamente mais tarde.',
+        );
+      }
+      scheduledFor = new Date(dto.scheduledFor);
+    }
 
     const subtotal = Number(dto.subtotal);
     let deliveryFee = Number(dto.deliveryFee ?? 0);
@@ -301,6 +326,7 @@ export class OnlineOrdersService {
         state: dto.state?.trim() || null,
         zipcode: dto.zipcode?.trim() || null,
         complement: dto.complement?.trim() || null,
+        scheduledFor,
         items: dto.items as any,
         subtotal,
         deliveryFee,
@@ -433,11 +459,18 @@ export class OnlineOrdersService {
               : orderType === 'DINE_IN'
                 ? ''
                 : '\n🏪 Retirada no balcão';
-          const resumo =
-            `✅ *Pedido recebido!* #${order.id.slice(-6).toUpperCase()}\n\n` +
-            `${itemsLines}\n\n` +
-            `*Total: R$ ${Number(order.total).toFixed(2)}*${enderecoLine}\n\n` +
-            `Assim que confirmarmos o preparo, avisamos por aqui. Obrigado pela preferência! 🍕`;
+          // Pedido agendado (loja fechada no momento da compra) nunca deve
+          // soar como "chegando já" — mensagem própria, sem prometer preparo
+          // imediato nem hora de entrega que ainda não vai começar a contar.
+          const resumo = order.scheduledFor
+            ? `📅 *Pedido agendado!* #${order.id.slice(-6).toUpperCase()}\n\n` +
+              `${itemsLines}\n\n` +
+              `*Total: R$ ${Number(order.total).toFixed(2)}*${enderecoLine}\n\n` +
+              `Sua loja está fechada agora — vamos preparar assim que reabrirmos. Obrigado pela preferência! 🍕`
+            : `✅ *Pedido recebido!* #${order.id.slice(-6).toUpperCase()}\n\n` +
+              `${itemsLines}\n\n` +
+              `*Total: R$ ${Number(order.total).toFixed(2)}*${enderecoLine}\n\n` +
+              `Assim que confirmarmos o preparo, avisamos por aqui. Obrigado pela preferência! 🍕`;
           this.whatsappAi
             .sendTextMessage(dto.companyId, order.customerPhone, resumo)
             .catch((e: any) =>
@@ -448,9 +481,17 @@ export class OnlineOrdersService {
         // → Impressão automática via Printer Agent — mesma regra de
         // orders.service.ts (PDV), que até aqui nunca disparava pra pedidos
         // do cardápio digital/totem. Só enfileira se houver Agent online.
-        this.enqueuePrintJobs(dto.companyId, order, dto).catch((e: any) =>
-          this.logger.warn(`[OnlineOrder] falha ao enfileirar impressão: ${e?.message}`),
-        );
+        // Pedido agendado NUNCA imprime na hora — imprimiria um ticket de
+        // "preparar agora" horas antes de precisar, cozinha perderia o
+        // controle de prioridade. Fica só registrado, sem trigger de cozinha,
+        // até alguém (staff) confirmar o pedido manualmente mais perto da
+        // hora — liberar isso sozinho por horário fica pra uma sessão futura
+        // se virar dor real (hoje é decisão consciente, não esquecimento).
+        if (!order.scheduledFor) {
+          this.enqueuePrintJobs(dto.companyId, order, dto).catch((e: any) =>
+            this.logger.warn(`[OnlineOrder] falha ao enfileirar impressão: ${e?.message}`),
+          );
+        }
       } catch (err: any) {
         // Socket failure must never affect the already-created order
         this.logger.warn(`[OnlineOrder] socket emit failed: ${err?.message}`);

@@ -8,6 +8,7 @@ import {
 import { PrismaService } from 'src/database/prisma.service';
 import { UpdateCompanySettingsDto } from './dto/update-settings.dto';
 import { slugify } from '@/common/utils/slugify';
+import { isCompanyOpenNow, getNextOpening, type CompanyBusinessHours } from '@/common/utils/timezone';
 
 const VALID_PLANS = ['BASIC', 'PRO', 'ENTERPRISE'] as const;
 type Plan = (typeof VALID_PLANS)[number];
@@ -15,6 +16,23 @@ type Plan = (typeof VALID_PLANS)[number];
 @Injectable()
 export class CompanyService {
   constructor(private prisma: PrismaService) {}
+
+  async getBusinessStatus(slugOrId: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: { businessHours: true },
+    });
+    if (!company) throw new NotFoundException('Loja não encontrada');
+    const hours = company.businessHours as CompanyBusinessHours | null;
+    const isOpen = isCompanyOpenNow(hours);
+    if (isOpen) return { isOpen: true, opensAt: null, opensLabel: null };
+    const next = getNextOpening(hours);
+    return {
+      isOpen: false,
+      opensAt: next?.opensAt.toISOString() ?? null,
+      opensLabel: next?.label ?? null,
+    };
+  }
 
   async findAll() {
     return this.prisma.company.findMany({

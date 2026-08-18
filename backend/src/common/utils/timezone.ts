@@ -133,3 +133,95 @@ export function isWithinTimeWindow(
   if (endMin < startMin) return cur >= startMin || cur <= endMin;
   return cur >= startMin && cur <= endMin;
 }
+
+export type CompanyBusinessHoursDay = { open: string; close: string; isOpen: boolean };
+export type CompanyBusinessHours = Record<string, CompanyBusinessHoursDay>;
+
+const WEEKDAY_SHORT_MAP: Record<string, number> = {
+  dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sáb: 6, sab: 6,
+};
+
+/** "Agora" em Brasília como {day (0=domingo), minutesSinceMidnight}. */
+function brNowParts(now: Date = new Date()): { day: number; minutes: number } {
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const day = WEEKDAY_SHORT_MAP[get('weekday').toLowerCase()] ?? now.getDay();
+  const minutes = parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10);
+  return { day, minutes };
+}
+
+/**
+ * A loja está aberta AGORA segundo `Company.businessHours`? Mesma lógica
+ * overnight-aware já corrigida em whatsapp-ai.service.ts isBusinessHours()
+ * (item 159 — sem o `closeMin < openMin`, uma janela tipo 18h-02h nunca
+ * batia) — reimplementada aqui do zero com o fix já embutido, em vez de
+ * importar de dentro de whatsapp-ai/ (evita acoplar um módulo sensível a
+ * outro só por uma função de horário). `businessHours` vazio/nulo = sem
+ * configuração — assume sempre aberta (nunca bloqueia pedido por engano
+ * numa loja que nunca configurou horário).
+ */
+export function isCompanyOpenNow(
+  businessHours: CompanyBusinessHours | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!businessHours || typeof businessHours !== 'object' || Object.keys(businessHours).length === 0) {
+    return true;
+  }
+  const { day, minutes: cur } = brNowParts(now);
+  const todayConfig = businessHours[String(day)];
+  if (!todayConfig || !todayConfig.isOpen) return false;
+  const [oh, om] = (todayConfig.open || '08:00').split(':').map(Number);
+  const [ch, cm] = (todayConfig.close || '22:00').split(':').map(Number);
+  const openMin = oh * 60 + om;
+  const closeMin = ch * 60 + cm;
+  if (closeMin < openMin) return cur >= openMin || cur <= closeMin;
+  return cur >= openMin && cur <= closeMin;
+}
+
+/**
+ * Próxima janela de abertura a partir de agora (varre até 8 dias pra frente
+ * — cobre o caso raro de uma loja fechada a semana inteira sem cair num loop
+ * infinito). Usado pra oferecer "agendar pra quando abrir" no checkout do
+ * cardápio digital quando a loja está fechada agora. `null` = sem
+ * configuração de horário (nunca deveria chegar aqui — isCompanyOpenNow já
+ * retornaria true nesse caso) ou nenhum dia aberto configurado.
+ */
+export function getNextOpening(
+  businessHours: CompanyBusinessHours | null | undefined,
+  now: Date = new Date(),
+): { opensAt: Date; label: string } | null {
+  if (!businessHours || typeof businessHours !== 'object') return null;
+  const { day: todayDay, minutes: curMinutes } = brNowParts(now);
+  const DAY_LABELS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+  for (let offset = 0; offset <= 8; offset++) {
+    const day = (todayDay + offset) % 7;
+    const config = businessHours[String(day)];
+    if (!config?.isOpen) continue;
+    const [oh, om] = (config.open || '08:00').split(':').map(Number);
+    const openMin = oh * 60 + om;
+    // No dia de hoje, só conta se o horário de abertura ainda não passou.
+    if (offset === 0 && openMin <= curMinutes) continue;
+
+    const opensAt = new Date(now);
+    opensAt.setDate(opensAt.getDate() + offset);
+    // Ajusta pro fuso de Brasília a partir da data-chave (evita o mesmo tipo
+    // de bug de fuso já documentado no topo deste arquivo).
+    const dateKey = toBrazilDateKey(opensAt);
+    const opensAtBr = new Date(`${dateKey}T${config.open || '08:00'}:00-03:00`);
+
+    const label = offset === 0
+      ? `hoje às ${config.open}`
+      : offset === 1
+        ? `amanhã às ${config.open}`
+        : `${DAY_LABELS[day]} às ${config.open}`;
+    return { opensAt: opensAtBr, label };
+  }
+  return null;
+}

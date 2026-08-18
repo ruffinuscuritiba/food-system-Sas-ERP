@@ -319,6 +319,12 @@ export default function MenuPage() {
   // Cashback — taxa configurável pela loja (GET público); cliente escolhe por
   // pedido: acumular pro próximo (padrão) ou usar já como desconto agora.
   const [cashbackConfig, setCashbackConfig] = useState<{ isActive: boolean; ratePercent: number } | null>(null);
+  // Loja fechada agora — checkout vira "só agendar" (cálculo real vem do
+  // backend, GET /company/business-status/public — nunca confia no relógio
+  // do navegador). Cliente confirma explicitamente antes de agendar; sem
+  // essa confirmação, o botão normal de "Finalizar Pedido" nem aparece.
+  const [businessStatus, setBusinessStatus] = useState<{ isOpen: boolean; opensAt: string | null; opensLabel: string | null } | null>(null);
+  const [scheduleConfirmed, setScheduleConfirmed] = useState(false);
   const [cashbackMode, setCashbackMode] = useState<"ACCUMULATE" | "INSTANT">("ACCUMULATE");
   const [metaPixelId, setMetaPixelId] = useState<string | null>(null);
   const [gaId, setGaId] = useState<string | null>(null);
@@ -461,7 +467,7 @@ export default function MenuPage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes, bordersRes, cashbackRes] = await Promise.all([
+      const [menuRes, companyRes, themeRes, sizeConfigRes, zonesRes, layoutRes, bordersRes, cashbackRes, businessStatusRes] = await Promise.all([
         fetch(`${apiBaseUrl}/products/public/menu/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/company/${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/themes/${companyId}`).catch(() => null),
@@ -470,7 +476,18 @@ export default function MenuPage() {
         fetch(`${apiBaseUrl}/company/layout/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/pizza-borders/public?companyId=${companyId}`).catch(() => null),
         fetch(`${apiBaseUrl}/loyalty/cashback-config/public?companyId=${companyId}`).catch(() => null),
+        fetch(`${apiBaseUrl}/company/business-status/public?companyId=${companyId}`).catch(() => null),
       ]);
+
+      // Loja fechada agora? Calculado sempre no servidor (nunca no relógio do
+      // navegador do cliente) — achado real: pedido aceito com a loja fechada
+      // há 40min. Some do erro de rede se a checagem falhar — nesse caso o
+      // backend em online-orders.service.ts ainda barra na hora de finalizar,
+      // só não dá pra avisar com antecedência.
+      if (businessStatusRes?.ok) {
+        const bs = await businessStatusRes.json().catch(() => null);
+        if (bs) setBusinessStatus({ isOpen: !!bs.isOpen, opensAt: bs.opensAt || null, opensLabel: bs.opensLabel || null });
+      }
 
       if (!menuRes || !menuRes.ok) {
         if (attempt < 4) {
@@ -1818,6 +1835,14 @@ export default function MenuPage() {
   }
 
   async function submitOrder() {
+    // Loja fechada agora — só deixa passar se o cliente já confirmou
+    // explicitamente "quero agendar" (checkbox/botão dedicado no checkout).
+    // Trava real fica no backend de qualquer jeito (online-orders.service.ts
+    // isCompanyOpenNow) — isto aqui é só pra dar o aviso ANTES de tentar.
+    if (businessStatus && !businessStatus.isOpen && !scheduleConfirmed) {
+      toast.error(`Estamos fechados agora. Reabrimos ${businessStatus.opensLabel || "em breve"} — confirme o agendamento pra continuar.`);
+      return;
+    }
     if (!form.name || !form.phone) { toast.error("Informe seu nome e telefone"); return; }
     if (!isValidBrPhone(form.phone)) { toast.error("Informe um WhatsApp válido (DDD + número)"); return; }
     if (form.orderType === "DINE_IN" && !tableNumber?.trim()) { toast.error("Informe o numero da mesa"); return; }
@@ -1854,6 +1879,7 @@ export default function MenuPage() {
           state:         form.state,
           zipcode:       form.zipcode,
           complement:    form.complement,
+          scheduledFor: businessStatus && !businessStatus.isOpen ? businessStatus.opensAt : undefined,
           items: cartSnapshot.map((i) => {
             const compExtra = (i.complements || []).reduce((s, c) => s + Number(c.price) * c.quantity, 0);
             return {
@@ -2326,6 +2352,15 @@ export default function MenuPage() {
       {gtmId && <GoogleTagManager containerId={gtmId} />}
       {gtmId && <GoogleTagManagerNoScript containerId={gtmId} />}
       <WhatsAppFloatButton phone={companyWhatsapp} companyName={companyName} assistantName={assistantName} />
+
+      {/* Aviso cedo, antes do cliente montar o carrinho inteiro — achado real:
+          pedido aceito com a loja fechada há 40min. Aviso de novo (mais
+          completo, com a opção de agendar) aparece no checkout também. */}
+      {businessStatus && !businessStatus.isOpen && (
+        <div className="sticky top-0 z-[70] px-4 py-2.5 text-center text-sm font-bold bg-amber-500 text-white">
+          ⏰ Estamos fechados agora — reabrimos {businessStatus.opensLabel || "em breve"}. Você ainda pode agendar seu pedido.
+        </div>
+      )}
 
       {/* ─── Header / Hero em tela cheia com carrossel de promoções ────────────────
            Tela de entrada ocupa a viewport inteira (igual referência do
@@ -3647,16 +3682,37 @@ export default function MenuPage() {
               </div>
             </div>
 
+              {businessStatus && !businessStatus.isOpen && (
+                <div className="mt-4 p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-sm font-bold text-amber-800">⏰ Estamos fechados agora</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Reabrimos {businessStatus.opensLabel || "em breve"}. Você pode agendar seu pedido pra esse horário — não vamos começar o preparo antes de reabrir.
+                  </p>
+                  <label className="flex items-center gap-2 mt-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={scheduleConfirmed}
+                      onChange={(e) => setScheduleConfirmed(e.target.checked)}
+                      className="accent-amber-600"
+                    />
+                    <span className="text-xs font-semibold text-amber-800">Quero agendar mesmo assim</span>
+                  </label>
+                </div>
+              )}
             </div>{/* fim scroll area */}
 
             {/* Botão fixo no rodapé do modal */}
             <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100">
               <button
                 onClick={submitOrder}
-                disabled={submitting}
+                disabled={submitting || (!!businessStatus && !businessStatus.isOpen && !scheduleConfirmed)}
                 className="w-full bg-[var(--color-primary)] hover:opacity-90 disabled:opacity-50 text-white py-4 rounded-2xl font-black text-base transition"
               >
-                {submitting ? "Enviando..." : "Confirmar pedido"}
+                {submitting
+                  ? "Enviando..."
+                  : businessStatus && !businessStatus.isOpen
+                    ? "Agendar pedido"
+                    : "Confirmar pedido"}
               </button>
             </div>
           </div>

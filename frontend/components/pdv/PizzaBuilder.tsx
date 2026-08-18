@@ -38,6 +38,13 @@ type Props = {
   // valor real da promoção (R$29,99), e mostrava 5 tamanhos que nunca
   // existiram pra esse produto.
   fixedPrice?: number;
+  // IDs dos sabores REAIS que valem o fixedPrice desta promoção/combo — ver
+  // Product.promoFlavorIds. Sem isso (undefined/vazio), preserva o
+  // comportamento antigo (fixedPrice sempre fixo, qualquer sabor escolhido).
+  // Achado real (item 186): meio-a-meio com 1 sabor de FORA da promoção
+  // cobrava o preço fixo da promoção pela pizza inteira, dando o sabor caro
+  // de graça — mesmo bug do cardápio digital, agora corrigido nos dois.
+  promoFlavorIds?: string[];
   onAdd:           (pizza: any) => void;
 };
 
@@ -107,7 +114,7 @@ function resolveVariant(norm: NormalizedFlavor, sizeKey: string): FlavorVariant 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlavorId, maxFlavorsOverride, fixedPrice, onAdd }: Props) {
+export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlavorId, maxFlavorsOverride, fixedPrice, promoFlavorIds, onAdd }: Props) {
   // Combo de preço fixo sem ProductSize cadastrado (o caso normal pra esses
   // promos) nunca teve tamanho de verdade — trava em "Grande" só pra ter uma
   // chave válida na hora de calcular preço de borda (PizzaBorderSize é por
@@ -169,8 +176,19 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
     let base = 0;
 
     if (fixedPrice != null) {
-      // Combo de promoção — preço nunca varia por sabor escolhido.
-      base = fixedPrice;
+      if (!promoFlavorIds || promoFlavorIds.length === 0 || selectedNorms.length === 0) {
+        // Sem lista cadastrada — preserva o comportamento antigo.
+        base = fixedPrice;
+      } else {
+        // Cada metade contribui com seu próprio valor: sabor QUE É da
+        // promoção usa fixedPrice/n, sabor de FORA usa seu preço real/n.
+        const n = selectedNorms.length;
+        base = selectedNorms.reduce((sum, norm) => {
+          const variant = resolveVariant(norm, selectedSize.size);
+          const isPromoFlavor = promoFlavorIds.includes(variant.id);
+          return sum + (isPromoFlavor ? fixedPrice : variant.price) / n;
+        }, 0);
+      }
     } else if (selectedSize.price > 0) {
       base = selectedSize.price;
     } else if (selectedNorms.length > 0) {
@@ -182,7 +200,7 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
     }
 
     return base + (border ? borderPriceForSize(border, selectedSize.size) : 0);
-  }, [selectedNorms, border, selectedSize, fixedPrice]);
+  }, [selectedNorms, border, selectedSize, fixedPrice, promoFlavorIds]);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 

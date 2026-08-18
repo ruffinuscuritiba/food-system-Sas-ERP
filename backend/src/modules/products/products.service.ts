@@ -53,6 +53,12 @@ export class ProductsService {
     const sizes: Array<{ size: string; price: number; originalPrice?: number | null }> =
       typeof rawSizes === 'string' ? JSON.parse(rawSizes) : rawSizes;
 
+    const rawPromoFlavorIds = data.promoFlavorIds;
+    const promoFlavorIds: string[] =
+      typeof rawPromoFlavorIds === 'string'
+        ? (rawPromoFlavorIds.trim() ? JSON.parse(rawPromoFlavorIds) : [])
+        : (rawPromoFlavorIds ?? []);
+
     // Próximo sortOrder dentro da empresa (drag-and-drop)
     const maxSort = await this.prisma.product.aggregate({
       where: { companyId: data.companyId },
@@ -107,6 +113,8 @@ export class ProductsService {
           data.maxFlavors !== undefined && data.maxFlavors !== ''
             ? parseInt(data.maxFlavors, 10)
             : null,
+
+        promoFlavorIds: promoFlavorIds.length > 0 ? promoFlavorIds : undefined,
 
         isActive: data.isActive ?? true,
 
@@ -190,6 +198,10 @@ export class ProductsService {
           ? JSON.parse(rawSizes)
           : rawSizes;
 
+    if (data.promoFlavorIds !== undefined && typeof data.promoFlavorIds === 'string') {
+      data.promoFlavorIds = data.promoFlavorIds.trim() ? JSON.parse(data.promoFlavorIds) : [];
+    }
+
     if (sizes !== undefined) {
       await this.prisma.productSize.deleteMany({
         where: { productId: id, companyId: data.companyId },
@@ -241,6 +253,11 @@ export class ProductsService {
             data.maxFlavors === '' || data.maxFlavors === null
               ? null
               : parseInt(data.maxFlavors, 10),
+        }),
+        ...(data.promoFlavorIds !== undefined && {
+          promoFlavorIds: Array.isArray(data.promoFlavorIds) && data.promoFlavorIds.length > 0
+            ? data.promoFlavorIds
+            : null,
         }),
         ...(data.imageUrl !== undefined && { imageUrl: data.imageUrl }),
         ...(data.imageZoom !== undefined && { imageZoom: Number(data.imageZoom) }),

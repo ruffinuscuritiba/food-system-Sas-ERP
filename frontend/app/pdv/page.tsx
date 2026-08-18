@@ -57,6 +57,7 @@ interface Product {
   sku?: string | null;
   eanCode?: string | null;
   maxFlavors?: number | null;
+  promoFlavorIds?: string[] | null;
 }
 
 interface SelectedComplement {
@@ -2109,6 +2110,7 @@ export default function PDVPage() {
                 // sabor mais caro (R$67+) em vez do preço fixo da promoção
                 // (achado real: 14/08/2026).
                 fixedPrice={!pizzaProduct.sizes?.length ? (Number(pizzaProduct.salePrice) || undefined) : undefined}
+                promoFlavorIds={pizzaProduct.promoFlavorIds ?? undefined}
                 onAdd={addPizzaToCart}
               />
             </div>

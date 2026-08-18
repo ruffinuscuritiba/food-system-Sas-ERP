@@ -541,6 +541,16 @@ model Product {
   // deve herdar esse limite maior, e vice-versa.
   maxFlavors Int?
 
+  // Sabores REAIS (IDs de outros Product) que valem o preço fixo desta
+  // promoção/combo — ex: "As Mais Mais do Dia" R$29,99 só vale pra 4 sabores
+  // específicos. Achado real (item 186): o construtor de meio-a-meio deixava
+  // escolher QUALQUER sabor do cardápio pra dentro de uma promoção de preço
+  // fixo, cobrando o valor promocional mesmo com metade de um sabor caro de
+  // fora da lista. Null/vazio (padrão) preserva o comportamento antigo (preço
+  // sempre fixo, sem restrição) — só passa a valer quando o lojista cadastra
+  // a lista explicitamente. Ver calcPizzaPrice() em menu/[companyId]/page.tsx.
+  promoFlavorIds Json?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])

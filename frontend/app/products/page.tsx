@@ -304,6 +304,51 @@ function PromoWindowFields({
   );
 }
 
+/** "Sabores da promoção" — restringe quais sabores REAIS valem o preço fixo
+ *  de um combo/promoção com meio-a-meio liberado (ex: "As Mais Mais do Dia"
+ *  R$29,99). Sem isso configurado, qualquer sabor escolhido vale o preço
+ *  fixo — achado real (item 186): metade de um sabor caro de fora saía pelo
+ *  preço promocional inteiro, dando o sabor de graça. */
+function PromoFlavorPicker({
+  allProducts, currentProductId, selectedIds, onChange,
+}: {
+  allProducts: any[]; currentProductId?: string;
+  selectedIds: string[]; onChange: (ids: string[]) => void;
+}) {
+  const options = allProducts.filter((p) =>
+    p.id !== currentProductId &&
+    !String(p.category?.name || "").toLowerCase().includes("combo")
+  );
+  function toggle(id: string) {
+    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
+  }
+  return (
+    <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-xl">
+      <p className="text-xs font-bold text-amber-700 mb-1">Sabores da promoção</p>
+      <p className="text-[11px] text-amber-600 mb-2">
+        Marque só os sabores que valem esse preço fixo. Sem isso marcado, qualquer sabor (inclusive de fora) vale o preço promocional inteiro — risco de dar sabor caro de graça no meio a meio.
+      </p>
+      <div className="max-h-40 overflow-y-auto space-y-1 bg-white rounded-lg border border-amber-100 p-2">
+        {options.length === 0 && <p className="text-[11px] text-gray-400 px-1">Nenhum produto disponível.</p>}
+        {options.map((p) => (
+          <label key={p.id} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-amber-50 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(p.id)}
+              onChange={() => toggle(p.id)}
+              className="accent-primary"
+            />
+            <span className="text-xs text-gray-700 truncate">{p.name}</span>
+          </label>
+        ))}
+      </div>
+      {selectedIds.length > 0 && (
+        <p className="text-[11px] text-amber-700 mt-1.5 font-semibold">{selectedIds.length} sabor(es) marcado(s)</p>
+      )}
+    </div>
+  );
+}
+
 // ── Form state ────────────────────────────────────────────────────────────────
 
 const FEATURED_LABEL_OPTIONS: { value: string; label: string }[] = [
@@ -329,6 +374,7 @@ const emptyForm = () => ({
   promoStartTime: "11:00" as string,
   promoEndTime: "14:00" as string,
   promoDays: ALL_DAYS as string,
+  promoFlavorIds: [] as string[],
   featuredLabel: "" as string,
   maxFlavors: "" as string,
   imageUrl: null as string | null,
@@ -506,6 +552,7 @@ export default function ProductsPage() {
       }
       if (form.featuredLabel) fd.append("featuredLabel", form.featuredLabel);
       if (form.maxFlavors) fd.append("maxFlavors", form.maxFlavors);
+      if (form.promoFlavorIds.length > 0) fd.append("promoFlavorIds", JSON.stringify(form.promoFlavorIds));
 
       // Image: send as imageUrl (base64) — not as file attachment
       if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
@@ -545,6 +592,7 @@ export default function ProductsPage() {
       promoDays: product.promoDays || ALL_DAYS,
       featuredLabel: product.featuredLabel || "",
       maxFlavors:  product.maxFlavors != null ? String(product.maxFlavors) : "",
+      promoFlavorIds: Array.isArray(product.promoFlavorIds) ? product.promoFlavorIds : [],
       imageUrl:    product.imageUrl    || null,
       imageZoom:   product.imageZoom   ?? 100,
       videoUrl:    product.videoUrl    || "",
@@ -599,6 +647,7 @@ export default function ProductsPage() {
       fd.append("promoDays", editPromoTimeEnabled ? editForm.promoDays : "");
       fd.append("featuredLabel", editForm.featuredLabel || "");
       fd.append("maxFlavors", editForm.maxFlavors || "");
+      fd.append("promoFlavorIds", editForm.promoFlavorIds.length > 0 ? JSON.stringify(editForm.promoFlavorIds) : "");
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
       fd.append("imageZoom", String(editForm.imageZoom));
@@ -795,6 +844,36 @@ export default function ProductsPage() {
               {isFormPizza && (
                 <div className="mb-5">
                   <SizesTable rows={formSizes} onChange={setFormSizes} />
+                </div>
+              )}
+
+              {/* Meio a meio em produto de preço único — ex: combo/promoção com
+                  preço fixo tipo "As Mais Mais do Dia" R$29,99. Separado do
+                  bloco "Sabores permitidos" de cima (esse é só pra produto
+                  pizza com tamanho) porque produto de preço único nunca teve
+                  UI nenhuma pra configurar isso antes. */}
+              {!isFormPizza && (
+                <div className="mb-5">
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Meio a meio neste produto (opcional)</label>
+                  <select
+                    value={form.maxFlavors}
+                    onChange={(e) => setForm({ ...form, maxFlavors: e.target.value })}
+                    className={inp}
+                  >
+                    {MAX_FLAVORS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Pra combo/promoção de preço fixo onde o cliente escolhe entre sabores (ex: "2 sabores por R$29,99").
+                  </p>
+                  {Number(form.maxFlavors) >= 2 && (
+                    <PromoFlavorPicker
+                      allProducts={products}
+                      selectedIds={form.promoFlavorIds}
+                      onChange={(ids) => setForm({ ...form, promoFlavorIds: ids })}
+                    />
+                  )}
                 </div>
               )}
 
@@ -1095,6 +1174,32 @@ export default function ProductsPage() {
                   <p className="text-[11px] text-gray-400 mt-1">
                     Trava em 1 sabor pula a borda do construtor e usa os Complementos já cadastrados pro produto.
                   </p>
+                </div>
+              )}
+
+              {!isEditPizza && (
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Meio a meio neste produto (opcional)</label>
+                  <select
+                    value={editForm.maxFlavors}
+                    onChange={(e) => setEditForm({ ...editForm, maxFlavors: e.target.value })}
+                    className={inp}
+                  >
+                    {MAX_FLAVORS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Pra combo/promoção de preço fixo onde o cliente escolhe entre sabores (ex: "2 sabores por R$29,99").
+                  </p>
+                  {Number(editForm.maxFlavors) >= 2 && (
+                    <PromoFlavorPicker
+                      allProducts={products}
+                      currentProductId={editProduct?.id}
+                      selectedIds={editForm.promoFlavorIds}
+                      onChange={(ids) => setEditForm({ ...editForm, promoFlavorIds: ids })}
+                    />
+                  )}
                 </div>
               )}
 

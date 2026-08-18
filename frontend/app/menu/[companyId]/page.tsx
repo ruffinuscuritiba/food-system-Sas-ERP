@@ -37,6 +37,10 @@ type Product = {
   // padrão do tamanho/categoria — controle explícito por produto, cadastrado
   // em /products, sobrepõe a herança de categoria.
   maxFlavors?: number | null;
+  // Sabores REAIS (IDs de outros Product) que valem o preço fixo desta
+  // promoção/combo — ver calcPizzaPrice(). Null/vazio = sem restrição
+  // (comportamento antigo: preço sempre fixo, qualquer sabor escolhido).
+  promoFlavorIds?: string[] | null;
 };
 
 /** Returns the minimum price across sizes (or salePrice when no sizes) */
@@ -1346,9 +1350,26 @@ export default function MenuPage() {
   }
 
   function calcPizzaPrice(flavors: Product[], size?: string) {
-    // Combo de promoção — preço nunca varia por sabor escolhido (nem soma,
-    // nem média do sabor avulso).
-    if (flavorModalComboProduct) return Number(flavorModalComboProduct.salePrice) || 0;
+    if (flavorModalComboProduct) {
+      const promoIds = flavorModalComboProduct.promoFlavorIds;
+      const promoPrice = Number(flavorModalComboProduct.salePrice) || 0;
+      // Sem lista de sabores cadastrada — preserva o comportamento antigo
+      // (preço sempre fixo, qualquer sabor escolhido vale a promoção).
+      if (!Array.isArray(promoIds) || promoIds.length === 0) return promoPrice;
+      // Achado real: cliente escolhendo metade de um sabor de FORA da
+      // promoção (ex: uma pizza de R$67,99) pagava o preço fixo da promoção
+      // pela pizza inteira — dando o sabor caro de graça. Agora cada metade
+      // contribui com seu próprio valor: metade que É da promoção usa
+      // promoPrice/n, metade que NÃO é usa o preço real do sabor/n. Com os 2
+      // sabores dentro da promoção, a soma bate exatamente no preço fixo
+      // (comportamento inalterado nesse caso).
+      const n = flavors.length || 1;
+      return flavors.reduce((sum, f) => {
+        const isPromoFlavor = promoIds.includes(f.id);
+        const contribution = isPromoFlavor ? promoPrice : (Number(f.salePrice) || 0);
+        return sum + contribution / n;
+      }, 0);
+    }
     const prices = flavors.map((f) => size ? getProductSizePrice(f, size) : Number(f.salePrice));
     if (theme.pizzaPricingMode === "HALF") {
       return prices.reduce((a, b) => a + b, 0) / prices.length;

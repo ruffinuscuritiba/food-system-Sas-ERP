@@ -147,6 +147,14 @@ export class CreateProductDto {
   @IsString()
   promoDays?: string;
 
+  /**
+   * JSON string: ["productId1", "productId2"] — sabores REAIS que valem o
+   * preço fixo desta promoção/combo. Sent as a FormData text field.
+   */
+  @IsOptional()
+  @IsString()
+  promoFlavorIds?: string;
+
   // Quantos sabores de pizza este produto permite (1-4). Vazio/undefined =
   // usa o padrão do tamanho/categoria (comportamento herdado).
   @IsOptional()

@@ -1443,12 +1443,19 @@ export class WhatsappAiService implements OnApplicationBootstrap {
   }
 
   /**
-   * Motor GREETER_ONLY: nunca chama Gemini/Anthropic/Claude — primeira
+   * Motor GREETER_ONLY: nunca chama Gemini/Anthropic/Claude — SÓ a primeira
    * mensagem da conversa recebe uma saudação fixa com o link do cardápio
-   * digital (mesmo texto que o usuário pediu como referência); qualquer
-   * mensagem seguinte recebe um lembrete curto, também fixo, reforçando o
-   * link e o atalho pra falar com um humano (transferKeywords já cobre isso
-   * de forma determinística, antes de chegar aqui). Zero custo de IA.
+   * digital; qualquer mensagem seguinte fica em silêncio (zero resposta).
+   *
+   * Antes disso, toda mensagem seguinte recebia um "lembrete" fixo repetindo
+   * o mesmo link — parecia proposital no código (reforçar o link), mas na
+   * prática saía repetindo a mesma frase em CIMA de qualquer coisa que o
+   * cliente mandasse depois (ex: cliente corrigindo o pedido — "mas pedi sem
+   * cebola" — recebia de volta o mesmo texto genérico, sem nenhuma relação),
+   * lendo como bot quebrado. Achado real reportado pelo usuário olhando uma
+   * conversa de cliente de verdade. `transferKeywords` (determinístico, roda
+   * ANTES desta função) continua cobrindo "atendente"/"humano" independente
+   * disso — não perde a saída pra falar com alguém.
    */
   private async runGreeterOnlyResponse(
     connection: WaConnection,
@@ -1460,16 +1467,15 @@ export class WhatsappAiService implements OnApplicationBootstrap {
     const assistantCount = await this.prisma.whatsappMessage.count({
       where: { conversationId: conv.id, role: 'ASSISTANT' },
     });
+    if (assistantCount > 0) return;
+
     const frontendUrl = this.config.get<string>('FRONTEND_URL');
     const menuLine =
       frontendUrl && companySlug
         ? `\n\n📋 Nosso cardápio completo: ${frontendUrl.replace(/\/$/, '')}/menu/${companySlug}`
         : '';
 
-    const msg =
-      assistantCount === 0
-        ? `${this.saudacaoPorHorario()}! 😊 Bem-vindo à ${companyName}! O que você vai querer hoje?${menuLine}`
-        : `Você pode fazer seu pedido direto pelo nosso cardápio digital, é rapidinho${menuLine}\n\nSe precisar falar com alguém da equipe, é só digitar "atendente".`;
+    const msg = `${this.saudacaoPorHorario()}! 😊 Bem-vindo à ${companyName}! O que você vai querer hoje?${menuLine}`;
 
     await this.sendAssistantReply(connection, conv, companyId, msg);
   }

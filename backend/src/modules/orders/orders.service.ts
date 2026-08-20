@@ -125,11 +125,20 @@ export class OrdersService {
     // Auditoria: sessão de caixa aberta no momento (se houver). Consultado
     // uma única vez e reaproveitado abaixo pra (a) travar venda em DINHEIRO
     // de balcão sem caixa aberto e (b) vincular o pedido via cashId.
-    const openCash = await this.prisma.cash.findFirst({
-      where: { companyId: data.companyId, isOpen: true },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
+    // data.cashId explícito (PDV Mercado, múltiplos caixas simultâneos) evita
+    // a ambiguidade do findFirst quando há mais de 1 caixa aberto ao mesmo
+    // tempo — sem ele (fluxo antigo de 1-caixa-por-vez), comportamento
+    // idêntico ao anterior.
+    const openCash = data.cashId
+      ? await this.prisma.cash.findFirst({
+          where: { id: data.cashId, companyId: data.companyId, isOpen: true },
+          select: { id: true },
+        })
+      : await this.prisma.cash.findFirst({
+          where: { companyId: data.companyId, isOpen: true },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
 
     // Trava escopada: NUNCA bloqueia iFood/Rappi/integrações (channel
     // explícito, ex: "IFOOD") — esses não passam pela gaveta física da loja.
@@ -788,6 +797,39 @@ export class OrdersService {
             });
 
             if (!recipe) {
+              // Produto de varejo (módulo Mercado) sem receita cadastrada —
+              // consome direto do estoque PRÓPRIO do produto em vez de
+              // pular silenciosamente. Opt-in explícito: só entra aqui
+              // quando `stock` não é null (produto configurado pra
+              // controle de estoque de varejo). Todo produto de restaurante
+              // pré-existente tem stock=null — continua "continue" 100%
+              // silencioso, zero mudança de comportamento.
+              if (orderItem.productId && orderItem.product?.stock !== null && orderItem.product?.stock !== undefined) {
+                const qty = Number(orderItem.quantity);
+                const unitCost = Number(orderItem.product.costPrice ?? 0);
+                const retailCmv = unitCost * qty;
+
+                await this.stockService.consumeProductStockTransactional(
+                  tx,
+                  {
+                    productId: orderItem.productId,
+                    quantity: qty,
+                    companyId: order.companyId,
+                    performedById: userId,
+                    reason: `Consumo automático pedido ${order.id}`,
+                    referenceId: order.id,
+                    referenceType: 'ORDER',
+                  },
+                );
+
+                await tx.orderItem.update({
+                  where: { id: orderItem.id },
+                  data: {
+                    cmv: retailCmv,
+                    profit: Number(orderItem.subtotal) - retailCmv,
+                  },
+                });
+              }
               continue;
             }
 
@@ -906,6 +948,22 @@ export class OrdersService {
             });
 
             if (!recipe) {
+              // Espelha o fallback de consumo (CONFIRMED acima) — produto de
+              // varejo sem receita restaura direto no Product.stock.
+              if (orderItem.productId && orderItem.product?.stock !== null && orderItem.product?.stock !== undefined) {
+                await this.stockService.restoreProductStockTransactional(
+                  tx,
+                  {
+                    productId: orderItem.productId,
+                    quantity: Number(orderItem.quantity),
+                    companyId: order.companyId,
+                    performedById: userId,
+                    reason: `Rollback cancelamento pedido ${order.id}`,
+                    referenceId: order.id,
+                    referenceType: 'ORDER',
+                  },
+                );
+              }
               continue;
             }
 

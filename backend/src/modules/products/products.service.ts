@@ -154,6 +154,16 @@ export class ProductsService {
 
         eanCode: data.eanCode ?? null,
 
+        isWeighted: data.isWeighted ?? false,
+
+        pricePerKg: data.pricePerKg ?? null,
+
+        pluCode: data.pluCode || null,
+
+        stock: data.stock ?? null,
+
+        minStock: data.minStock ?? null,
+
         company: {
           connect: {
             id: data.companyId,
@@ -294,6 +304,11 @@ export class ProductsService {
           productType: data.productType,
         }),
         ...(data.eanCode !== undefined && { eanCode: data.eanCode }),
+        ...(data.isWeighted !== undefined && { isWeighted: data.isWeighted }),
+        ...(data.pricePerKg !== undefined && { pricePerKg: data.pricePerKg }),
+        ...(data.pluCode !== undefined && { pluCode: data.pluCode || null }),
+        ...(data.stock !== undefined && { stock: data.stock }),
+        ...(data.minStock !== undefined && { minStock: data.minStock }),
         ...(data.categoryId !== undefined &&
           data.categoryId !== '' && {
             category: { connect: { id: data.categoryId } },

@@ -379,6 +379,11 @@ const emptyForm = () => ({
   featuredLabel: "" as string,
   maxFlavors: "" as string,
   productType: "standard" as string,
+  isWeighted: false as boolean,
+  pricePerKg: 0 as number,
+  pluCode: "" as string,
+  stock: "" as string,
+  minStock: "" as string,
   imageUrl: null as string | null,
   imageZoom: 100 as number,
   videoUrl: "" as string,
@@ -514,6 +519,7 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); fetchCategories(); fetchSegment(); }, [fetchProducts, fetchCategories, fetchSegment]);
   const showDailyMenuToggle = segmentHasDailyMenu(businessSegment);
+  const showMercadoFields = businessSegment === "MERCADO";
 
   // ── Sizes → payload ───────────────────────────────────────────────────────
   function sizesToPayload(rows: SizeRow[]) {
@@ -563,6 +569,13 @@ export default function ProductsPage() {
       if (form.maxFlavors) fd.append("maxFlavors", form.maxFlavors);
       fd.append("productType", form.productType || "standard");
       if (form.promoFlavorIds.length > 0) fd.append("promoFlavorIds", JSON.stringify(form.promoFlavorIds));
+      if (showMercadoFields) {
+        fd.append("isWeighted", String(form.isWeighted));
+        if (form.isWeighted) fd.append("pricePerKg", String(form.pricePerKg));
+        if (form.pluCode) fd.append("pluCode", form.pluCode);
+        if (form.stock !== "") fd.append("stock", form.stock);
+        if (form.minStock !== "") fd.append("minStock", form.minStock);
+      }
 
       // Image: send as imageUrl (base64) — not as file attachment
       if (form.imageUrl) fd.append("imageUrl", form.imageUrl);
@@ -603,6 +616,11 @@ export default function ProductsPage() {
       featuredLabel: product.featuredLabel || "",
       maxFlavors:  product.maxFlavors != null ? String(product.maxFlavors) : "",
       productType: product.productType || "standard",
+      isWeighted: !!product.isWeighted,
+      pricePerKg: Number(product.pricePerKg) || 0,
+      pluCode: product.pluCode || "",
+      stock: product.stock != null ? String(product.stock) : "",
+      minStock: product.minStock != null ? String(product.minStock) : "",
       promoFlavorIds: Array.isArray(product.promoFlavorIds) ? product.promoFlavorIds : [],
       imageUrl:    product.imageUrl    || null,
       imageZoom:   product.imageZoom   ?? 100,
@@ -660,6 +678,13 @@ export default function ProductsPage() {
       fd.append("maxFlavors", editForm.maxFlavors || "");
       fd.append("productType", editForm.productType || "standard");
       fd.append("promoFlavorIds", editForm.promoFlavorIds.length > 0 ? JSON.stringify(editForm.promoFlavorIds) : "");
+      if (showMercadoFields) {
+        fd.append("isWeighted", String(editForm.isWeighted));
+        if (editForm.isWeighted) fd.append("pricePerKg", String(editForm.pricePerKg));
+        fd.append("pluCode", editForm.pluCode || "");
+        if (editForm.stock !== "") fd.append("stock", editForm.stock);
+        if (editForm.minStock !== "") fd.append("minStock", editForm.minStock);
+      }
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
       fd.append("imageZoom", String(editForm.imageZoom));
@@ -845,6 +870,42 @@ export default function ProductsPage() {
                   </button>
                   <p className="text-[11px] text-gray-400 mt-1.5">
                     Mostra os grupos de Complementos do produto como checklist fixo (acompanhamentos sempre inclusos, pré-marcados) + destaque de "pode trocar" na proteína — no cardápio digital e no PDV.
+                  </p>
+                </div>
+              )}
+
+              {showMercadoFields && (
+                <div className="mb-5 border border-gray-200 rounded-xl p-4">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, isWeighted: !form.isWeighted })}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition mb-3 ${
+                      form.isWeighted
+                        ? "bg-blue-50 border-blue-300 text-blue-700"
+                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    ⚖️ Vendido por peso {form.isWeighted ? "(ativado)" : ""}
+                  </button>
+                  {form.isWeighted && (
+                    <MoneyField label="Preço por kg" value={form.pricePerKg} onChange={(v) => setForm({ ...form, pricePerKg: v })} />
+                  )}
+                  <div className="grid md:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Código PLU</label>
+                      <input type="text" value={form.pluCode} onChange={(e) => setForm({ ...form, pluCode: e.target.value })} className={inp} placeholder="Sem EAN — código interno" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Estoque inicial</label>
+                      <input type="text" inputMode="decimal" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className={inp} placeholder="Deixe em branco = sem controle" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Estoque mínimo</label>
+                      <input type="text" inputMode="decimal" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} className={inp} />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    Preencher "Estoque inicial" ativa o controle automático de estoque deste produto — some sozinho a cada venda no PDV.
                   </p>
                 </div>
               )}
@@ -1203,6 +1264,39 @@ export default function ProductsPage() {
                   >
                     🍽️ Prato do Dia {editForm.productType === "daily_menu" ? "(ativado)" : ""}
                   </button>
+                </div>
+              )}
+
+              {showMercadoFields && (
+                <div className="mb-3 border border-gray-200 rounded-xl p-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, isWeighted: !editForm.isWeighted })}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition mb-3 ${
+                      editForm.isWeighted
+                        ? "bg-blue-50 border-blue-300 text-blue-700"
+                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    ⚖️ Vendido por peso {editForm.isWeighted ? "(ativado)" : ""}
+                  </button>
+                  {editForm.isWeighted && (
+                    <MoneyField label="Preço por kg" value={editForm.pricePerKg} onChange={(v) => setEditForm({ ...editForm, pricePerKg: v })} />
+                  )}
+                  <div className="grid md:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Código PLU</label>
+                      <input type="text" value={editForm.pluCode} onChange={(e) => setEditForm({ ...editForm, pluCode: e.target.value })} className={inp} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Estoque</label>
+                      <input type="text" inputMode="decimal" value={editForm.stock} onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })} className={inp} placeholder="Em branco = sem controle" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Estoque mínimo</label>
+                      <input type="text" inputMode="decimal" value={editForm.minStock} onChange={(e) => setEditForm({ ...editForm, minStock: e.target.value })} className={inp} />
+                    </div>
+                  </div>
                 </div>
               )}
 

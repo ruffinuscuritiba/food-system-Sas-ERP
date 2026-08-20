@@ -163,4 +163,35 @@ export class CreateProductDto {
   )
   @IsNumber()
   maxFlavors?: number;
+
+  // ── Varejo (módulo Mercado) ──────────────────────────────────────────────
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  isWeighted?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? Number(value) : undefined,
+  )
+  @IsNumber()
+  pricePerKg?: number;
+
+  @IsOptional()
+  @IsString()
+  pluCode?: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? Number(value) : undefined,
+  )
+  @IsNumber()
+  stock?: number;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== '' ? Number(value) : undefined,
+  )
+  @IsNumber()
+  minStock?: number;
 }

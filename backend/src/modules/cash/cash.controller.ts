@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -20,14 +21,29 @@ export class CashController {
 
   @Get('current')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
-  current(@Request() req: any) {
-    return this.service.current(req.user.companyId);
+  current(@Request() req: any, @Query('cashId') cashId?: string) {
+    return this.service.current(req.user.companyId, cashId);
+  }
+
+  // Painel de controle interno (módulo Mercado) — todos os caixas abertos
+  // agora, com operador/saldo, pra visão de "até 5 caixas" ao vivo.
+  @Get('registers')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  listOpenRegisters(@Request() req: any) {
+    return this.service.listOpenRegisters(req.user.companyId);
   }
 
   @Post('open')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
   open(@Body() body: any, @Request() req: any) {
-    return this.service.open(body.openingValue, req.user.companyId);
+    return this.service.open(
+      body.openingValue,
+      req.user.companyId,
+      body.registerNumber != null ? Number(body.registerNumber) : undefined,
+      body.terminalName,
+      req.user.userId,
+      body.operatorName,
+    );
   }
 
   @Post('movement')
@@ -38,6 +54,7 @@ export class CashController {
       body.value,
       req.user.companyId,
       body.paymentMethod,
+      body.cashId,
     );
   }
 
@@ -51,6 +68,7 @@ export class CashController {
       req.user.companyId,
       req.user.userId ?? null,
       Number(body.declaredValue),
+      body.cashId,
     );
   }
 

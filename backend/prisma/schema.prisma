@@ -527,6 +527,24 @@ model Product {
   // EAN/código de barras para bebidas industrializadas
   eanCode String?
 
+  // ── Varejo (módulo Mercado) ──────────────────────────────────────────────
+  // Produto vendido por peso na balança (ex: carne, frios, hortifruti).
+  // Quando true, PDV Mercado pede o peso confirmado em vez de quantidade
+  // inteira, e o total é calculado como peso × pricePerKg.
+  isWeighted Boolean @default(false)
+  pricePerKg Decimal? @db.Decimal(10, 2)
+  // Código interno curto (PLU) — usado quando o produto não tem EAN
+  // (hortifruti/padaria pesados na balança do próprio mercado).
+  pluCode String?
+  // Estoque PRÓPRIO do produto de varejo — só é consumido/restaurado quando
+  // o produto NÃO tem Recipe cadastrada E `stock` não é null (opt-in
+  // explícito por produto, ver orders.service.ts updateStatus). NULL é o
+  // estado de todo produto existente hoje — nunca ativa sozinho. Não usar
+  // `trackStock` como gatilho: esse campo já é `true` por padrão em todo
+  // produto pré-existente (comportamento anterior, não relacionado a isso).
+  stock Decimal? @db.Decimal(10, 2)
+  minStock Decimal? @db.Decimal(10, 2)
+
   // Vídeo demonstrativo do produto (URL)
   videoUrl String?
   hasVideo Boolean @default(false)
@@ -585,6 +603,8 @@ model Product {
   tableOrderItems TableOrderItem[]
 
   catalogMaps ProductCatalogMap[]
+
+  stockMovements StockMovement[]
 
   createdAt DateTime @default(now())
 
@@ -1153,9 +1173,16 @@ model RecipeItem {
 model StockMovement {
   id String @id @default(cuid())
 
-  ingredientId String
+  // Nullable a partir do módulo Mercado: uma movimentação é de Ingredient
+  // (receita de restaurante, fluxo original) OU de Product (varejo direto,
+  // sem receita) — nunca os dois. Sempre um dos dois preenchido.
+  ingredientId String?
 
-  ingredient Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredient Ingredient? @relation(fields: [ingredientId], references: [id])
+
+  productId String?
+
+  product Product? @relation(fields: [productId], references: [id])
 
   companyId String
 
@@ -1188,6 +1215,8 @@ model StockMovement {
   @@index([companyId])
 
   @@index([ingredientId])
+
+  @@index([productId])
 
   @@index([type])
 
@@ -1269,6 +1298,15 @@ model Cash {
 
   closedAt DateTime?
 
+  // Suporte a múltiplos caixas simultâneos (módulo Mercado, "até 5 caixas").
+  // Null preserva 100% o comportamento antigo de 1-caixa-por-vez (restaurante/
+  // pizzaria) — todo código existente que faz findFirst(isOpen:true) sem
+  // filtrar por registerNumber continua funcionando exatamente igual.
+  registerNumber Int?
+  terminalName   String?
+  openedByUserId String?
+  openedByName   String?
+
   companyId String
 
   company Company @relation(fields: [companyId], references: [id])
@@ -1285,6 +1323,7 @@ model Cash {
   // Financeiro. Era o único índice sem composto na query mais frequente do
   // módulo de caixa.
   @@index([companyId, isOpen, createdAt])
+  @@index([companyId, registerNumber, isOpen])
 }
 
 model CompanyFiscalConfig {

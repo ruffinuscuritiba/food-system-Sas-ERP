@@ -5,14 +5,48 @@ import { PrismaService } from 'src/database/prisma.service';
 export class CashService {
   constructor(private prisma: PrismaService) {}
 
-  async current(companyId: string) {
+  // cashId explícito (PDV Mercado, múltiplos caixas) busca aquele registro
+  // específico. Sem ele, comportamento antigo (o mais recente aberto).
+  async current(companyId: string, cashId?: string) {
+    if (cashId) {
+      return this.prisma.cash.findFirst({ where: { id: cashId, companyId } });
+    }
     return this.prisma.cash.findFirst({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async open(openingValue: number, companyId: string) {
+  // Todos os caixas abertos AGORA — painel de controle (módulo Mercado,
+  // "até 5 caixas"). Vazio/lista de 1 item preserva o fluxo de restaurante.
+  async listOpenRegisters(companyId: string) {
+    return this.prisma.cash.findMany({
+      where: { companyId, isOpen: true },
+      orderBy: [{ registerNumber: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async open(
+    openingValue: number,
+    companyId: string,
+    registerNumber?: number,
+    terminalName?: string,
+    openedByUserId?: string,
+    openedByName?: string,
+  ) {
+    // registerNumber presente = fluxo multi-caixa (Mercado) — bloqueia abrir
+    // o MESMO número de caixa duas vezes; ausente = fluxo antigo, sem
+    // restrição nenhuma (idêntico ao comportamento anterior).
+    if (registerNumber != null) {
+      const already = await this.prisma.cash.findFirst({
+        where: { companyId, registerNumber, isOpen: true },
+      });
+      if (already) {
+        throw new BadRequestException(
+          `Caixa ${registerNumber} já está aberto.`,
+        );
+      }
+    }
     return this.prisma.cash.create({
       data: {
         openingValue,
@@ -20,6 +54,10 @@ export class CashService {
         entries: 0,
         exits: 0,
         isOpen: true,
+        registerNumber: registerNumber ?? null,
+        terminalName: terminalName ?? null,
+        openedByUserId: openedByUserId ?? null,
+        openedByName: openedByName ?? null,
         company: { connect: { id: companyId } },
       },
     });
@@ -35,6 +73,7 @@ export class CashService {
     value: number,
     companyId: string,
     paymentMethod?: string,
+    cashId?: string,
   ) {
     // Valida o tipo ANTES de qualquer leitura — um `type` diferente de
     // SUPPLY/WITHDRAW (typo, campo vazio, valor inesperado) sempre cai no
@@ -46,10 +85,16 @@ export class CashService {
       );
     }
 
-    const cash = await this.prisma.cash.findFirst({
-      where: { companyId, isOpen: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    // cashId explícito mira o caixa certo entre vários abertos ao mesmo
+    // tempo (Mercado); sem ele, mesmo lookup ambíguo de sempre (1 caixa).
+    const cash = cashId
+      ? await this.prisma.cash.findFirst({
+          where: { id: cashId, companyId, isOpen: true },
+        })
+      : await this.prisma.cash.findFirst({
+          where: { companyId, isOpen: true },
+          orderBy: { createdAt: 'desc' },
+        });
     if (!cash) return null;
 
     if (paymentMethod && paymentMethod !== 'CASH') {
@@ -72,11 +117,20 @@ export class CashService {
 
   // Fechamento às cegas: o operador informa o valor contado (declaredValue)
   // SEM ver o saldo do sistema. O sistema calcula a diferença só depois.
-  async close(companyId: string, userId: string | null, declaredValue: number) {
-    const cash = await this.prisma.cash.findFirst({
-      where: { companyId, isOpen: true },
-      orderBy: { createdAt: 'desc' },
-    });
+  async close(
+    companyId: string,
+    userId: string | null,
+    declaredValue: number,
+    cashId?: string,
+  ) {
+    const cash = cashId
+      ? await this.prisma.cash.findFirst({
+          where: { id: cashId, companyId, isOpen: true },
+        })
+      : await this.prisma.cash.findFirst({
+          where: { companyId, isOpen: true },
+          orderBy: { createdAt: 'desc' },
+        });
     if (!cash) return null;
 
     const systemValue = Number(cash.balance);

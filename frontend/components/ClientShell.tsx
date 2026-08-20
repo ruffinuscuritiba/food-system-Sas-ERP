@@ -142,6 +142,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     title: "Operação",
     items: [
       { href: "/pdv",            label: "PDV / Caixa", icon: <DollarSign size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], activeColor: "blue", navKey: "pdv" },
+      { href: "/mercado-controle", label: "Controle de Caixas", icon: <LayoutDashboard size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "mercado-controle" },
       { href: "/orders",         label: "Pedidos",     icon: <ShoppingCart size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER","DELIVERY"], navKey: "orders" },
       { href: "/kitchen",        label: "Cozinha",     icon: <CookingPot size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER","KITCHEN"], navKey: "kitchen" },
       { href: "/tables",         label: "Mesas",       icon: <Store size={16} />,        roles: ["SUPER_ADMIN","ADMIN","MANAGER","CASHIER"], moduleSlug: "tables", navKey: "tables" },
@@ -1195,7 +1196,10 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                 // sidebarConfig com true explícito ainda pode reativar manualmente.
                 (item.navKey !== "pizza-borders" ||
                   segmentSellsPizza(businessSegment) ||
-                  sidebarConfig["pizza-borders"] === true)
+                  sidebarConfig["pizza-borders"] === true) &&
+                // "Controle de Caixas" (múltiplos caixas simultâneos) só faz
+                // sentido pra Mercado — some da sidebar pros demais segmentos.
+                (item.navKey !== "mercado-controle" || businessSegment === "MERCADO")
               );
               if (visible.length === 0) return null;
               const isMarketplace = section.title === "Marketplace";
@@ -1228,13 +1232,21 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       const badge = isMatrix && item.moduleSlug
                         ? activeSlugs.includes(item.moduleSlug) ? "active" : "homologation"
                         : undefined;
+                      // Mercado tem frente de caixa própria (multi-caixa, produto
+                      // por peso) — visualmente independente do /pdv de comida,
+                      // por isso o item some do href estático e vira /pdv-mercado.
+                      const isMercadoPdv = item.href === "/pdv" && businessSegment === "MERCADO";
+                      const effectiveHref = isMercadoPdv ? "/pdv-mercado" : item.href;
+                      const effectiveLabel = item.href === "/complements"
+                        ? getComplementsLabel(businessSegment)
+                        : isMercadoPdv ? "Frente de Caixa" : item.label;
                       return (
                         <MenuItem
                           key={item.href}
-                          href={item.href}
+                          href={effectiveHref}
                           icon={item.icon}
-                          label={item.href === "/complements" ? getComplementsLabel(businessSegment) : item.label}
-                          active={currentHref === item.href}
+                          label={effectiveLabel}
+                          active={currentHref === effectiveHref}
                           activeColor={item.activeColor}
                           badge={badge as "active" | "homologation" | undefined}
                           onClick={() => setSidebarOpen(false)}

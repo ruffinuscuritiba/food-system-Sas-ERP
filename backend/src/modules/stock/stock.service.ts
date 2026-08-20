@@ -18,9 +18,107 @@ interface ConsumeIngredientPayload {
   referenceType?: string;
 }
 
+interface ConsumeProductStockPayload {
+  productId: string;
+  quantity: number;
+  companyId: string;
+  performedById: string;
+  reason?: string;
+  referenceId?: string;
+  referenceType?: string;
+}
+
 @Injectable()
 export class StockService {
   constructor(private prisma: PrismaService) {}
+
+  // Estoque PRÓPRIO do produto de varejo (módulo Mercado) — só chamado
+  // quando o produto NÃO tem Recipe cadastrada (ver orders.service.ts).
+  // Espelha consumeIngredientTransactional 1:1, trocando Ingredient por
+  // Product, sem tocar em nada do fluxo de restaurante existente.
+  async consumeProductStockTransactional(
+    tx: Prisma.TransactionClient,
+    payload: ConsumeProductStockPayload,
+  ) {
+    const product = await tx.product.findFirst({
+      where: { id: payload.productId, companyId: payload.companyId },
+    });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+
+    const currentStock = Number(product.stock ?? 0);
+    const quantity = Number(payload.quantity);
+    const newStock = currentStock - quantity;
+
+    if (newStock < 0 && !product.allowNegativeStock) {
+      throw new BadRequestException(
+        `Estoque insuficiente para ${product.name}`,
+      );
+    }
+
+    await tx.product.update({
+      where: { id: product.id },
+      data: { stock: newStock },
+    });
+
+    await tx.stockMovement.create({
+      data: {
+        productId: product.id,
+        companyId: payload.companyId,
+        type: StockMovementType.SALE,
+        quantity,
+        previousStock: currentStock,
+        currentStock: newStock,
+        unitCost: product.costPrice,
+        totalCost: Number(product.costPrice ?? 0) * quantity,
+        reason: payload.reason,
+        referenceId: payload.referenceId,
+        referenceType: payload.referenceType,
+        performedById: payload.performedById,
+        metadata: { source: 'automatic-order-consumption-retail' },
+      },
+    });
+
+    return { previousStock: currentStock, currentStock: newStock };
+  }
+
+  async restoreProductStockTransactional(
+    tx: Prisma.TransactionClient,
+    payload: ConsumeProductStockPayload,
+  ) {
+    const product = await tx.product.findFirst({
+      where: { id: payload.productId, companyId: payload.companyId },
+    });
+    if (!product) throw new NotFoundException('Produto não encontrado');
+
+    const currentStock = Number(product.stock ?? 0);
+    const quantity = Number(payload.quantity);
+    const newStock = currentStock + quantity;
+
+    await tx.product.update({
+      where: { id: product.id },
+      data: { stock: newStock },
+    });
+
+    await tx.stockMovement.create({
+      data: {
+        productId: product.id,
+        companyId: payload.companyId,
+        type: StockMovementType.RETURN,
+        quantity,
+        previousStock: currentStock,
+        currentStock: newStock,
+        unitCost: product.costPrice,
+        totalCost: Number(product.costPrice ?? 0) * quantity,
+        reason: payload.reason,
+        referenceId: payload.referenceId,
+        referenceType: payload.referenceType,
+        performedById: payload.performedById,
+        metadata: { source: 'cancelled-order-rollback-retail' },
+      },
+    });
+
+    return { previousStock: currentStock, currentStock: newStock };
+  }
 
   async consumeIngredientTransactional(
     tx: Prisma.TransactionClient,

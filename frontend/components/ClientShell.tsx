@@ -47,6 +47,7 @@ import {
   Volume2,
   WifiOff,
   Repeat,
+  GraduationCap,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -134,6 +135,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
   {
     items: [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard size={16} />, roles: [], activeColor: "green" },
+      { href: "/tutoriais", label: "Tutoriais", icon: <GraduationCap size={16} />, roles: [], navKey: "tutoriais" },
     ],
   },
   {

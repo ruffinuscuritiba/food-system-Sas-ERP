@@ -172,7 +172,14 @@ export default function ClientesPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    // admin-page: reaproveita as regras de :root.theme-dark .admin-page já
+    // existentes em globals.css (bg-white→surface-2, bg-gray-50/100→surface-1,
+    // text-gray-900/800/700/.../400→claro) — mesmo mecanismo que já converte
+    // /configuracoes e outras telas do painel do lojista, sem precisar tocar
+    // classe por classe nesta página (18 ocorrências de bg-white/bg-gray-*/
+    // text-gray-900 abaixo). Era a única página do super-admin que nunca
+    // tinha recebido o redesign escuro (item 121/138 nas outras).
+    <div className="admin-page min-h-screen bg-[var(--surface-0)]">
       <SuperAdminTopBar actions={
         <>
           <button onClick={() => load(1)} className={`flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 ${saBtn}`}>

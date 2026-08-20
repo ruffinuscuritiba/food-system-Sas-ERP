@@ -14,6 +14,7 @@ const Draggable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.
 import { CurrencyInputBR } from "@/components/ui/CurrencyInputBR";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import Link from "next/link";
+import { segmentHasDailyMenu } from "@/lib/segmentLabels";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -377,6 +378,7 @@ const emptyForm = () => ({
   promoFlavorIds: [] as string[],
   featuredLabel: "" as string,
   maxFlavors: "" as string,
+  productType: "standard" as string,
   imageUrl: null as string | null,
   imageZoom: 100 as number,
   videoUrl: "" as string,
@@ -388,6 +390,7 @@ export default function ProductsPage() {
   const [products, setProducts]     = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [businessSegment, setBusinessSegment] = useState<string | null>(null);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -480,6 +483,11 @@ export default function ProductsPage() {
     catch { /* silent */ }
   }, []);
 
+  const fetchSegment = useCallback(async () => {
+    try { const r = await api.get("/company/settings"); setBusinessSegment(r.data?.businessSegment ?? null); }
+    catch { /* silent */ }
+  }, []);
+
   // ── Reordenar dentro de uma categoria (drag-and-drop per-category) ──────────
   async function handleCatDragEnd(catId: string, result: any) {
     if (!result.destination) return;
@@ -504,7 +512,8 @@ export default function ProductsPage() {
     }
   }
 
-  useEffect(() => { fetchProducts(); fetchCategories(); }, [fetchProducts, fetchCategories]);
+  useEffect(() => { fetchProducts(); fetchCategories(); fetchSegment(); }, [fetchProducts, fetchCategories, fetchSegment]);
+  const showDailyMenuToggle = segmentHasDailyMenu(businessSegment);
 
   // ── Sizes → payload ───────────────────────────────────────────────────────
   function sizesToPayload(rows: SizeRow[]) {
@@ -552,6 +561,7 @@ export default function ProductsPage() {
       }
       if (form.featuredLabel) fd.append("featuredLabel", form.featuredLabel);
       if (form.maxFlavors) fd.append("maxFlavors", form.maxFlavors);
+      fd.append("productType", form.productType || "standard");
       if (form.promoFlavorIds.length > 0) fd.append("promoFlavorIds", JSON.stringify(form.promoFlavorIds));
 
       // Image: send as imageUrl (base64) — not as file attachment
@@ -592,6 +602,7 @@ export default function ProductsPage() {
       promoDays: product.promoDays || ALL_DAYS,
       featuredLabel: product.featuredLabel || "",
       maxFlavors:  product.maxFlavors != null ? String(product.maxFlavors) : "",
+      productType: product.productType || "standard",
       promoFlavorIds: Array.isArray(product.promoFlavorIds) ? product.promoFlavorIds : [],
       imageUrl:    product.imageUrl    || null,
       imageZoom:   product.imageZoom   ?? 100,
@@ -647,6 +658,7 @@ export default function ProductsPage() {
       fd.append("promoDays", editPromoTimeEnabled ? editForm.promoDays : "");
       fd.append("featuredLabel", editForm.featuredLabel || "");
       fd.append("maxFlavors", editForm.maxFlavors || "");
+      fd.append("productType", editForm.productType || "standard");
       fd.append("promoFlavorIds", editForm.promoFlavorIds.length > 0 ? JSON.stringify(editForm.promoFlavorIds) : "");
 
       if (editForm.imageUrl) fd.append("imageUrl", editForm.imageUrl);
@@ -817,6 +829,25 @@ export default function ProductsPage() {
                   <p className="text-[11px] text-gray-400 mt-1">Mostra um rótulo colorido no card do cardápio digital.</p>
                 </div>
               </div>
+
+              {showDailyMenuToggle && (
+                <div className="mb-5">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, productType: form.productType === "daily_menu" ? "standard" : "daily_menu" })}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${
+                      form.productType === "daily_menu"
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    🍽️ Prato do Dia {form.productType === "daily_menu" ? "(ativado)" : ""}
+                  </button>
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    Mostra os grupos de Complementos do produto como checklist fixo (acompanhamentos sempre inclusos, pré-marcados) + destaque de "pode trocar" na proteína — no cardápio digital e no PDV.
+                  </p>
+                </div>
+              )}
 
               {isFormPizza && (
                 <div className="mb-5">
@@ -1158,6 +1189,22 @@ export default function ProductsPage() {
                   </select>
                 </div>
               </div>
+
+              {showDailyMenuToggle && (
+                <div className="mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({ ...editForm, productType: editForm.productType === "daily_menu" ? "standard" : "daily_menu" })}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${
+                      editForm.productType === "daily_menu"
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    🍽️ Prato do Dia {editForm.productType === "daily_menu" ? "(ativado)" : ""}
+                  </button>
+                </div>
+              )}
 
               {isEditPizza && (
                 <div className="mb-3">

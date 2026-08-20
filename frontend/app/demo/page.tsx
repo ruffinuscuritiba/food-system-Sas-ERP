@@ -246,12 +246,18 @@ interface NicheInfo {
   emoji: string;
   image: string;
   features: { basic: string[]; pro: string[]; enterprise: string[] };
+  // Rótulo do módulo "Atributos do Produto" adaptado por nicho — mostrado
+  // como badge no Passo 2 e refletido dentro do próprio produto (sidebar +
+  // título de /complements, ver lib/segmentLabels.ts) pra quem tem esse
+  // businessSegment configurado.
+  moduleLabel: string;
 }
 
 const NICHES_DATA: Record<string, NicheInfo> = {
   Restaurantes: {
     emoji: "🍽️",
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Cardápio e Fichas Técnicas",
     features: {
       basic:      ["PDV rápido por mesa ou balcão", "Cardápio digital sem comissão", "Cozinha integrada em tempo real", "Controle de caixa diário"],
       pro:        ["Cupons e programa de fidelidade", "Relatórios de CMV por produto", "Ficha técnica e controle de estoque", "Relatórios de lucratividade"],
@@ -261,6 +267,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Pizzaria: {
     emoji: "🍕",
     image: "/demo-assets/banners/combos.jpg",
+    moduleLabel: "Regras de Sabores e Bordas",
     features: {
       basic:      ["Montagem de pizza com meio a meio", "Bordas recheadas por tamanho", "Impressão automática na produção", "PDV de balcão e delivery"],
       pro:        ["Controle de insumos por ingrediente", "Cupons de Sexta e Sábado à noite", "Fidelidade e cashback por pedido", "Relatório de CMV por sabor"],
@@ -270,6 +277,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Hamburgueria: {
     emoji: "🍔",
     image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Ponto da Carne e Combos",
     features: {
       basic:      ["Montagem com complementos (bacon, queijo...)", "PDV tátil para alta rotatividade", "KDS na cozinha sem papel", "Impressão de senha para retirada"],
       pro:        ["Combos automáticos com batata e bebida", "Controle de estoque de pães e carnes", "WhatsApp notifica quando o lanche saiu", "Fidelidade por carimbo digital"],
@@ -279,6 +287,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Lanchonetes: {
     emoji: "🥪",
     image: "https://images.unsplash.com/photo-1619740455993-9e612b1af08a?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Adicionais e Combos",
     features: {
       basic:      ["Frente de caixa veloz para balcão", "Cardápio digital com link próprio", "Controle de caixa e sangria", "Impressão automática na cozinha"],
       pro:        ["Complementos e adicionais por item", "Cupons e promoções do dia", "Controle de estoque por ingrediente", "Relatórios de lucro por produto"],
@@ -288,6 +297,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Churrascaria: {
     emoji: "🥩",
     image: "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Cortes e Rodízio",
     features: {
       basic:      ["Comanda por mesa com totalizador", "Rodízio: controle de saídas por corte", "Impressão de pedido para o churrasqueiro", "Caixa com fechamento por grupo"],
       pro:        ["Controle de peso e rendimento do corte", "Reservas e lista de espera digital", "Cupons para datas especiais", "Relatório de consumo médio por pessoa"],
@@ -297,6 +307,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Hotdogs: {
     emoji: "🌭",
     image: "https://images.unsplash.com/photo-1519984388953-d2406bc725e1?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Grade de Complementos",
     features: {
       basic:      ["Grade de complementos (milho, queijo, vinagrete...)", "KDS na chapa sem papelzinho sumindo", "PDV rápido para fila de balcão", "Controle de caixa simplificado"],
       pro:        ["Cardápio digital com foto e complementos", "Controle de estoque de pão e salsicha", "Cupons e combo promoção", "Relatório de itens mais vendidos"],
@@ -306,6 +317,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Marmitarias: {
     emoji: "🍱",
     image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Cardápio do Dia / Acompanhamentos Fixos",
     features: {
       basic:      ["PDV de montagem rápida (P/M/G)", "Link de pedidos online sem comissão", "Aviso automático de PIX recebido", "Impressão automática na cozinha"],
       pro:        ["Agrupamento de entregadores por bairro", "Programa de fidelidade integrado", "Controle de insumos (arroz, proteína, salada)", "Relatório de marmitas por período"],
@@ -315,6 +327,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Padaria: {
     emoji: "🥐",
     image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Venda por Peso, Unidade e Dúzia",
     features: {
       basic:      ["PDV rápido para balcão e caixa", "Venda por unidade, kg ou dúzia", "Controle de caixa de abertura às 6h", "Cardápio digital para delivery local"],
       pro:        ["Controle de estoque de farinha e insumos", "Cupons de café da manhã e promoção", "Programa de pontos para clientes fiéis", "Relatório de curva ABC por produto"],
@@ -324,6 +337,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Confeitaria: {
     emoji: "🎂",
     image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Montagem por Camadas / Peso",
     features: {
       basic:      ["Pedidos personalizados com observações", "Cardápio visual com fotos dos bolos", "Controle de agenda de retiradas", "Caixa com formas de pagamento variadas"],
       pro:        ["Controle de ingredientes e custo por bolo", "Cupons de aniversário e datas especiais", "Fidelidade com pontos por valor gasto", "Relatório de lucro por categoria"],
@@ -333,6 +347,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Pastelaria: {
     emoji: "🥟",
     image: "https://images.unsplash.com/photo-1626132647523-66f5bf380027?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Grade de Recheios",
     features: {
       basic:      ["Grade de recheios sem erro de comanda", "Impressão setorizada para fritadeira", "Painel de senhas para retirada", "PDV tátil de alta velocidade"],
       pro:        ["Controle de insumos por gramatura de recheio", "Cupons de fim de semana", "Cardápio digital com foto de cada pastel", "Upsell automático de bebidas"],
@@ -342,6 +357,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Açaí: {
     emoji: "🫐",
     image: "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Montagem por Camadas / Peso",
     features: {
       basic:      ["Grade de complementos (granola, morango, leite condensado...)", "Tamanhos de copo (300ml/500ml/700ml)", "PDV rápido para fila de balcão", "Cardápio digital com link próprio"],
       pro:        ["Controle de ficha técnica por tamanho", "Cupons e combos de açaí + crepe", "Programa de fidelidade por copo", "Controle de estoque de frutas e complementos"],
@@ -351,6 +367,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Conveniências: {
     emoji: "🏪",
     image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Código de Barras e Validade",
     features: {
       basic:      ["Leitura de código de barras EAN", "PDV rápido com preço automático", "Controle de caixa e troco", "Relatório de vendas por turno"],
       pro:        ["Controle de validade e lote de produtos", "Estoque com alerta de reposição", "Relatório de curva ABC por item", "Multi-forma de pagamento integrada"],
@@ -360,6 +377,7 @@ const NICHES_DATA: Record<string, NicheInfo> = {
   Mercados: {
     emoji: "🛒",
     image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=280&fit=crop&q=80",
+    moduleLabel: "Código de Barras e Prateleiras",
     features: {
       basic:      ["Scanner EAN na frente de caixa", "PDV com busca rápida por código/nome", "Controle de caixa e fechamento", "Cardápio online para delivery local"],
       pro:        ["Gestão de estoque com validade e lote", "Alerta automático de ruptura de prateleira", "Programa de fidelidade por compra", "Relatório de produtos mais vendidos"],
@@ -1733,6 +1751,12 @@ function DemoContent() {
             <h2 className="mt-4 text-2xl font-black tracking-tight text-white sm:text-3xl">
               Escolha um plano pra testar
             </h2>
+            <p className="mt-3 text-xs text-white/40">
+              No seu segmento, o módulo de atributos do produto vira{" "}
+              <span className="font-semibold text-white/70">
+                &ldquo;{(NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"]).moduleLabel}&rdquo;
+              </span>
+            </p>
           </div>
 
           {/* ── Plan cards ── */}

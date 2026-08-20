@@ -68,6 +68,7 @@ export class DemoNicheSeedService {
       update: {
         name: cfg.companyName,
         plan: cfg.segment,
+        businessSegment: cfg.segment,
         subscriptionStatus: 'ACTIVE',
         isBlocked: false,
         archivedAt: null,
@@ -77,6 +78,7 @@ export class DemoNicheSeedService {
         name: cfg.companyName,
         email: cfg.email,
         plan: cfg.segment,
+        businessSegment: cfg.segment,
         subscriptionStatus: 'ACTIVE',
         isBlocked: false,
       },

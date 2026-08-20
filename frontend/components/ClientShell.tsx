@@ -46,6 +46,7 @@ import {
   Bell,
   Volume2,
   WifiOff,
+  Repeat,
 } from "lucide-react";
 
 import toast, { Toaster } from "react-hot-toast";
@@ -55,6 +56,7 @@ import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { buildSupportUrl } from "@/config/support";
 import { QrLinksModal } from "@/components/shared/QrLinksModal";
+import { getComplementsLabel, segmentSellsPizza } from "@/lib/segmentLabels";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -165,6 +167,7 @@ const NAV_SECTIONS: { title?: string; items: NavItem[] }[] = [
     items: [
       { href: "/cadastro-inteligente", label: "Cadastro por Imagem", icon: <Sparkles size={16} />,  roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "smart-import" },
       { href: "/marketing",            label: "Marketing & Fidelização", icon: <Megaphone size={16} />, roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "marketing" },
+      { href: "/vendas-recorrentes",   label: "Vendas Recorrentes",     icon: <Repeat size={16} />,   roles: ["SUPER_ADMIN","ADMIN","MANAGER"], navKey: "vendas-recorrentes" },
     ],
   },
   {
@@ -232,6 +235,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
   const [companyName, setCompanyName] = useState("R_FoodSaaS ERP");
   const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [companyPlan, setCompanyPlan] = useState("");
+  const [businessSegment, setBusinessSegment] = useState<string | null>(null);
   const [impersonating, setImpersonating] = useState<{ companyName: string; companyId?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSlugs, setActiveSlugs] = useState<string[]>([]);
@@ -710,6 +714,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
           setSidebarConfig(cfg);
           setStoreSidebarConfig(cfg); // expõe para useNavKeyGuard
         }
+        if (r.data?.businessSegment) setBusinessSegment(r.data.businessSegment);
       })
       .catch(() => {});
 
@@ -1172,7 +1177,13 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                 canSee(item.roles) &&
                 canAccessModule(item.moduleSlug) &&
                 // sidebarConfig: false = hidden; undefined/true = show. Matriz nunca oculta.
-                (isMatrix || !item.navKey || sidebarConfig[item.navKey] !== false)
+                (isMatrix || !item.navKey || sidebarConfig[item.navKey] !== false) &&
+                // "Pizza / Bordas" só faz sentido pra quem vende pizza — segmento
+                // explícito (ex. CONVENIENCIA/ACAI) esconde por padrão, mas
+                // sidebarConfig com true explícito ainda pode reativar manualmente.
+                (item.navKey !== "pizza-borders" ||
+                  segmentSellsPizza(businessSegment) ||
+                  sidebarConfig["pizza-borders"] === true)
               );
               if (visible.length === 0) return null;
               const isMarketplace = section.title === "Marketplace";
@@ -1210,7 +1221,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                           key={item.href}
                           href={item.href}
                           icon={item.icon}
-                          label={item.label}
+                          label={item.href === "/complements" ? getComplementsLabel(businessSegment) : item.label}
                           active={currentHref === item.href}
                           activeColor={item.activeColor}
                           badge={badge as "active" | "homologation" | undefined}

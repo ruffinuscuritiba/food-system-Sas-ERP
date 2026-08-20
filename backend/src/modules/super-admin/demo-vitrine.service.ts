@@ -705,6 +705,15 @@ export class DemoVitrineService {
       darkMode: false,
     };
 
+    // basic/pro/enterprise são pizzarias reais (Bella Napoli/Don Corleone/
+    // Milano) — RESTAURANTE (default do schema) já é correto, mantém "Pizza
+    // / Bordas" visível na sidebar. delivery é a Marmita Express — sem isso
+    // ficava presa no default RESTAURANTE e mostrava "Pizza / Bordas" na
+    // sidebar de uma marmitaria (achado ao vivo pelo usuário testando /demo).
+    const SEGMENT_BY_ID: Record<string, string> = {
+      'demo-delivery-001': 'MARMITARIA',
+    };
+
     for (const cid of SAFE_DEMO_IDS) {
       const { primaryColor, secondaryColor } = DEMO_THEMES[cid];
 
@@ -714,6 +723,13 @@ export class DemoVitrineService {
         update: { primaryColor, secondaryColor, ...MARBLE_BASE },
         create: { companyId: cid, primaryColor, secondaryColor, ...MARBLE_BASE },
       });
+
+      if (SEGMENT_BY_ID[cid]) {
+        await this.prisma.company.update({
+          where: { id: cid },
+          data: { businessSegment: SEGMENT_BY_ID[cid] },
+        });
+      }
 
       // Ensure all modules are active (additive — never deactivates)
       for (const mod of ALL_MODULES) {

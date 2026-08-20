@@ -50,6 +50,7 @@ export class DemoConvenienciaSeedService {
       update: {
         name: 'Adega & Conveniência Point',
         plan: 'CONVENIENCIA',
+        businessSegment: 'CONVENIENCIA',
         subscriptionStatus: 'ACTIVE',
         isBlocked: false,
         archivedAt: null,
@@ -59,6 +60,7 @@ export class DemoConvenienciaSeedService {
         name: 'Adega & Conveniência Point',
         email: EMAIL,
         plan: 'CONVENIENCIA',
+        businessSegment: 'CONVENIENCIA',
         subscriptionStatus: 'ACTIVE',
         isBlocked: false,
       },

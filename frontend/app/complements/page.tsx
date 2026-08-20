@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
+import { getComplementsLabel } from "@/lib/segmentLabels";
 
 // DnD lazy
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -109,6 +110,7 @@ export default function ComplementsPage() {
   const [products,    setProducts]    = useState<any[]>([]);
   const [categories,  setCategories]  = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
+  const [businessSegment, setBusinessSegment] = useState<string | null>(null);
 
   const [modal, setModal]     = useState<"none" | "create" | "edit">("none");
   const [editId, setEditId]   = useState<string | null>(null);
@@ -132,8 +134,11 @@ export default function ComplementsPage() {
   }, []);
   const fetchProducts   = useCallback(async () => { try { const r = await api.get("/products");   setProducts(r.data || []); } catch {} }, []);
   const fetchCategories = useCallback(async () => { try { const r = await api.get("/categories"); setCategories(r.data || []); } catch {} }, []);
+  const fetchSegment    = useCallback(async () => { try { const r = await api.get("/company/settings"); setBusinessSegment(r.data?.businessSegment ?? null); } catch {} }, []);
 
-  useEffect(() => { fetchComplements(); fetchProducts(); fetchCategories(); }, [fetchComplements, fetchProducts, fetchCategories]);
+  useEffect(() => { fetchComplements(); fetchProducts(); fetchCategories(); fetchSegment(); }, [fetchComplements, fetchProducts, fetchCategories, fetchSegment]);
+
+  const complementsLabel = getComplementsLabel(businessSegment);
 
   // ── Agrupamento por escopo (para exibição) ───────────────────────────────────
 
@@ -303,7 +308,7 @@ export default function ComplementsPage() {
           <div className="flex items-center gap-3">
             <div className="bg-primary p-2.5 rounded-xl"><Settings2 size={20} className="text-white" /></div>
             <div>
-              <h1 className="text-2xl font-black text-gray-900">Complementos</h1>
+              <h1 className="text-2xl font-black text-gray-900">{complementsLabel}</h1>
               <p className="text-gray-400 text-sm">{complements.length} grupo{complements.length !== 1 ? "s" : ""} cadastrado{complements.length !== 1 ? "s" : ""}</p>
             </div>
           </div>

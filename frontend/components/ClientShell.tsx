@@ -686,6 +686,16 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user?.companyId) return;
+    // /super-admin/* nunca deve herdar o tema de uma empresa qualquer — mas
+    // `useAuthStore().user` é global (Zustand), sobrevive à navegação. Se o
+    // mesmo navegador já logou numa empresa normal antes (ex.: testar
+    // /pdv/whatsapp-ia como ADMIN), esse companyId ficava em localStorage
+    // e este efeito rodava mesmo em /super-admin — o fetch assíncrono de
+    // `/company/:id` chegava DEPOIS do script anti-FOUC do layout e
+    // REMOVIA .theme-dark de novo se aquela empresa não tivesse darkMode
+    // ativo (causa raiz real do "desconfigurado", achado ao vivo em
+    // /super-admin/visitas — o fix de FOUC sozinho não bastava).
+    if (pathname?.startsWith("/super-admin")) return;
     const cid = user.companyId;
 
     // Demo companies: apply hardcoded visual identity immediately,

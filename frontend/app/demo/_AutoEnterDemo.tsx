@@ -23,7 +23,10 @@ export default function AutoEnterDemo({ accountId }: { accountId: string }) {
         localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(user));
         toast.success(`Abrindo demo ${demo?.label ?? accountId}…`);
-        router.push("/pdv");
+        // Mercado tem frente de caixa própria (multi-caixa, produto por
+        // peso) — visualmente independente do PDV de comida, não faz
+        // sentido a demo abrir na tela errada.
+        router.push(demo?.plan === "MERCADO" ? "/pdv-mercado" : "/pdv");
       } catch (err: any) {
         const msg =
           err?.response?.data?.message ||

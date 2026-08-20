@@ -18,9 +18,18 @@ jobs:
           timeout: 30s
           command_timeout: 60s
           script: |
-            echo "── docker ps ──"
-            docker ps --filter name=foodsaas-backend-backend-1
-            echo "── logs (últimas 120 linhas) ──"
-            docker logs --tail 120 foodsaas-backend-backend-1
-            echo "── health interno (dentro do container) ──"
-            docker exec foodsaas-backend-backend-1 wget -qO- http://localhost:3001/api/health || echo "wget falhou"
+            cat > /tmp/c.js << 'JSEOF'
+            const { PrismaClient } = require('@prisma/client');
+            const prisma = new PrismaClient();
+            async function main() {
+              const c = await prisma.company.findUnique({
+                where: { id: 'demo-mercado-001' },
+                select: { id: true, name: true, businessSegment: true, plan: true },
+              });
+              console.log('demo-mercado-001:', JSON.stringify(c));
+            }
+            main().catch(e=>console.error(e)).finally(()=>prisma.$disconnect());
+            JSEOF
+            docker cp /tmp/c.js foodsaas-backend-backend-1:/app/c.js
+            docker exec -w /app foodsaas-backend-backend-1 node c.js
+            docker exec foodsaas-backend-backend-1 rm -f /app/c.js

@@ -13,8 +13,9 @@ import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { MenuAnalyticsService } from './menu-analytics.service';
 import {
   getStartOfTodayBrazil,
-  parseBrazilDateStart,
   parseBrazilDateEnd,
+  parseBrazilFlexibleStart,
+  parseBrazilFlexibleEnd,
   toBrazilDateKey,
 } from '@/common/utils/timezone';
 
@@ -42,13 +43,13 @@ export class MenuAnalyticsController {
   ) {
     const range = {
       from: from
-        ? parseBrazilDateStart(from)
+        ? parseBrazilFlexibleStart(from)
         : (() => {
             const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
+      to: to ? parseBrazilFlexibleEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.service.getSummary(req.user.companyId, range.from, range.to);
   }

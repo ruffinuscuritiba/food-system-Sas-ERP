@@ -2784,7 +2784,7 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
         : '';
       const msg =
         `🍕 Oi${firstName ? ` ${firstName}` : ''}! Seu pedido foi entregue!\n\n` +
-        `Como ficou? Conta pra gente — elogio, sugestão ou o que achar, sua opinião nos ajuda a melhorar sempre! 🙏`;
+        `De 1 a 5, qual nota você dá pro seu pedido? Pode mandar só o número (ex: 5) e, se quiser, contar o que achou também — sua opinião nos ajuda a melhorar sempre! 🙏`;
 
       const sent = await this.dispatchMessage(connection, raw, msg);
       if (!sent) return;
@@ -2832,6 +2832,33 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
   }
 
   /**
+   * Pesquisa de satisfação formal (nota 1-5) — extração determinística, sem
+   * custo de IA. Casa um dígito 1-5 isolado (com ou sem "nota"/"estrela(s)"
+   * ao redor: "5", "nota 5", "5 estrelas", "05"). Nunca extrai de dentro de
+   * uma frase maior sem contexto claro de nota, pra não confundir com preço/
+   * quantidade mencionados no texto livre ("comprei 5 pizzas" não vira nota 5).
+   */
+  private extractRating(text: string): number | null {
+    const t = text.trim().toLowerCase();
+
+    // Resposta é só o número (o caso mais comum: cliente manda "5")
+    const bare = t.match(/^0?([1-5])$/);
+    if (bare) return Number(bare[1]);
+
+    // "nota 5", "nota: 5", "5 estrelas", "★★★★★" (conta estrelas)
+    const withLabel = t.match(/nota\s*[:\-]?\s*0?([1-5])\b/);
+    if (withLabel) return Number(withLabel[1]);
+
+    const withStars = t.match(/^0?([1-5])\s*(estrela|star|★)/);
+    if (withStars) return Number(withStars[1]);
+
+    const starChars = (text.match(/★|⭐/g) ?? []).length;
+    if (starChars >= 1 && starChars <= 5) return starChars;
+
+    return null;
+  }
+
+  /**
    * Intercepta a resposta do cliente quando há um DeliveryFeedback pendente
    * pro mesmo telefone/empresa (janela de 24h). Retorna true se tratou a
    * mensagem aqui (o caller deve parar o processamento normal da IA).
@@ -2856,13 +2883,22 @@ ${menuCtx || '(cardápio de exemplo indisponível)'}`;
       });
       if (!pending) return false;
 
-      const sentiment = this.classifyFeedbackSentiment(text);
+      // Nota 1-5 tem prioridade sobre a classificação por palavra-chave —
+      // é um sinal explícito e inequívoco do cliente, quando presente.
+      const rating = this.extractRating(text);
+      const sentiment =
+        rating !== null
+          ? rating <= 2
+            ? 'NEGATIVE'
+            : 'POSITIVE'
+          : this.classifyFeedbackSentiment(text);
       await (this.prisma as any).deliveryFeedback.update({
         where: { id: pending.id },
         data: {
           respondedAt: new Date(),
           responseText: text.slice(0, 1000),
           sentiment,
+          rating,
         },
       });
 

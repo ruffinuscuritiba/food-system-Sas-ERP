@@ -58,6 +58,7 @@ interface Product {
   eanCode?: string | null;
   maxFlavors?: number | null;
   promoFlavorIds?: string[] | null;
+  productType?: string;
 }
 
 interface SelectedComplement {
@@ -2120,6 +2121,7 @@ export default function PDVPage() {
 
       <ComplementsModal open={!!complementProduct} productName={complementProduct?.name ?? ""} productBasePrice={Number(complementProduct?.salePrice ?? 0)}
         groups={loadedComplements as any} loading={complementLoading} theme="dark"
+        dailyMenuStyle={complementProduct?.productType === "daily_menu"}
         onClose={() => { setComplementProduct(null); setComplementSelections({}); }}
         onConfirm={(sel) => { addCartItem(complementProduct!, sel as any); setComplementProduct(null); setComplementSelections({}); }} />
 

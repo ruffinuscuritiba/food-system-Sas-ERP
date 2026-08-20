@@ -51,11 +51,17 @@ export interface FeedbackStats {
   positive: number;
   negative: number;
   satisfactionRate: number;
+  // Pesquisa de satisfação formal (nota 1-5) — null quando ninguém ainda
+  // respondeu com um número (nunca fabricado a partir do sentimento).
+  averageRating: number | null;
+  ratingCount: number;
+  ratingDistribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
   recent: {
     id: string;
     customerName: string | null;
     responseText: string | null;
     sentiment: string | null;
+    rating: number | null;
     respondedAt: string | null;
     createdAt: string;
   }[];
@@ -498,7 +504,7 @@ export class ReportsService {
   // isso "satisfactionRate" é % de respostas positivas, não uma média de
   // estrelas — evita fabricar uma nota que o sistema não mede de verdade.
   async getFeedbackStats(companyId: string): Promise<FeedbackStats> {
-    const [totalRequested, responded, positive, negative, recent] =
+    const [totalRequested, responded, positive, negative, ratedRows, recent] =
       await Promise.all([
         this.prisma.deliveryFeedback.count({ where: { companyId } }),
         this.prisma.deliveryFeedback.count({
@@ -511,6 +517,10 @@ export class ReportsService {
           where: { companyId, sentiment: 'NEGATIVE' },
         }),
         this.prisma.deliveryFeedback.findMany({
+          where: { companyId, rating: { not: null } },
+          select: { rating: true },
+        }),
+        this.prisma.deliveryFeedback.findMany({
           where: { companyId, respondedAt: { not: null } },
           orderBy: { respondedAt: 'desc' },
           take: 20,
@@ -519,6 +529,7 @@ export class ReportsService {
             customerName: true,
             responseText: true,
             sentiment: true,
+            rating: true,
             respondedAt: true,
             createdAt: true,
           },
@@ -527,6 +538,17 @@ export class ReportsService {
 
     const sentimentTotal = positive + negative;
 
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let ratingSum = 0;
+    for (const row of ratedRows) {
+      const r = row.rating as 1 | 2 | 3 | 4 | 5;
+      if (r >= 1 && r <= 5) {
+        ratingDistribution[r]++;
+        ratingSum += r;
+      }
+    }
+    const ratingCount = ratedRows.length;
+
     return {
       totalRequested,
       totalResponded: responded,
@@ -534,11 +556,101 @@ export class ReportsService {
       positive,
       negative,
       satisfactionRate: sentimentTotal > 0 ? positive / sentimentTotal : 0,
+      averageRating: ratingCount > 0 ? parseFloat((ratingSum / ratingCount).toFixed(2)) : null,
+      ratingCount,
+      ratingDistribution,
       recent: recent.map((r) => ({
         ...r,
         respondedAt: r.respondedAt?.toISOString() ?? null,
         createdAt: r.createdAt.toISOString(),
       })),
     };
+  }
+
+  // ─── Mapa de calor de pedidos por bairro/zona ──────────────────────────────
+  // Agrega Order+OnlineOrder (mesmo padrão unificado do resto do módulo, ver
+  // getRevenue/getProductRanking) por bairro num intervalo, e cruza com
+  // DeliveryZone (lat/lng já cadastrados, item 109) quando existir zona com
+  // o mesmo nome de bairro — nunca inventa coordenada pra bairro sem zona
+  // cadastrada, esses ficam de fora do mapa (só aparecem na lista/tabela).
+  async getOrderHeatmap(
+    companyId: string,
+    from: Date,
+    to: Date,
+  ): Promise<{
+    neighborhoods: {
+      neighborhood: string;
+      orderCount: number;
+      revenue: number;
+      lat: number | null;
+      lng: number | null;
+    }[];
+    unmappedCount: number;
+  }> {
+    const [pdvGroups, onlineGroups, zones] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['neighborhood'],
+        where: {
+          companyId,
+          createdAt: { gte: from, lte: to },
+          status: { not: 'CANCELLED' },
+          neighborhood: { not: null },
+        },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      this.prisma.onlineOrder.groupBy({
+        by: ['neighborhood'],
+        where: {
+          companyId,
+          createdAt: { gte: from, lte: to },
+          orderStatus: { not: 'CANCELED' },
+          neighborhood: { not: null },
+        },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      this.prisma.deliveryZone.findMany({
+        where: { companyId, lat: { not: null }, lng: { not: null } },
+        select: { neighborhood: true, lat: true, lng: true },
+      }),
+    ]);
+
+    const zoneByNeighborhood = new Map<string, { lat: number; lng: number }>();
+    for (const z of zones) {
+      if (z.neighborhood && z.lat != null && z.lng != null) {
+        zoneByNeighborhood.set(z.neighborhood.trim().toLowerCase(), {
+          lat: Number(z.lat),
+          lng: Number(z.lng),
+        });
+      }
+    }
+
+    const merged = new Map<string, { orderCount: number; revenue: number }>();
+    for (const g of [...pdvGroups, ...onlineGroups]) {
+      const name = (g.neighborhood ?? '').trim();
+      if (!name) continue;
+      const current = merged.get(name) ?? { orderCount: 0, revenue: 0 };
+      current.orderCount += g._count._all;
+      current.revenue += Number(g._sum.total ?? 0);
+      merged.set(name, current);
+    }
+
+    let unmappedCount = 0;
+    const neighborhoods = Array.from(merged.entries())
+      .map(([neighborhood, data]) => {
+        const zone = zoneByNeighborhood.get(neighborhood.toLowerCase());
+        if (!zone) unmappedCount++;
+        return {
+          neighborhood,
+          orderCount: data.orderCount,
+          revenue: parseFloat(data.revenue.toFixed(2)),
+          lat: zone?.lat ?? null,
+          lng: zone?.lng ?? null,
+        };
+      })
+      .sort((a, b) => b.orderCount - a.orderCount);
+
+    return { neighborhoods, unmappedCount };
   }
 }

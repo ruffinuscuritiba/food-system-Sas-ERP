@@ -8,6 +8,7 @@ import { PrismaService } from '@/database/prisma.service';
 import { OrdersService } from '@/modules/orders/orders.service';
 import { IntegrationProviderFactory } from './providers/integration-provider.factory';
 import { IntegrationEvent } from './providers/integration-provider.interface';
+import { FiscalSplitOrchestrationService } from '@/modules/fiscal-split/fiscal-split-orchestration.service';
 
 @Injectable()
 export class IntegrationsService {
@@ -17,6 +18,7 @@ export class IntegrationsService {
     private readonly prisma: PrismaService,
     private readonly ordersService: OrdersService,
     private readonly providerFactory: IntegrationProviderFactory,
+    private readonly fiscalSplit: FiscalSplitOrchestrationService,
   ) {}
 
   // ── Config ──────────────────────────────────────────────────────────────
@@ -717,6 +719,24 @@ export class IntegrationsService {
     this.logger.log(
       `[Integrations] ORDER_CREATED: external=${event.externalOrderId} → internal=${order.id} provider=${providerName}`,
     );
+
+    // Registro fiscal informativo (Split Payment / IBS-CBS) — no-op enquanto
+    // o tenant não tiver TaxConfiguration.isActive=true. Nunca dispara
+    // retenção real de dinheiro: o FoodSaaS não recebe o valor de pedido de
+    // marketplace, ver FiscalSplitOrchestrationService.
+    setImmediate(() => {
+      const gross = parseFloat(Number((order as any).total ?? 0).toFixed(2));
+      if (gross > 0) {
+        this.fiscalSplit
+          .maybeRecordMarketplaceSale(companyId, {
+            externalOrderId: event.externalOrderId,
+            integrationProvider: providerName,
+            baseAmount: gross,
+            paymentMethod: event.paymentMethod,
+          })
+          .catch((e) => this.logger.warn(`[FISCAL] maybeRecordMarketplaceSale falhou: ${e?.message}`));
+      }
+    });
   }
 
   private async handleStatusChanged(

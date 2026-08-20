@@ -200,6 +200,21 @@ model Company {
 
   fiscalConfig CompanyFiscalConfig?
 
+  // ── Vendas Recorrentes (Pacotes/Assinaturas) ──────────────────────────
+  salesPackages         SalesPackage[]
+  packageSubscriptions  PackageSubscription[]
+  packageBillings       PackageBilling[]
+
+  // ── Split Payment / IBS-CBS (Reforma Tributária) — estrutura pronta,
+  // inerte por padrão (TaxConfiguration.isActive=false). Ver docs/fiscal/.
+  taxConfiguration  TaxConfiguration?
+  taxTransactions   TaxTransaction[]
+  taxDocuments      TaxDocument[]
+  taxSplitAllocations TaxSplitAllocation[]
+  taxSettlements    TaxSettlement[]
+  taxRefunds        TaxRefund[]
+  taxAdjustments    TaxAdjustment[]
+
   auditLogs AuditLog[]
 
   loyaltyAccounts LoyaltyAccount[]
@@ -742,6 +757,9 @@ model Order {
 
   // ID externo para idempotência em integrações (ex: orderId do iFood)
   externalOrderId String? @unique
+
+  // Split Payment / IBS-CBS — 0:N por venda própria (estrutura inerte, ver Company.taxConfiguration)
+  taxTransactions TaxTransaction[]
 
   createdAt DateTime @default(now())
 
@@ -1918,6 +1936,10 @@ model OnlineOrder {
   // DriverEarning em pedido do cardápio digital entregue pelo app.
   driverFee               Decimal? @db.Decimal(10, 2)
   driverEarning           DriverEarning?
+
+  // Split Payment / IBS-CBS — 0:N por venda própria (estrutura inerte, ver Company.taxConfiguration)
+  taxTransactions         TaxTransaction[]
+
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
@@ -2041,6 +2063,12 @@ model DeliveryFeedback {
   respondedAt    DateTime?
   responseText   String?   @db.Text
   sentiment      String?   // "POSITIVE" | "NEGATIVE"
+  // Nota 1-5 extraída da resposta (pesquisa de satisfação formal), quando o
+  // cliente respondeu com um número — null quando só respondeu texto livre.
+  // sentiment continua sendo a fonte de verdade pro gate de link do Google
+  // (rating<=2 força NEGATIVE, rating>=3 força POSITIVE — ver
+  // classifyFeedbackSentiment em whatsapp-ai.service.ts).
+  rating         Int?
   reviewLinkSent Boolean   @default(false)
   // Snapshotado no momento do pedido de feedback (não recalculado depois) —
   // decide se a mensagem de avaliação também convida a seguir o Instagram.
@@ -2346,6 +2374,336 @@ model WalletRepasse {
   @@index([companyId])
   @@index([status])
   @@index([scheduledFor])
+}
+
+// ─── Vendas Recorrentes (Pacotes/Assinaturas) ──────────────────────────────────
+// Cobrança de cada ciclo reaproveita 100% o pipeline de OnlineOrder+PIX já
+// existente (webhook MP, crédito na Wallet, split fiscal) — PackageBilling só
+// referencia o onlineOrderId gerado, nunca duplica lógica de pagamento.
+
+enum PackageBillingCycle {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum PackageSubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum PackageBillingStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+model SalesPackage {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  name        String
+  description String?
+  price       Decimal             @db.Decimal(10, 2)
+  billingCycle PackageBillingCycle @default(MONTHLY)
+
+  // Itens incluídos por ciclo (referência/exibição) — algumas lojas vendem
+  // crédito genérico em vez de itens fixos, por isso opcional.
+  includedItems Json?
+
+  isActive Boolean @default(true)
+
+  subscriptions PackageSubscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, isActive])
+}
+
+model PackageSubscription {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  packageId String
+  package   SalesPackage @relation(fields: [packageId], references: [id])
+
+  customerPhone String
+  customerName  String?
+
+  status        PackageSubscriptionStatus @default(ACTIVE)
+  startedAt     DateTime                  @default(now())
+  nextBillingAt DateTime
+  pausedAt      DateTime?
+  cancelledAt   DateTime?
+
+  billings PackageBilling[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([status, nextBillingAt])
+  @@index([companyId, customerPhone])
+}
+
+model PackageBilling {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  subscriptionId String
+  subscription   PackageSubscription @relation(fields: [subscriptionId], references: [id])
+
+  cycleNumber Int
+  amount      Decimal               @db.Decimal(10, 2)
+  status      PackageBillingStatus  @default(PENDING)
+  dueDate     DateTime
+  paidAt      DateTime?
+
+  // Cobrança real (PIX) — vínculo 1:1 com o OnlineOrder gerado pelo cron.
+  onlineOrderId String? @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+// ─── Split Payment / IBS-CBS (Reforma Tributária do Consumo) ──────────────────
+// Estrutura preparada para IBS/CBS e Split Payment, cobrindo tanto venda
+// própria (PDV/cardápio/mesa/WhatsApp, dinheiro passa pela Wallet) quanto
+// marketplace (iFood/99Food, dinheiro liquidado fora do FoodSaaS) — ver
+// FiscalSaleChannel. INERTE por padrão: nenhum cálculo roda em produção
+// enquanto TaxConfiguration.isActive=false (aguardando obrigatoriedade legal
+// e pedido explícito do usuário para ativar). Não inventar alíquota, endpoint
+// ou regra oficial da Receita Federal/CGIBS — ver docs/fiscal/.
+
+enum FiscalOperationStatus {
+  PENDING
+  AUTHORIZED
+  PROCESSING
+  CALCULATED
+  SETTLED
+  PARTIALLY_SETTLED
+  FAILED
+  REVERSED
+  REFUNDED
+  CANCELLED
+}
+
+enum FiscalSaleChannel {
+  OWN_SALE    // PDV, cardápio digital, mesa, WhatsApp — dinheiro passa pela Wallet
+  MARKETPLACE // iFood, 99Food etc — dinheiro liquidado fora do FoodSaaS
+}
+
+model TaxConfiguration {
+  id String @id @default(cuid())
+
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id])
+
+  // Kill switch — nada no motor fiscal calcula/dispara enquanto for false.
+  isActive Boolean @default(false)
+
+  // Escopo de aplicação — permite ativar só venda própria, só marketplace, ou os dois.
+  appliesToOwnSales    Boolean @default(true)
+  appliesToMarketplace Boolean @default(true)
+
+  // Regime/alíquotas — nulos até a especificação oficial existir e o usuário
+  // confirmar; o motor de cálculo (fase futura) nunca assume default aqui.
+  regime  String?
+  ibsRate Decimal? @db.Decimal(6, 4)
+  cbsRate Decimal? @db.Decimal(6, 4)
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxTransaction {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  channel FiscalSaleChannel
+
+  // Venda própria — vínculo com Order OU OnlineOrder (nunca os dois).
+  orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  onlineOrderId String?
+  onlineOrder   OnlineOrder? @relation(fields: [onlineOrderId], references: [id])
+
+  // Marketplace — IntegrationOrder ainda não tem relação formal aqui de
+  // propósito (evita acoplar o domínio fiscal ao módulo de integrations);
+  // referência guardada como texto, resolvida em runtime quando necessário.
+  externalOrderId      String?
+  integrationProvider  String? // espelha IntegrationProvider (IFOOD | NINETY_NINE_FOOD | ...)
+
+  baseAmount Decimal @db.Decimal(10, 2)
+
+  ibsRate   Decimal? @db.Decimal(6, 4)
+  ibsAmount Decimal? @db.Decimal(10, 2)
+  cbsRate   Decimal? @db.Decimal(6, 4)
+  cbsAmount Decimal? @db.Decimal(10, 2)
+
+  status            FiscalOperationStatus @default(PENDING)
+  competencePeriod  String? // ex: "2026-08"
+
+  taxDocumentId String?
+  taxDocument   TaxDocument? @relation(fields: [taxDocumentId], references: [id])
+
+  splitAllocations TaxSplitAllocation[]
+  refunds          TaxRefund[]
+  adjustments      TaxAdjustment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, channel])
+  @@index([orderId])
+  @@index([onlineOrderId])
+  @@index([externalOrderId])
+}
+
+model TaxDocument {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  // Tipo/modelo do documento — aguardando definição oficial da reforma
+  // (pode acabar reaproveitando NFC-e/NF-e via CompanyFiscalConfig, ou um
+  // modelo próprio ainda não publicado). Texto livre até então.
+  documentType        String?
+  externalDocumentId  String?
+
+  status       FiscalOperationStatus @default(PENDING)
+  issuedAt     DateTime?
+  cancelledAt  DateTime?
+  rawPayload   Json?
+
+  transactions TaxTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+}
+
+model TaxSplitAllocation {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  taxTransactionId String
+  taxTransaction   TaxTransaction @relation(fields: [taxTransactionId], references: [id])
+
+  // Nome do ISplitPaymentProvider que processou (NOOP/MANUAL enquanto não
+  // houver integração oficial — ver providers/fiscal-split/).
+  provider String?
+  status   FiscalOperationStatus @default(PENDING)
+
+  grossAmount      Decimal  @db.Decimal(10, 2)
+  segregatedAmount Decimal? @db.Decimal(10, 2) // tributo retido/segregado
+  netAmount        Decimal? @db.Decimal(10, 2) // valor líquido do estabelecimento
+
+  // Vínculo com a liquidação financeira já existente (Wallet), quando a
+  // venda for OWN_SALE — nunca duplica a lógica de WalletTransaction.
+  walletTransactionId String?
+
+  externalReference String?
+  gatewayResponse   Json?
+
+  authorizedAt DateTime?
+  executedAt   DateTime?
+  reversedAt   DateTime?
+
+  settlements TaxSettlement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([taxTransactionId])
+  @@index([status])
+}
+
+model TaxSettlement {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  taxSplitAllocationId String?
+  taxSplitAllocation    TaxSplitAllocation? @relation(fields: [taxSplitAllocationId], references: [id])
+
+  amount    Decimal               @db.Decimal(10, 2)
+  status    FiscalOperationStatus @default(PENDING)
+  settledAt DateTime?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([taxSplitAllocationId])
+}
+
+model TaxRefund {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  taxTransactionId String
+  taxTransaction   TaxTransaction @relation(fields: [taxTransactionId], references: [id])
+
+  amount Decimal               @db.Decimal(10, 2)
+  reason String?
+  status FiscalOperationStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([taxTransactionId])
+}
+
+model TaxAdjustment {
+  id String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  taxTransactionId String?
+  taxTransaction   TaxTransaction? @relation(fields: [taxTransactionId], references: [id])
+
+  amount Decimal @db.Decimal(10, 2)
+  reason String
+  userId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([taxTransactionId])
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────

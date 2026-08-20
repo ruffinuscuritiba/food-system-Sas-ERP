@@ -3,6 +3,9 @@ import {
   Logger,
   BadRequestException,
   UnauthorizedException,
+  Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { Cron } from '@nestjs/schedule';
@@ -12,6 +15,8 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { SocketGateway } from '@/socket/socket.gateway';
 import { OnlineOrdersService } from '@/modules/online-orders/online-orders.service';
 import { WalletService } from '@/modules/wallet/wallet.service';
+import { FiscalSplitOrchestrationService } from '@/modules/fiscal-split/fiscal-split-orchestration.service';
+import { SalesPackagesService } from '@/modules/sales-packages/sales-packages.service';
 
 export type PaymentProvider = 'MERCADO_PAGO' | 'STRIPE';
 
@@ -42,6 +47,10 @@ export class PaymentsService {
     private readonly socket: SocketGateway,
     private readonly onlineOrders: OnlineOrdersService,
     private readonly walletService: WalletService,
+    private readonly fiscalSplit: FiscalSplitOrchestrationService,
+    @Optional()
+    @Inject(forwardRef(() => SalesPackagesService))
+    private readonly salesPackages?: SalesPackagesService,
   ) {}
 
   // ─── Subscription checkout ─────────────────────────────────────────────────
@@ -432,6 +441,34 @@ export class PaymentsService {
             }
           })
           .catch((e) => this.logger.warn(`[WALLET] creditFromOrder falhou: ${e?.message}`));
+      });
+
+      // ── Registro fiscal (Split Payment / IBS-CBS) — no-op enquanto o
+      // tenant não tiver TaxConfiguration.isActive=true (ver kill switch em
+      // FiscalSplitOrchestrationService). Fire-and-forget, nunca atrasa nem
+      // bloqueia a confirmação do pagamento.
+      setImmediate(() => {
+        this.onlineOrders.findOne(onlineOrderId, resolvedCompanyId)
+          .then((o) => {
+            const gross = parseFloat(Number(o.total ?? 0).toFixed(2));
+            const pm = (o as any).paymentMethod ?? 'PIX';
+            if (gross > 0) {
+              return this.fiscalSplit.maybeRecordOwnSale(resolvedCompanyId, {
+                onlineOrderId,
+                baseAmount: gross,
+                paymentMethod: pm,
+              });
+            }
+          })
+          .catch((e) => this.logger.warn(`[FISCAL] maybeRecordOwnSale falhou: ${e?.message}`));
+      });
+
+      // ── Vendas Recorrentes — marca a cobrança do ciclo como paga (no-op
+      // se este OnlineOrder não for uma cobrança de assinatura).
+      setImmediate(() => {
+        this.salesPackages
+          ?.markBillingPaidByOnlineOrder(onlineOrderId)
+          .catch((e: any) => this.logger.warn(`[PACKAGES] markBillingPaidByOnlineOrder falhou: ${e?.message}`));
       });
 
       // → Kitchen / dashboard (company room)

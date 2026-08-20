@@ -10,8 +10,30 @@
  */
 
 import { useMemo, useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Check, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
+
+// Grupo "sempre incluso": obrigatório, múltipla escolha, e o mínimo exigido é
+// TODAS as opções (min=max=total) — ou seja, não é uma escolha de verdade,
+// é a lista de itens que sempre acompanham o prato (ex.: Arroz/Feijão/Salada
+// de um marmitex). Renderizado como checklist estático, pré-marcado, sem
+// interação — em vez do stepper +/- normal de multipleChoice. Não exige
+// campo novo no banco: é só uma leitura do shape que já existe hoje.
+function isFixedInclusion(group: ComplementGroup): boolean {
+  return (
+    group.multipleChoice &&
+    group.required &&
+    group.options.length > 1 &&
+    group.minOptions === group.options.length &&
+    group.maxOptions === group.options.length
+  );
+}
+
+// Grupo "troca": escolha única obrigatória com mais de 1 opção — ex.:
+// "Escolha a proteína" (Strogonoff / Frango grelhado / Carne moída).
+function isSwapGroup(group: ComplementGroup): boolean {
+  return !group.multipleChoice && group.required && group.options.length > 1;
+}
 
 export interface ComplementOption {
   id: string;
@@ -48,6 +70,12 @@ interface Props {
   groups: ComplementGroup[];
   loading?: boolean;
   theme?: "dark" | "light";
+  // Ativa o visual de "Prato do Dia" (checklist fixo pré-marcado + destaque
+  // de troca) pros grupos com o shape certo — produto precisa estar marcado
+  // como productType="daily_menu" no cadastro (Marmitaria/Restaurante/
+  // Churrascaria). Sem essa prop, comportamento 100% igual ao anterior —
+  // nunca infere isso sozinho a partir do shape dos grupos.
+  dailyMenuStyle?: boolean;
   onClose: () => void;
   onConfirm: (selections: SelectedComplement[]) => void;
 }
@@ -56,13 +84,28 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2,
 
 export function ComplementsModal({
   open, productName, productBasePrice = 0, groups, loading,
-  theme = "light", onClose, onConfirm,
+  theme = "light", dailyMenuStyle = false, onClose, onConfirm,
 }: Props) {
   const [selections, setSelections] = useState<Record<string, SelectedComplement[]>>({});
 
   useEffect(() => {
-    if (open) setSelections({});
-  }, [open, productName]);
+    if (!open) return;
+    // Grupos "sempre incluso" já nascem 100% marcados — não é uma decisão do
+    // cliente, é o que vem no prato por padrão (ver isFixedInclusion acima).
+    // Só ativa pra produto marcado como "Prato do Dia" (dailyMenuStyle).
+    const initial: Record<string, SelectedComplement[]> = {};
+    for (const g of groups) {
+      if (!dailyMenuStyle || !isFixedInclusion(g)) continue;
+      initial[g.id] = g.options.map((option) => ({
+        complementOptionId: option.id,
+        complementName:     g.name,
+        optionName:         option.name,
+        price:              g.chargesExtra ? Number(option.price) : 0,
+        quantity:           1,
+      }));
+    }
+    setSelections(initial);
+  }, [open, productName, groups, dailyMenuStyle]);
 
   const isDark = theme === "dark";
 
@@ -255,16 +298,27 @@ export function ComplementsModal({
             // o grupo igual a "1x de 6 sabores diferentes".
             const hasCountdown = group.multipleChoice && group.maxOptions > 1;
             const remaining = hasCountdown ? Math.max(0, group.maxOptions - groupQty(group)) : null;
+            const fixedGroup = dailyMenuStyle && isFixedInclusion(group);
+            const swapGroup  = dailyMenuStyle && isSwapGroup(group);
             return (
               <div key={group.id}>
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  {swapGroup && <RefreshCw size={14} className="text-primary shrink-0" />}
                   <p className="font-bold">{group.name}</p>
-                  {group.required ? (
+                  {fixedGroup ? (
+                    <span className="text-[11px] font-bold bg-emerald-500/15 text-emerald-500 px-2.5 py-0.5 rounded-full">
+                      Sempre incluso
+                    </span>
+                  ) : swapGroup ? (
+                    <span className="text-[11px] font-bold bg-primary/15 text-primary px-2.5 py-0.5 rounded-full">
+                      Escolha 1 — pode trocar
+                    </span>
+                  ) : group.required ? (
                     <span className={cls.badgeReq}>Obrigatório</span>
                   ) : (
                     <span className={cls.badgeOpt}>Opcional</span>
                   )}
-                  {hasCountdown && (
+                  {!fixedGroup && !swapGroup && hasCountdown && (
                     remaining === 0 ? (
                       <span className="text-[11px] font-bold bg-emerald-500/15 text-emerald-500 px-2.5 py-0.5 rounded-full">
                         ✓ Completo
@@ -277,6 +331,36 @@ export function ComplementsModal({
                   )}
                 </div>
 
+                {fixedGroup ? (
+                  // Checklist estático — não são botões, é o que sempre vem
+                  // no prato (ver poster de referência: arroz/feijão/salada
+                  // sempre marcados com ✓, sem interação nenhuma).
+                  <div className="space-y-1.5">
+                    {group.options.map((option) => (
+                      <div
+                        key={option.id}
+                        className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border ${
+                          isDark
+                            ? "bg-[#0c101d]/60 border-[#1d2336] text-zinc-200"
+                            : "bg-emerald-50/60 border-emerald-100 text-gray-800"
+                        }`}
+                      >
+                        <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                          <Check size={13} strokeWidth={3} className="text-white" />
+                        </span>
+                        {option.imageUrl && (
+                          <img
+                            src={option.imageUrl}
+                            alt=""
+                            className="w-9 h-9 rounded-lg object-cover shrink-0 border border-black/10"
+                            loading="lazy"
+                          />
+                        )}
+                        <span className="text-sm font-medium truncate">{option.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                 <div className="space-y-2">
                   {group.options.map((option) => {
                     const sel = selected.find((s) => s.complementOptionId === option.id);
@@ -380,6 +464,7 @@ export function ComplementsModal({
                     );
                   })}
                 </div>
+                )}
               </div>
             );
           })}

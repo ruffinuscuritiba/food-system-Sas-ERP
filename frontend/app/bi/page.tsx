@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingBag,
   Receipt, AlertTriangle, Bot, Send, RefreshCw,
   BarChart2, Package, Bell, ChevronRight, X, Loader2, Utensils, Users,
-  Star, ThumbsUp, ThumbsDown,
+  Star, ThumbsUp, ThumbsDown, MapPinned,
 } from "lucide-react";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -13,6 +14,8 @@ import {
 } from "recharts";
 import { api } from "@/services/api";
 import { useNavKeyGuard } from "@/hooks/useNavKeyGuard";
+
+const OrderHeatmap = dynamic(() => import("@/components/bi/OrderHeatmap"), { ssr: false });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -54,10 +57,18 @@ interface FeedbackStats {
   positive: number;
   negative: number;
   satisfactionRate: number;
+  averageRating: number | null;
+  ratingCount: number;
+  ratingDistribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
   recent: {
     id: string; customerName: string | null; responseText: string | null;
-    sentiment: string | null; respondedAt: string | null; createdAt: string;
+    sentiment: string | null; rating: number | null; respondedAt: string | null; createdAt: string;
   }[];
+}
+
+interface HeatmapData {
+  neighborhoods: { neighborhood: string; orderCount: number; revenue: number; lat: number | null; lng: number | null }[];
+  unmappedCount: number;
 }
 
 interface MenuAnalyticsSummary {
@@ -83,7 +94,7 @@ const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 // já usada em entregadores/page.tsx (brazilDateKey).
 const fmtDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 
-function presetRange(preset: DatePreset, custom: { from: string; to: string }) {
+function presetRange(preset: DatePreset, custom: { from: string; to: string; fromTime: string; toTime: string }) {
   const now = new Date();
   if (preset === "today") {
     const d = fmtDate(now);
@@ -97,7 +108,14 @@ function presetRange(preset: DatePreset, custom: { from: string; to: string }) {
     const f = new Date(now); f.setDate(now.getDate() - 30);
     return { from: fmtDate(f), to: fmtDate(now) };
   }
-  return custom;
+  // "YYYY-MM-DDTHH:mm" — o backend (parseBrazilFlexibleStart/End) já aceita
+  // esse formato e distingue pelo tamanho da string; quando o horário fica
+  // no padrão (00:00/23:59) o resultado é idêntico ao filtro só por dia de
+  // antes, então não muda nada pra quem não mexer no campo de hora.
+  return {
+    from: `${custom.from}T${custom.fromTime}`,
+    to: `${custom.to}T${custom.toTime}`,
+  };
 }
 
 function GrowthBadge({ value }: { value: number }) {
@@ -130,9 +148,9 @@ function KpiCard({ icon, label, value, growth, sub }: { icon: React.ReactNode; l
 
 export default function BIPage() {
   useNavKeyGuard("bi");
-  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "clientes" | "qualidade" | "ia" | "alerts">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "reports" | "produtos" | "cardapio" | "clientes" | "qualidade" | "mapa" | "ia" | "alerts">("dashboard");
   const [preset, setPreset] = useState<DatePreset>("month");
-  const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()) });
+  const [custom, setCustom] = useState({ from: fmtDate(new Date()), to: fmtDate(new Date()), fromTime: "00:00", toTime: "23:59" });
 
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
@@ -140,6 +158,7 @@ export default function BIPage() {
   const [menuAnalytics, setMenuAnalytics] = useState<MenuAnalyticsSummary | null>(null);
   const [customerStats, setCustomerStats] = useState<CustomerStats | null>(null);
   const [feedbackStats, setFeedbackStats] = useState<FeedbackStats | null>(null);
+  const [heatmap, setHeatmap] = useState<HeatmapData | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -154,13 +173,14 @@ export default function BIPage() {
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [kpiRes, revRes, productsRes, menuRes, customersRes, feedbackRes, alertRes] = await Promise.allSettled([
+      const [kpiRes, revRes, productsRes, menuRes, customersRes, feedbackRes, heatmapRes, alertRes] = await Promise.allSettled([
         api.get(`/reports/executive?from=${range.from}&to=${range.to}`),
         api.get(`/reports/revenue?from=${range.from}&to=${range.to}`),
         api.get(`/reports/products?from=${range.from}&to=${range.to}&limit=50`),
         api.get(`/menu-analytics/summary?from=${range.from}&to=${range.to}`),
         api.get("/reports/customers"),
         api.get("/reports/feedback"),
+        api.get(`/reports/heatmap?from=${range.from}&to=${range.to}`),
         api.get("/alerts?unread=false"),
       ]);
       if (kpiRes.status     === "fulfilled") setKpis(kpiRes.value.data);
@@ -169,6 +189,7 @@ export default function BIPage() {
       if (menuRes.status    === "fulfilled") setMenuAnalytics(menuRes.value.data);
       if (customersRes.status === "fulfilled") setCustomerStats(customersRes.value.data);
       if (feedbackRes.status === "fulfilled") setFeedbackStats(feedbackRes.value.data);
+      if (heatmapRes.status === "fulfilled") setHeatmap(heatmapRes.value.data);
       if (alertRes.status   === "fulfilled") setAlerts(alertRes.value.data ?? []);
     } catch {}
     setLoading(false);
@@ -209,6 +230,7 @@ export default function BIPage() {
     { key: "cardapio", label: "Cardápio", icon: <Utensils size={14} /> },
     { key: "clientes", label: "Clientes", icon: <Users size={14} /> },
     { key: "qualidade", label: "Qualidade", icon: <Star size={14} /> },
+    { key: "mapa", label: "Mapa de Calor", icon: <MapPinned size={14} /> },
     { key: "ia", label: "Consultora IA", icon: <Bot size={14} /> },
     { key: "alerts", label: `Alertas ${alerts.filter(a => !a.read).length > 0 ? `(${alerts.filter(a => !a.read).length})` : ""}`, icon: <Bell size={14} /> },
   ] as const;
@@ -257,8 +279,10 @@ export default function BIPage() {
         {preset === "custom" && (
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-1.5">
             <input type="date" value={custom.from} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} className="text-xs border-none outline-none bg-transparent" />
+            <input type="time" value={custom.fromTime} onChange={(e) => setCustom((c) => ({ ...c, fromTime: e.target.value }))} className="text-xs border-none outline-none bg-transparent w-[68px]" />
             <span className="text-gray-400 text-xs">até</span>
             <input type="date" value={custom.to} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} className="text-xs border-none outline-none bg-transparent" />
+            <input type="time" value={custom.toTime} onChange={(e) => setCustom((c) => ({ ...c, toTime: e.target.value }))} className="text-xs border-none outline-none bg-transparent w-[68px]" />
           </div>
         )}
       </div>
@@ -676,7 +700,12 @@ export default function BIPage() {
         const q = feedbackStats;
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Nota Média</p>
+                <p className="text-2xl font-black text-amber-500">{q?.averageRating != null ? q.averageRating.toFixed(1) : "—"}</p>
+                <p className="text-xs text-gray-400 mt-1">{q?.ratingCount ?? 0} avaliação{(q?.ratingCount ?? 0) === 1 ? "" : "ões"} nota 1-5</p>
+              </div>
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
                 <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Satisfação</p>
                 <p className="text-2xl font-black text-emerald-600">{pct(q?.satisfactionRate ?? 0)}</p>
@@ -697,6 +726,28 @@ export default function BIPage() {
               </div>
             </div>
 
+            {(q?.ratingCount ?? 0) > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="font-bold text-gray-800 text-sm mb-3">Distribuição de notas</p>
+                <div className="space-y-2">
+                  {([5, 4, 3, 2, 1] as const).map((star) => {
+                    const count = q?.ratingDistribution?.[star] ?? 0;
+                    const total = q?.ratingCount || 1;
+                    const width = (count / total) * 100;
+                    return (
+                      <div key={star} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 w-10 flex items-center gap-0.5 shrink-0">{star} <Star size={10} className="fill-amber-400 text-amber-400" /></span>
+                        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-400 rounded-full" style={{ width: `${width}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-400 w-8 text-right shrink-0">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
                 <p className="font-bold text-gray-800 text-sm">Feedbacks recentes</p>
@@ -709,13 +760,69 @@ export default function BIPage() {
                       {f.sentiment === "POSITIVE" ? <ThumbsUp size={16} /> : f.sentiment === "NEGATIVE" ? <ThumbsDown size={16} /> : <Star size={16} />}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-700">{f.responseText || "—"}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-gray-700">{f.responseText || "—"}</p>
+                        {f.rating != null && (
+                          <span className="shrink-0 text-xs font-bold text-amber-600 bg-amber-50 rounded-full px-2 py-0.5">{f.rating}★</span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-400 mt-1">{f.customerName || "Cliente"} · {f.respondedAt ? new Date(f.respondedAt).toLocaleString("pt-BR") : ""}</p>
                     </div>
                   </div>
                 ))}
                 {(q?.recent ?? []).length === 0 && (
                   <p className="text-sm text-gray-400 text-center py-8">Nenhum feedback respondido ainda</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Mapa de Calor Tab ── */}
+      {tab === "mapa" && (() => {
+        const h = heatmap;
+        const totalOrders = (h?.neighborhoods ?? []).reduce((s, n) => s + n.orderCount, 0);
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Bairros com Pedido</p>
+                <p className="text-2xl font-black text-gray-900">{h?.neighborhoods?.length ?? 0}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Pedidos no Período</p>
+                <p className="text-2xl font-black text-gray-900">{totalOrders}</p>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm text-center">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">Sem Coordenada</p>
+                <p className="text-2xl font-black text-amber-500">{h?.unmappedCount ?? 0}</p>
+                <p className="text-xs text-gray-400 mt-1">bairros sem zona georreferenciada</p>
+              </div>
+            </div>
+
+            <OrderHeatmap neighborhoods={h?.neighborhoods ?? []} />
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="font-bold text-gray-800 text-sm">Pedidos por bairro</p>
+                <p className="text-xs text-gray-400 mt-0.5">Inclui bairros sem coordenada no mapa (configure a zona em Configurações → Entrega pra georreferenciar).</p>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                {(h?.neighborhoods ?? []).map((n) => (
+                  <div key={n.neighborhood} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm text-gray-700 truncate">{n.neighborhood}</span>
+                      {n.lat == null && <span className="shrink-0 text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">sem coordenada</span>}
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <span className="text-xs text-gray-400">{n.orderCount} pedido{n.orderCount === 1 ? "" : "s"}</span>
+                      <span className="text-sm font-bold text-gray-800">{fmt(n.revenue)}</span>
+                    </div>
+                  </div>
+                ))}
+                {(h?.neighborhoods ?? []).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-8">Nenhum pedido com bairro registrado no período</p>
                 )}
               </div>
             </div>

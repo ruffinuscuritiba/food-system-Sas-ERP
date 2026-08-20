@@ -332,52 +332,95 @@ export function PizzaBuilder({ flavors, borders, sizes, sizeConfigs, initialFlav
           </div>
         )}
 
-        {/* Flavor grid */}
+        {/* Flavor grid — dentro de um combo de preço fixo com lista de
+            sabores da promoção cadastrada (Product.promoFlavorIds), separa
+            visualmente quem entra sem custo extra de quem é cobrado à parte
+            (mesma divisão já aplicada no cardápio digital, item 186). */}
         {normalizedFlavors.length === 0 ? (
           <p className="text-zinc-500 text-sm py-6 text-center bg-[#161b2d]/50 rounded-xl">
             Nenhum sabor cadastrado nesta categoria
           </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 touch-pan-y">
-            {normalizedFlavors.map(norm => {
-              const selected  = selectedNorms.some(n => n.displayName === norm.displayName);
-              const disabled  = !selected && isComplete;
-              const variant   = resolveVariant(norm, selectedSize.size);
-              const showPrice = selectedSize.price > 0 ? selectedSize.price : variant.price;
+        ) : (() => {
+          const hasPromoSplit = fixedPrice != null && !!promoFlavorIds && promoFlavorIds.length > 0;
+          const promoNorms = hasPromoSplit
+            ? normalizedFlavors.filter(n => promoFlavorIds!.includes(resolveVariant(n, selectedSize.size).id))
+            : [];
+          const extraNorms = hasPromoSplit
+            ? normalizedFlavors.filter(n => !promoFlavorIds!.includes(resolveVariant(n, selectedSize.size).id))
+            : normalizedFlavors;
 
-              return (
-                <button
-                  key={norm.displayName}
-                  type="button"
-                  onClick={() => toggleFlavor(norm)}
-                  disabled={disabled}
-                  className={`p-3 rounded-xl text-left transition flex items-center justify-between border ${
-                    selected
-                      ? "bg-green-500 border-green-500 text-white shadow-md shadow-green-500/10"
-                      : disabled
-                      ? "bg-[#0c101d] border-transparent text-zinc-600 cursor-not-allowed opacity-40"
-                      : "bg-[#161b2d] border-[#1d2336] text-zinc-200 hover:bg-[#1d2336]"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 pr-2 min-w-0">
-                    {selected && (
-                      <CheckCircle2 size={16} className="shrink-0 text-white" />
-                    )}
-                    <span className="font-semibold text-sm truncate">{norm.displayName}</span>
-                  </div>
-                  {/* Preço avulso do sabor não se aplica num combo de preço
-                      fixo — mostrar R$67,99 ao lado de um sabor dentro de um
-                      combo de R$29,99 é enganoso, o total nunca usa esse valor. */}
-                  {fixedPrice == null && (
-                    <span className="text-xs font-mono font-semibold opacity-80 shrink-0">
-                      {fmt(showPrice)}
-                    </span>
+          function renderFlavorCard(norm: NormalizedFlavor, isExtra: boolean) {
+            const selected  = selectedNorms.some(n => n.displayName === norm.displayName);
+            const disabled  = !selected && isComplete;
+            const variant   = resolveVariant(norm, selectedSize.size);
+            const showPrice = selectedSize.price > 0 ? selectedSize.price : variant.price;
+
+            return (
+              <button
+                key={norm.displayName}
+                type="button"
+                onClick={() => toggleFlavor(norm)}
+                disabled={disabled}
+                className={`p-3 rounded-xl text-left transition flex items-center justify-between border ${
+                  selected
+                    ? "bg-green-500 border-green-500 text-white shadow-md shadow-green-500/10"
+                    : disabled
+                    ? "bg-[#0c101d] border-transparent text-zinc-600 cursor-not-allowed opacity-40"
+                    : "bg-[#161b2d] border-[#1d2336] text-zinc-200 hover:bg-[#1d2336]"
+                }`}
+              >
+                <div className="flex items-center gap-2 pr-2 min-w-0">
+                  {selected && (
+                    <CheckCircle2 size={16} className="shrink-0 text-white" />
                   )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  <span className="font-semibold text-sm truncate">{norm.displayName}</span>
+                </div>
+                {/* Preço avulso do sabor não se aplica num combo de preço
+                    fixo — mostrar R$67,99 ao lado de um sabor dentro de um
+                    combo de R$29,99 é enganoso, o total nunca usa esse valor.
+                    Exceção: sabor fora da lista da promoção, que É cobrado à
+                    parte — mostra o valor pra avisar antes de escolher. */}
+                {(fixedPrice == null || isExtra) && (
+                  <span className={`text-xs font-mono font-semibold shrink-0 ${isExtra && !selected ? "text-red-400" : "opacity-80"}`}>
+                    {fmt(showPrice)}
+                  </span>
+                )}
+              </button>
+            );
+          }
+
+          return (
+            <div className="max-h-60 overflow-y-auto pr-1 touch-pan-y space-y-3">
+              {hasPromoSplit && promoNorms.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md bg-green-500 text-white">🔥 Promoção</span>
+                    <span className="text-[10px] text-zinc-500">sem custo extra</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {promoNorms.map(norm => renderFlavorCard(norm, false))}
+                  </div>
+                </div>
+              )}
+              {hasPromoSplit && extraNorms.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md bg-[#1d2336] text-zinc-300">➕ Adicionais</span>
+                    <span className="text-[10px] text-red-400">valor extra por fora</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {extraNorms.map(norm => renderFlavorCard(norm, true))}
+                  </div>
+                </div>
+              )}
+              {!hasPromoSplit && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {normalizedFlavors.map(norm => renderFlavorCard(norm, false))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Borda ───────────────────────────────────────────────────────────── */}

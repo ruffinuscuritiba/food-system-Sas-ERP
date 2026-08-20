@@ -40,3 +40,14 @@ export function segmentSellsPizza(businessSegment: string | null | undefined): b
   if (!businessSegment) return true;
   return !NON_PIZZA_SEGMENTS.has(businessSegment);
 }
+
+// Segmentos onde "Prato do Dia" (checklist de acompanhamentos fixos + troca
+// de proteína, ver ComplementsModal) faz sentido como botão dedicado no
+// cadastro do produto — pedido explícito do usuário, escopo restrito a estes
+// 3 (não é um recurso genérico pra qualquer segmento).
+const DAILY_MENU_SEGMENTS = new Set(["MARMITARIA", "RESTAURANTE", "CHURRASCARIA"]);
+
+export function segmentHasDailyMenu(businessSegment: string | null | undefined): boolean {
+  if (!businessSegment) return false;
+  return DAILY_MENU_SEGMENTS.has(businessSegment);
+}

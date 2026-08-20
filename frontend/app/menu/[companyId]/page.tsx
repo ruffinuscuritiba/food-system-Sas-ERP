@@ -41,6 +41,7 @@ type Product = {
   // promoção/combo — ver calcPizzaPrice(). Null/vazio = sem restrição
   // (comportamento antigo: preço sempre fixo, qualquer sabor escolhido).
   promoFlavorIds?: string[] | null;
+  productType?: string;
 };
 
 /** Returns the minimum price across sizes (or salePrice when no sizes) */
@@ -1657,12 +1658,56 @@ export default function MenuPage() {
       if (flavorSlots.some((s, si) => si !== slotIndex && s?.id === p.id)) return false;
       return true;
     });
+    // Dentro de um combo de preço fixo com lista de sabores da promoção
+    // cadastrada, separa visualmente "sabores da promoção" (inclusos no
+    // preço fixo) de "sabores adicionais" (cobrados à parte — ver
+    // calcPizzaPrice) — sem isso o cliente não sabia que metade de fora
+    // da promoção tinha custo extra até ver o total.
+    const promoIds = flavorModalComboProduct?.promoFlavorIds;
+    const hasPromoSplit = Array.isArray(promoIds) && promoIds.length > 0;
+    const promoEligible = hasPromoSplit ? eligible.filter((p) => promoIds!.includes(p.id)) : [];
+    const extraEligible = hasPromoSplit ? eligible.filter((p) => !promoIds!.includes(p.id)) : eligible;
     // Agrupa pelos mesmos nomes de categoria já usados nas abas do cardápio
-    const byCategory = new Map<string, Product[]>();
-    for (const p of eligible) {
-      const catName = (p.category?.name?.trim() || "Outros").toUpperCase();
-      if (!byCategory.has(catName)) byCategory.set(catName, []);
-      byCategory.get(catName)!.push(p);
+    function groupByCategory(list: Product[]) {
+      const byCat = new Map<string, Product[]>();
+      for (const p of list) {
+        const catName = (p.category?.name?.trim() || "Outros").toUpperCase();
+        if (!byCat.has(catName)) byCat.set(catName, []);
+        byCat.get(catName)!.push(p);
+      }
+      return byCat;
+    }
+    const byCategory = groupByCategory(extraEligible);
+    const promoByCategory = groupByCategory(promoEligible);
+    function renderFlavorButton(p: Product, opts: { extra: boolean }) {
+      return (
+        <button
+          key={p.id}
+          onClick={() => { setFlavorSlot(slotIndex, p); setFlavorPickerSlot(null); setFlavorFilter(""); }}
+          className="w-full flex items-center gap-3 border rounded-xl p-2.5 text-left transition hover:opacity-90"
+          style={{ borderColor: "var(--menu-border)" }}
+        >
+          <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style={{ background: "var(--menu-surface-2)" }}>
+            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-lg">🍕</span>}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold truncate" style={{ color: "var(--menu-text)" }}>{p.name}</p>
+            {p.description && <p className="text-xs truncate" style={{ color: "var(--menu-text-2)" }}>{p.description}</p>}
+          </div>
+          {/* Preço avulso do sabor não se aplica dentro de um combo de
+              preço fixo — mostrar o valor do sabor sozinho ao lado de
+              uma promoção de preço fechado é enganoso, o total nunca
+              usa esse valor (ver calcPizzaPrice). Sabor fora da lista da
+              promoção é a exceção: mostra o valor pra avisar que tem
+              custo extra antes do cliente escolher. */}
+          {(!flavorModalComboProduct || (hasPromoSplit && opts.extra)) && (
+            <span className="text-sm font-black shrink-0 text-right" style={{ color: opts.extra ? "#dc2626" : theme.primaryColor }}>
+              R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}
+              {opts.extra && <span className="block text-[10px] font-semibold" style={{ color: "#dc2626" }}>fora da promoção</span>}
+            </span>
+          )}
+        </button>
+      );
     }
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" data-menu-theme={menuThemeMode}>
@@ -1687,39 +1732,35 @@ export default function MenuPage() {
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-4">
-            {byCategory.size === 0 ? (
+          <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-5">
+            {hasPromoSplit && promoEligible.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[11px] font-black uppercase tracking-wide px-2 py-1 rounded-md text-white" style={{ background: theme.primaryColor }}>🔥 Sabores da Promoção</span>
+                  <span className="text-[11px]" style={{ color: "var(--menu-text-2)" }}>sem custo extra</span>
+                </div>
+                {Array.from(promoByCategory.entries()).map(([catName, items]) => (
+                  <div key={catName} className="mb-3">
+                    {promoByCategory.size > 1 && (
+                      <p className="text-[10px] font-black uppercase tracking-wide mb-1.5" style={{ color: "var(--menu-text-2)" }}>{catName}</p>
+                    )}
+                    <div className="space-y-2">{items.map((p) => renderFlavorButton(p, { extra: false }))}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {hasPromoSplit && extraEligible.length > 0 && (
+              <div className="flex items-center gap-2 -mb-2">
+                <span className="text-[11px] font-black uppercase tracking-wide px-2 py-1 rounded-md" style={{ background: "var(--menu-surface-2)", color: "var(--menu-text)" }}>➕ Sabores Adicionais</span>
+                <span className="text-[11px]" style={{ color: "#dc2626" }}>valor extra por fora</span>
+              </div>
+            )}
+            {byCategory.size === 0 && promoEligible.length === 0 ? (
               <p className="text-sm text-center py-8" style={{ color: "var(--menu-text-2)" }}>Nenhum sabor encontrado</p>
             ) : Array.from(byCategory.entries()).map(([catName, items]) => (
               <div key={catName}>
                 <p className="text-xs font-black uppercase tracking-wide mb-2" style={{ color: theme.primaryColor }}>{catName}</p>
-                <div className="space-y-2">
-                  {items.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => { setFlavorSlot(slotIndex, p); setFlavorPickerSlot(null); setFlavorFilter(""); }}
-                      className="w-full flex items-center gap-3 border rounded-xl p-2.5 text-left transition hover:opacity-90"
-                      style={{ borderColor: "var(--menu-border)" }}
-                    >
-                      <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 flex items-center justify-center" style={{ background: "var(--menu-surface-2)" }}>
-                        {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-lg">🍕</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate" style={{ color: "var(--menu-text)" }}>{p.name}</p>
-                        {p.description && <p className="text-xs truncate" style={{ color: "var(--menu-text-2)" }}>{p.description}</p>}
-                      </div>
-                      {/* Preço avulso do sabor não se aplica dentro de um combo de
-                          preço fixo — mostrar o valor do sabor sozinho ao lado de
-                          uma promoção de preço fechado é enganoso, o total nunca
-                          usa esse valor (ver calcPizzaPrice). */}
-                      {!flavorModalComboProduct && (
-                        <span className="text-sm font-black shrink-0" style={{ color: theme.primaryColor }}>
-                          R$ {(selectedPizzaSize ? getProductSizePrice(p, selectedPizzaSize) : Number(p.salePrice)).toFixed(2)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <div className="space-y-2">{items.map((p) => renderFlavorButton(p, { extra: hasPromoSplit }))}</div>
               </div>
             ))}
           </div>
@@ -2941,6 +2982,7 @@ export default function MenuPage() {
         groups={compGroups}
         loading={compLoading}
         theme="light"
+        dailyMenuStyle={compProduct?.productType === "daily_menu"}
         onClose={() => { setCompProduct(null); setCompGroups([]); setPendingComboItem(null); }}
         onConfirm={(sel: SelectedComplement[]) => {
           if (!compProduct) return;

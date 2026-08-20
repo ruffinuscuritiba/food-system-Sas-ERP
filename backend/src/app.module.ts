@@ -43,6 +43,7 @@ import { CompanyModuleModule } from './company-module/company-module.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { SalesPackagesModule } from './modules/sales-packages/sales-packages.module';
 import { PrintersModule } from './modules/printers/printers.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -110,6 +111,7 @@ import { validateEnv } from './config/env.validation';
     CompanyModuleModule,
     LeadsModule,
     PaymentsModule,
+    SalesPackagesModule,
     IntegrationsModule,
     PrintersModule,
     RetentionModule,

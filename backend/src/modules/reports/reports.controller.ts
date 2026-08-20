@@ -3,7 +3,6 @@ import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import {
   getStartOfTodayBrazil,
-  parseBrazilDateStart,
   parseBrazilDateEnd,
   parseBrazilFlexibleStart,
   parseBrazilFlexibleEnd,
@@ -24,15 +23,18 @@ export class ReportsController {
     // Mesmo padrão de default de /revenue e /products — sem isso o Dashboard
     // do /bi sempre mostrava os últimos 30 dias fixos, ignorando completamente
     // o preset "Hoje"/"7 dias"/"Personalizado" selecionado na tela.
+    // parseBrazilFlexible* (mesmo helper já usado em /revenue) aceita também
+    // "YYYY-MM-DDTHH:mm" — filtro "Personalizado" do /bi ganhou campo de
+    // horário ao lado da data, sem isso a hora escolhida era ignorada.
     const range = {
       from: from
-        ? parseBrazilDateStart(from)
+        ? parseBrazilFlexibleStart(from)
         : (() => {
             const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
+      to: to ? parseBrazilFlexibleEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.reports.getExecutiveKpis(req.user.companyId, range);
   }
@@ -78,18 +80,37 @@ export class ReportsController {
   ) {
     const range = {
       from: from
-        ? parseBrazilDateStart(from)
+        ? parseBrazilFlexibleStart(from)
         : (() => {
             const d = getStartOfTodayBrazil();
             d.setDate(d.getDate() - 30);
             return d;
           })(),
-      to: to ? parseBrazilDateEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
+      to: to ? parseBrazilFlexibleEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
     };
     return this.reports.getProductRanking(
       req.user.companyId,
       range,
       limit ? Number(limit) : 10,
     );
+  }
+
+  @Get('heatmap')
+  heatmap(
+    @Req() req: any,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    const range = {
+      from: from
+        ? parseBrazilFlexibleStart(from)
+        : (() => {
+            const d = getStartOfTodayBrazil();
+            d.setDate(d.getDate() - 30);
+            return d;
+          })(),
+      to: to ? parseBrazilFlexibleEnd(to) : parseBrazilDateEnd(toBrazilDateKey(new Date())),
+    };
+    return this.reports.getOrderHeatmap(req.user.companyId, range.from, range.to);
   }
 }

@@ -59,6 +59,9 @@ interface Product {
   maxFlavors?: number | null;
   promoFlavorIds?: string[] | null;
   productType?: string;
+  // false = falta ingrediente da receita no estoque — calculado no backend
+  // (ProductsService.findAll), badge "Sem estoque" no card do produto.
+  inStock?: boolean;
 }
 
 interface SelectedComplement {
@@ -1473,6 +1476,9 @@ export default function PDVPage() {
                           onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                       )}
+                      {product.inStock === false && (
+                        <span className="absolute top-2 left-2 z-10 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">Sem estoque</span>
+                      )}
                     </div>
                     <div className="p-3 flex flex-col flex-1">
                       <p className="font-bold text-sm leading-tight line-clamp-2 flex-1 text-[var(--pdv-text,#ffffff)]">{product.name}</p>
@@ -1514,7 +1520,12 @@ export default function PDVPage() {
                       )}
                     </div>
                     <div className="flex-1 px-5 xl:px-8 min-w-0 overflow-hidden">
-                      <h2 className="text-xl xl:text-2xl font-bold mb-2 leading-tight break-words max-w-full text-[var(--pdv-text,#ffffff)]">{product.name}</h2>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h2 className="text-xl xl:text-2xl font-bold leading-tight break-words max-w-full text-[var(--pdv-text,#ffffff)]">{product.name}</h2>
+                        {product.inStock === false && (
+                          <span className="shrink-0 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">Sem estoque</span>
+                        )}
+                      </div>
                       {product.description && <p className="text-zinc-400 text-sm xl:text-base leading-relaxed break-words max-w-full line-clamp-2">{product.description}</p>}
                       <div className="flex gap-3 mt-4"><VideoEyeBtn product={product} onOpen={setVideoProduct} /></div>
                     </div>
@@ -1579,9 +1590,14 @@ export default function PDVPage() {
               {filteredProducts.map(product => (
                 <div key={product.id} className="bg-[var(--pdv-card,#0b0f1b)] border border-[var(--pdv-border,#161b2d)] rounded-2xl overflow-hidden flex flex-col shadow-[var(--pdv-shadow,none)] active:opacity-80 transition"
                   onClick={() => openProductAdd(product)}>
-                  {product.imageUrl
-                    ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[var(--pdv-card,#161b2d)] p-2" />
-                    : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-3xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>}
+                  <div className="relative">
+                    {product.imageUrl
+                      ? <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-contain bg-[var(--pdv-card,#161b2d)] p-2" />
+                      : <div className="w-full aspect-square bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-3xl">{activeIsBeverage ? "🥤" : "🍽️"}</div>}
+                    {product.inStock === false && (
+                      <span className="absolute top-2 left-2 z-10 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">Sem estoque</span>
+                    )}
+                  </div>
                   <div className="p-2.5 flex flex-col flex-1 min-w-0">
                     <p className="font-bold text-xs leading-tight line-clamp-2 min-w-0 mb-1.5 text-[var(--pdv-text,#ffffff)]">{product.name}</p>
                     <p className="font-black text-xs leading-tight mt-auto mb-2" style={{ color: "var(--color-primary,#2563eb)" }}>{productPriceLabel(product)}</p>
@@ -1608,7 +1624,12 @@ export default function PDVPage() {
                     : <div className="w-14 h-14 rounded-xl bg-[var(--pdv-card,#161b2d)] flex items-center justify-center text-2xl shrink-0">🍽️</div>}
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm leading-tight truncate text-[var(--pdv-text,#ffffff)]">{product.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-bold text-sm leading-tight truncate text-[var(--pdv-text,#ffffff)]">{product.name}</p>
+                      {product.inStock === false && (
+                        <span className="shrink-0 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">Sem estoque</span>
+                      )}
+                    </div>
                     {product.description && (
                       <p className="text-zinc-500 text-xs mt-0.5 truncate">{product.description}</p>
                     )}

@@ -9,6 +9,10 @@ export type Product = {
   imageZoom?: number;
   categoryId?: string;
   sizes?: ProductSize[];
+  // false = falta ingrediente da receita no estoque (allowNegativeStock=false)
+  // — calculado no backend (ProductsService.findAll), nunca no frontend, pra
+  // não expor custo/receita no payload do PDV, só o resultado.
+  inStock?: boolean;
 };
 
 export type Category = {

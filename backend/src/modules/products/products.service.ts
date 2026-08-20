@@ -22,8 +22,8 @@ export class ProductsService {
     private menuCache: MenuCacheService,
   ) {}
 
-  findAll(companyId: string) {
-    return this.prisma.product.findMany({
+  async findAll(companyId: string) {
+    const products = await this.prisma.product.findMany({
       where: {
         companyId,
         deletedAt: null,
@@ -42,9 +42,33 @@ export class ProductsService {
         sizes: {
           orderBy: { size: 'asc' },
         },
+        // Só pra calcular inStock abaixo — nunca exposto no retorno (evita
+        // vazar receita/custo pro PDV, que só precisa do booleano).
+        recipe: {
+          include: { items: { include: { ingredient: true } } },
+        },
       },
 
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+
+    // inStock: produto sem receita nunca bloqueia (regra do projeto — só
+    // consome/valida ingrediente quando há RecipeItem cadastrado). Com
+    // receita, falta QUALQUER ingrediente sem allowNegativeStock derruba o
+    // produto — mesma regra que StockService.consumeIngredientTransactional
+    // já aplica na hora de CONFIRMAR o pedido; isso só antecipa o aviso pro
+    // operador antes de lançar no carrinho (achado real: pedido criado e só
+    // travando na confirmação, sem nenhum aviso prévio).
+    return products.map((p) => {
+      const { recipe, ...rest } = p as any;
+      const inStock =
+        !recipe || !recipe.items?.length
+          ? true
+          : recipe.items.every((ri: any) => {
+              if (ri.ingredient?.allowNegativeStock) return true;
+              return Number(ri.ingredient?.stock ?? 0) >= Number(ri.quantity);
+            });
+      return { ...rest, inStock };
     });
   }
 

@@ -1199,7 +1199,18 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                   sidebarConfig["pizza-borders"] === true) &&
                 // "Controle de Caixas" (múltiplos caixas simultâneos) só faz
                 // sentido pra Mercado — some da sidebar pros demais segmentos.
-                (item.navKey !== "mercado-controle" || businessSegment === "MERCADO")
+                (item.navKey !== "mercado-controle" || businessSegment === "MERCADO") &&
+                // Mercado não tem cozinha (sem preparo), mesa (sem consumo no
+                // local), complementos (sem "escolha o recheio") nem receita/
+                // ingrediente (venda é direto do estoque do produto, não via
+                // receita) — sidebar de restaurante inteira não fazia sentido
+                // pra quem vende Coca-Cola e Leite (achado ao vivo pelo
+                // usuário, print da demo de Mercado). sidebarConfig com true
+                // explícito ainda reativa manualmente se algum mercado
+                // precisar (ex. lanchonete dentro do mercado).
+                (businessSegment !== "MERCADO" ||
+                  !["kitchen", "tables", "complements", "ingredients", "recipes"].includes(item.navKey ?? "") ||
+                  sidebarConfig[item.navKey ?? ""] === true)
               );
               if (visible.length === 0) return null;
               const isMarketplace = section.title === "Marketplace";

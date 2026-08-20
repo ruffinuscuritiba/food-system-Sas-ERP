@@ -15,6 +15,7 @@ import { CurrencyInputBR } from "@/components/ui/CurrencyInputBR";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import Link from "next/link";
 import { segmentHasDailyMenu } from "@/lib/segmentLabels";
+import { getProductPlaceholderImage } from "@/lib/productPlaceholder";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1109,8 +1110,8 @@ export default function ProductsPage() {
                                     {/* Image */}
                                     <div className="relative h-28 bg-gray-100 overflow-hidden">
                                       <img
-                                        src={product.imageUrl || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"}
-                                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&q=80"; }}
+                                        src={product.imageUrl || getProductPlaceholderImage(businessSegment)}
+                                        onError={(e) => { (e.target as HTMLImageElement).src = getProductPlaceholderImage(businessSegment); }}
                                         className="w-full h-full object-cover"
                                         style={{ transform: `scale(${(product.imageZoom ?? 100) / 100})`, transformOrigin: "center center" }}
                                         alt={product.name}

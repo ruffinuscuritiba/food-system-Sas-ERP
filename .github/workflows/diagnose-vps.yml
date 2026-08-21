@@ -22,22 +22,13 @@ jobs:
             const { PrismaClient } = require('@prisma/client');
             const prisma = new PrismaClient();
             async function main() {
-              const niches = ['Marmitarias', 'Pizzaria', 'Restaurantes', 'Hamburgueria'];
-              for (const n of niches) {
-                const count = await prisma.pageVisit.count({ where: { page: `demo:${n}` } });
-                console.log('visits demo:' + n + ' =', count);
-              }
-              const totalLeads = await prisma.lead.count();
-              console.log('total leads:', totalLeads);
-              const byPlan = await prisma.lead.groupBy({ by: ['recommendedPlan', 'status'], _count: true });
-              console.log('leads by plan+status:', JSON.stringify(byPlan));
-              const companies = await prisma.company.findMany({
-                where: { businessSegment: { not: 'RESTAURANTE' }, email: { not: null } },
-                select: { id: true, name: true, businessSegment: true, subscriptionStatus: true, createdAt: true },
-                orderBy: { createdAt: 'desc' },
-                take: 20,
+              const cats = await prisma.category.findMany({
+                where: { companyId: 'demo-delivery-001' },
+                select: { id: true, name: true, color: true },
               });
-              console.log('non-restaurante companies:', JSON.stringify(companies));
+              console.log('marmitaria categories:', JSON.stringify(cats));
+              const prods = await prisma.product.count({ where: { companyId: 'demo-delivery-001' } });
+              console.log('marmitaria products count:', prods);
             }
             main().catch(e=>console.error(e)).finally(()=>prisma.$disconnect());
             JSEOF

@@ -18,13 +18,9 @@ jobs:
           timeout: 30s
           command_timeout: 60s
           script: |
-            echo "── labels do container scc-app (Traefik) ──"
-            docker inspect scc-app --format '{{json .Config.Labels}}' | tr ',' '\n'
-            echo "── procurando docker-compose do scc-app no filesystem ──"
-            find / -maxdepth 4 -iname "*scc*" -not -path "*/proc/*" 2>/dev/null
-            find / -maxdepth 4 -iname "*control-center*" -not -path "*/proc/*" 2>/dev/null
-            echo "── /root listing ──"
-            ls -la /root/ 2>/dev/null
-            echo "── image build date ──"
-            docker inspect scc-app --format 'created={{.Created}} image={{.Image}}'
-            docker inspect scc-app:latest --format 'imageCreated={{.Created}}'
+            echo "── docker-compose.yml do scc-app ──"
+            cat /docker/saas-control-center/docker-compose.yml
+            echo "── ls do diretório ──"
+            ls -la /docker/saas-control-center/
+            echo "── .env presente? (só nomes de chave, sem valor) ──"
+            [ -f /docker/saas-control-center/.env ] && cut -d= -f1 /docker/saas-control-center/.env || echo "sem .env"

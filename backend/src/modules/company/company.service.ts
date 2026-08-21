@@ -133,7 +133,20 @@ export class CompanyService {
     ]);
     if (!company) throw new NotFoundException('Empresa não encontrada');
 
+    // Modelo atual (21/08/2026): só 2 planos vendidos — Delivery e Completo.
+    // BASIC/PRO/ENTERPRISE ficam só pra empresa que já está neles continuar
+    // vendo o preço/label corretos (nunca oferecidos a cadastro novo).
     const fallback = {
+      DELIVERY: {
+        price: 67,
+        label: 'Delivery',
+        tagline: 'Cardápio próprio, pedidos e entrega',
+      },
+      COMPLETO: {
+        price: 197,
+        label: 'Completo',
+        tagline: 'PDV, mesas, cozinha, entrega e tudo mais',
+      },
       BASIC: {
         price: 149,
         label: 'Basic',

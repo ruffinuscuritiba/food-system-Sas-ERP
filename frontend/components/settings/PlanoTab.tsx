@@ -723,7 +723,9 @@ const PLAN_COLORS: Record<string, { gradient: string; label: string }> = {
   ENTERPRISE: { gradient: "from-purple-500 to-violet-600", label: "Enterprise" },
 };
 
-const PLAN_PRICES: Record<string, number> = { BASIC: 97, PRO: 197, ENTERPRISE: 397 };
+// Modelo atual: só Delivery e Completo são vendidos hoje. BASIC/PRO/ENTERPRISE
+// ficam só pra exibir corretamente quem já está nesses planos legados.
+const PLAN_PRICES: Record<string, number> = { DELIVERY: 67, COMPLETO: 197, BASIC: 97, PRO: 197, ENTERPRISE: 397 };
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -839,6 +841,7 @@ function DetailModal({
   onClose,
   onContract,
   onDeactivate,
+  onStartTrial,
   actionLoading,
 }: {
   mod: ModuleDef;
@@ -846,6 +849,7 @@ function DetailModal({
   onClose: () => void;
   onContract: () => void;
   onDeactivate: () => void;
+  onStartTrial: () => void;
   actionLoading: boolean;
 }) {
   const cat  = CATEGORY_COLORS[mod.category] ?? { bg: "bg-gray-100", text: "text-gray-600" };
@@ -950,19 +954,31 @@ function DetailModal({
         {/* Rodapé com ações */}
         <div className="p-5 border-t border-gray-100 bg-gray-50">
           {status === "INACTIVE" && (
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-100 transition-colors"
-              >
-                Fechar
-              </button>
-              <button
-                onClick={onContract}
-                className="flex-[2] flex items-center justify-center gap-2 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition-colors"
-              >
-                <Zap size={15} />Contratar — {fmt(mod.price)}/mês
-              </button>
+            <div className="flex flex-col gap-2">
+              {!mod.isFree && (
+                <button
+                  onClick={onStartTrial}
+                  disabled={actionLoading}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-orange-200 text-orange-600 text-xs font-bold hover:bg-orange-50 transition-colors disabled:opacity-50"
+                >
+                  {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <Clock size={13} />}
+                  Testar grátis por 14 dias, sem compromisso
+                </button>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-100 transition-colors"
+                >
+                  Fechar
+                </button>
+                <button
+                  onClick={onContract}
+                  className="flex-[2] flex items-center justify-center gap-2 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition-colors"
+                >
+                  <Zap size={15} />Contratar — {fmt(mod.price)}/mês
+                </button>
+              </div>
             </div>
           )}
           {status === "TRIAL" && (
@@ -1067,6 +1083,20 @@ function ModuleCard({
     }
   }
 
+  async function startTrial() {
+    setLoading(true);
+    try {
+      await api.post("/company-module/trial", { companyId, moduleSlug: def.slug });
+      toast.success(`${def.name} liberado por 14 dias!`);
+      setShowDetail(false);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Erro ao iniciar o teste grátis");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <>
       {/* Card clicável */}
@@ -1166,6 +1196,7 @@ function ModuleCard({
           onClose={() => setShowDetail(false)}
           onContract={() => { setShowDetail(false); setShowContract(true); }}
           onDeactivate={deactivate}
+          onStartTrial={startTrial}
         />
       )}
 
@@ -1343,7 +1374,7 @@ function PlanCard({
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          {plan !== "ENTERPRISE" && (
+          {plan !== "COMPLETO" && plan !== "ENTERPRISE" && (
             <button
               onClick={onUpgrade}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-gray-900 text-xs font-bold hover:bg-white/90 transition-colors"
@@ -1370,9 +1401,8 @@ function PlanCard({
 
 function UpgradeModal({ currentPlan, onClose }: { currentPlan: string; onClose: () => void }) {
   const PLANS = [
-    { key: "PRO",        label: "Pro",        price: 197, gradient: "from-blue-500 to-indigo-600",   tagline: "Para quem quer escalar" },
-    { key: "ENTERPRISE", label: "Enterprise", price: 397, gradient: "from-purple-500 to-violet-600", tagline: "Para múltiplas unidades" },
-  ].filter((p) => p.key !== currentPlan);
+    { key: "COMPLETO", label: "Completo", price: 197, gradient: "from-purple-500 to-violet-600", tagline: "PDV, mesas, cozinha, entrega e tudo mais" },
+  ].filter((p) => p.key !== currentPlan && p.key !== "ENTERPRISE");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -1426,7 +1456,7 @@ export default function PlanoTab() {
   const { user } = useAuthStore();
   const companyId = (user as any)?.companyId ?? "";
 
-  const [plan,          setPlan]          = useState("BASIC");
+  const [plan,          setPlan]          = useState("DELIVERY");
   const [subStatus,     setSubStatus]     = useState("ACTIVE");
   const [dueDate,       setDueDate]       = useState<string | null>(null);
   const [modStatuses,   setModStatuses]   = useState<Record<string, { status: ModStatus; trialEndsAt?: string | null }>>({});
@@ -1445,7 +1475,7 @@ export default function PlanoTab() {
       ]);
 
       const sub = subRes.data ?? {};
-      setPlan(sub.plan ?? "BASIC");
+      setPlan(sub.plan ?? "DELIVERY");
       setSubStatus(sub.subscriptionStatus ?? "ACTIVE");
       setDueDate(sub.dueDate ?? null);
 

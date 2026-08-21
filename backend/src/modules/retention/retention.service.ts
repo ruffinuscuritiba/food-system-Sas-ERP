@@ -247,16 +247,18 @@ export class RetentionService {
       if (daysLeft === 3) {
         msg =
           `Olá, *${company.users[0]?.name ?? company.name}*! 👋\n\n` +
-          `Seu teste grátis do *FoodSaaS* termina em *3 dias* (${dueDate.toLocaleDateString('pt-BR')}).\n\n` +
+          `Seu teste grátis *com todos os módulos liberados* termina em *3 dias* (${dueDate.toLocaleDateString('pt-BR')}).\n\n` +
           `Durante o teste você experimentou:\n` +
           `✅ PDV com carrinho e pagamentos\n` +
           `✅ Cardápio digital para seus clientes\n` +
           `✅ Gestão de cozinha em tempo real\n` +
-          `✅ Controle de estoque e financeiro\n\n` +
-          `Não perca o acesso! Garanta seu plano agora com *a partir de R$ 97/mês*:\n` +
-          `👉 ${frontendUrl}/assinatura\n\n` +
-          `Ficou com alguma dúvida? Fale com a gente:\n` +
-          `📱 wa.me/${supportWA}`;
+          `✅ Controle de estoque e financeiro\n` +
+          `✅ Módulo de Entrega (zonas, entregadores, rastreamento)\n\n` +
+          `Depois desse prazo você continua com o *Básico* (PDV, caixa, cardápio, estoque, financeiro), mas módulos extras como Entrega são pausados até serem contratados.\n\n` +
+          `Quer manter tudo funcionando sem interrupção? Fale agora com nossa *equipe de vendas*:\n` +
+          `📱 wa.me/${supportWA}\n\n` +
+          `Ou já garanta seu plano direto por aqui, a partir de *R$ 97/mês*:\n` +
+          `👉 ${frontendUrl}/assinatura`;
       } else if (daysLeft === 1) {
         msg =
           `⏰ *Último dia de teste, ${company.users[0]?.name ?? company.name}!*\n\n` +

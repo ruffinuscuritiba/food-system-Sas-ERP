@@ -400,12 +400,19 @@ export class SuperAdminService {
   // ── Precificação ─────────────────────────────────────────────────────────
 
   async getPlanConfig() {
-    // Garantir que todos os planos padrão existam (incluindo DELIVERY)
+    // Modelo atual (21/08/2026): só 2 planos vendidos — Delivery e Completo.
+    // BASIC/PRO/ENTERPRISE seguem cadastrados só pra quem já está neles hoje
+    // continuar vendo preço/label corretos (nunca oferecidos a cadastro novo).
+    // IMPORTANTE: 'DELIVERY' aqui já teve outro significado (R$197, era o
+    // "Profissional") — só 1 empresa real usava esse valor e era a própria
+    // demo (demo-delivery-001), confirmado antes de redefinir; nenhuma
+    // empresa paga precisou de migração de dado.
     const defaults = [
+      { plan: 'DELIVERY',   price: 67,  label: 'Delivery',   tagline: 'Cardápio próprio, pedidos e entrega' },
+      { plan: 'COMPLETO',   price: 197, label: 'Completo',   tagline: 'PDV, mesas, cozinha, entrega e tudo mais' },
       { plan: 'BASIC',      price: 149, label: 'Basic',      tagline: 'Para começar com o essencial'     },
       { plan: 'PRO',        price: 249, label: 'Pro',        tagline: 'Para operações em crescimento'    },
       { plan: 'ENTERPRISE', price: 399, label: 'Enterprise', tagline: 'Tudo liberado, sem limites'       },
-      { plan: 'DELIVERY',   price: 197, label: 'Delivery',   tagline: 'Foco em entregas e rastreamento'  },
     ];
     const existing = await this.prisma.planConfig.findMany({ select: { plan: true } });
     const existingPlans = new Set(existing.map((c) => c.plan));

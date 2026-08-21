@@ -318,6 +318,9 @@ model Company {
   // ── Segmento e layout ─────────────────────────────────────────────────────
   // Nicho do negócio — usado para seed automático na criação da conta
   businessSegment  String @default("RESTAURANTE")
+  // Tipo de operação escolhido no cadastro: DELIVERY | COMPLETO
+  // Usado só para personalizar onboarding/sidebar — não muda preço nem módulos.
+  businessType     String @default("COMPLETO")
   // Layout de produtos no PDV/Cardápio: LIST | GRID
   layoutType       String @default("LIST")
   // Raio dos botões: SM | MD | LG | FULL
@@ -2176,6 +2179,16 @@ model SystemUpdateNotice {
   skipped    Boolean  @default(false) // true = build registrado sem envio (limite diário)
   recipients Int      @default(0)
   summary    Json?
+}
+
+// Marcador genérico de migração one-off que precisa rodar em código (não SQL puro),
+// ex.: recalcular dueDate/CompanyModule de empresas já existentes numa reforma de
+// modelo de trial. Cada migração de dado usa uma `key` própria e roda uma única vez.
+model SystemMigrationFlag {
+  id      String   @id @default(cuid())
+  key     String   @unique
+  ranAt   DateTime @default(now())
+  details String?
 }
 
 // ── Leads capturados pela Kely (IA Demo pública) ──────────────────────────────

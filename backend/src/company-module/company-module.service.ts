@@ -41,7 +41,7 @@ export class CompanyModuleService {
     }
 
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 5);
+    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
     return this.prisma.companyModule.upsert({
       where: { id: `cm-${moduleSlug}-${companyId}` },

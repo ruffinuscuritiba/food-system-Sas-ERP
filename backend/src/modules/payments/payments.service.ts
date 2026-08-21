@@ -28,9 +28,17 @@ export interface CreateCheckoutDto {
   cancelUrl?: string;
 }
 
+// Modelo atual de venda (21/08/2026): só 2 planos — Delivery e Completo.
+// BASIC/PRO/ENTERPRISE ficam mantidos SÓ para exibição/renovação de quem já
+// está nesses planos (clientes reais existentes) — nunca oferecidos a
+// cadastro novo. Nunca reatribuir plan='DELIVERY' pra empresa nova sem
+// checar que não é a mesma string usada pelo plano antigo "Profissional".
 const PLAN_PRICES: Record<string, { amount: number; label: string }> = {
+  DELIVERY: { amount: 6700, label: 'Plano Delivery — FoodSaaS' },
+  COMPLETO: { amount: 19700, label: 'Plano Completo — FoodSaaS' },
+  // Legado — mantidos só pra quem já está neles hoje.
   BASIC: { amount: 9700, label: 'Plano Básico — FoodSaaS' },
-  DELIVERY: { amount: 19700, label: 'Plano Profissional — FoodSaaS' },
+  PRO: { amount: 19700, label: 'Plano Profissional — FoodSaaS' },
   ENTERPRISE: { amount: 39700, label: 'Plano Enterprise — FoodSaaS' },
 };
 

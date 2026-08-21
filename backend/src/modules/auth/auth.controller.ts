@@ -20,6 +20,7 @@ export class AuthController {
       password: string;
       whatsapp?: string;
       businessSegment?: string;
+      businessType?: string;
     },
   ) {
     return this.service.signup(body);

@@ -24,12 +24,28 @@ const SEGMENTS = [
   { value: "MERCADO",      label: "Mercado",       emoji: "🛒" },
 ] as const;
 
+const BUSINESS_TYPES = [
+  {
+    value: "DELIVERY",
+    emoji: "🛵",
+    label: "Delivery",
+    desc: "Vende por WhatsApp e cardápio digital. Sem mesa, sem balcão.",
+  },
+  {
+    value: "COMPLETO",
+    emoji: "🏬",
+    label: "Completo",
+    desc: "PDV, mesas, cozinha e delivery — a operação inteira num só lugar.",
+  },
+] as const;
+
 export default function SignupPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [segment, setSegment] = useState("");
+  const [businessType, setBusinessType] = useState("");
   const [form, setForm] = useState({
     companyName: "",
     name: "",
@@ -46,6 +62,11 @@ export default function SignupPage() {
   function selectSegment(value: string) {
     setSegment(value);
     setStep(2);
+  }
+
+  function selectBusinessType(value: string) {
+    setBusinessType(value);
+    setStep(3);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,12 +96,13 @@ export default function SignupPage() {
         password: form.password,
         whatsapp: form.whatsapp,
         businessSegment: segment || "RESTAURANTE",
+        businessType: businessType || "COMPLETO",
       });
       setAuth(data.accessToken, data.user);
       localStorage.setItem("token", data.accessToken);
       localStorage.setItem("user", JSON.stringify(data.user));
       document.cookie = `token=${data.accessToken}; path=/`;
-      toast.success("Conta criada! Escolha seu plano.");
+      toast.success("Conta criada! Você tem 10 dias com tudo liberado.");
       router.push("/assinatura");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Erro ao criar conta");
@@ -90,6 +112,7 @@ export default function SignupPage() {
   }
 
   const selectedSegmentData = SEGMENTS.find((s) => s.value === segment);
+  const selectedBusinessType = BUSINESS_TYPES.find((t) => t.value === businessType);
 
   return (
     <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4 md:p-6">
@@ -126,10 +149,9 @@ export default function SignupPage() {
           </div>
         )}
 
-        {/* Step 2 — Dados da conta */}
+        {/* Step 2 — Tipo de negócio */}
         {step === 2 && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 md:p-10 shadow-2xl">
-            {/* Back + segmento selecionado */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
             <div className="flex items-center gap-3 mb-6">
               <button
                 onClick={() => setStep(1)}
@@ -145,9 +167,59 @@ export default function SignupPage() {
               )}
             </div>
 
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-white mb-2">Como você opera?</h1>
+              <p className="text-slate-400">Isso só ajusta o menu inicial — dá pra mudar depois</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {BUSINESS_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => selectBusinessType(t.value)}
+                  className="flex flex-col items-start gap-2 p-5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-green-500 rounded-2xl transition-all duration-150 text-left group"
+                >
+                  <span className="text-3xl group-hover:scale-110 transition-transform">{t.emoji}</span>
+                  <span className="text-base font-bold text-white">{t.label}</span>
+                  <span className="text-xs text-slate-400 leading-relaxed">{t.desc}</span>
+                </button>
+              ))}
+            </div>
+
+            <p className="text-center text-green-400 text-sm font-semibold mt-6">
+              ✓ Nos dois casos, 10 dias com todos os módulos liberados
+            </p>
+          </div>
+        )}
+
+        {/* Step 3 — Dados da conta */}
+        {step === 3 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 md:p-10 shadow-2xl">
+            {/* Back + segmento/tipo selecionados */}
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
+              <button
+                onClick={() => setStep(2)}
+                className="text-slate-400 hover:text-white transition text-sm flex items-center gap-1"
+              >
+                ← Voltar
+              </button>
+              {selectedSegmentData && (
+                <span className="flex items-center gap-2 bg-green-900/30 border border-green-700/50 rounded-xl px-3 py-1.5 text-sm text-green-300 font-medium">
+                  <span>{selectedSegmentData.emoji}</span>
+                  {selectedSegmentData.label}
+                </span>
+              )}
+              {selectedBusinessType && (
+                <span className="ml-auto flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-slate-300 font-medium">
+                  <span>{selectedBusinessType.emoji}</span>
+                  {selectedBusinessType.label}
+                </span>
+              )}
+            </div>
+
             <h1 className="text-3xl font-bold text-white mb-2">Criar conta</h1>
             <p className="text-slate-400 mb-1">Cadastre seu estabelecimento gratuitamente</p>
-            <p className="text-green-400 text-sm font-semibold mb-6">✓ 7 dias de teste grátis — sem cartão de crédito</p>
+            <p className="text-green-400 text-sm font-semibold mb-6">✓ 10 dias com tudo liberado — sem cartão de crédito</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <input

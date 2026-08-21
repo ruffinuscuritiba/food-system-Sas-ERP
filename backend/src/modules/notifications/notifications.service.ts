@@ -132,7 +132,7 @@ export class NotificationsService {
       case 'WELCOME':
         return base(`
           <h2>Bem-vindo ao FoodSaaS, ${data?.name || 'cliente'}! 🎉</h2>
-          <p>Sua conta <strong>${data?.companyName || ''}</strong> foi criada com sucesso e seu <strong>trial de 7 dias gratuito</strong> já começou.</p>
+          <p>Sua conta <strong>${data?.companyName || ''}</strong> foi criada com sucesso e seu <strong>trial de ${data?.trialDays || 10} dias, com todos os módulos liberados,</strong> já começou.</p>
 
           <p style="margin-top:22px;font-weight:700;color:#fff;font-size:15px;">Comece em 3 passos rápidos 👇</p>
           <table style="width:100%;border-collapse:collapse;margin:10px 0;">

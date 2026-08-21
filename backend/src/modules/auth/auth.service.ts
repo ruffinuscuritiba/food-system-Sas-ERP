@@ -28,7 +28,10 @@ import { slugify } from '@/common/utils/slugify';
  *  Motor 4 – Varejo (sem Cozinha, sem Mesas, sem Receitas)
  *    CONVENIENCIA, MERCADO
  */
-function buildDefaultSidebarConfig(segment: string): Record<string, boolean> {
+function buildDefaultSidebarConfig(
+  segment: string,
+  businessType?: string,
+): Record<string, boolean> {
   const noPizza   = { 'pizza-borders': false } as const;
   const noTables  = { tables: false, 'qrcode-mesas': false } as const;
   const noKitchen = { kitchen: false } as const;
@@ -54,8 +57,20 @@ function buildDefaultSidebarConfig(segment: string): Record<string, boolean> {
     CONVENIENCIA: { ...noPizza, ...noTables, ...noKitchen, ...noRecipes, ...noComplements },
     MERCADO:      { ...noPizza, ...noTables, ...noKitchen, ...noRecipes, ...noComplements },
   };
-  return configs[segment] ?? { ...noPizza };
+  const base = configs[segment] ?? { ...noPizza };
+
+  // "Delivery" no cadastro = negócio sem atendimento em mesa — some com
+  // Mesas/QR de mesa por padrão (o dono liga de volta em Configurações se precisar).
+  if (businessType === 'DELIVERY') {
+    return { ...base, ...noTables };
+  }
+  return base;
 }
+
+/** Módulos sempre incluídos no plano Básico (nunca expiram). */
+const BASIC_MODULE_SLUGS = ['tables', 'cash', 'financial', 'stock', 'recipes', 'pdv'] as const;
+/** Dias do teste completo (todos os módulos, incluindo os pagos) no cadastro novo. */
+const FULL_TRIAL_DAYS = 10;
 
 const DEMO_PLAN_EMAIL: Record<string, string> = {
   basic:        'demo-basic@foodsaas.demo',
@@ -128,7 +143,7 @@ export class AuthService {
 
     const text =
       `Olá, *${name}*! 👋 Seja bem-vindo(a) ao *FoodSaaS*!\n\n` +
-      `A conta da *${companyName}* já está ativa com *7 dias de teste grátis*. 🎉\n\n` +
+      `A conta da *${companyName}* já está ativa com *${FULL_TRIAL_DAYS} dias de teste grátis, com tudo liberado*. 🎉\n\n` +
       `Para começar:\n` +
       `1️⃣ Cadastre seu cardápio\n` +
       `2️⃣ Compartilhe seu cardápio digital\n` +
@@ -156,15 +171,19 @@ export class AuthService {
     password: string;
     whatsapp?: string;
     businessSegment?: string;
+    businessType?: string;
   }) {
     await this.assertEmailUnique(dto.email);
 
-    // New companies start as PENDING_PAYMENT — 3-day free trial, no card required.
+    // Empresas novas começam como PENDING_PAYMENT — 10 dias de teste com TODOS
+    // os módulos liberados, sem cartão. Depois disso, quem não assinar fica só
+    // com o Básico (bloqueio automático via RetentionService.blockExpiredTrials).
     const trialEnds = new Date();
-    trialEnds.setDate(trialEnds.getDate() + 7);
+    trialEnds.setDate(trialEnds.getDate() + FULL_TRIAL_DAYS);
 
     const segment = dto.businessSegment ?? 'RESTAURANTE';
-    const sidebarConfig = buildDefaultSidebarConfig(segment);
+    const businessType = dto.businessType === 'DELIVERY' ? 'DELIVERY' : 'COMPLETO';
+    const sidebarConfig = buildDefaultSidebarConfig(segment, businessType);
 
     // Generate unique slug from company name
     const baseSlug = slugify(dto.companyName) || 'empresa';
@@ -180,11 +199,12 @@ export class AuthService {
         slug,
         email: dto.email,
         whatsapp: dto.whatsapp ?? null,
-        plan: 'BASIC',
+        plan: businessType,
         subscriptionStatus: 'PENDING_PAYMENT',
         dueDate: trialEnds,
         isBlocked: false,
         businessSegment: segment,
+        businessType,
         sidebarConfig,
       },
     });
@@ -201,17 +221,43 @@ export class AuthService {
       },
     });
 
-    for (const mod of [
-      'TABLES',
-      'CASH',
-      'FINANCIAL',
-      'STOCK',
-      'RECIPES',
-    ]) {
-      await this.prisma.companyModule.create({
-        data: { module: mod, active: true, companyId: company.id },
-      });
-    }
+    // Módulos do Básico (sempre ativos, nunca expiram) + "delivery" — o único
+    // módulo com bloqueio real hoje (ModuleGuard) — liberado em teste por
+    // FULL_TRIAL_DAYS junto com o resto. Usa o mesmo id determinístico
+    // (`cm-<slug>-<companyId>`) do marketplace (CompanyModuleService) pra nunca
+    // duplicar linha quando o cliente depois clicar em ativar/testar um módulo
+    // em Configurações → Plano.
+    const now = new Date();
+    await Promise.all([
+      ...BASIC_MODULE_SLUGS.map((slug) =>
+        this.prisma.companyModule.upsert({
+          where: { id: `cm-${slug}-${company.id}` },
+          update: {},
+          create: {
+            id: `cm-${slug}-${company.id}`,
+            module: slug.toUpperCase(),
+            moduleSlug: slug,
+            status: 'ACTIVE',
+            active: true,
+            activatedAt: now,
+            companyId: company.id,
+          },
+        }),
+      ),
+      this.prisma.companyModule.upsert({
+        where: { id: `cm-delivery-${company.id}` },
+        update: {},
+        create: {
+          id: `cm-delivery-${company.id}`,
+          module: 'DELIVERY',
+          moduleSlug: 'delivery',
+          status: 'TRIAL',
+          active: false,
+          trialEndsAt: trialEnds,
+          companyId: company.id,
+        },
+      }),
+    ]);
 
     // Seed automático por segmento — fire-and-forget, não bloqueia o cadastro
     setImmediate(() => {
@@ -232,6 +278,7 @@ export class AuthService {
             name: dto.name,
             companyName: dto.companyName,
             loginUrl,
+            trialDays: FULL_TRIAL_DAYS,
           },
         })
         .catch((err) =>
@@ -273,7 +320,7 @@ export class AuthService {
         `📧 ${dto.email}\n` +
         `📱 ${dto.whatsapp ?? '—'}\n` +
         `👤 ${dto.name}\n\n` +
-        `_Trial 7 dias iniciado — ${trialEnds.toLocaleDateString('pt-BR')}_`;
+        `_Trial completo de ${FULL_TRIAL_DAYS} dias iniciado — ${trialEnds.toLocaleDateString('pt-BR')}_`;
       this.notifyOwnerWhatsapp(waMsg).catch((err) =>
         this.logger.warn(`[Signup] WA notify failed: ${err?.message}`),
       );

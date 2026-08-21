@@ -15,7 +15,11 @@ import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Plan = "BASIC" | "PRO" | "ENTERPRISE";
+// Modelo atual (21/08/2026): só DELIVERY e COMPLETO são vendidos a cadastro
+// novo. BASIC/PRO/ENTERPRISE seguem existindo só pra quem já estava neles —
+// nunca remover essas chaves, senão o acesso desses clientes reais quebra
+// (PLAN_STATIC[sub.plan] é acessado sem fallback em vários pontos da página).
+type Plan = "DELIVERY" | "COMPLETO" | "BASIC" | "PRO" | "ENTERPRISE";
 
 interface PlanPrice {
   price: number;
@@ -47,12 +51,30 @@ interface Subscription {
 
 // ─── Plan static config (não inclui preço — vem do backend) ──────────────────
 
-const PLAN_ORDER: Plan[] = ["BASIC", "PRO", "ENTERPRISE"];
+const PLAN_ORDER: Plan[] = ["BASIC", "PRO", "ENTERPRISE", "DELIVERY", "COMPLETO"];
 
 const PLAN_STATIC: Record<Plan, {
   label: string; icon: React.ReactNode; color: string;
   border: string; bg: string; tagline: string; features: string[];
 }> = {
+  DELIVERY: {
+    label:   "Delivery",
+    icon:    <Bike size={20} />,
+    color:   "text-green-600",
+    border:  "border-green-400",
+    bg:      "bg-green-50",
+    tagline: "Cardápio próprio, pedidos e entrega",
+    features: ["PDV / Caixa", "Pedidos", "Cardápio digital", "Zonas de entrega", "Entregadores & rastreamento"],
+  },
+  COMPLETO: {
+    label:   "Completo",
+    icon:    <Crown size={20} />,
+    color:   "text-purple-600",
+    border:  "border-purple-400",
+    bg:      "bg-purple-50",
+    tagline: "PDV, mesas, cozinha, entrega e tudo mais",
+    features: ["Tudo do Delivery", "Mesas e comanda", "Financeiro completo", "Receitas & Fichas técnicas", "BI & Relatórios", "WhatsApp IA", "Fidelidade & Cashback"],
+  },
   BASIC: {
     label:   "Basic",
     icon:    <Package size={20} />,
@@ -83,7 +105,7 @@ const PLAN_STATIC: Record<Plan, {
 };
 
 // Preços de fallback (sobrescritos pelo backend quando disponível)
-const PRICE_FALLBACK: Record<Plan, number> = { BASIC: 149, PRO: 249, ENTERPRISE: 399 };
+const PRICE_FALLBACK: Record<Plan, number> = { DELIVERY: 67, COMPLETO: 197, BASIC: 149, PRO: 249, ENTERPRISE: 399 };
 
 // ─── Módulos avulsos (estáticos — preço e detalhes vêm do catálogo) ───────────
 
@@ -99,6 +121,8 @@ const ADDON_ICON: Record<string, React.ReactNode> = {
 };
 
 const PLAN_INCLUDES: Record<Plan, string[]> = {
+  DELIVERY:   ["DELIVERY"],
+  COMPLETO:   ["FINANCIAL", "RECIPES", "DELIVERY", "BI", "AI", "LOYALTY"],
   BASIC:      [],
   PRO:        ["FINANCIAL", "RECIPES", "DELIVERY"],
   ENTERPRISE: ["FINANCIAL", "RECIPES", "DELIVERY", "BI", "AI", "LOYALTY"],
@@ -107,18 +131,15 @@ const PLAN_INCLUDES: Record<Plan, string[]> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 // ─── Checkout gate plan cards (used when PENDING_PAYMENT) ─────────────────────
+// Só 2 planos oferecidos a cadastro novo — modelo atual (21/08/2026).
 const CHECKOUT_PLANS = [
   {
-    plan: "BASIC", label: "Básico", price: 97, color: "#16a34a", popular: false,
-    features: ["PDV completo", "Pedidos e cozinha", "Mesas e comanda", "Cardápio digital", "Estoque básico"],
+    plan: "DELIVERY", label: "Delivery", price: 67, color: "#16a34a", popular: false,
+    features: ["PDV completo", "Pedidos e cozinha", "Cardápio digital sem comissão", "Zonas de entrega", "Entregadores & rastreamento"],
   },
   {
-    plan: "DELIVERY", label: "Profissional", price: 197, color: "#2563eb", popular: true,
-    features: ["Tudo do Básico", "Delivery com entregadores", "WhatsApp IA 24h", "Cupons e fidelidade", "Relatórios avançados"],
-  },
-  {
-    plan: "ENTERPRISE", label: "Enterprise", price: 397, color: "#7c3aed", popular: false,
-    features: ["Tudo do Profissional", "Múltiplas unidades", "White label", "BI avançado", "Suporte prioritário"],
+    plan: "COMPLETO", label: "Completo", price: 197, color: "#7c3aed", popular: true,
+    features: ["Tudo do Delivery", "Mesas e comanda", "WhatsApp IA 24h", "Cupons, fidelidade e BI", "Relatórios avançados de CMV e margem"],
   },
 ];
 
@@ -149,8 +170,8 @@ export default function AssinaturaPage() {
         api.get<CatalogModule[]>("/company-module/catalog").catch(() => ({ data: [] })),
         api.get<{ name: string }>(`/company/${companyId}`).catch(() => ({ data: { name: "" } })),
       ]);
-      const validPlans: Plan[] = ["BASIC", "PRO", "ENTERPRISE"];
-      const plan = validPlans.includes(subRes.data.plan as Plan) ? subRes.data.plan : "BASIC";
+      const validPlans: Plan[] = ["DELIVERY", "COMPLETO", "BASIC", "PRO", "ENTERPRISE"];
+      const plan = validPlans.includes(subRes.data.plan as Plan) ? subRes.data.plan : "DELIVERY";
       setSub({ ...subRes.data, plan });
       setCatalog(Array.isArray(catRes.data) ? catRes.data : []);
       setCompanyName(companyRes.data?.name || companyId);

@@ -58,9 +58,21 @@ const CATEGORIES_DEF = [
   { key: 'combos', name: 'Combos', bannerFile: 'combos.jpg', sortOrder: 5 },
   {
     key: 'pratos',
-    name: 'Pratos do Dia',
+    name: 'Marmitas',
     bannerFile: 'https://images.unsplash.com/photo-1709114107937-6dec855d9ab5?w=1200&h=400&fit=crop&q=80',
     sortOrder: 1,
+  },
+  {
+    key: 'porcoes',
+    name: 'Porções',
+    bannerFile: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=1200&h=400&fit=crop&q=80',
+    sortOrder: 4,
+  },
+  {
+    key: 'marmitaria-combos',
+    name: 'Combos',
+    bannerFile: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=1200&h=400&fit=crop&q=80',
+    sortOrder: 6,
   },
 ];
 
@@ -325,6 +337,17 @@ const PRATOS_DIA: ProdDef[] = [
   { key: 'vegana',           name: 'Marmita Vegana',               price: 20.9, cost: 7.5,  imgId: 'https://images.unsplash.com/photo-1644085128570-3f9782b47f80?w=600&h=600&fit=crop&q=80', desc: 'Grão-de-bico, legumes assados, tabule e tahine' },
 ];
 
+const PORCOES: ProdDef[] = [
+  { key: 'batata-frita', name: 'Batata Frita Crocante', price: 12.9, cost: 4.2, imgId: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&h=600&fit=crop&q=80', desc: 'Porção de batata frita crocante com molho especial' },
+  { key: 'mandioca-frita', name: 'Mandioca Frita', price: 14.9, cost: 5.0, imgId: 'https://images.unsplash.com/photo-1623238913973-21e45cced554?w=600&h=600&fit=crop&q=80', desc: 'Mandioca frita sequinha e dourada' },
+  { key: 'salada-especial', name: 'Salada Especial', price: 11.9, cost: 4.0, imgId: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=600&fit=crop&q=80', desc: 'Salada fresca com folhas, tomate e cenoura' },
+];
+
+const MARMITARIA_COMBOS: ProdDef[] = [
+  { key: 'combo-marmita-refri', name: 'Marmita + Refrigerante', price: 27.9, cost: 11.0, imgId: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=600&h=600&fit=crop&q=80', desc: 'Escolha uma marmita do dia e ganhe um refrigerante lata' },
+  { key: 'combo-marmita-suco', name: 'Marmita + Suco Natural', price: 30.9, cost: 12.0, imgId: 'https://images.unsplash.com/photo-1547592180-85f173990554?w=600&h=600&fit=crop&q=80', desc: 'Marmita do dia acompanhada de suco natural' },
+];
+
 const PRODUCTS_MAP: Record<string, ProdDef[]> = {
   salgadas: PIZZAS_SALGADAS,
   doces: PIZZAS_DOCES,
@@ -332,6 +355,8 @@ const PRODUCTS_MAP: Record<string, ProdDef[]> = {
   sobremesas: SOBREMESAS,
   combos: COMBOS,
   pratos: PRATOS_DIA,
+  porcoes: PORCOES,
+  'marmitaria-combos': MARMITARIA_COMBOS,
 };
 
 const CUSTOMER_NAMES = [
@@ -610,7 +635,7 @@ const TIERS: TierConfig[] = [
   {
     companyId: 'demo-delivery-001',
     companyName: 'Marmita Express Delivery',
-    catKeys: ['pratos', 'bebidas', 'sobremesas', 'combos'],
+    catKeys: ['pratos', 'bebidas', 'porcoes', 'sobremesas', 'marmitaria-combos'],
     historyDays: 14,
     historyOrders: 60,
     todayOrders: 18,
@@ -668,6 +693,43 @@ export class DemoVitrineService {
         });
       }
     }
+  }
+
+  /**
+   * The delivery demo used to inherit the pizza catalogue. Keep the cleanup
+   * tenant-scoped and idempotent: only products outside the current
+   * Marmitaria catalogue are hidden, never touched in another demo/company.
+   */
+  async patchMarmitariaCatalog(): Promise<void> {
+    const tier = TIERS.find((item) => item.companyId === 'demo-delivery-001');
+    if (!tier) return;
+
+    const productKeys = tier.catKeys.flatMap((key) =>
+      (PRODUCTS_MAP[key] ?? []).map((product) => `${tier.companyId}-prod-${product.key}`),
+    );
+    const categoryIds = tier.catKeys.map((key) => `${tier.companyId}-cat-${key}`);
+
+    await this.prisma.product.updateMany({
+      where: {
+        companyId: tier.companyId,
+        id: { notIn: productKeys },
+        deletedAt: null,
+      },
+      data: {
+        isActive: false,
+        deletedAt: new Date(),
+      },
+    });
+
+    await this.prisma.category.deleteMany({
+      where: {
+        companyId: tier.companyId,
+        id: { notIn: categoryIds },
+      },
+    }).catch(() => {
+      // A category with historical relations is kept; its products are hidden
+      // above and it will not leak into the public menu.
+    });
   }
 
   /**

@@ -7,6 +7,7 @@ import { api } from "@/services/api";
 import { Pencil, Trash2, Check, X, FolderKanban, Plus, GripVertical, Image as ImageIcon, Sparkles, Clock } from "lucide-react";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import { CATEGORY_BANNERS, type PresetBanner } from "@/lib/category-banners";
+import { CATEGORY_COLOR_PALETTE } from "@/lib/categoryColors";
 
 // @hello-pangea/dnd é pesado e incompatível com SSR — carregamento dinâmico
 const DragDropContext = dynamic(() => import("@hello-pangea/dnd").then((m) => m.DragDropContext), { ssr: false });
@@ -108,6 +109,9 @@ export default function CategoriesPage() {
   // Fase 5 White Label — banner por categoria
   const [newBannerImage, setNewBannerImage]       = useState<string | null>(null);
   const [editBannerImage, setEditBannerImage]     = useState<string | null>(null);
+  const [newColor, setNewColor]                   = useState<string | null>(null);
+  const [editColor, setEditColor]                 = useState<string | null>(null);
+  const [businessSegment, setBusinessSegment]     = useState<string | null>(null);
   const [newBannerZoom, setNewBannerZoom]         = useState(100);
   const [editBannerZoom, setEditBannerZoom]       = useState(100);
   // Modal de biblioteca de banners prontos — abre com target ("new" | "edit")
@@ -139,7 +143,13 @@ export default function CategoriesPage() {
     }
   }
 
-  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => {
+    fetchCategories();
+    api.get("/company/settings").then((r) => {
+      if (r.data?.businessSegment) setBusinessSegment(r.data.businessSegment);
+    }).catch(() => {});
+  }, []);
+  const showColorPicker = businessSegment === "MARMITARIA";
 
   async function createCategory() {
     if (!name.trim()) { toast.error("Digite o nome"); return; }
@@ -151,6 +161,7 @@ export default function CategoriesPage() {
         categoryType: newCategoryType,
         bannerImage: newBannerImage,
         bannerImageZoom: newBannerZoom,
+        color: newColor,
         availableFrom: newTimeEnabled ? newFrom : null,
         availableTo: newTimeEnabled ? newTo : null,
         availableDays: newTimeEnabled ? newDays : null,
@@ -161,6 +172,7 @@ export default function CategoriesPage() {
       setNewCategoryType("normal");
       setNewBannerImage(null);
       setNewBannerZoom(100);
+      setNewColor(null);
       setNewTimeEnabled(false);
       setNewDays(ALL_DAYS);
       fetchCategories();
@@ -178,6 +190,7 @@ export default function CategoriesPage() {
     setEditCategoryType(category.categoryType ?? "normal");
     setEditBannerImage(category.bannerImage ?? null);
     setEditBannerZoom(category.bannerImageZoom ?? 100);
+    setEditColor(category.color ?? null);
     setEditTimeEnabled(!!(category.availableFrom && category.availableTo));
     setEditFrom(category.availableFrom || "11:00");
     setEditTo(category.availableTo || "14:30");
@@ -193,6 +206,7 @@ export default function CategoriesPage() {
         categoryType: editCategoryType,
         bannerImage: editBannerImage,  // pode ser null (remoção)
         bannerImageZoom: editBannerZoom,
+        color: editColor,
         availableFrom: editTimeEnabled ? editFrom : null,
         availableTo: editTimeEnabled ? editTo : null,
         availableDays: editTimeEnabled ? editDays : null,
@@ -339,6 +353,24 @@ export default function CategoriesPage() {
             />
           </div>
 
+          {showColorPicker && (
+            <div className="mt-4">
+              <p className="text-xs font-bold text-gray-500 mb-2">Cor da aba (frente de caixa)</p>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORY_COLOR_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewColor(c)}
+                    className={`w-8 h-8 rounded-full ${newColor === c ? "ring-2 ring-offset-2 ring-gray-400" : ""}`}
+                    style={{ backgroundColor: c }}
+                    aria-label={`Cor ${c}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <AvailabilityWindowFields
             enabled={newTimeEnabled} onToggle={setNewTimeEnabled}
             from={newFrom} onFrom={setNewFrom}
@@ -469,6 +501,24 @@ export default function CategoriesPage() {
                         </button>
                       )}
                     </div>
+
+                    {showColorPicker && (
+                      <div className="mt-3">
+                        <p className="text-xs font-bold text-gray-500 mb-1.5">Cor da aba</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {CATEGORY_COLOR_PALETTE.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setEditColor(c)}
+                              className={`w-6 h-6 rounded-full ${editColor === c ? "ring-2 ring-offset-1 ring-gray-400" : ""}`}
+                              style={{ backgroundColor: c }}
+                              aria-label={`Cor ${c}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <AvailabilityWindowFields
                       enabled={editTimeEnabled} onToggle={setEditTimeEnabled}

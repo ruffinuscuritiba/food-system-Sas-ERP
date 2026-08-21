@@ -293,6 +293,7 @@ export default function MenuPage() {
   const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [companyName, setCompanyName] = useState("Cardápio");
+  const [businessSegment, setBusinessSegment] = useState<string | null>(null);
   // Cidade/UF da loja — usado pra "ancorar" a busca de rua no Nominatim (sem
   // isso, ruas comuns/residenciais digitadas sem contexto de cidade quase
   // sempre voltam 0 resultados, mesmo a rua existindo no OpenStreetMap).
@@ -554,6 +555,7 @@ export default function MenuPage() {
         const cd = await companyRes.json().catch(() => null);
         if (cd?.name) setCompanyName(cd.name);
         if (cd?.id) setRealCompanyId(cd.id);
+        if (cd?.businessSegment) setBusinessSegment(cd.businessSegment);
         if (cd?.whatsapp || cd?.phone) setCompanyWhatsapp(cd.whatsapp || cd.phone);
         if (cd?.city) setCompanyCity(cd.city);
         if (cd?.state) setCompanyState(cd.state);
@@ -1086,6 +1088,7 @@ export default function MenuPage() {
   /** Pizza (categoria com allowMultipleFlavors ou nome contendo "pizza") — checagem por produto,
    *  não pela aba ativa, pra funcionar igual em "Todos" e em categorias específicas. */
   function isPizzaProduct(product: Product): boolean {
+    if (businessSegment === "MARMITARIA") return false;
     const cat = product.category as any;
     if (!cat || cat.categoryType === "bebidas") return false;
     return cat.allowMultipleFlavors === true || String(cat.name || "").toLowerCase().includes("pizza");

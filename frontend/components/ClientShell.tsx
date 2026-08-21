@@ -836,7 +836,8 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   const currentPageSlug: string | undefined = PATHNAME_TO_SLUG[pathname ?? ""];
   const currentPageInDb: boolean = currentPageSlug ? activeSlugs.includes(currentPageSlug) : false;
 
-  const isPdv = pathname === "/pdv";
+  const isMarmitariaPdv = pathname === "/pdv-marmitaria";
+  const isPdv = pathname === "/pdv" || isMarmitariaPdv;
   const isDriverPage = pathname?.startsWith("/driver");
   const isGarcomPage = pathname?.startsWith("/garcom");
 
@@ -1247,10 +1248,15 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // por peso) — visualmente independente do /pdv de comida,
                       // por isso o item some do href estático e vira /pdv-mercado.
                       const isMercadoPdv = item.href === "/pdv" && businessSegment === "MERCADO";
-                      const effectiveHref = isMercadoPdv ? "/pdv-mercado" : item.href;
+                      const isMarmitariaPdvLink = item.href === "/pdv" && businessSegment === "MARMITARIA";
+                      const effectiveHref = isMercadoPdv
+                        ? "/pdv-mercado"
+                        : isMarmitariaPdvLink
+                          ? "/pdv-marmitaria"
+                          : item.href;
                       const effectiveLabel = item.href === "/complements"
                         ? getComplementsLabel(businessSegment)
-                        : isMercadoPdv ? "Frente de Caixa" : item.label;
+                        : isMercadoPdv || isMarmitariaPdvLink ? "Frente de Caixa" : item.label;
                       return (
                         <MenuItem
                           key={item.href}

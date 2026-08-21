@@ -351,9 +351,12 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
   const isDemoUser = user?.role === "DEMO";
   const planLabel = isDemoUser
-    ? user.companyId?.includes("enterprise") ? "Enterprise"
-      : user.companyId?.includes("pro") ? "Pro"
-      : "Basic"
+    ? companyPlan
+      ? companyPlan.charAt(0) + companyPlan.slice(1).toLowerCase()
+      : user.companyId?.includes("enterprise") ? "Enterprise"
+        : user.companyId?.includes("pro") ? "Pro"
+        : user.companyId?.includes("delivery") ? "Delivery"
+        : "Basic"
     : "";
 
   useEffect(() => {
@@ -698,6 +701,19 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     // /super-admin/visitas — o fix de FOUC sozinho não bastava).
     if (pathname?.startsWith("/super-admin")) return;
     const cid = user.companyId;
+    let disposed = false;
+
+    // Limpa imediatamente os dados da empresa anterior. Sem isso, ao trocar
+    // de demo as respostas atrasadas de /company/:id ou /themes/:id podiam
+    // sobrescrever o nome/segmento da nova sessão, deixando faixa, tema e
+    // catálogo visualmente cruzados.
+    setCompanyName("Carregando demonstração…");
+    setCompanyPlan("");
+    setCompanySlug(null);
+    setBusinessSegment(null);
+    setActiveSlugs([]);
+    setSidebarConfig({});
+    setStoreSidebarConfig({});
 
     // Demo companies: apply hardcoded visual identity immediately,
     // bypassing whatever primaryColor the API might return.
@@ -707,6 +723,7 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
 
     api.get(`/company/${cid}`)
       .then((r) => {
+        if (disposed) return;
         if (r.data?.name) setCompanyName(r.data.name);
         if (r.data?.plan) setCompanyPlan(r.data.plan);
         setCompanySlug(r.data?.slug || null);
@@ -722,6 +739,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
 
     api.get("/company/settings")
       .then((r) => {
+        if (disposed) return;
         if (r.data?.sidebarConfig && typeof r.data.sidebarConfig === "object") {
           const cfg = r.data.sidebarConfig as Record<string, boolean>;
           setSidebarConfig(cfg);
@@ -779,6 +797,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
       .catch(() => {});
 
     return () => {
+      disposed = true;
       if (DEMO_IDS.has(cid)) clearDemoTheme();
       document.documentElement.classList.remove("theme-dark");
     };

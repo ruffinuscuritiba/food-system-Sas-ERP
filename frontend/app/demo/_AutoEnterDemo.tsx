@@ -6,6 +6,7 @@ import { Loader2, UtensilsCrossed } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/stores/auth.store";
 import { loginDemoAccountById, getDemoAccountById } from "./_enterDemo";
+import { clearDemoTheme } from "@/lib/demoThemes";
 
 export default function AutoEnterDemo({ accountId }: { accountId: string }) {
   const router = useRouter();
@@ -16,6 +17,12 @@ export default function AutoEnterDemo({ accountId }: { accountId: string }) {
   useEffect(() => {
     async function run() {
       try {
+        // Evita que uma sessão/token/tema de outra demo (ou de uma
+        // impersonação anterior) apareça durante a autenticação desta conta.
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        document.cookie = "token=; Max-Age=0; path=/";
+        clearDemoTheme();
         const { accessToken, user } = await loginDemoAccountById(accountId);
         if (!accessToken) throw new Error("Token ausente");
         setAuth(accessToken, user as Parameters<typeof setAuth>[1]);

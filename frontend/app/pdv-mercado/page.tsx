@@ -3,32 +3,51 @@
 /**
  * Frente de Caixa — módulo Mercado.
  *
- * Sistema visualmente independente do /pdv de comida (pizzaria/hamburgueria):
- * paleta clara e utilitária, densidade alta, sem cards fotográficos — o
- * padrão real de terminal de supermercado (bipagem, lista, total, F-keys).
- * Suporta produto por peso (balança manual) e até 5 caixas simultâneos via
- * `Cash.registerNumber` — cada terminal/navegador lembra o próprio número
- * de caixa em localStorage.
+ * Terminal de supermercado em tela cheia com três zonas:
+ *   1. Busca e catálogo (leitor de código/PLU + busca por nome + categorias)
+ *   2. Lista da venda (itens, quantidades, remoção)
+ *   3. Resumo fixo à direita (total, recebido, troco, formas de pagamento)
+ *
+ * Suporta produto por peso (balança manual), múltiplos caixas simultâneos
+ * via `Cash.registerNumber` e venda suspensa/retomada por teclado (F5/F9).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
-import { Barcode, DoorOpen, User, Percent, PauseCircle, CreditCard, XCircle } from "lucide-react";
+import {
+  Barcode,
+  DoorOpen,
+  User,
+  Percent,
+  PauseCircle,
+  CreditCard,
+  XCircle,
+  Search,
+  Minus,
+  Plus,
+  Trash2,
+  PlayCircle,
+} from "lucide-react";
 
 type Product = {
   id: string;
   name: string;
   salePrice: number;
+  categoryId?: string | null;
   barcode?: string | null;
   sku?: string | null;
   eanCode?: string | null;
   pluCode?: string | null;
   isWeighted?: boolean;
   pricePerKg?: number | null;
+};
+
+type Category = {
+  id: string;
+  name: string;
 };
 
 type CartLine = {
@@ -53,7 +72,6 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2,
 
 export default function MercadoPdvPage() {
   const { user } = useAuthStore();
-  const router = useRouter();
 
   const [cash, setCash] = useState<Cash | null>(null);
   const [checkingCash, setCheckingCash] = useState(true);
@@ -61,23 +79,35 @@ export default function MercadoPdvPage() {
   const [registerChoice, setRegisterChoice] = useState<number>(1);
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [scanValue, setScanValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [weightPrompt, setWeightPrompt] = useState<Product | null>(null);
   const [weightValue, setWeightValue] = useState("");
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paidValue, setPaidValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [discountValue, setDiscountValue] = useState("");
+  const [customerName, setCustomerName] = useState("Balcão");
 
   const scanRef = useRef<HTMLInputElement>(null);
   const weightRef = useRef<HTMLInputElement>(null);
 
-  const total = cart.reduce((s, l) => s + l.lineTotal, 0);
+  const subtotal = cart.reduce((s, l) => s + l.lineTotal, 0);
+  const discount = Math.min(Number(discountValue.replace(",", ".")) || 0, subtotal);
+  const total = Math.max(0, subtotal - discount);
   const itemCount = cart.reduce((s, l) => s + (l.isWeighted ? 1 : l.qty), 0);
 
   const loadProducts = useCallback(async () => {
     try {
-      const r = await api.get("/products");
-      setProducts(Array.isArray(r.data) ? r.data : []);
+      const [pRes, cRes] = await Promise.all([api.get("/products"), api.get("/categories")]);
+      const nextProducts: Product[] = Array.isArray(pRes.data) ? pRes.data : [];
+      const nextCategories: Category[] = Array.isArray(cRes.data) ? cRes.data : [];
+      setProducts(nextProducts);
+      const ids = new Set(nextProducts.map((p) => p.categoryId).filter(Boolean));
+      setCategories(nextCategories.filter((c) => ids.has(c.id)));
     } catch {
       toast.error("Erro ao carregar produtos");
     }
@@ -134,7 +164,7 @@ export default function MercadoPdvPage() {
         }
       }
       return [...prev, {
-        key: `${product.id}-${Date.now()}`,
+        key: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         productId: product.id,
         name: product.name,
         qty,
@@ -167,6 +197,14 @@ export default function MercadoPdvPage() {
     setWeightValue("");
   }
 
+  function changeQty(key: string, delta: number) {
+    setCart((prev) => prev.map((l) => {
+      if (l.key !== key || l.isWeighted) return l;
+      const nextQty = Math.max(1, l.qty + delta);
+      return { ...l, qty: nextQty, lineTotal: nextQty * l.unitPrice };
+    }));
+  }
+
   function removeLine(key: string) {
     setCart((prev) => prev.filter((l) => l.key !== key));
   }
@@ -185,12 +223,19 @@ export default function MercadoPdvPage() {
     localStorage.removeItem(`mercado_suspended_${cash?.id}`);
   }
 
+  const filteredProducts = products.filter((p) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesQuery = !q || p.name.toLowerCase().includes(q);
+    const matchesCategory = !activeCategory || p.categoryId === activeCategory;
+    return matchesQuery && matchesCategory;
+  });
+
   async function finalizeSale(paymentMethod: string) {
     if (cart.length === 0 || !cash) return;
     setSubmitting(true);
     try {
       const orderRes = await api.post("/orders", {
-        customerName: "Cliente balcão",
+        customerName: customerName.trim() || "Cliente balcão",
         customerPhone: "",
         deliveryAddress: "BALCAO",
         orderType: "DINE_IN",
@@ -198,13 +243,14 @@ export default function MercadoPdvPage() {
         cashId: cash.id,
         paymentMethod,
         notes: `Caixa ${cash.registerNumber ?? ""}`.trim(),
+        discount,
         items: cart.map((l) => ({
           productId: l.productId,
           quantity: l.qty,
           notes: "",
           unitPrice: l.unitPrice,
         })),
-        subtotal: total,
+        subtotal,
         deliveryFee: 0,
         total,
       });
@@ -214,6 +260,9 @@ export default function MercadoPdvPage() {
       toast.success(`Venda finalizada — R$ ${fmt(total)}`);
       setCart([]);
       setPaymentOpen(false);
+      setPaidValue("");
+      setDiscountValue("");
+      setCustomerName("Balcão");
       loadProducts();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao finalizar venda");
@@ -235,9 +284,12 @@ export default function MercadoPdvPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cash, cart, total]);
 
+  const paid = Number(paidValue.replace(",", ".")) || 0;
+  const change = paid >= total ? paid - total : 0;
+
   return (
     <RoleGuard allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"]}>
-      <main className="min-h-screen bg-gray-100 text-gray-900 font-sans">
+      <main className="h-screen flex flex-col bg-gray-100 text-gray-900 font-sans overflow-hidden">
         {checkingCash ? (
           <div className="flex items-center justify-center h-screen text-gray-400 text-sm">Carregando...</div>
         ) : !cash ? (
@@ -275,90 +327,188 @@ export default function MercadoPdvPage() {
             </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto p-4">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold">Caixa {cash.registerNumber ?? "—"}</span>
-                  <span className="text-xs text-gray-400">{user?.name}</span>
+          <>
+            {/* Header — caixa ativo */}
+            <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">Caixa {cash.registerNumber ?? "—"}</span>
+                <span className="text-xs text-gray-400">{user?.name}</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Caixa aberto
+              </div>
+            </header>
+
+            <div className="flex-1 flex overflow-hidden">
+              {/* Zona 1 — Busca + catálogo */}
+              <section className="w-72 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+                <form onSubmit={handleScan} className="p-3 border-b border-gray-100">
+                  <div className="relative">
+                    <Barcode size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      ref={scanRef}
+                      value={scanValue}
+                      onChange={(e) => setScanValue(e.target.value)}
+                      placeholder="Bipar código ou PLU"
+                      className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm"
+                    />
+                  </div>
+                </form>
+                <div className="p-3 border-b border-gray-100">
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar por nome..."
+                      className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Caixa aberto
+                <div className="flex gap-1.5 p-3 overflow-x-auto border-b border-gray-100">
+                  <button
+                    onClick={() => setActiveCategory(null)}
+                    className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full ${activeCategory === null ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                  >
+                    Todos
+                  </button>
+                  {categories.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setActiveCategory(activeCategory === c.id ? null : c.id)}
+                      className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full ${activeCategory === c.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
                 </div>
-              </div>
-
-              <form onSubmit={handleScan} className="relative mb-3">
-                <Barcode size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  ref={scanRef}
-                  value={scanValue}
-                  onChange={(e) => setScanValue(e.target.value)}
-                  placeholder="Bipar código ou digitar PLU"
-                  className="w-full border border-gray-300 rounded-lg pl-10 pr-3 py-2.5 text-base"
-                  autoFocus
-                />
-              </form>
-
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-400 text-xs">
-                      <th className="text-left font-normal px-3 py-2">Item</th>
-                      <th className="text-right font-normal px-3 py-2">Qtd</th>
-                      <th className="text-right font-normal px-3 py-2">Unit.</th>
-                      <th className="text-right font-normal px-3 py-2">Total</th>
-                      <th className="w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.length === 0 ? (
-                      <tr><td colSpan={5} className="text-center text-gray-300 py-8 text-sm">Aguardando bipagem...</td></tr>
-                    ) : cart.map((l) => (
-                      <tr key={l.key} className="border-t border-gray-100">
-                        <td className="px-3 py-1.5">{l.name}</td>
-                        <td className="text-right px-3 py-1.5">{l.isWeighted ? `${fmt(l.qty)}kg` : l.qty}</td>
-                        <td className="text-right px-3 py-1.5">{fmt(l.unitPrice)}</td>
-                        <td className="text-right px-3 py-1.5 font-semibold">{fmt(l.lineTotal)}</td>
-                        <td className="text-center">
-                          <button onClick={() => removeLine(l.key)} className="text-gray-300 hover:text-red-500">
-                            <XCircle size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-baseline justify-between mt-3 pt-3 border-t border-gray-100">
-                <span className="text-sm text-gray-500">{itemCount} itens</span>
-                <div className="text-right">
-                  <div className="text-xs text-gray-400">Total</div>
-                  <div className="text-3xl font-bold">R$ {fmt(total)}</div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                  {filteredProducts.length === 0 ? (
+                    <p className="text-center text-gray-300 text-sm py-8">Nenhum produto encontrado</p>
+                  ) : filteredProducts.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => p.isWeighted ? setWeightPrompt(p) : addLine(p, 1)}
+                      className="w-full flex items-center justify-between gap-2 text-left border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 hover:border-blue-300 transition"
+                    >
+                      <span className="text-sm font-medium truncate">{p.name}</span>
+                      <span className="text-sm font-bold text-blue-700 shrink-0">
+                        {p.isWeighted ? `R$ ${fmt(Number(p.pricePerKg || 0))}/kg` : `R$ ${fmt(p.salePrice)}`}
+                      </span>
+                    </button>
+                  ))}
                 </div>
-              </div>
+              </section>
 
-              <div className="grid grid-cols-5 gap-1.5 mt-4">
-                <button disabled className="text-xs py-2 rounded-lg border border-gray-200 text-gray-300 flex flex-col items-center gap-1">
-                  <User size={15} />F2 Cliente
-                </button>
-                <button disabled className="text-xs py-2 rounded-lg border border-gray-200 text-gray-300 flex flex-col items-center gap-1">
-                  <Percent size={15} />F4 Desconto
-                </button>
-                <button onClick={suspendSale} className="text-xs py-2 rounded-lg border border-gray-300 hover:bg-gray-50 flex flex-col items-center gap-1">
-                  <PauseCircle size={15} />F5 Suspender
-                </button>
-                <button
-                  onClick={() => cart.length && setPaymentOpen(true)}
-                  className="text-xs py-2 rounded-lg bg-blue-600 text-white font-bold flex flex-col items-center gap-1 hover:bg-blue-700 disabled:opacity-40"
-                  disabled={!cart.length}
-                >
-                  <CreditCard size={15} />F6 Pagamento
-                </button>
-                <button onClick={resumeSale} className="text-xs py-2 rounded-lg border border-gray-300 hover:bg-gray-50">Retomar</button>
-              </div>
+              {/* Zona 2 — Venda atual */}
+              <section className="flex-1 flex flex-col min-w-0 bg-white">
+                <div className="flex-1 overflow-y-auto">
+                  {cart.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-gray-300 text-sm">
+                      Aguardando bipagem — busque um produto ao lado ou use o leitor.
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-gray-50 text-gray-400 text-xs z-10">
+                        <tr>
+                          <th className="text-left font-normal px-4 py-2">Item</th>
+                          <th className="text-center font-normal px-2 py-2 w-28">Qtd</th>
+                          <th className="text-right font-normal px-3 py-2">Unit.</th>
+                          <th className="text-right font-normal px-4 py-2">Total</th>
+                          <th className="w-12"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cart.map((l) => (
+                          <tr key={l.key} className="border-t border-gray-100">
+                            <td className="px-4 py-2 font-medium">{l.name}</td>
+                            <td className="px-2 py-2">
+                              {l.isWeighted ? (
+                                <span className="inline-block text-sm font-bold px-2">{fmt(l.qty)}kg</span>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => changeQty(l.key, -1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"
+                                  >
+                                    <Minus size={13} />
+                                  </button>
+                                  <span className="w-7 text-center text-sm font-bold">{l.qty}</span>
+                                  <button
+                                    onClick={() => changeQty(l.key, 1)}
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-50"
+                                  >
+                                    <Plus size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                            <td className="text-right px-3 py-2">{fmt(l.unitPrice)}</td>
+                            <td className="text-right px-4 py-2 font-semibold">{fmt(l.lineTotal)}</td>
+                            <td className="text-center">
+                              <button onClick={() => removeLine(l.key)} className="text-gray-300 hover:text-red-500">
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </section>
+
+              {/* Zona 3 — Resumo fixo */}
+              <aside className="w-80 shrink-0 bg-gray-900 text-white flex flex-col">
+                <div className="p-4 border-b border-gray-700">
+                  <div className="text-xs text-gray-400 mb-1">Total da venda</div>
+                  <div className="text-4xl font-bold tabular-nums">R$ {fmt(total)}</div>
+                  <div className="text-xs text-gray-400 mt-1">{itemCount} itens</div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button onClick={suspendSale} disabled={!cart.length} className="flex-1 text-xs py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-40 flex items-center justify-center gap-1.5">
+                      <PauseCircle size={14} />F5 Suspender
+                    </button>
+                    <button onClick={resumeSale} className="flex-1 text-xs py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center gap-1.5">
+                      <PlayCircle size={14} />F9 Retomar
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => cart.length && setPaymentOpen(true)}
+                    disabled={!cart.length}
+                    className="w-full text-sm py-3 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center gap-1.5 hover:bg-blue-700 disabled:opacity-40"
+                  >
+                    <CreditCard size={16} />F6 Pagamento
+                  </button>
+                </div>
+
+                <div className="p-4 border-t border-gray-700 text-[11px] text-gray-400 space-y-2">
+                  <div>
+                    <label className="flex items-center gap-1 mb-1"><User size={11} /> Cliente</label>
+                    <input
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Balcão"
+                      className="w-full bg-gray-800 border border-gray-600 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-1 mb-1"><Percent size={11} /> Desconto (R$)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full bg-gray-800 border border-gray-600 rounded-lg px-2.5 py-1.5 text-sm text-white placeholder-gray-500 outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </aside>
             </div>
-          </div>
+          </>
         )}
 
         {weightPrompt && (
@@ -381,10 +531,24 @@ export default function MercadoPdvPage() {
 
         {paymentOpen && cash && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPaymentOpen(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl p-6 w-full max-w-xs">
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-xl p-6 w-full max-w-sm">
               <p className="text-xs text-gray-400 mb-1">Total a pagar</p>
               <p className="text-2xl font-bold mb-4">R$ {fmt(total)}</p>
-              <div className="space-y-2">
+
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">Valor recebido (dinheiro)</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={paidValue}
+                onChange={(e) => setPaidValue(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-lg font-bold mb-2"
+              />
+              {paid >= total && paid > 0 && (
+                <p className="text-sm text-green-600 font-semibold mb-3">Troco: R$ {fmt(change)}</p>
+              )}
+
+              <div className="space-y-2 mt-3">
                 {[
                   { m: "CASH", l: "Dinheiro" },
                   { m: "PIX", l: "PIX" },

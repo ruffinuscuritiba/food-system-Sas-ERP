@@ -724,8 +724,10 @@ export default function ProductsPage() {
                 <Package size={20} className="text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-gray-900">Produtos</h1>
-                <p className="text-gray-400 text-sm">{products.length} cadastrado{products.length !== 1 ? "s" : ""}</p>
+                <h1 className="text-2xl font-black text-gray-900">{showMercadoFields ? "Catálogo de produtos" : "Produtos"}</h1>
+                <p className="text-gray-400 text-sm">
+                  {products.length} {showMercadoFields ? "item" : "cadastrado"}{products.length !== 1 ? "s" : ""}
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -766,7 +768,7 @@ export default function ProductsPage() {
               <div className="grid md:grid-cols-3 gap-4 mb-5">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Nome *</label>
-                  <input placeholder="Ex: Pizza Margherita" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inp} />
+                  <input placeholder={showMercadoFields ? "Ex: Arroz 5kg, Leite Integral..." : "Ex: Pizza Margherita"} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inp} />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Categoria</label>
@@ -1078,7 +1080,9 @@ export default function ProductsPage() {
                       />
                       <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest group-hover/cathdr:text-gray-700">{catName}</h2>
                       <div className="flex-1 h-px bg-gray-200" />
-                      <span className="text-xs text-gray-400">{catProducts.length} produto{catProducts.length !== 1 ? "s" : ""}</span>
+                      <span className="text-xs text-gray-400">
+                        {catProducts.length} {showMercadoFields ? "item" : "produto"}{catProducts.length !== 1 ? "s" : ""}
+                      </span>
                     </button>
                     {isCollapsed ? null : (
                     <DragDropContext onDragEnd={(r) => handleCatDragEnd(catId, r)}>
@@ -1125,9 +1129,14 @@ export default function ProductsPage() {
                                           <Trash2 size={11} className="text-red-500" />
                                         </button>
                                       </div>
-                                      {product.sizes?.length > 0 && (
+                                      {!showMercadoFields && product.sizes?.length > 0 && (
                                         <span className="absolute bottom-1.5 right-1.5 bg-white/95 text-orange-500 text-[9px] font-black px-1.5 py-0.5 rounded-full shadow flex items-center gap-0.5">
                                           <Pizza size={8} /> {product.sizes.length}
+                                        </span>
+                                      )}
+                                      {showMercadoFields && (
+                                        <span className="absolute bottom-1.5 right-1.5 bg-gray-900/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow">
+                                          {product.barcode || product.eanCode || product.sku || "s/ código"}
                                         </span>
                                       )}
                                     </div>
@@ -1135,14 +1144,31 @@ export default function ProductsPage() {
                                     <div className="p-2.5">
                                       <h2 className="font-bold text-gray-900 text-xs leading-snug line-clamp-2">{product.name}</h2>
                                       <div className="flex items-center justify-between mt-1.5 flex-wrap gap-1">
-                                        {product.sizes?.length > 0 ? (
+                                        {!showMercadoFields && product.sizes?.length > 0 ? (
                                           <span className="text-[10px] text-orange-500 font-bold">
                                             A partir de R$ {fmtBRL(Math.min(...product.sizes.map((s: any) => Number(s.price))))}
+                                          </span>
+                                        ) : showMercadoFields ? (
+                                          <span className="text-[10px] text-gray-500 font-bold">
+                                            {product.unit || "un"} · R$ {fmtBRL(Number(product.salePrice))}
                                           </span>
                                         ) : (
                                           <p className="text-orange-500 text-sm font-black">R$ {fmtBRL(Number(product.salePrice))}</p>
                                         )}
                                       </div>
+                                      {showMercadoFields && (
+                                        <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                                          {Number(product.stock) <= 0 ? (
+                                            <span className="text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">Sem estoque</span>
+                                          ) : Number(product.stock) <= Number(product.minStock) ? (
+                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">Estoque baixo</span>
+                                          ) : (
+                                            <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                                              Estoque: {Number(product.stock)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 )}

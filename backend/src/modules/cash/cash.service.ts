@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
+import { getStartOfTodayBrazil } from '@/common/utils/timezone';
 
 @Injectable()
 export class CashService {
@@ -24,6 +25,42 @@ export class CashService {
       where: { companyId, isOpen: true },
       orderBy: [{ registerNumber: 'asc' }, { createdAt: 'asc' }],
     });
+  }
+
+  // Vendas em dinheiro de HOJE (dia comercial de Brasília), somando a parte
+  // física de cada pedido via `cashReceived` — `entries` não serve pra esse
+  // KPI: ele só é incrementado em suprimento (SUPPLY), nunca em venda.
+  // Pedidos CANCELLED são excluídos; pedidos sem cashReceived (PIX/cartão
+  // puro) contribuem zero.
+  async todayCashSales(companyId: string) {
+    const today = getStartOfTodayBrazil();
+    const orders = await this.prisma.order.findMany({
+      where: {
+        companyId,
+        status: { not: 'CANCELLED' },
+        createdAt: { gte: today },
+      },
+      select: { paymentMethod: true, total: true, cashReceived: true },
+    });
+
+    let totalCash = 0;
+    let totalSales = 0;
+    for (const o of orders) {
+      const total = Number(o.total);
+      totalSales += total;
+      totalCash +=
+        o.cashReceived != null
+          ? Number(o.cashReceived)
+          : o.paymentMethod === 'CASH'
+            ? total
+            : 0;
+    }
+
+    return {
+      todayCashSales: Number(totalCash.toFixed(2)),
+      todayTotalSales: Number(totalSales.toFixed(2)),
+      orderCount: orders.length,
+    };
   }
 
   async open(

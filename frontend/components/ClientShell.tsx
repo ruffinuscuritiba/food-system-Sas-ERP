@@ -1303,7 +1303,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                 className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
               >
                 <ExternalLink size={13} />
-                Ver Cardápio Online
+                {businessSegment === "MERCADO" ? "Ver Loja Online" : "Ver Cardápio Online"}
                 <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
               </a>
             </div>

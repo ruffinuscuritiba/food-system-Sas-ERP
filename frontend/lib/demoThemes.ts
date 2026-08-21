@@ -39,6 +39,25 @@ const MARBLE: Record<string, string> = {
   "--pdv-text-muted":     "#6B7280",
 };
 
+// Varejo (Mercado) — hierarquia utilitária: painéis cinza, azul
+// institucional, estados de estoque em verde/amarelo/vermelho e
+// identificadores de caixa. Não usa imagens de comida, só operação.
+const RETAIL: Record<string, string> = {
+  "--retail-panel":        "#FFFFFF",
+  "--retail-panel-border":  "#D9DEE5",
+  "--retail-header":       "#0F2747",
+  "--retail-sidebar":      "#152B4E",
+  "--retail-text-muted":   "#5B6472",
+  "--retail-ok":           "#15803D",
+  "--retail-ok-bg":        "#E9F7EF",
+  "--retail-warn":         "#B45309",
+  "--retail-warn-bg":      "#FDF3E3",
+  "--retail-danger":       "#B91C1C",
+  "--retail-danger-bg":    "#FDEBEB",
+  "--retail-register":     "#1D4ED8",
+  "--retail-register-bg":  "#E8EFFC",
+};
+
 export const DEMO_THEMES: Record<string, DemoTheme> = {
   // ── BASIC — Pizzaria Bella Napoli — verde-esmeralda médio ─────────────────
   "demo-basic-001": {
@@ -133,7 +152,12 @@ export const DEMO_THEMES: Record<string, DemoTheme> = {
   "demo-mercado-001": {
     name: "Mercadinho Bom Preço",
     primaryColor: "#1D4ED8",
-    cssVars: { ...MARBLE, "--color-primary": "#1D4ED8", "--app-sidebar-active": "#1D4ED8" },
+    cssVars: {
+      ...MARBLE,
+      ...RETAIL,
+      "--color-primary":      "#1D4ED8",
+      "--app-sidebar-active": "#1D4ED8",
+    },
   },
 };
 
@@ -273,6 +297,10 @@ const ALL_VARS = [
   "--app-border-ui",
   "--pdv-bg", "--pdv-header-bg", "--pdv-sidebar-bg",
   "--pdv-card", "--pdv-card-hover", "--pdv-border", "--pdv-text-muted",
+  "--retail-panel", "--retail-panel-border", "--retail-header", "--retail-sidebar",
+  "--retail-text-muted", "--retail-ok", "--retail-ok-bg", "--retail-warn",
+  "--retail-warn-bg", "--retail-danger", "--retail-danger-bg",
+  "--retail-register", "--retail-register-bg",
 ];
 
 export function applyDemoTheme(companyId: string): void {

@@ -33,6 +33,15 @@ export class CashController {
     return this.service.listOpenRegisters(req.user.companyId);
   }
 
+  // Vendas em dinheiro do dia (somatório real de cashReceived dos pedidos),
+  // separado do indicador de suprimento `entries` — evita rótulo enganoso
+  // de "Vendas em dinheiro" no painel de controle do Mercado.
+  @Get('today-cash-sales')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
+  todayCashSales(@Request() req: any) {
+    return this.service.todayCashSales(req.user.companyId);
+  }
+
   @Post('open')
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER')
   open(@Body() body: any, @Request() req: any) {

@@ -34,8 +34,17 @@ const PUBLIC_ROUTES = [
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // Piloto de prefixo /food/... (rewrite em next.config.ts serve o mesmo
+  // conteúdo de "/...") — o middleware roda ANTES do rewrite ser aplicado,
+  // então normaliza aqui pra "/food/login" ser tratado exatamente como
+  // "/login" na checagem de rota pública/autenticação abaixo.
+  const normalizedPath =
+    pathname === '/food' ? '/' :
+    pathname.startsWith('/food/') ? pathname.slice('/food'.length) :
+    pathname
+
   // Permitir rotas públicas sem token
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+  if (PUBLIC_ROUTES.some((route) => normalizedPath.startsWith(route))) {
     return NextResponse.next()
   }
 

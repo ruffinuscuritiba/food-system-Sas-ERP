@@ -31,6 +31,18 @@ const nextConfig: NextConfig = {
       "framer-motion",
     ],
   },
+  // Piloto de padronização de URL cross-produto (SaaS-Control-Center reúne
+  // Food/Estética/Oficina/Moda): toda rota também responde sob /food/...,
+  // sem mover nenhum arquivo de página nem quebrar link já compartilhado
+  // (QR Code de mesa, cardápio digital) — aditivo, /login e /food/login
+  // servem exatamente o mesmo conteúdo. middleware.ts normaliza o prefixo
+  // antes de checar rota pública/autenticação.
+  async rewrites() {
+    return [
+      { source: "/food", destination: "/" },
+      { source: "/food/:path*", destination: "/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -18,25 +18,20 @@ jobs:
           timeout: 30s
           command_timeout: 60s
           script: |
-            set -e
-            cd /docker/saas-control-center
-            cp .env .env.bak
-
-            NEW_EMAIL="platform@foodsaas.internal"
-            NEW_PASSWORD="ControlCenter#2026!"
-
-            # Substitui só as 2 linhas (mantém todo o resto do .env intacto)
-            grep -v "^MASTER_ADMIN_EMAIL=" .env | grep -v "^MASTER_ADMIN_PASSWORD=" > .env.new
-            echo "MASTER_ADMIN_EMAIL=${NEW_EMAIL}" >> .env.new
-            echo "MASTER_ADMIN_PASSWORD=${NEW_PASSWORD}" >> .env.new
-            mv .env.new .env
-
-            echo "▶ Recriando container com a senha nova..."
-            docker compose up -d --force-recreate scc-app
-            sleep 8
-
-            echo "▶ Testando login com a credencial nova..."
-            RESP=$(curl -s -X POST "https://admin.srv1747711.hstgr.cloud/api/auth/login" \
-              -H "Content-Type: application/json" \
-              -d "{\"email\":\"${NEW_EMAIL}\",\"password\":\"${NEW_PASSWORD}\"}")
-            echo "$RESP" | grep -q "accessToken" && echo "✅ LOGIN OK com a credencial nova" || echo "❌ AINDA FALHOU: $RESP"
+            echo "── /docker listing ──"
+            ls -la /docker/ 2>/dev/null
+            echo "── containers com nome moda/oficina/sbe ──"
+            docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Ports}}" | grep -iE "moda|oficina|sbe"
+            echo "── compose files de cada um, se existirem ──"
+            for d in moda-erp moda oficina oficina-eletrica-erp sistema-oficina saude-beleza-erp sbe; do
+              if [ -f "/docker/$d/docker-compose.yml" ]; then
+                echo "=== /docker/$d/docker-compose.yml ==="
+                cat "/docker/$d/docker-compose.yml"
+              fi
+            done
+            echo "── labels do container moda-backend ──"
+            docker inspect moda-backend --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i "rule\|network"
+            echo "── labels do container oficina backend ──"
+            docker inspect oficina-eletrica-erp-backend-1 --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i "rule\|network"
+            echo "── labels do sbe-frontend ──"
+            docker inspect sbe-frontend --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i "rule\|network"

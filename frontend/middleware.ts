@@ -11,6 +11,7 @@ const PUBLIC_ROUTES = [
   '/pagamento/cancelado',
   '/pedido',
   '/super-admin',
+  '/impersonate',
   '/demo',
   '/ia-demo',
   '/tracking',

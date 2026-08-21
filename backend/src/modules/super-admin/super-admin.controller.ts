@@ -120,6 +120,12 @@ export class SuperAdminController {
     return this.service.archiveCompany(id);
   }
 
+  @Patch('companies/:id/reset-owner-password')
+  @UseGuards(SuperAdminGuard)
+  resetOwnerPassword(@Param('id') id: string, @Body() body: { newPassword: string }) {
+    return this.service.resetOwnerPassword(id, body.newPassword);
+  }
+
   @Patch('companies/:id/restore')
   @UseGuards(SuperAdminGuard)
   restoreCompany(@Param('id') id: string) {

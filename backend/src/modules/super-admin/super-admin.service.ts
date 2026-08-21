@@ -88,6 +88,22 @@ export class SuperAdminService {
     });
   }
 
+  /** Redefine a senha do usuário mais antigo (ativo) da empresa — suporte pontual. */
+  async resetOwnerPassword(companyId: string, newPassword: string) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } });
+    if (!company) throw new NotFoundException('Empresa não encontrada');
+
+    const owner = await this.prisma.user.findFirst({
+      where: { companyId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!owner) throw new NotFoundException('Nenhum usuário ativo nesta empresa');
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({ where: { id: owner.id }, data: { password: passwordHash } });
+    return { email: owner.email };
+  }
+
   async archiveCompany(id: string) {
     const company = await this.prisma.company.findUnique({ where: { id } });
     if (!company) throw new NotFoundException('Empresa não encontrada');

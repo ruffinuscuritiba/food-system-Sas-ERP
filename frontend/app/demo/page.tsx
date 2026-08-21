@@ -44,49 +44,46 @@ const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURICom
 )}`;
 
 // ─── Comparison table ─────────────────────────────────────────────────────────
-type PlanKey = "basic" | "pro" | "enterprise";
-interface Feature { label: string; basic: boolean; pro: boolean; enterprise: boolean; }
+// Modelo de plano simplificado (achado real, item 187/188 do CLAUDE.md): o
+// cadastro (app/signup/page.tsx BUSINESS_TYPES) não usa mais 4 tiers de
+// preço (Basic/Pro/Enterprise/Delivery) — só 2 modelos operacionais reais,
+// "Delivery" (sem mesa/balcão) e "Completo" (PDV+mesas+cozinha+delivery).
+// A demo precisa espelhar exatamente isso, não uma escada de preço que não
+// existe mais no cadastro de verdade.
+type PlanKey = "delivery" | "completo";
+interface Feature { label: string; delivery: boolean; completo: boolean; }
 
 const COMPARISON: Feature[] = [
-  { label: "PDV",              basic: true,  pro: true,  enterprise: true  },
-  { label: "Pedidos",          basic: true,  pro: true,  enterprise: true  },
-  { label: "Cozinha",          basic: true,  pro: true,  enterprise: true  },
-  { label: "Mesas",            basic: true,  pro: true,  enterprise: true  },
-  { label: "Cardápio Online",  basic: true,  pro: true,  enterprise: true  },
-  { label: "Cupons",           basic: false, pro: true,  enterprise: true  },
-  { label: "Relatórios",       basic: false, pro: true,  enterprise: true  },
-  { label: "WhatsApp IA",      basic: false, pro: true,  enterprise: true  },
-  { label: "Multiunidades",    basic: false, pro: false, enterprise: true  },
-  { label: "White Label",      basic: false, pro: false, enterprise: true  },
+  { label: "PDV / Fila de Pedidos", delivery: true,  completo: true  },
+  { label: "Cozinha (KDS)",         delivery: true,  completo: true  },
+  { label: "Mesas / Comandas",      delivery: false, completo: true  },
+  { label: "Cardápio Online",       delivery: true,  completo: true  },
+  { label: "Cupons",                delivery: true,  completo: true  },
+  { label: "Relatórios",            delivery: true,  completo: true  },
+  { label: "WhatsApp IA",           delivery: true,  completo: true  },
+  { label: "Multiunidades",         delivery: true,  completo: true  },
 ];
 
 function planKey(plan: string): PlanKey { return plan.toLowerCase() as PlanKey; }
 
 // ─── Plan cards data ──────────────────────────────────────────────────────────
+// Mesmo rótulo/descrição do BUSINESS_TYPES em app/signup/page.tsx — a demo
+// tem que oferecer exatamente as 2 opções que existem no cadastro real, nem
+// mais nem menos.
 const PLAN_CARDS = [
-  {
-    plan: "BASIC" as const,
-    label: "FoodSaaS Basic",
-    btnClass:
-      "bg-green-600 hover:bg-green-700 shadow-[0_8px_24px_-8px_rgba(22,163,74,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
-  },
-  {
-    plan: "PRO" as const,
-    label: "FoodSaaS Pro",
-    btnClass:
-      "bg-blue-600 hover:bg-blue-700 shadow-[0_8px_24px_-8px_rgba(37,99,235,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
-  },
-  {
-    plan: "ENTERPRISE" as const,
-    label: "FoodSaaS Enterprise",
-    btnClass:
-      "bg-purple-600 hover:bg-purple-700 shadow-[0_8px_24px_-8px_rgba(124,58,237,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
-  },
   {
     plan: "DELIVERY" as const,
     label: "FoodSaaS Delivery",
+    desc: "Vende por WhatsApp e cardápio digital. Sem mesa, sem balcão.",
     btnClass:
       "bg-orange-600 hover:bg-orange-700 shadow-[0_8px_24px_-8px_rgba(234,88,12,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
+  },
+  {
+    plan: "COMPLETO" as const,
+    label: "FoodSaaS Completo",
+    desc: "PDV, mesas, cozinha e delivery — a operação inteira num só lugar.",
+    btnClass:
+      "bg-purple-600 hover:bg-purple-700 shadow-[0_8px_24px_-8px_rgba(124,58,237,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]",
   },
 ];
 
@@ -1630,7 +1627,7 @@ function DemoContent() {
           <div className="mx-auto max-w-5xl px-5 sm:px-8">
             <div className="grid grid-cols-2 divide-x divide-white/[0.06] md:grid-cols-4">
               {[
-                { icon: <Clock className="h-4 w-4" />, value: "7 dias", label: "de trial grátis" },
+                { icon: <Clock className="h-4 w-4" />, value: "10 dias", label: "de trial com tudo liberado" },
                 { icon: <ShieldCheck className="h-4 w-4" />, value: "0%", label: "de comissão no cardápio" },
                 { icon: <Zap className="h-4 w-4" />, value: "10 min", label: "para começar a vender" },
                 { icon: <MessageCircle className="h-4 w-4" />, value: "WhatsApp", label: "suporte direto com o time" },
@@ -1762,16 +1759,21 @@ function DemoContent() {
           </div>
 
           {/* ── Plan cards ── */}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mx-auto grid max-w-2xl gap-6 sm:grid-cols-2">
             {PLAN_CARDS.map((card) => {
-              const baseDemo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === card.plan) ?? DEMO_ACCOUNTS[0];
-              const overrideId = NICHE_DEMO_OVERRIDE[selectedNiche]?.[card.plan];
+              // "Completo" reaproveita a conta/override que ANTES era
+              // "Enterprise" (full-featured — PDV+mesas+cozinha+delivery, a
+              // mesma coisa que o cadastro real chama de "Completo" hoje) em
+              // vez de reescrever o mapa de contas por nicho do zero.
+              const lookupPlan = card.plan === "COMPLETO" ? "ENTERPRISE" : card.plan;
+              const baseDemo = DEMO_ACCOUNTS.find((d) => d.plan.toUpperCase() === lookupPlan) ?? DEMO_ACCOUNTS[0];
+              const overrideId = NICHE_DEMO_OVERRIDE[selectedNiche]?.[lookupPlan as "BASIC" | "PRO" | "ENTERPRISE" | "DELIVERY"];
               // Override troca a CONTA (evita catálogo do nicho errado); o
               // texto do card continua o do plano clicado — só o catálogo
               // real dentro da demo muda.
               const demo = overrideId ? (DEMO_ACCOUNTS.find((d) => d.id === overrideId) ?? baseDemo) : baseDemo;
               const nicheInfo = NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"];
-              const planKey = card.plan.toLowerCase() as "basic" | "pro" | "enterprise" | "delivery";
+              const planKey = card.plan === "COMPLETO" ? "enterprise" : "delivery";
               const features = (nicheInfo.features as any)[planKey] ?? demo.features ?? [];
 
               return (
@@ -1797,6 +1799,7 @@ function DemoContent() {
 
                   {/* Features */}
                   <div className="flex-1 px-5 py-4">
+                    <p className="mb-3 text-xs text-white/50">{card.desc}</p>
                     <ul className="space-y-2">
                       {features.map((feat, i) => (
                         <li key={i} className="flex items-start gap-2 text-xs text-white/70">
@@ -1908,10 +1911,10 @@ function DemoContent() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr] lg:items-start">
             {/* Tabela compacta */}
             <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur">
-              <div className="grid grid-cols-4 border-b border-white/[0.07] bg-white/[0.03]">
+              <div className="grid grid-cols-3 border-b border-white/[0.07] bg-white/[0.03]">
                 <div className="p-3" />
-                {(["BASIC", "PRO", "ENTERPRISE"] as const).map((plan, i) => {
-                  const colors = ["#16a34a", "#2563eb", "#7c3aed"];
+                {(["DELIVERY", "COMPLETO"] as const).map((plan, i) => {
+                  const colors = ["#ea580c", "#7c3aed"];
                   return (
                     <div key={plan} className="border-l border-white/[0.07] p-2.5 text-center">
                       <span className="inline-block rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest"
@@ -1924,10 +1927,10 @@ function DemoContent() {
               </div>
               {COMPARISON.map((feat, idx) => (
                 <div key={feat.label}
-                  className={`grid grid-cols-4 border-b border-white/[0.05] transition hover:bg-white/[0.02] ${idx === COMPARISON.length - 1 ? "border-b-0" : ""}`}>
+                  className={`grid grid-cols-3 border-b border-white/[0.05] transition hover:bg-white/[0.02] ${idx === COMPARISON.length - 1 ? "border-b-0" : ""}`}>
                   <div className="flex items-center px-3 py-2.5 text-xs font-medium text-white/75">{feat.label}</div>
-                  {(["basic", "pro", "enterprise"] as PlanKey[]).map((key, i) => {
-                    const colors = ["#16a34a", "#2563eb", "#7c3aed"];
+                  {(["delivery", "completo"] as PlanKey[]).map((key, i) => {
+                    const colors = ["#ea580c", "#7c3aed"];
                     const val = feat[key];
                     return (
                       <div key={key} className="flex items-center justify-center border-l border-white/[0.05] py-2.5">
@@ -1980,12 +1983,16 @@ function DemoContent() {
               <br />
               <span className="text-white/50">antes de contratar.</span>
             </p>
-            <p className="mt-3 text-sm text-white/45">7 dias grátis. Sem cartão. Cancele quando quiser.</p>
+            <p className="mt-3 text-sm text-white/45">10 dias grátis, com todos os módulos liberados. Sem cartão.</p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <button onClick={scrollToDemo}
+              <Link href="/signup" onClick={() => trackClick("/demo", "signup_footer_cta")}
                 className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:bg-orange-600">
-                Testar agora — é grátis
+                Criar minha conta grátis
                 <ArrowRight className="h-4 w-4" />
+              </Link>
+              <button onClick={scrollToDemo}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.03] px-6 py-3.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.06]">
+                Só quero explorar uma demo
               </button>
               <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
                 className="inline-flex items-center gap-2 rounded-2xl border border-green-500/25 bg-green-500/8 px-6 py-3.5 text-sm font-semibold text-green-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:bg-green-500/15">

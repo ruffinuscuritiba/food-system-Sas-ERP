@@ -24,6 +24,7 @@ interface Company {
   createdAt: string
   updatedAt?: string
   businessSegment?: string
+  businessType?: string
   _count: { users: number; orders: number }
 }
 
@@ -89,6 +90,10 @@ interface Stats {
   archived: number
 }
 
+// Mantido só pro rótulo de "Plano recomendado" dos Leads (l.recommendedPlan
+// — conceito legado do funil antigo de captação, item 73, nunca migrado pro
+// modelo Delivery/Completo). Não usar para nada relacionado a Company.plan
+// nem Company.businessType — ver MODEL_LABELS/MODEL_COLORS/MODEL_PRICES.
 const PLAN_LABELS: Record<string, string> = {
   BASIC: "Básico",
   PROFESSIONAL: "Profissional",
@@ -96,21 +101,24 @@ const PLAN_LABELS: Record<string, string> = {
   DELIVERY: "Delivery",
 }
 
-const PLAN_COLORS: Record<string, string> = {
-  BASIC:        "#71717a",
-  PROFESSIONAL: "#3b82f6",
-  ENTERPRISE:   "#8b5cf6",
-  DELIVERY:     "#10b981",
+// Modelo real de venda desde 21/08/2026 (item pendente do CLAUDE.md): toda
+// empresa nova é DELIVERY ou COMPLETO (Company.businessType). Company.plan
+// ficou hardcoded em 'BASIC' pra todo mundo no signup — não serve mais pra
+// nada de exibição de "qual modelo essa loja contratou". Preços iguais aos
+// de /assinatura (CHECKOUT_PLANS) — fonte única de verdade.
+const MODEL_LABELS: Record<string, string> = {
+  DELIVERY: "Delivery",
+  COMPLETO: "Completo",
 }
 
-// Preços fixos por plano (mesmos valores usados no checkout de assinatura,
-// item 117 do CLAUDE.md) — usados só pra estimar MRR/ticket médio aqui no
-// dashboard. Não é dado fabricado: é o preço real de tabela de cada plano.
-const PLAN_PRICES: Record<string, number> = {
-  BASIC: 97,
-  PROFESSIONAL: 197,
-  ENTERPRISE: 397,
-  DELIVERY: 197,
+const MODEL_COLORS: Record<string, string> = {
+  DELIVERY: "#16a34a",
+  COMPLETO: "#7c3aed",
+}
+
+const MODEL_PRICES: Record<string, number> = {
+  DELIVERY: 67,
+  COMPLETO: 197,
 }
 
 const PROTECTED_EMAILS = new Set([
@@ -253,7 +261,7 @@ export default function SuperAdminDashboard() {
       const q = search.toLowerCase()
       list = list.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))
     }
-    if (planFilter !== "ALL") list = list.filter(c => c.plan === planFilter)
+    if (planFilter !== "ALL") list = list.filter(c => (c.businessType ?? "COMPLETO") === planFilter)
     if (segmentTab !== "ALL") {
       const group = SEGMENT_GROUPS.find(g => g.key === segmentTab)
       if (group) list = list.filter(c => group.segments.includes(c.businessSegment ?? "RESTAURANTE"))
@@ -423,7 +431,8 @@ export default function SuperAdminDashboard() {
 
   // ── Derivados ─────────────────────────────────────────────────────────────
   const planCounts = companies.reduce((acc, co) => {
-    acc[co.plan] = (acc[co.plan] || 0) + 1
+    const model = co.businessType ?? "COMPLETO"
+    acc[model] = (acc[model] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
@@ -445,16 +454,16 @@ export default function SuperAdminDashboard() {
   // que já vem da API (preço de tabela por plano × contagem real; nunca
   // um número inventado tipo churn/faturamento sem fonte de dados real). ──
   const billableCompanies = companies.filter(co => !co.archivedAt && !co.isBlocked)
-  const mrrEstimado = billableCompanies.reduce((sum, co) => sum + (PLAN_PRICES[co.plan] ?? 0), 0)
+  const mrrEstimado = billableCompanies.reduce((sum, co) => sum + (MODEL_PRICES[co.businessType ?? "COMPLETO"] ?? 0), 0)
   const totalUsuarios = companies.reduce((sum, co) => sum + (co._count?.users ?? 0), 0)
   const lojasEmAtraso = companies.filter(co => co.subscriptionStatus === "PAST_DUE").length
   const ticketMedio = billableCompanies.length ? Math.round(mrrEstimado / billableCompanies.length) : 0
 
   const nicheCards = SEGMENT_GROUPS.map(group => {
     const inGroup = companies.filter(co => group.segments.includes(co.businessSegment ?? "RESTAURANTE"))
-    const byPlan = (["BASIC", "PROFESSIONAL", "ENTERPRISE", "DELIVERY"] as const).map(plan => ({
+    const byPlan = (["DELIVERY", "COMPLETO"] as const).map(plan => ({
       plan,
-      count: inGroup.filter(co => co.plan === plan).length,
+      count: inGroup.filter(co => (co.businessType ?? "COMPLETO") === plan).length,
     }))
     const maxByPlan = Math.max(1, ...byPlan.map(p => p.count))
     return { ...group, count: inGroup.length, byPlan, maxByPlan }
@@ -472,7 +481,7 @@ export default function SuperAdminDashboard() {
     realNew.forEach(co => list.push({
       type: "signup",
       title: `Nova loja: ${co.name}`,
-      sub: `${PLAN_LABELS[co.plan] ?? co.plan} · ${new Date(co.createdAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
+      sub: `${MODEL_LABELS[co.businessType ?? "COMPLETO"] ?? co.businessType} · ${new Date(co.createdAt).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })}`,
       color: "text-indigo-400",
       bg: "bg-indigo-500/10 border-indigo-500/20",
       companyId: co.id,
@@ -904,10 +913,10 @@ export default function SuperAdminDashboard() {
                   <div className="flex items-end gap-1 h-8 mt-auto">
                     {group.byPlan.map(p => (
                       <div key={p.plan} className="flex-1 rounded-sm transition-all"
-                        title={`${PLAN_LABELS[p.plan]}: ${p.count}`}
+                        title={`${MODEL_LABELS[p.plan]}: ${p.count}`}
                         style={{
                           height: `${Math.max(8, (p.count / group.maxByPlan) * 100)}%`,
-                          background: p.count > 0 ? PLAN_COLORS[p.plan] : c("#27272a", "#e5e7eb"),
+                          background: p.count > 0 ? MODEL_COLORS[p.plan] : c("#27272a", "#e5e7eb"),
                         }} />
                     ))}
                   </div>
@@ -922,19 +931,19 @@ export default function SuperAdminDashboard() {
             {/* Distribuição por plano */}
             <div className={`rounded-2xl border p-5 ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
               <div className="flex items-center justify-between mb-4">
-                <p className={`text-xs font-bold ${c("text-zinc-300", "text-gray-700")}`}>Distribuição por Plano</p>
+                <p className={`text-xs font-bold ${c("text-zinc-300", "text-gray-700")}`}>Distribuição por Modelo</p>
                 <span className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{stats.total} total</span>
               </div>
-              {(["BASIC", "PROFESSIONAL", "ENTERPRISE", "DELIVERY"] as const).map(plan => {
+              {(["DELIVERY", "COMPLETO"] as const).map(plan => {
                 const count = planCounts[plan] || 0
                 const pct   = stats.total ? Math.round((count / stats.total) * 100) : 0
-                const color = PLAN_COLORS[plan]
+                const color = MODEL_COLORS[plan]
                 return (
                   <div key={plan} className="mb-3.5 last:mb-0">
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}88` }} />
-                        <span className={`text-xs font-medium ${c("text-zinc-400", "text-gray-600")}`}>{PLAN_LABELS[plan]}</span>
+                        <span className={`text-xs font-medium ${c("text-zinc-400", "text-gray-600")}`}>{MODEL_LABELS[plan]}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>{pct}%</span>
@@ -1001,7 +1010,7 @@ export default function SuperAdminDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-semibold truncate ${c("text-zinc-200", "text-gray-800")}`}>{co.name}</p>
                     <p className={`text-[10px] ${c("text-zinc-600", "text-gray-400")}`}>
-                      {new Date(co.createdAt).toLocaleDateString("pt-BR")} · {PLAN_LABELS[co.plan] ?? co.plan}
+                      {new Date(co.createdAt).toLocaleDateString("pt-BR")} · {MODEL_LABELS[co.businessType ?? "COMPLETO"] ?? co.businessType}
                     </p>
                   </div>
                   <button onClick={() => enterStore(co.id)} disabled={entering === co.id}
@@ -1091,11 +1100,9 @@ export default function SuperAdminDashboard() {
                 </div>
                 <select value={planFilter} onChange={e => setPlanFilter(e.target.value)}
                   className={`rounded-xl px-3 py-2 text-xs outline-none border transition ${c("bg-[#18181b] border-[#27272a] text-zinc-300 focus:border-indigo-500", "bg-gray-50 border-gray-200 text-gray-700 focus:border-indigo-400")}`}>
-                  <option value="ALL">Todos os planos</option>
-                  <option value="BASIC">Básico</option>
-                  <option value="PROFESSIONAL">Profissional</option>
-                  <option value="ENTERPRISE">Enterprise</option>
+                  <option value="ALL">Todos os modelos</option>
                   <option value="DELIVERY">Delivery</option>
+                  <option value="COMPLETO">Completo</option>
                 </select>
               </div>
             </div>
@@ -1129,8 +1136,8 @@ export default function SuperAdminDashboard() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold"
-                          style={{ backgroundColor: `${PLAN_COLORS[co.plan]}22`, color: PLAN_COLORS[co.plan] }}>
-                          {PLAN_LABELS[co.plan] || co.plan}
+                          style={{ backgroundColor: `${MODEL_COLORS[co.businessType ?? "COMPLETO"]}22`, color: MODEL_COLORS[co.businessType ?? "COMPLETO"] }}>
+                          {MODEL_LABELS[co.businessType ?? "COMPLETO"] || co.businessType}
                         </span>
                       </td>
                       <td className="px-5 py-3.5">

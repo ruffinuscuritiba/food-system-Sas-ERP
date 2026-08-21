@@ -18,11 +18,13 @@ jobs:
           timeout: 30s
           command_timeout: 60s
           script: |
-            echo "── /opt listing ──"
-            ls -la /opt/
-            echo "── docker ps (todos os containers) ──"
-            docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
-            echo "── docker networks ──"
-            docker network ls
-            echo "── traefik labels da rede proxy ──"
-            docker network inspect proxy --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "sem rede proxy ou sem acesso"
+            echo "── labels do container scc-app (Traefik) ──"
+            docker inspect scc-app --format '{{json .Config.Labels}}' | tr ',' '\n'
+            echo "── procurando docker-compose do scc-app no filesystem ──"
+            find / -maxdepth 4 -iname "*scc*" -not -path "*/proc/*" 2>/dev/null
+            find / -maxdepth 4 -iname "*control-center*" -not -path "*/proc/*" 2>/dev/null
+            echo "── /root listing ──"
+            ls -la /root/ 2>/dev/null
+            echo "── image build date ──"
+            docker inspect scc-app --format 'created={{.Created}} image={{.Image}}'
+            docker inspect scc-app:latest --format 'imageCreated={{.Created}}'

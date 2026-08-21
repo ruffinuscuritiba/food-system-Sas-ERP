@@ -18,9 +18,25 @@ jobs:
           timeout: 30s
           command_timeout: 60s
           script: |
-            echo "── docker-compose.yml do scc-app ──"
-            cat /docker/saas-control-center/docker-compose.yml
-            echo "── ls do diretório ──"
-            ls -la /docker/saas-control-center/
-            echo "── .env presente? (só nomes de chave, sem valor) ──"
-            [ -f /docker/saas-control-center/.env ] && cut -d= -f1 /docker/saas-control-center/.env || echo "sem .env"
+            set -e
+            cd /docker/saas-control-center
+            cp .env .env.bak
+
+            NEW_EMAIL="platform@foodsaas.internal"
+            NEW_PASSWORD="ControlCenter#2026!"
+
+            # Substitui só as 2 linhas (mantém todo o resto do .env intacto)
+            grep -v "^MASTER_ADMIN_EMAIL=" .env | grep -v "^MASTER_ADMIN_PASSWORD=" > .env.new
+            echo "MASTER_ADMIN_EMAIL=${NEW_EMAIL}" >> .env.new
+            echo "MASTER_ADMIN_PASSWORD=${NEW_PASSWORD}" >> .env.new
+            mv .env.new .env
+
+            echo "▶ Recriando container com a senha nova..."
+            docker compose up -d --force-recreate scc-app
+            sleep 8
+
+            echo "▶ Testando login com a credencial nova..."
+            RESP=$(curl -s -X POST "https://admin.srv1747711.hstgr.cloud/api/auth/login" \
+              -H "Content-Type: application/json" \
+              -d "{\"email\":\"${NEW_EMAIL}\",\"password\":\"${NEW_PASSWORD}\"}")
+            echo "$RESP" | grep -q "accessToken" && echo "✅ LOGIN OK com a credencial nova" || echo "❌ AINDA FALHOU: $RESP"

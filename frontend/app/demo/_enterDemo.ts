@@ -13,6 +13,24 @@ const PLAN_MAP: Record<DemoPlan, string> = {
   enterprise: "demo-enterprise-001",
 };
 
+const NICHE_SLUG_BY_ACCOUNT_ID: Record<string, string> = {
+  "demo-delivery-001": "marmitaria",
+  "demo-mercado-001": "mercado",
+  "demo-conveniencia-001": "conveniencia",
+  "demo-hamburgueria-001": "hamburgueria",
+  "demo-lanchonete-001": "lanchonetes",
+  "demo-churrascaria-001": "churrascaria",
+  "demo-hotdog-001": "hotdog",
+  "demo-padaria-001": "padaria",
+  "demo-confeitaria-001": "confeitaria",
+  "demo-pastelaria-001": "pastelaria",
+  "demo-acai-001": "acai",
+};
+
+export function getDemoNicheSlug(accountId: string): string | null {
+  return NICHE_SLUG_BY_ACCOUNT_ID[accountId] ?? null;
+}
+
 export function getDemoAccount(plan: DemoPlan): DemoAccount | undefined {
   const id = PLAN_MAP[plan];
   return getDemoAccountById(id);

@@ -26,7 +26,13 @@ export default function AutoEnterDemo({ accountId }: { accountId: string }) {
         // Mercado tem frente de caixa própria (multi-caixa, produto por
         // peso) — visualmente independente do PDV de comida, não faz
         // sentido a demo abrir na tela errada.
-        router.push(demo?.plan === "MERCADO" ? "/pdv-mercado" : "/pdv");
+        router.push(
+          demo?.plan === "MERCADO"
+            ? "/pdv-mercado"
+            : demo?.id === "demo-delivery-001"
+              ? "/pdv-marmitaria"
+              : "/pdv",
+        );
       } catch (err: any) {
         const msg =
           err?.response?.data?.message ||

@@ -37,6 +37,7 @@ import { DEMO_ACCOUNTS, type DemoAccount } from "@/lib/demoThemes";
 import { PDV_THEME_PRESETS, savePdvTheme, PDV_THEME_DEFAULT } from "@/lib/pdv-theme";
 import { SUPPORT_WHATSAPP } from "@/config/support";
 import { trackClick } from "@/lib/track";
+import { getDemoNicheSlug } from "./_enterDemo";
 
 const SPECIALIST_WA_URL = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
   "Olá! Gostaria de falar com um especialista da Ruffinu's R_FoodSaaS ERP.",
@@ -1811,6 +1812,11 @@ function DemoContent() {
                     <button
                       onClick={() => {
                         trackClick("/demo", `plan_cta_${card.plan.toLowerCase()}`);
+                        const nicheSlug = getDemoNicheSlug(demo.id);
+                        if (nicheSlug) {
+                          window.location.assign(`/demo/${nicheSlug}`);
+                          return;
+                        }
                         // Sem gate de formulário — "Testar X" entra direto na demo,
                         // como o botão promete. Captura de lead fica só no
                         // exit-intent (secundária, não bloqueia quem quer só ver).

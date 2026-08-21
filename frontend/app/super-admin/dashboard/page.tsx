@@ -8,7 +8,7 @@ import {
   BarChart3, Ban, Search, ChevronRight, LayoutDashboard,
   UserCheck, TrendingUp, DollarSign, Star, Printer, RefreshCw,
   ExternalLink, Layout, Package, Bell, Moon, Sun, Activity,
-  PieChart, Layers, Bot, Store,
+  PieChart, Layers, Bot, Store, Crown, Wallet, Timer,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
@@ -101,6 +101,16 @@ const PLAN_COLORS: Record<string, string> = {
   PROFESSIONAL: "#3b82f6",
   ENTERPRISE:   "#8b5cf6",
   DELIVERY:     "#10b981",
+}
+
+// Preços fixos por plano (mesmos valores usados no checkout de assinatura,
+// item 117 do CLAUDE.md) — usados só pra estimar MRR/ticket médio aqui no
+// dashboard. Não é dado fabricado: é o preço real de tabela de cada plano.
+const PLAN_PRICES: Record<string, number> = {
+  BASIC: 97,
+  PROFESSIONAL: 197,
+  ENTERPRISE: 397,
+  DELIVERY: 197,
 }
 
 const PROTECTED_EMAILS = new Set([
@@ -431,6 +441,25 @@ export default function SuperAdminDashboard() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 4)
 
+  // ── Visão Geral do SaaS — só métricas realmente calculáveis a partir do
+  // que já vem da API (preço de tabela por plano × contagem real; nunca
+  // um número inventado tipo churn/faturamento sem fonte de dados real). ──
+  const billableCompanies = companies.filter(co => !co.archivedAt && !co.isBlocked)
+  const mrrEstimado = billableCompanies.reduce((sum, co) => sum + (PLAN_PRICES[co.plan] ?? 0), 0)
+  const totalUsuarios = companies.reduce((sum, co) => sum + (co._count?.users ?? 0), 0)
+  const lojasEmAtraso = companies.filter(co => co.subscriptionStatus === "PAST_DUE").length
+  const ticketMedio = billableCompanies.length ? Math.round(mrrEstimado / billableCompanies.length) : 0
+
+  const nicheCards = SEGMENT_GROUPS.map(group => {
+    const inGroup = companies.filter(co => group.segments.includes(co.businessSegment ?? "RESTAURANTE"))
+    const byPlan = (["BASIC", "PROFESSIONAL", "ENTERPRISE", "DELIVERY"] as const).map(plan => ({
+      plan,
+      count: inGroup.filter(co => co.plan === plan).length,
+    }))
+    const maxByPlan = Math.max(1, ...byPlan.map(p => p.count))
+    return { ...group, count: inGroup.length, byPlan, maxByPlan }
+  }).filter(g => g.count > 0)
+
   // ── Notifications derived from companies + leads data ────────────────────────
   const notifications = (() => {
     const list: { type: string; title: string; sub: string; color: string; bg: string; companyId: string | null; ts: number }[] = []
@@ -531,11 +560,11 @@ export default function SuperAdminDashboard() {
         <div className={`px-5 py-5 border-b ${c("border-[#1c1c24]", "border-gray-100")}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
-              <Zap className="w-4 h-4 text-white" />
+              <Crown className="w-4 h-4 text-white" />
             </div>
             <div>
               <p className={`text-sm font-black leading-none ${c("text-white", "text-gray-900")}`}>FoodSaaS</p>
-              <p className={`text-[10px] mt-0.5 ${c("text-zinc-500", "text-gray-400")}`}>Super Admin</p>
+              <p className={`text-[10px] mt-0.5 ${c("text-zinc-500", "text-gray-400")}`}>Painel Super Admin</p>
             </div>
           </div>
         </div>
@@ -829,6 +858,63 @@ export default function SuperAdminDashboard() {
               </div>
             ))}
           </div>
+
+          {/* ── VISÃO GERAL DO SAAS ─────────────────────────────────────── */}
+          <div className={`rounded-2xl border p-5 ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+            <div className="flex items-center gap-2 mb-4">
+              <Crown className="w-3.5 h-3.5 text-indigo-400" />
+              <p className={`text-xs font-bold ${c("text-zinc-300", "text-gray-700")}`}>Visão Geral do SaaS</p>
+              <span className={`text-[9px] ${c("text-zinc-700", "text-gray-400")}`}>(MRR estimado por preço de tabela — não é faturamento real cobrado)</span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { icon: Wallet, label: "MRR estimado", value: `R$ ${mrrEstimado.toLocaleString("pt-BR")}`, color: "#10b981" },
+                { icon: Users, label: "Total de usuários", value: totalUsuarios.toLocaleString("pt-BR"), color: "#6366f1" },
+                { icon: DollarSign, label: "Ticket médio", value: `R$ ${ticketMedio.toLocaleString("pt-BR")}`, color: "#8b5cf6" },
+                { icon: Timer, label: "Lojas em atraso", value: lojasEmAtraso, color: lojasEmAtraso > 0 ? "#f43f5e" : "#71717a" },
+              ].map((m, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: `${m.color}18`, border: `1px solid ${m.color}33` }}>
+                    <m.icon className="w-4 h-4" style={{ color: m.color }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-black tabular-nums truncate ${c("text-white", "text-gray-900")}`}>{m.value}</p>
+                    <p className={`text-[10px] truncate ${c("text-zinc-600", "text-gray-400")}`}>{m.label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── NICHOS ──────────────────────────────────────────────────── */}
+          {nicheCards.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {nicheCards.map(group => (
+                <div key={group.key} className={`rounded-2xl border p-4 flex flex-col ${c("bg-[#0f0f14] border-[#1c1c24]", "bg-white border-gray-200 shadow-sm")}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-lg">{group.emoji}</span>
+                    <span className={`text-[10px] font-black tabular-nums px-1.5 py-0.5 rounded-full ${c("bg-[#27272a] text-zinc-300", "bg-gray-100 text-gray-600")}`}>{group.count}</span>
+                  </div>
+                  <p className={`text-[11px] font-bold mb-3 truncate ${c("text-zinc-200", "text-gray-800")}`}>{group.label}</p>
+                  <button onClick={() => router.push("/super-admin/modulos")}
+                    className={`w-full text-[10px] font-bold py-1.5 rounded-lg mb-3 transition-colors ${c("bg-indigo-950 text-indigo-300 hover:bg-indigo-900", "bg-indigo-50 text-indigo-600 hover:bg-indigo-100")}`}>
+                    Configurar Módulo
+                  </button>
+                  <div className="flex items-end gap-1 h-8 mt-auto">
+                    {group.byPlan.map(p => (
+                      <div key={p.plan} className="flex-1 rounded-sm transition-all"
+                        title={`${PLAN_LABELS[p.plan]}: ${p.count}`}
+                        style={{
+                          height: `${Math.max(8, (p.count / group.maxByPlan) * 100)}%`,
+                          background: p.count > 0 ? PLAN_COLORS[p.plan] : c("#27272a", "#e5e7eb"),
+                        }} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── MID ROW ─────────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

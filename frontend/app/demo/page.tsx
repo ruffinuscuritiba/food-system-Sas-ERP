@@ -1503,6 +1503,7 @@ function DemoContent() {
         name: form.name, email: form.email, whatsapp: form.whatsapp,
         restaurantName: form.restaurantName,
         plan: demo.plan.toLowerCase(),
+        demoAccountId: demo.id,
       });
       const { accessToken, user } = data;
       if (!accessToken) { toast.error("Demonstração indisponível."); return; }

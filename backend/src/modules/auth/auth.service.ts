@@ -372,8 +372,30 @@ export class AuthService {
     // Chave livre — validada em runtime contra DEMO_PLAN_EMAIL (não é um enum
     // de plano de assinatura real, é só o seletor de qual conta demo abrir).
     plan: string;
+    demoAccountId?: string;
   }) {
-    const demoEmail = DEMO_PLAN_EMAIL[dto.plan];
+    const safeDemoIds = new Set([
+      'demo-basic-001',
+      'demo-pro-001',
+      'demo-enterprise-001',
+      'demo-delivery-001',
+      'demo-mercado-001',
+      'demo-conveniencia-001',
+      'demo-hamburgueria-001',
+      'demo-lanchonete-001',
+      'demo-churrascaria-001',
+      'demo-hotdog-001',
+      'demo-padaria-001',
+      'demo-confeitaria-001',
+      'demo-pastelaria-001',
+      'demo-acai-001',
+    ]);
+    const demoEmail = dto.demoAccountId && safeDemoIds.has(dto.demoAccountId)
+      ? (await this.prisma.company.findUnique({
+          where: { id: dto.demoAccountId },
+          select: { email: true },
+        }))?.email
+      : DEMO_PLAN_EMAIL[dto.plan];
     if (!demoEmail) throw new BadRequestException('Plano de demonstração inválido');
 
     const sessionToken = `demo-gate-${dto.email || 'anon'}-${Date.now()}`;

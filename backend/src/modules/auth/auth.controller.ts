@@ -47,6 +47,7 @@ export class AuthController {
       whatsapp: string;
       restaurantName: string;
       plan: string;
+      demoAccountId?: string;
     },
   ) {
     return this.service.demoAccess({
@@ -55,6 +56,7 @@ export class AuthController {
       whatsapp:       String(body.whatsapp || '').slice(0, 30),
       restaurantName: String(body.restaurantName || '').slice(0, 100),
       plan:           body.plan,
+      demoAccountId: body.demoAccountId ? String(body.demoAccountId).slice(0, 80) : undefined,
     });
   }
 

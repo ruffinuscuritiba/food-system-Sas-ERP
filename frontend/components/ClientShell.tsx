@@ -1200,6 +1200,38 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
             </button>
           </div>
 
+          {/* Marmitaria (Delivery/Completo): menu lateral enxuto por pedido
+              explícito do usuário — só "Frente de Caixa" + botão fixo de
+              Configurações embaixo. Todo o resto (Dashboard, Tutoriais,
+              Pedidos, Cozinha, Mesas, Ver Cardápio, QR Code, Som de Alerta,
+              Suporte) fica acessível a partir de lá, não some do sistema.
+              Restaurante/Pizzaria/Mercado/demais segmentos continuam com o
+              menu completo abaixo, sem nenhuma mudança. */}
+          {businessSegment === "MARMITARIA" ? (
+            <>
+              <nav className="flex-1 min-h-0 px-3 py-3">
+                <MenuItem
+                  href="/pdv-marmitaria"
+                  icon={<DollarSign size={16} />}
+                  label="Frente de Caixa"
+                  active={currentHref === "/pdv-marmitaria"}
+                  onClick={() => setSidebarOpen(false)}
+                />
+              </nav>
+              <div className="px-3 pb-2">
+                <Link
+                  href="/configuracoes"
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
+                >
+                  <Settings size={13} />
+                  Configurações
+                  <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+              </div>
+            </>
+          ) : (
+          <>
           {/* Nav */}
           <nav
             className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 space-y-0.5"
@@ -1407,6 +1439,8 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
               <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>
+          </>
+          )}
 
           {/* Logout */}
           <div className="px-3 py-3 border-t" style={{ borderColor: "var(--app-border-ui,#1e293b)" }}>

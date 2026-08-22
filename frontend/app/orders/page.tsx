@@ -287,7 +287,12 @@ function EditNotesModal({
   // pra "entrega" um pedido que já saiu como retirada, por ex.) — forma de
   // pagamento continua editável em qualquer status, é o caso real que gerou
   // esse pedido: cliente informou cartão e pagou em dinheiro na retirada.
-  const typeLocked = order.status === "OUT_FOR_DELIVERY" || order.status === "DELIVERED";
+  // ONLINE também trava — updateOnlineOrderDetails não recalcula taxa/fee
+  // por zona nem converte orderType (OnlineOrder.orderType não é editável
+  // por aqui), então deixar os botões clicáveis daria a falsa impressão de
+  // que a troca foi salva.
+  const typeLocked =
+    order.status === "OUT_FOR_DELIVERY" || order.status === "DELIVERED" || isOnlineOrder;
   const convertingToDelivery = orderType === "DELIVERY" && order.orderType !== "DELIVERY";
 
   const discountValue = Math.max(0, parseFloat(discount.replace(",", ".")) || 0);
@@ -343,23 +348,35 @@ function EditNotesModal({
         phoneChanged ||
         discountChanged;
       if (detailsChanged) {
-        await api.patch(`/orders/${order.id}/details`, {
-          ...(paymentMethodChanged && { paymentMethod: finalPaymentMethod }),
-          // Manda cashReceived sempre que a forma OU a composição do split
-          // mudar — sem isso, editar só os valores de um pedido já SPLIT
-          // nunca atualizava quanto de fato é dinheiro (paymentMethod
-          // continuava "SPLIT" nos dois lados, então o patch de paymentMethod
-          // sozinho nunca disparava).
-          ...((paymentMethodChanged || cashReceivedChanged) && { cashReceived: finalCashReceived }),
-          ...(orderType !== (order.orderType || "PICKUP") && { orderType }),
-          ...(convertingToDelivery && {
-            deliveryAddress: deliveryAddress.trim(),
-            neighborhood: neighborhood.trim() || undefined,
-          }),
-          ...(nameChanged && { customerName: editCustomerName.trim() }),
-          ...(phoneChanged && { customerPhone: editCustomerPhone.trim() }),
-          ...(discountChanged && { discount: discountValue }),
-        });
+        if (isOnlineOrder) {
+          // OnlineOrder (cardápio digital/totem) não tem tabela `Order`,
+          // nem cashId/split/orderType-conversion — endpoint próprio
+          // source-routed, mesmo padrão da correção de endereço abaixo.
+          await api.patch(`/orders/kitchen/ONLINE/${order.id}/details`, {
+            ...(paymentMethodChanged && { paymentMethod: finalPaymentMethod }),
+            ...(nameChanged && { customerName: editCustomerName.trim() }),
+            ...(phoneChanged && { customerPhone: editCustomerPhone.trim() }),
+            ...(discountChanged && { discount: discountValue }),
+          });
+        } else {
+          await api.patch(`/orders/${order.id}/details`, {
+            ...(paymentMethodChanged && { paymentMethod: finalPaymentMethod }),
+            // Manda cashReceived sempre que a forma OU a composição do split
+            // mudar — sem isso, editar só os valores de um pedido já SPLIT
+            // nunca atualizava quanto de fato é dinheiro (paymentMethod
+            // continuava "SPLIT" nos dois lados, então o patch de paymentMethod
+            // sozinho nunca disparava).
+            ...((paymentMethodChanged || cashReceivedChanged) && { cashReceived: finalCashReceived }),
+            ...(orderType !== (order.orderType || "PICKUP") && { orderType }),
+            ...(convertingToDelivery && {
+              deliveryAddress: deliveryAddress.trim(),
+              neighborhood: neighborhood.trim() || undefined,
+            }),
+            ...(nameChanged && { customerName: editCustomerName.trim() }),
+            ...(phoneChanged && { customerPhone: editCustomerPhone.trim() }),
+            ...(discountChanged && { discount: discountValue }),
+          });
+        }
       }
 
       // Corrigir endereço — independente do bloco acima (que só cobre
@@ -402,22 +419,35 @@ function EditNotesModal({
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide">
                 Forma de pagamento
               </label>
-              <button
-                type="button"
-                onClick={() => setSplitMode((v) => !v)}
-                className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition ${
-                  splitMode
-                    ? "bg-primary text-white border-primary"
-                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
-                }`}
-              >
-                <SplitSquareHorizontal size={11} /> Dividir
-              </button>
+              {!isOnlineOrder && (
+                <button
+                  type="button"
+                  onClick={() => setSplitMode((v) => !v)}
+                  className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition ${
+                    splitMode
+                      ? "bg-primary text-white border-primary"
+                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <SplitSquareHorizontal size={11} /> Dividir
+                </button>
+              )}
             </div>
 
             {!splitMode ? (
               <div className="grid grid-cols-3 gap-1.5">
-                {Object.entries(PAY_LABELS).map(([value, label]) => (
+                {Object.entries(
+                  // OnlineOrder só aceita PIX/CASH/CREDIT_CARD/DEBIT_CARD
+                  // (sem SPLIT/TRANSFER/MEAL_VOUCHER — updateOnlineOrderDetails
+                  // rejeita, ver orders.service.ts).
+                  isOnlineOrder
+                    ? Object.fromEntries(
+                        Object.entries(PAY_LABELS).filter(([v]) =>
+                          ["PIX", "CASH", "CREDIT_CARD", "DEBIT_CARD"].includes(v),
+                        ),
+                      )
+                    : PAY_LABELS,
+                ).map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
@@ -507,7 +537,9 @@ function EditNotesModal({
             </div>
             {typeLocked && (
               <p className="text-[11px] text-gray-400 mt-1">
-                Pedido já despachado/entregue — tipo não pode mais ser trocado.
+                {isOnlineOrder
+                  ? "Pedido do cardápio digital — tipo não pode ser trocado por aqui."
+                  : "Pedido já despachado/entregue — tipo não pode mais ser trocado."}
               </p>
             )}
           </div>

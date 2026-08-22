@@ -137,6 +137,31 @@ export class OrdersController {
     return this.service.updateDeliveryAddress(source, id, companyId, body);
   }
 
+  // Edita forma de pagamento/desconto/nome-telefone de um pedido ONLINE já
+  // criado — mesmo motivo do PATCH /:id/details do PDV, mas esse endpoint
+  // só enxerga a tabela Order (achado real: 22/08/2026, trocar forma de
+  // pagamento pra Débito num pedido do cardápio digital dava 404).
+  @Patch('kitchen/:source/:id/details')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER')
+  updateKitchenOrderDetails(
+    @Param('source') source: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      paymentMethod?: string;
+      customerName?: string;
+      customerPhone?: string;
+      discount?: number;
+    },
+    @CompanyId() companyId: string,
+  ) {
+    if (source === 'ONLINE') {
+      return this.service.updateOnlineOrderDetails(id, companyId, body);
+    }
+    return this.service.updateOrderDetails(id, companyId, body);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'CASHIER', 'WAITER')

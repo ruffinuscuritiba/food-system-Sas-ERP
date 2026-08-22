@@ -1425,6 +1425,78 @@ export class OrdersService {
   }
 
   /**
+   * Edita forma de pagamento / desconto / nome-telefone de um pedido ONLINE
+   * (cardápio digital/totem) já criado — mesmo motivo do updateOrderDetails
+   * do PDV (cliente informou errado, operador corrige depois), mas
+   * `updateOrderDetails` só enxerga a tabela `Order`, então editar um pedido
+   * ONLINE por lá sempre dava 404 "Pedido não encontrado" (achado real:
+   * 22/08/2026, tentativa de trocar forma de pagamento pra Débito num
+   * pedido do cardápio digital). OnlineOrder não tem `cashId`/gaveta física
+   * (pagamento sempre via gateway/wallet), então não há reconciliação de
+   * caixa aqui — só atualiza os campos e recalcula o total se o desconto
+   * mudar. Tipo de pedido não é editável aqui (conversão retirada<->entrega
+   * recalculando taxa por zona não existe pro fluxo ONLINE ainda).
+   */
+  async updateOnlineOrderDetails(
+    id: string,
+    companyId: string,
+    dto: {
+      paymentMethod?: string;
+      customerName?: string;
+      customerPhone?: string;
+      discount?: number;
+    },
+  ) {
+    const order = await this.prisma.onlineOrder.findFirst({
+      where: { id, companyId },
+    });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (order.orderStatus === 'CANCELED') {
+      throw new ForbiddenException('Pedido cancelado não pode ser editado.');
+    }
+
+    const data: Record<string, any> = {};
+
+    if (dto.paymentMethod !== undefined) {
+      const ONLINE_PAYMENT_METHODS = ['PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'CASH'];
+      if (!ONLINE_PAYMENT_METHODS.includes(dto.paymentMethod)) {
+        throw new ForbiddenException(
+          'Forma de pagamento não suportada para pedidos do cardápio digital.',
+        );
+      }
+      data.paymentMethod = dto.paymentMethod as any;
+    }
+    if (dto.customerName !== undefined) {
+      data.customerName = dto.customerName.trim() || order.customerName;
+    }
+    if (dto.customerPhone !== undefined) {
+      data.customerPhone = dto.customerPhone.trim() || order.customerPhone;
+    }
+    if (dto.discount !== undefined) {
+      const discount = Math.max(0, Number(dto.discount) || 0);
+      data.discount = discount;
+      data.total = Math.max(
+        0,
+        Number(order.subtotal) - discount + Number(order.deliveryFee),
+      );
+    }
+
+    if (Object.keys(data).length === 0) return order;
+
+    const updated = await this.prisma.onlineOrder.update({
+      where: { id },
+      data,
+    });
+    this.socketGateway.emitKitchenUpdate({
+      companyId,
+      id,
+      status: order.orderStatus,
+      source: 'ONLINE',
+    } as any);
+    return updated;
+  }
+
+  /**
    * Corrige o endereço de entrega quando o cliente informou errado — texto
    * puro, NUNCA recalcula taxa/total (o pedido pode já estar pago via PIX;
    * mudar cobrança retroativamente por causa de um endereço errado seria um

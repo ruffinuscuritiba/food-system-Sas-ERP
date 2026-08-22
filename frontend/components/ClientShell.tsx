@@ -855,7 +855,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   const currentPageSlug: string | undefined = PATHNAME_TO_SLUG[pathname ?? ""];
   const currentPageInDb: boolean = currentPageSlug ? activeSlugs.includes(currentPageSlug) : false;
 
-  const isMarmitariaPdv = pathname === "/pdv-marmitaria";
+  const isMarmitariaPdv = pathname === "/pdv-marmitaria-restaurante";
   const isPdv = pathname === "/pdv" || isMarmitariaPdv;
   const isDriverPage = pathname?.startsWith("/driver");
   const isGarcomPage = pathname?.startsWith("/garcom");
@@ -920,6 +920,19 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
 
   // Garçom PWA — auth required but no admin sidebar
   if (isGarcomPage) {
+    return (
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        {children}
+      </ThemeProvider>
+    );
+  }
+
+  // Frente de Caixa da Marmitaria/Restaurante — tela cheia de verdade, sem a
+  // sidebar do admin por cima (pedido explícito do usuário: ela tem a
+  // própria marca/navegação, não faz sentido duplicar "Frente de Caixa" na
+  // lateral esquerda enquanto o PDV já mostra isso dentro dele mesmo).
+  if (isMarmitariaPdv) {
     return (
       <ThemeProvider>
         <Toaster position="top-right" />
@@ -1211,10 +1224,10 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
             <>
               <nav className="flex-1 min-h-0 px-3 py-3">
                 <MenuItem
-                  href="/pdv-marmitaria"
+                  href="/pdv-marmitaria-restaurante"
                   icon={<DollarSign size={16} />}
                   label="Frente de Caixa"
-                  active={currentHref === "/pdv-marmitaria"}
+                  active={currentHref === "/pdv-marmitaria-restaurante"}
                   onClick={() => setSidebarOpen(false)}
                 />
               </nav>
@@ -1299,15 +1312,18 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // por peso) — visualmente independente do /pdv de comida,
                       // por isso o item some do href estático e vira /pdv-mercado.
                       const isMercadoPdv = item.href === "/pdv" && businessSegment === "MERCADO";
-                      const isMarmitariaPdvLink = item.href === "/pdv" && businessSegment === "MARMITARIA";
+                      // Marmitaria e Restaurante (segmentos literais) dividem a mesma
+                      // tela dedicada, construída do zero, sem herdar nada do /pdv
+                      // genérico de pizzaria — pedido explícito do usuário.
+                      const isMarmitariaRestaurantePdvLink = item.href === "/pdv" && (businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE");
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
-                        : isMarmitariaPdvLink
-                          ? "/pdv-marmitaria"
+                        : isMarmitariaRestaurantePdvLink
+                          ? "/pdv-marmitaria-restaurante"
                           : item.href;
                       const effectiveLabel = item.href === "/complements"
                         ? getComplementsLabel(businessSegment)
-                        : isMercadoPdv || isMarmitariaPdvLink ? "Frente de Caixa" : item.label;
+                        : isMercadoPdv || isMarmitariaRestaurantePdvLink ? "Frente de Caixa" : item.label;
                       return (
                         <MenuItem
                           key={item.href}

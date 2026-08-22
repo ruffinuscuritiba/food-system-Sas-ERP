@@ -1587,22 +1587,24 @@ function DemoContent() {
             {/* Copy — centered */}
             <div className="max-w-3xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
-                Demonstrações ao vivo
+                O ERP que transforma pedido em lucro
               </span>
 
               <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
-                R_FoodSaaS{" "}
+                Seu delivery vende.{" "}
+                <br className="hidden sm:block" />
+                Mas você sabe{" "}
                 <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
-                  ERP
+                  quanto sobra?
                 </span>
               </h1>
 
               <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto">
-                Sistema completo e inteligente para{" "}
+                PDV, cozinha e cardápio próprio andando juntos — e o{" "}
+                <span className="text-white/80 font-semibold">custo real de cada prato</span>{" "}
+                ao lado do preço de venda. Para{" "}
                 <span className="text-white/80 font-semibold">pizzarias, restaurantes, hamburguerias</span>,{" "}
-                <span className="text-white/80 font-semibold">delivery & dark kitchens</span>,{" "}
-                <span className="text-white/80 font-semibold">conveniências, marmitarias</span>{" "}
-                e muito mais.
+                <span className="text-white/80 font-semibold">delivery & dark kitchens</span> e mais.
               </p>
 
               <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

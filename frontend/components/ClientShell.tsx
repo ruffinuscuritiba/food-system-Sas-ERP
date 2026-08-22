@@ -1312,10 +1312,14 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // por peso) — visualmente independente do /pdv de comida,
                       // por isso o item some do href estático e vira /pdv-mercado.
                       const isMercadoPdv = item.href === "/pdv" && businessSegment === "MERCADO";
-                      // Marmitaria e Restaurante (segmentos literais) dividem a mesma
-                      // tela dedicada, construída do zero, sem herdar nada do /pdv
-                      // genérico de pizzaria — pedido explícito do usuário.
-                      const isMarmitariaRestaurantePdvLink = item.href === "/pdv" && (businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE");
+                      // SÓ Marmitaria — Restaurante foi revertido pra /pdv clássico.
+                      // Usuário reportou que incluir "RESTAURANTE" aqui quebrou o PDV
+                      // de uma loja real ao vivo (provável causa: o tenant real está
+                      // salvo com businessSegment="RESTAURANTE" no banco mesmo sendo
+                      // pizzaria de verdade — segmento literal não bate com o negócio
+                      // real, não confirmado ainda). Nunca reativar sem confirmar
+                      // segmento a segmento com o usuário.
+                      const isMarmitariaRestaurantePdvLink = item.href === "/pdv" && businessSegment === "MARMITARIA";
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
                         : isMarmitariaRestaurantePdvLink

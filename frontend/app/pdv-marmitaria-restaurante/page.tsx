@@ -41,6 +41,8 @@ import {
   ChevronRight,
   ArrowLeft,
   UtensilsCrossed,
+  ClipboardList,
+  Salad,
 } from "lucide-react";
 import { getProductPlaceholderImage } from "@/lib/productPlaceholder";
 
@@ -541,14 +543,21 @@ export default function MarmitariaRestaurantePdvPage() {
                   <ChefHat size={30} strokeWidth={2.2} />
                 </div>
                 <h1 className="text-white font-black uppercase leading-[0.9] tracking-tight">
-                  {companyName === "MARMITARIA DO CHEF" ? (
-                    <>
-                      <span className="block text-[25px]">MARMITARIA</span>
-                      <span className="block text-[31px]">DO CHEF</span>
-                    </>
-                  ) : (
-                    companyName
-                  )}
+                  {(() => {
+                    // Nome em 2 linhas (1ª palavra em destaque, resto embaixo)
+                    // como na referência — generalizado pra qualquer nome de
+                    // loja real, não só "Marmitaria do Chef" (antes era
+                    // comparação exata de string, só funcionava pra 1 caso).
+                    const words = companyName.trim().split(/\s+/);
+                    if (words.length < 2) return companyName;
+                    const [first, ...rest] = words;
+                    return (
+                      <>
+                        <span className="block text-[25px]">{first}</span>
+                        <span className="block text-[31px]">{rest.join(" ")}</span>
+                      </>
+                    );
+                  })()}
                 </h1>
                 <p className="text-[12px] mt-2" style={{ color: "#F9A35A" }}>
                   — Sabor &amp; Praticidade —
@@ -557,22 +566,27 @@ export default function MarmitariaRestaurantePdvPage() {
 
               <nav className="space-y-3">
                 {buildProduct ? (
-                  requiredGroups.map((g, i) => (
-                    <button
-                      key={g.id}
-                      onClick={() => jumpToGroup(g.id)}
-                      className="w-full px-5 py-3 rounded-full font-black text-[14px] text-left transition active:scale-[.98] shadow-[0_4px_0_rgba(0,0,0,.22)] text-white"
-                      style={{ background: i % 2 === 0 ? LARANJA : VERDE }}
-                    >
-                      {g.name}
-                    </button>
-                  ))
+                  requiredGroups.map((g, i) => {
+                    const SideIcon = i === 0 ? UtensilsCrossed : i === 1 ? ClipboardList : Salad;
+                    return (
+                      <button
+                        key={g.id}
+                        onClick={() => jumpToGroup(g.id)}
+                        className="w-full px-5 py-3 rounded-full font-black text-[14px] text-left transition active:scale-[.98] shadow-[0_4px_0_rgba(0,0,0,.22)] text-white flex items-center gap-2"
+                        style={{ background: i % 2 === 0 ? LARANJA : VERDE }}
+                      >
+                        <SideIcon size={16} className="shrink-0" />
+                        {g.name}
+                      </button>
+                    );
+                  })
                 ) : (
                   <button
                     onClick={() => setActiveCategory("all")}
-                    className="w-full px-5 py-3 rounded-full font-black text-[14px] text-left transition active:scale-[.98] shadow-[0_4px_0_rgba(0,0,0,.22)] text-white"
+                    className="w-full px-5 py-3 rounded-full font-black text-[14px] text-left transition active:scale-[.98] shadow-[0_4px_0_rgba(0,0,0,.22)] text-white flex items-center gap-2"
                     style={{ background: LARANJA }}
                   >
+                    <UtensilsCrossed size={16} className="shrink-0" />
                     Cardápio
                   </button>
                 )}
@@ -800,7 +814,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                   className="scroll-mt-4"
                                 >
                                   <div className="flex items-center justify-between mb-2">
-                                    <p className="text-white font-black text-[16px] uppercase">
+                                    <p className="text-white font-black text-[16px]">
                                       {g.name}
                                     </p>
                                     <span className="text-white/80 text-[11px] font-bold">
@@ -929,7 +943,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                   }}
                                 >
                                   <div className="flex items-center gap-2 mb-2">
-                                    <p className="text-white font-black text-[16px] uppercase">
+                                    <p className="text-white font-black text-[16px]">
                                       {g.name}
                                     </p>
                                     {remaining !== null && (
@@ -1052,7 +1066,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                       className="rounded-[18px] overflow-hidden shadow-[0_5px_0_rgba(54,17,4,.2)]"
                                       style={{ background: tileColor }}
                                     >
-                                      <p className="text-white font-black text-[15px] uppercase px-3 pt-2.5">
+                                      <p className="text-white font-black text-[15px] px-3 pt-2.5">
                                         {g.name}
                                       </p>
                                       <div

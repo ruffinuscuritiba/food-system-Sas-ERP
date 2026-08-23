@@ -1352,19 +1352,20 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // independente do /pdv de comida, por isso o item some do
                       // href estático e vira /pdv-mercado pros dois segmentos.
                       const isMercadoPdv = item.href === "/pdv" && isMercadoStylePdv(businessSegment);
-                      // REVERTIDO de novo em 23/08/2026, minutos depois de reativar.
-                      // Auditoria via Control Center confirmou o motivo exato do
-                      // incidente anterior: "Ruffinu's Pizzaria" e "Alexandria
-                      // Pizzaria" (pizzarias reais e ATIVAS, não teste) estão salvas
-                      // com businessSegment="RESTAURANTE" no banco — existe um valor
-                      // "PIZZARIA" próprio no sistema (usado no seed de demos, item
-                      // 120), essas 2 contas simplesmente nunca foram corrigidas pra
-                      // ele. SÓ Marmitaria até esse dado ser corrigido no banco (ou
-                      // até o roteamento passar a excluir esses 2 tenants
-                      // especificamente) — nunca reincluir "RESTAURANTE" aqui sem
-                      // confirmar de novo que esse dado já foi corrigido.
+                      // Reativado em 23/08/2026 SÓ depois de corrigir TODOS os
+                      // tenants Food que estavam com businessSegment="RESTAURANTE"
+                      // errado (nenhum dos 4 originais era de fato restaurante —
+                      // achado ao vivo pelo usuário, não só suposição por nome):
+                      // "Ruffinu's Pizzaria"→PIZZARIA, "Alexandria Pizzaria"→PIZZARIA,
+                      // "Bom da Brasa"→PIZZARIA, "Estação Grill"→LANCHONETE
+                      // (hamburgueria). Corrigido via PATCH /company/settings pras 4,
+                      // direto em produção (impersonando via SaaS Control Center).
+                      // Se um novo incidente aparecer, o problema é quase certamente
+                      // um NOVO tenant mal classificado — corrigir o dado da empresa
+                      // afetada, não reverter esta linha de novo.
                       const isMarmitariaRestaurantePdvLink =
-                        item.href === "/pdv" && businessSegment === "MARMITARIA";
+                        item.href === "/pdv" &&
+                        (businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE");
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
                         : isMarmitariaRestaurantePdvLink

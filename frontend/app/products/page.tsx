@@ -14,7 +14,7 @@ const Draggable       = dynamic(() => import("@hello-pangea/dnd").then((m) => m.
 import { CurrencyInputBR } from "@/components/ui/CurrencyInputBR";
 import { ImageUploaderPreview } from "@/components/ui/ImageUploaderPreview";
 import Link from "next/link";
-import { segmentHasDailyMenu } from "@/lib/segmentLabels";
+import { segmentHasDailyMenu, isMercadoStylePdv } from "@/lib/segmentLabels";
 import { getProductPlaceholderImage } from "@/lib/productPlaceholder";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -520,7 +520,7 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchProducts(); fetchCategories(); fetchSegment(); }, [fetchProducts, fetchCategories, fetchSegment]);
   const showDailyMenuToggle = segmentHasDailyMenu(businessSegment);
-  const showMercadoFields = businessSegment === "MERCADO";
+  const showMercadoFields = isMercadoStylePdv(businessSegment);
 
   // ── Sizes → payload ───────────────────────────────────────────────────────
   function sizesToPayload(rows: SizeRow[]) {

@@ -51,3 +51,15 @@ export function segmentHasDailyMenu(businessSegment: string | null | undefined):
   if (!businessSegment) return false;
   return DAILY_MENU_SEGMENTS.has(businessSegment);
 }
+
+// Segmentos que usam a frente de caixa dedicada de varejo (/pdv-mercado +
+// /mercado-controle — bipagem, produto por peso, multi-caixa) em vez do PDV
+// clássico de comida. Mercado e Conveniência vendem o mesmo tipo de item
+// (produto de prateleira com código de barras, sem preparo/receita), por
+// isso compartilham 100% da mesma tela — "iguais" por pedido do usuário.
+const MERCADO_STYLE_PDV_SEGMENTS = new Set(["MERCADO", "CONVENIENCIA"]);
+
+export function isMercadoStylePdv(businessSegment: string | null | undefined): boolean {
+  if (!businessSegment) return false;
+  return MERCADO_STYLE_PDV_SEGMENTS.has(businessSegment);
+}

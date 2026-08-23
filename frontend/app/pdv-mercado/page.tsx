@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
@@ -37,9 +38,12 @@ import {
   Banknote,
   QrCode,
   ArrowLeft,
-  Award,
   RefreshCw,
   XCircle,
+  Zap,
+  ShoppingCart,
+  Package,
+  Grid3x3,
 } from "lucide-react";
 
 type Product = {
@@ -85,6 +89,7 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2,
 
 export default function MercadoPdvPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
 
   const [cash, setCash] = useState<Cash | null>(null);
   const [checkingCash, setCheckingCash] = useState(true);
@@ -115,6 +120,8 @@ export default function MercadoPdvPage() {
 
   const scanRef = useRef<HTMLInputElement>(null);
   const weightRef = useRef<HTMLInputElement>(null);
+  const catalogSearchRef = useRef<HTMLInputElement>(null);
+  const customerPhoneRef = useRef<HTMLInputElement>(null);
 
   const subtotal = cart.reduce((s, l) => s + l.lineTotal, 0);
   const discount = Math.min(Number(discountValue.replace(",", ".")) || 0, subtotal);
@@ -483,6 +490,7 @@ export default function MercadoPdvPage() {
                         <div className="relative">
                           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                           <input
+                            ref={catalogSearchRef}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Buscar por nome..."
@@ -507,7 +515,7 @@ export default function MercadoPdvPage() {
                           </button>
                         ))}
                       </div>
-                      <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                      <div className="flex-1 overflow-y-auto p-3 space-y-1.5" id="catalog-list">
                         {filteredProducts.length === 0 ? (
                           <p className="text-center text-gray-300 text-sm py-8">Nenhum produto encontrado</p>
                         ) : filteredProducts.map((p) => (
@@ -645,87 +653,124 @@ export default function MercadoPdvPage() {
                 )}
               </div>
 
-              {/* RAIL de ações — dark, grade de tiles */}
-              <aside className="w-56 shrink-0 bg-[#14161a] text-white flex flex-col overflow-y-auto">
-                <div className="p-3 grid grid-cols-2 gap-2">
-                  <RailTile icon={Hash} label="Definir quantidade" onClick={openQtyPrompt} disabled={!selectedLine || selectedLine.isWeighted} />
-                  <RailTile icon={MessageSquare} label="Comentário na linha" onClick={openNotePrompt} disabled={!selectedLine} />
-                  <RailTile icon={Trash2} label="Remover linha" onClick={() => selectedLine && removeLine(selectedLine.key)} disabled={!selectedLine} />
-                  <RailTile icon={Percent} label="Desconto na venda" onClick={() => document.getElementById("discount-input")?.focus()} disabled={cart.length === 0} />
-                  <RailTile icon={PauseCircle} label="Suspender (F5)" onClick={suspendSale} disabled={cart.length === 0} />
-                  <RailTile icon={PlayCircle} label="Retomar (F9)" onClick={resumeSale} />
-                  <RailTile icon={XCircle} label="Cancelar venda" onClick={cancelSale} disabled={cart.length === 0} tone="danger" />
-                  <RailTile icon={DoorOpen} label="Trocar caixa" onClick={() => { localStorage.removeItem(REGISTER_KEY); setCash(null); }} />
+              {/* RAIL de ações — grade colorida (2 col) + trilho fino de categorias */}
+              <aside className="shrink-0 bg-[#14161a] text-white flex overflow-y-auto">
+                <div className="w-48 flex flex-col p-2.5 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <RailTile icon={Hash} label="Definir quantidade" onClick={openQtyPrompt} disabled={!selectedLine || selectedLine.isWeighted} tone="quick" />
+                    <RailTile icon={MessageSquare} label="Comentário na linha" onClick={openNotePrompt} disabled={!selectedLine} tone="quick" />
+                    <RailTile icon={Percent} label="Desconto na venda" onClick={() => document.getElementById("discount-input")?.focus()} disabled={cart.length === 0} />
+                    <RailTile icon={Trash2} label="Remover linha" onClick={() => selectedLine && removeLine(selectedLine.key)} disabled={!selectedLine} />
+                    <RailTile icon={PauseCircle} label="Suspender (F5)" onClick={suspendSale} disabled={cart.length === 0} />
+                    <RailTile icon={PlayCircle} label="Retomar (F9)" onClick={resumeSale} />
+                    <RailTile icon={XCircle} label="Cancelar venda" onClick={cancelSale} disabled={cart.length === 0} tone="danger" />
+                    <RailTile icon={DoorOpen} label="Trocar caixa" onClick={() => { localStorage.removeItem(REGISTER_KEY); setCash(null); }} />
+                  </div>
+                  <div className="mt-auto pt-1">
+                    <button
+                      onClick={() => cart.length && setTab("pagamento")}
+                      disabled={!cart.length}
+                      className="w-full text-sm py-3 rounded-lg bg-emerald-500 text-gray-950 font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <CreditCard size={16} />Pagamento (F6)
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-auto p-3">
-                  <button
-                    onClick={() => cart.length && setTab("pagamento")}
-                    disabled={!cart.length}
-                    className="w-full text-sm py-3 rounded-lg bg-emerald-500 text-gray-950 font-bold flex items-center justify-center gap-1.5 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <CreditCard size={16} />Pagamento (F6)
-                  </button>
+
+                {/* trilho fino de categorias — atalhos pras mesmas ações reais */}
+                <div className="w-16 shrink-0 border-l border-[#22252b] flex flex-col items-center py-3 gap-4">
+                  <RailIcon icon={Zap} label="Ações" active />
+                  <RailIcon icon={ShoppingCart} label="Pedidos" onClick={() => router.push("/orders")} />
+                  <RailIcon icon={Percent} label="Descontos" onClick={() => document.getElementById("discount-input")?.focus()} />
+                  <RailIcon icon={Package} label="Produtos" onClick={() => catalogSearchRef.current?.focus()} />
+                  <RailIcon icon={User} label="Cliente" onClick={() => customerPhoneRef.current?.focus()} />
+                  <RailIcon icon={Grid3x3} label="Caixas" onClick={() => router.push("/mercado-controle")} />
                 </div>
               </aside>
             </div>
 
-            {/* BARRA INFERIOR — cliente / resumo / total */}
-            <footer className="shrink-0 bg-white border-t border-gray-200 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
-              <div className="p-3 flex flex-col gap-1.5">
-                <label className="flex items-center gap-1 text-[11px] font-bold text-gray-400 uppercase"><User size={11} /> Cliente</label>
-                <input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Balcão"
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500"
-                />
-                <input
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  onBlur={lookupLoyalty}
-                  onKeyDown={(e) => e.key === "Enter" && lookupLoyalty()}
-                  placeholder="Telefone (opcional — busca fidelidade)"
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm outline-none focus:border-emerald-500"
-                />
-                {loyaltyLoading ? (
-                  <span className="text-[11px] text-gray-400">Buscando fidelidade...</span>
-                ) : loyalty ? (
-                  <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold">
-                    <Award size={12} /> {loyalty.totalPoints} pts · R$ {fmt(loyalty.totalCashback)} cashback
-                  </span>
-                ) : null}
+            {/* BARRA INFERIOR — ficha do cliente / resumo / total + pagamento rápido */}
+            <footer className="shrink-0 bg-white border-t border-gray-200 grid grid-cols-1 sm:grid-cols-[1.3fr_1fr_1fr] divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
+              <div className="p-3 flex gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                  <User size={16} className="text-gray-400" />
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Balcão"
+                      className="flex-1 min-w-0 text-sm font-semibold outline-none border-b border-transparent focus:border-emerald-500 bg-transparent"
+                    />
+                    {customerName !== "Balcão" && (
+                      <button onClick={() => setCustomerName("Balcão")} className="text-gray-300 hover:text-gray-500 shrink-0">
+                        <XCircle size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    ref={customerPhoneRef}
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onBlur={lookupLoyalty}
+                    onKeyDown={(e) => e.key === "Enter" && lookupLoyalty()}
+                    placeholder="Telefone (fidelidade)"
+                    className="w-full text-xs text-gray-500 outline-none border-b border-transparent focus:border-emerald-500 bg-transparent"
+                  />
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-gray-400 uppercase font-bold pt-1">
+                    <span>Fidelidade</span>
+                    <span>Cashback</span>
+                    <span className="text-emerald-600 text-xs normal-case font-bold">
+                      {loyaltyLoading ? "..." : loyalty ? `${loyalty.totalPoints} pts` : "—"}
+                    </span>
+                    <span className="text-emerald-600 text-xs normal-case font-bold">
+                      {loyaltyLoading ? "..." : loyalty ? `R$ ${fmt(loyalty.totalCashback)}` : "—"}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 flex flex-col gap-1 justify-center text-sm">
-                <div className="flex justify-between text-gray-500"><span>Linhas</span><span>{cart.length}</span></div>
-                <div className="flex justify-between text-gray-500"><span>Subtotal</span><span>R$ {fmt(subtotal)}</span></div>
-                <div className="flex justify-between text-gray-500 items-center">
-                  <span>Desconto (R$)</span>
-                  <input
-                    id="discount-input"
-                    type="text"
-                    inputMode="decimal"
-                    value={discountValue}
-                    onChange={(e) => setDiscountValue(e.target.value)}
-                    placeholder="0,00"
-                    className="w-24 border border-gray-200 rounded px-2 py-0.5 text-right text-sm outline-none focus:border-emerald-500"
-                  />
-                </div>
+              <div className="p-3 grid grid-cols-2 gap-x-4 gap-y-1 content-center text-xs">
+                <span className="text-gray-400 uppercase font-bold">Linhas</span>
+                <span className="text-gray-400 uppercase font-bold text-right">Subtotal</span>
+                <span className="font-semibold text-gray-800">{cart.length}</span>
+                <span className="font-semibold text-gray-800 text-right">R$ {fmt(subtotal)}</span>
+                <span className="text-gray-400 uppercase font-bold self-center">Desconto</span>
+                <input
+                  id="discount-input"
+                  type="text"
+                  inputMode="decimal"
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                  placeholder="0,00"
+                  className="justify-self-end w-24 border border-gray-200 rounded px-2 py-0.5 text-right text-sm outline-none focus:border-emerald-500"
+                />
               </div>
 
               <div className="p-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] text-gray-400 uppercase font-bold">Total ({itemCount} itens)</p>
+                  <p className="text-[11px] text-gray-400 uppercase font-bold">Valor devido ({itemCount} itens)</p>
                   <p className="text-3xl font-bold text-emerald-600 tabular-nums">R$ {fmt(total)}</p>
                 </div>
-                <button
-                  onClick={() => cart.length && setTab("pagamento")}
-                  disabled={!cart.length}
-                  className="w-14 h-14 rounded-xl bg-emerald-500 text-gray-950 flex items-center justify-center hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-                  title="Ir para pagamento"
-                >
-                  <CreditCard size={22} />
-                </button>
+                <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                  {[
+                    { m: "CASH", icon: Banknote, title: "Dinheiro" },
+                    { m: "PIX", icon: QrCode, title: "PIX" },
+                    { m: "CREDIT_CARD", icon: CreditCard, title: "Crédito" },
+                    { m: "DEBIT_CARD", icon: CreditCard, title: "Débito" },
+                  ].map((p) => (
+                    <button
+                      key={p.m}
+                      title={p.title}
+                      disabled={!cart.length || submitting}
+                      onClick={() => (p.m === "CASH" ? setTab("pagamento") : finalizeSale(p.m))}
+                      className="w-9 h-9 rounded-lg bg-emerald-500 text-gray-950 flex items-center justify-center hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <p.icon size={16} />
+                    </button>
+                  ))}
+                </div>
               </div>
             </footer>
           </>
@@ -797,18 +842,46 @@ function RailTile({
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  tone?: "danger";
+  tone?: "danger" | "quick";
 }) {
+  const toneClass =
+    tone === "danger"
+      ? "bg-red-950/40 hover:bg-red-950/60 text-red-300"
+      : tone === "quick"
+        ? "bg-emerald-700/70 hover:bg-emerald-600/80 text-white"
+        : "bg-[#22252b] hover:bg-[#2b2e35] text-gray-200";
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`h-20 rounded-lg flex flex-col items-center justify-center gap-1.5 text-[11px] font-semibold text-center px-1.5 transition disabled:opacity-30 disabled:cursor-not-allowed ${
-        tone === "danger" ? "bg-red-950/40 hover:bg-red-950/60 text-red-300" : "bg-[#22252b] hover:bg-[#2b2e35] text-gray-200"
+      className={`h-16 rounded-lg flex flex-col items-center justify-center gap-1 text-[10px] font-semibold text-center px-1 leading-tight transition disabled:opacity-30 disabled:cursor-not-allowed ${toneClass}`}
+    >
+      <Icon size={16} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function RailIcon({
+  icon: Icon,
+  label,
+  onClick,
+  active,
+}: {
+  icon: React.ComponentType<{ size?: number }>;
+  label: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-12 flex flex-col items-center gap-1 py-1.5 rounded-lg transition ${
+        active ? "text-emerald-400" : "text-gray-500 hover:text-gray-200"
       }`}
     >
-      <Icon size={18} />
-      <span className="leading-tight">{label}</span>
+      <Icon size={17} />
+      <span className="text-[9px] font-semibold leading-none">{label}</span>
     </button>
   );
 }

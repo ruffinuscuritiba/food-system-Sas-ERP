@@ -32,13 +32,20 @@ export default function AutoEnterDemo({ accountId }: { accountId: string }) {
         toast.success(`Abrindo demo ${demo?.label ?? accountId}…`);
         // Mercado tem frente de caixa própria (multi-caixa, produto por
         // peso) — visualmente independente do PDV de comida, não faz
-        // sentido a demo abrir na tela errada.
+        // sentido a demo abrir na tela errada. Padaria/Confeitaria/Açaí
+        // ganharam a mesma tratativa (/pdv-padaria) — sem isso, o auto-login
+        // da demo ignorava o link correto da sidebar (que já apontava certo)
+        // e sempre caía no /pdv genérico, mostrando o segmento errado pro
+        // prospect logo na primeira impressão da demo.
+        const PADARIA_STYLE_DEMO_PLANS = new Set(["PADARIA", "CONFEITARIA", "ACAI"]);
         router.push(
           demo?.plan === "MERCADO"
             ? "/pdv-mercado"
-            : demo?.id === "demo-delivery-001"
-              ? "/pdv-marmitaria"
-              : "/pdv",
+            : demo?.plan && PADARIA_STYLE_DEMO_PLANS.has(demo.plan)
+              ? "/pdv-padaria"
+              : demo?.id === "demo-delivery-001"
+                ? "/pdv-marmitaria"
+                : "/pdv",
         );
       } catch (err: any) {
         const msg =

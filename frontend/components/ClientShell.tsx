@@ -857,7 +857,8 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
 
   const isMarmitariaPdv = pathname === "/pdv-marmitaria-restaurante";
   const isPadariaPdvPage = pathname === "/pdv-padaria";
-  const isPdv = pathname === "/pdv" || isMarmitariaPdv || isPadariaPdvPage;
+  const isMercadoPdvPage = pathname === "/pdv-mercado";
+  const isPdv = pathname === "/pdv" || isMarmitariaPdv || isPadariaPdvPage || isMercadoPdvPage;
   const isDriverPage = pathname?.startsWith("/driver");
   const isGarcomPage = pathname?.startsWith("/garcom");
 
@@ -948,6 +949,20 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   // estrutura antiga não tem nada a ver com a nova". A própria página tem seu
   // link de Configurações no topo.
   if (isPadariaPdvPage) {
+    return (
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        {children}
+      </ThemeProvider>
+    );
+  }
+
+  // Frente de Caixa do Mercado/Conveniência — mesmo tratamento acima
+  // (Marmitaria/Padaria): usuário marcou com X a sidebar do admin no print
+  // do /pdv-mercado — "essa estrutura antiga não pode aparecer aqui, o botão
+  // de configuração fica no topo da própria tela" (padrão já replicado nas
+  // outras 2 frentes de caixa dedicadas).
+  if (isMercadoPdvPage) {
     return (
       <ThemeProvider>
         <Toaster position="top-right" />

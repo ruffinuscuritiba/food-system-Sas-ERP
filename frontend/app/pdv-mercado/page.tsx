@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -44,6 +45,7 @@ import {
   ShoppingCart,
   Package,
   Grid3x3,
+  Settings,
 } from "lucide-react";
 
 type Product = {
@@ -392,7 +394,14 @@ export default function MercadoPdvPage() {
         {checkingCash ? (
           <div className="flex items-center justify-center h-screen text-gray-400 text-sm">Carregando...</div>
         ) : !cash ? (
-          <div className="flex items-center justify-center h-screen bg-gray-100">
+          <div className="relative flex items-center justify-center h-screen bg-gray-100">
+            <Link
+              href="/configuracoes"
+              title="Configurações"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 p-1.5 rounded-md hover:bg-black/5"
+            >
+              <Settings size={18} />
+            </Link>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 w-full max-w-sm">
               <div className="flex items-center gap-2 mb-6">
                 <DoorOpen size={20} className="text-blue-600" />
@@ -459,6 +468,13 @@ export default function MercadoPdvPage() {
                   </div>
                   <span className="text-xs text-gray-300 hidden sm:inline">{user?.name}</span>
                 </div>
+                <Link
+                  href="/configuracoes"
+                  title="Configurações"
+                  className="text-gray-400 hover:text-white p-1.5 rounded-md hover:bg-white/5"
+                >
+                  <Settings size={16} />
+                </Link>
               </div>
             </header>
 

@@ -1231,6 +1231,43 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                   onClick={() => setSidebarOpen(false)}
                 />
               </nav>
+              {/* Ver Cardápio + QR Code — mesmos 2 botões do menu completo,
+                  reencaixados aqui: sem isso, ninguém na loja tinha como
+                  pegar o link/QR do cardápio pra mandar pro cliente (achado
+                  ao vivo pelo usuário depois do menu ter sido enxugado). */}
+              {user?.companyId && (
+                <div className="px-3 pb-2">
+                  <a
+                    href={`/menu/${companySlug || user.companyId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
+                  >
+                    <ExternalLink size={13} />
+                    Ver Cardápio Online
+                    <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                </div>
+              )}
+              {user?.companyId && (
+                <div className="px-3 pb-2">
+                  <button
+                    onClick={() => setQrLinksOpen(true)}
+                    className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
+                  >
+                    <QrCode size={13} />
+                    QR Code e Links
+                    <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                  <QrLinksModal
+                    companyId={user.companyId}
+                    companyName={companyName}
+                    slug={companySlug}
+                    isOpen={qrLinksOpen}
+                    onClose={() => setQrLinksOpen(false)}
+                  />
+                </div>
+              )}
               <div className="px-3 pb-2">
                 <Link
                   href="/configuracoes"

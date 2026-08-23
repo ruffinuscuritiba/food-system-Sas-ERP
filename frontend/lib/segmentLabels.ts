@@ -63,3 +63,16 @@ export function isMercadoStylePdv(businessSegment: string | null | undefined): b
   if (!businessSegment) return false;
   return MERCADO_STYLE_PDV_SEGMENTS.has(businessSegment);
 }
+
+// Segmentos que usam a frente de caixa dedicada de Padaria/Confeitaria/Açaí
+// (/pdv-padaria — categorias em blocos coloridos, cliente rápido no topo do
+// pedido, venda por peso/unidade). Pedido do usuário: aplicar o mesmo design
+// de "Ponto do Pão POS" (mockup aprovado) a esses 3 nichos, que compartilham
+// o mesmo padrão de venda de balcão (produto pronto, sem pedido composto tipo
+// "monte sua marmita" nem construtor de pizza).
+const PADARIA_STYLE_PDV_SEGMENTS = new Set(["PADARIA", "DOCERIA", "ACAI"]);
+
+export function isPadariaStylePdv(businessSegment: string | null | undefined): boolean {
+  if (!businessSegment) return false;
+  return PADARIA_STYLE_PDV_SEGMENTS.has(businessSegment);
+}

@@ -57,7 +57,7 @@ import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { buildSupportUrl } from "@/config/support";
 import { QrLinksModal } from "@/components/shared/QrLinksModal";
-import { getComplementsLabel, segmentSellsPizza, isMercadoStylePdv } from "@/lib/segmentLabels";
+import { getComplementsLabel, segmentSellsPizza, isMercadoStylePdv, isPadariaStylePdv } from "@/lib/segmentLabels";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -1352,6 +1352,10 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // independente do /pdv de comida, por isso o item some do
                       // href estático e vira /pdv-mercado pros dois segmentos.
                       const isMercadoPdv = item.href === "/pdv" && isMercadoStylePdv(businessSegment);
+                      // Padaria/Confeitaria/Açaí ganham a mesma tratativa —
+                      // frente de caixa dedicada, própria pro nicho (ver
+                      // isPadariaStylePdv em lib/segmentLabels.ts).
+                      const isPadariaPdv = item.href === "/pdv" && isPadariaStylePdv(businessSegment);
                       // Reativado em 23/08/2026 SÓ depois de corrigir TODOS os
                       // tenants Food que estavam com businessSegment="RESTAURANTE"
                       // errado (nenhum dos 4 originais era de fato restaurante —
@@ -1374,12 +1378,14 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                           businessSegment === "CHURRASCARIA");
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
-                        : isMarmitariaRestaurantePdvLink
-                          ? "/pdv-marmitaria-restaurante"
-                          : item.href;
+                        : isPadariaPdv
+                          ? "/pdv-padaria"
+                          : isMarmitariaRestaurantePdvLink
+                            ? "/pdv-marmitaria-restaurante"
+                            : item.href;
                       const effectiveLabel = item.href === "/complements"
                         ? getComplementsLabel(businessSegment)
-                        : isMercadoPdv || isMarmitariaRestaurantePdvLink ? "Frente de Caixa" : item.label;
+                        : isMercadoPdv || isPadariaPdv || isMarmitariaRestaurantePdvLink ? "Frente de Caixa" : item.label;
                       return (
                         <MenuItem
                           key={item.href}

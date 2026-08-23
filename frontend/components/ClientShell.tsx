@@ -1363,9 +1363,15 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // Se um novo incidente aparecer, o problema é quase certamente
                       // um NOVO tenant mal classificado — corrigir o dado da empresa
                       // afetada, não reverter esta linha de novo.
+                      // Churrascaria adicionada em 23/08/2026 — usuário confirmou que
+                      // é a mesma estrutura de Marmitaria/Restaurante (self-service/
+                      // prato-feito, não à la carte), não tem tenant real hoje então
+                      // não precisou de correção de dado como as 4 empresas acima.
                       const isMarmitariaRestaurantePdvLink =
                         item.href === "/pdv" &&
-                        (businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE");
+                        (businessSegment === "MARMITARIA" ||
+                          businessSegment === "RESTAURANTE" ||
+                          businessSegment === "CHURRASCARIA");
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
                         : isMarmitariaRestaurantePdvLink

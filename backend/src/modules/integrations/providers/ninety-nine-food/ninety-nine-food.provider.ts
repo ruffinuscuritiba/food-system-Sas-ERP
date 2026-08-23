@@ -207,8 +207,25 @@ export class NinetyNineFoodProvider implements IIntegrationProvider {
         externalVariantId: i.app_external_id ?? undefined,
         productName: i.name ?? 'Item 99Food',
         quantity: Number(i.amount ?? 1),
-        unitPrice: Number(i.sku_price ?? 0) / 100,
-        notes: i.remark ?? '',
+        // Item com variação de tamanho (ex: pizza P/G) vem com sku_price=0 no
+        // nível do item pai — o preço real fica em real_price (ou total_price),
+        // com o tamanho escolhido detalhado em sub_item_list. Usar sku_price
+        // aqui faz o pedido entrar no sistema com preço zerado (ou, pior, com
+        // o preço padrão do catálogo interno se o service tiver fallback
+        // defensivo pra preço <= 0 — achado real: pedido de "Bacon com
+        // Catupiry" Pequena R$33,99 registrado como R$67,99, o preço cheio).
+        unitPrice: Number(i.real_price || i.sku_price || 0) / 100,
+        // Tamanho/variação escolhida (content_name costuma ser "Size") não
+        // tem outro lugar pra aparecer no pedido interno — sem isso a cozinha
+        // recebe "Bacon com Catupiry" sem saber que é a Pequena, não a Grande.
+        notes: [
+          i.remark,
+          ...(Array.isArray(i.sub_item_list)
+            ? i.sub_item_list.map((s: any) => s?.name).filter(Boolean)
+            : []),
+        ]
+          .filter(Boolean)
+          .join(' — '),
       })),
       paymentMethod: this.mapPaymentMethod(String(orderInfo?.pay_method ?? '')),
       subtotal: Number(price?.order_price ?? 0) / 100,

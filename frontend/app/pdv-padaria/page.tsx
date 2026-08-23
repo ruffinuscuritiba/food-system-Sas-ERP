@@ -101,6 +101,7 @@ export default function PadariaPdvPage() {
   const [cash, setCash] = useState<Cash | null>(null);
   const [checkingCash, setCheckingCash] = useState(true);
   const [openingValue, setOpeningValue] = useState("");
+  const [cashModalOpen, setCashModalOpen] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -181,6 +182,8 @@ export default function PadariaPdvPage() {
     try {
       const r = await api.post("/cash/open", { openingValue: value });
       setCash(r.data);
+      setCashModalOpen(false);
+      setOpeningValue("");
       toast.success("Caixa aberto");
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao abrir caixa");
@@ -329,6 +332,21 @@ export default function PadariaPdvPage() {
               </div>
               <div className="flex items-center gap-4 text-white/85 shrink-0">
                 <Cloud size={16} aria-hidden />
+                {cash ? (
+                  <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-white/90">
+                    <DoorOpen size={15} />
+                    Caixa aberto — R$ {fmt(cash.balance)}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setCashModalOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white transition active:scale-[.97]"
+                    style={{ background: PAY_TOTAL }}
+                  >
+                    <DoorOpen size={15} />
+                    Abrir Caixa
+                  </button>
+                )}
                 <Link
                   href="/configuracoes"
                   className="flex items-center gap-1.5 text-[12.5px] font-semibold hover:text-white transition"
@@ -421,35 +439,6 @@ export default function PadariaPdvPage() {
                   )}
                 </div>
 
-                {!cash && (
-                  <div id="open-cash-inline" className="mt-4 rounded-2xl p-4 max-w-sm shadow-sm" style={{ background: SURFACE, border: "1px solid #E1DEDA" }}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <DoorOpen size={18} style={{ color: PAY_TOTAL }} />
-                      <h2 className="text-sm font-black" style={{ color: INK }}>
-                        Abrir caixa
-                      </h2>
-                    </div>
-                    <label className="block text-[11px] font-black uppercase mb-1.5" style={{ color: MUTED }}>
-                      Valor de abertura
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      value={openingValue}
-                      onChange={(e) => setOpeningValue(e.target.value)}
-                      className="w-full border rounded-xl px-3 py-2.5 text-lg font-black mb-3"
-                      style={{ color: INK, borderColor: "#E1DEDA" }}
-                    />
-                    <button
-                      onClick={openRegister}
-                      className="w-full h-11 rounded-full text-white font-black transition active:scale-[.98]"
-                      style={{ background: PAY_TOTAL }}
-                    >
-                      Abrir Caixa
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Coluna direita: cliente + pedido + pagamento */}
@@ -461,9 +450,13 @@ export default function PadariaPdvPage() {
                   </div>
 
                   {!cash && !checkingCash && (
-                    <p className="text-[11px] mb-2" style={{ color: "#9F1239" }}>
-                      Caixa fechado — abra pra registrar vendas
-                    </p>
+                    <button
+                      onClick={() => setCashModalOpen(true)}
+                      className="text-[11px] mb-2 underline decoration-dotted"
+                      style={{ color: "#9F1239" }}
+                    >
+                      Caixa fechado — clique pra abrir e registrar vendas
+                    </button>
                   )}
 
                   <div className="flex items-center gap-2">
@@ -561,6 +554,50 @@ export default function PadariaPdvPage() {
                   </button>
                 </div>
               </aside>
+            </div>
+          </div>
+        )}
+
+        {cashModalOpen && (
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4" onClick={() => setCashModalOpen(false)}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-2xl"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <DoorOpen size={20} style={{ color: PAY_TOTAL }} />
+                <h2 className="text-base font-black" style={{ color: INK }}>
+                  Abrir caixa
+                </h2>
+              </div>
+              <label className="block text-[11px] font-black uppercase mb-1.5" style={{ color: MUTED }}>
+                Valor de abertura
+              </label>
+              <input
+                autoFocus
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={openingValue}
+                onChange={(e) => setOpeningValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && openRegister()}
+                className="w-full border rounded-xl px-3 py-2.5 text-lg font-black mb-4"
+                style={{ color: INK, borderColor: "#E1DEDA" }}
+              />
+              <button
+                onClick={openRegister}
+                className="w-full h-11 rounded-full text-white font-black transition active:scale-[.98] mb-2"
+                style={{ background: PAY_TOTAL }}
+              >
+                Abrir Caixa
+              </button>
+              <button
+                onClick={() => setCashModalOpen(false)}
+                className="w-full h-9 text-[13px] font-semibold"
+                style={{ color: MUTED }}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         )}

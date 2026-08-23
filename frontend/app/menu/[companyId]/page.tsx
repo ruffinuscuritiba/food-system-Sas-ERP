@@ -18,6 +18,7 @@ import { GoogleAnalytics, trackGAPurchase, trackGAAddToCart } from "@/components
 import { getVideoEmbed } from "@/lib/utils";
 import { GoogleTagManager, GoogleTagManagerNoScript } from "@/components/tracking/GoogleTagManager";
 import { ComplementsModal, ComplementGroup, SelectedComplement } from "@/components/shared/ComplementsModal";
+import { getCategoryColor } from "@/lib/categoryColors";
 
 type Product = {
   id: string;
@@ -2591,11 +2592,20 @@ export default function MenuPage() {
         <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto touch-pan-x scroll-smooth">
           {isAppStyle ? (
             <div className="flex gap-4 min-w-max">
-              {categories.map((cat) => {
+              {categories.map((cat, catIndex) => {
                 const catObj = categoryObjects.find((c) => c.name?.trim() === cat);
                 const firstProductImg = products.find((p) => p.category?.name?.trim() === cat && p.imageUrl)?.imageUrl;
                 const avatarUrl = catObj?.bannerImage || firstProductImg || (cat === "Todos" ? theme.logoUrl : undefined);
                 const isActive = activeCategory === cat;
+                // Marmitaria/Restaurante: cada categoria com a própria cor
+                // (mesma paleta do PDV dedicado, item 187) em vez do único
+                // theme.primaryColor pra todas — vitrine mais colorida e
+                // "focada em comida", pedido explícito do usuário. Demais
+                // segmentos continuam com o anel de cor única de sempre.
+                const isFoodFocused = businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE";
+                const ringColor = isFoodFocused && cat !== "Todos"
+                  ? getCategoryColor(catObj ?? {}, catIndex)
+                  : theme.primaryColor;
                 return (
                   <button
                     key={cat}
@@ -2604,13 +2614,23 @@ export default function MenuPage() {
                   >
                     <div
                       className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-2xl transition"
-                      style={{ background: "var(--menu-surface-2)", boxShadow: isActive ? `0 0 0 3px ${theme.primaryColor}` : "0 0 0 1px var(--menu-border)" }}
+                      style={{
+                        background: "var(--menu-surface-2)",
+                        boxShadow: isActive
+                          ? `0 0 0 3px ${ringColor}`
+                          : isFoodFocused
+                            ? `0 0 0 2px ${ringColor}66`
+                            : "0 0 0 1px var(--menu-border)",
+                      }}
                     >
                       {avatarUrl ? (
                         <img src={avatarUrl} alt={cat} className="w-full h-full object-cover" />
                       ) : "🍽️"}
                     </div>
-                    <span className="text-xs font-semibold whitespace-nowrap" style={{ color: "var(--menu-text-2)" }}>
+                    <span
+                      className="text-xs font-semibold whitespace-nowrap"
+                      style={{ color: isFoodFocused && isActive ? ringColor : "var(--menu-text-2)" }}
+                    >
                       {cat.replace(/^[^\p{L}\p{N}]+/u, '')}
                     </span>
                   </button>

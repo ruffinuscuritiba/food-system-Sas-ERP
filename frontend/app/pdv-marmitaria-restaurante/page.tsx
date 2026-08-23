@@ -30,6 +30,10 @@ import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
 import { getCategoryColor } from "@/lib/categoryColors";
 import {
+  OrderDetailsForm,
+  type OrderDetails,
+} from "@/components/shared/OrderDetailsForm";
+import {
   DoorOpen,
   ChefHat,
   CheckCircle2,
@@ -140,11 +144,18 @@ export default function MarmitariaRestaurantePdvPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
   const [companyName, setCompanyName] = useState<string>("MARMITARIA DO CHEF");
+  const [companyCity, setCompanyCity] = useState("");
+  const [companyState, setCompanyState] = useState("");
+  const [authToken, setAuthToken] = useState("");
   useEffect(() => {
+    const tok = localStorage.getItem("token") || "";
+    if (tok) setAuthToken(tok);
     api
       .get("/company/settings")
       .then((r) => {
         if (r.data?.name) setCompanyName(r.data.name);
+        if (r.data?.city) setCompanyCity(r.data.city);
+        if (r.data?.state) setCompanyState(r.data.state);
       })
       .catch(() => {});
   }, []);
@@ -153,6 +164,15 @@ export default function MarmitariaRestaurantePdvPage() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [lastOrderNumber, setLastOrderNumber] = useState<number | null>(null);
+  // Balcão/Mesa/Entrega — reaproveita o MESMO componente e as mesmas
+  // configurações (autocomplete de endereço por CEP/rua, busca de cliente
+  // por telefone, cálculo de taxa por zona de entrega) já usadas no /pdv
+  // clássico, em vez de um formulário próprio. Antes o pedido sempre saía
+  // gravado como "BALCAO"/DINE_IN fixo, sem opção nenhuma de escolher
+  // entrega — achado ao vivo pelo usuário.
+  const [orderDetails, setOrderDetails] = useState<OrderDetails>({
+    orderType: "PICKUP",
+  });
 
   const total = cart.reduce((s, l) => s + l.lineTotal, 0);
   const itemCount = cart.reduce((s, l) => s + l.qty, 0);
@@ -448,6 +468,16 @@ export default function MarmitariaRestaurantePdvPage() {
     );
   }
 
+  // Mesmo critério de "pronto pra pagar" do /pdv clássico — Retirada não
+  // exige nada extra, Mesa exige número, Entrega exige rua + número.
+  const detailsReady =
+    orderDetails.orderType === "PICKUP" ||
+    (orderDetails.orderType === "DINE_IN" &&
+      Boolean(orderDetails.tableNumber?.trim())) ||
+    (orderDetails.orderType === "DELIVERY" &&
+      Boolean(orderDetails.address?.trim()) &&
+      Boolean(orderDetails.addressNumber?.trim()));
+
   async function finalizeSale(paymentMethod: string) {
     if (cart.length === 0) return;
     if (!cash) {
@@ -455,13 +485,46 @@ export default function MarmitariaRestaurantePdvPage() {
       setPaymentOpen(false);
       return;
     }
+    if (!detailsReady) {
+      toast.error(
+        orderDetails.orderType === "DINE_IN"
+          ? "Informe o número da mesa"
+          : "Informe rua e número do endereço de entrega",
+      );
+      return;
+    }
+    const deliveryFee =
+      orderDetails.orderType === "DELIVERY"
+        ? parseFloat((orderDetails.deliveryFee ?? "").replace(",", ".")) || 0
+        : 0;
+    const fullAddress =
+      orderDetails.orderType === "DELIVERY"
+        ? [
+            orderDetails.address,
+            orderDetails.addressNumber,
+            orderDetails.complement,
+            orderDetails.bairro,
+            orderDetails.cidade,
+          ]
+            .filter(Boolean)
+            .join(", ")
+        : "BALCAO";
     setSubmitting(true);
     try {
       const orderRes = await api.post("/orders", {
-        customerName: "Cliente balcão",
-        customerPhone: "",
-        deliveryAddress: "BALCAO",
-        orderType: "DINE_IN",
+        customerName: orderDetails.customerName || "Cliente balcão",
+        customerPhone: orderDetails.customerPhone || "",
+        deliveryAddress: fullAddress,
+        neighborhood:
+          orderDetails.orderType === "DELIVERY"
+            ? orderDetails.bairro || ""
+            : undefined,
+        orderType: orderDetails.orderType,
+        tableNumber:
+          orderDetails.orderType === "DINE_IN"
+            ? orderDetails.tableNumber
+            : undefined,
+        deliveryZoneId: orderDetails.deliveryZoneId || undefined,
         channel: "PDV",
         cashId: cash.id,
         paymentMethod,
@@ -475,18 +538,19 @@ export default function MarmitariaRestaurantePdvPage() {
           unitPrice: l.unitPrice,
         })),
         subtotal: total,
-        deliveryFee: 0,
-        total,
+        deliveryFee,
+        total: total + deliveryFee,
       });
       if (orderRes.data?.id)
         await api.patch(`/orders/${orderRes.data.id}/status`, {
           status: "CONFIRMED",
         });
       toast.success(
-        `Pedido #${orderRes.data?.number ?? "—"} fechado — R$ ${fmt(total)}`,
+        `Pedido #${orderRes.data?.number ?? "—"} fechado — R$ ${fmt(total + deliveryFee)}`,
       );
       setCart([]);
       setPaymentOpen(false);
+      setOrderDetails({ orderType: "PICKUP" });
       if (orderRes.data?.number) setLastOrderNumber(orderRes.data.number);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Erro ao fechar pedido");
@@ -1409,15 +1473,36 @@ export default function MarmitariaRestaurantePdvPage() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[20px] p-6 w-full max-w-xs shadow-2xl"
+              className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <p className="text-xs text-gray-400 mb-1">Total a pagar</p>
               <p
                 className="text-2xl font-black mb-4"
                 style={{ color: GRAFITE }}
               >
-                R$ {fmt(total)}
+                R${" "}
+                {fmt(
+                  total +
+                    (orderDetails.orderType === "DELIVERY"
+                      ? parseFloat(
+                          (orderDetails.deliveryFee ?? "").replace(",", "."),
+                        ) || 0
+                      : 0),
+                )}
               </p>
+
+              <div className="mb-4">
+                <OrderDetailsForm
+                  value={orderDetails}
+                  onChange={setOrderDetails}
+                  compact
+                  companyId={user?.companyId}
+                  token={authToken}
+                  cityHint={companyCity}
+                  stateHint={companyState}
+                />
+              </div>
+
               <div className="space-y-2">
                 {[
                   { m: "CASH", l: "Dinheiro" },
@@ -1427,14 +1512,21 @@ export default function MarmitariaRestaurantePdvPage() {
                 ].map((p) => (
                   <button
                     key={p.m}
-                    disabled={submitting}
+                    disabled={submitting || !detailsReady}
                     onClick={() => finalizeSale(p.m)}
-                    className="w-full h-11 rounded-full border font-black text-sm disabled:opacity-50 transition active:scale-[.98]"
+                    className="w-full h-11 rounded-full border font-black text-sm disabled:opacity-40 transition active:scale-[.98]"
                     style={{ borderColor: "#E6D8CB", color: GRAFITE }}
                   >
                     {p.l}
                   </button>
                 ))}
+                {!detailsReady && (
+                  <p className="text-[11px] text-center" style={{ color: VINHO }}>
+                    {orderDetails.orderType === "DINE_IN"
+                      ? "Informe o número da mesa pra liberar o pagamento"
+                      : "Informe rua e número pra liberar o pagamento"}
+                  </p>
+                )}
               </div>
             </div>
           </div>

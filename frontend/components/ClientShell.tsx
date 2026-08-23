@@ -1352,16 +1352,19 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       // independente do /pdv de comida, por isso o item some do
                       // href estático e vira /pdv-mercado pros dois segmentos.
                       const isMercadoPdv = item.href === "/pdv" && isMercadoStylePdv(businessSegment);
-                      // Reativado pra Restaurante em 23/08/2026 com confirmação
-                      // explícita do usuário. Histórico: incluir "RESTAURANTE" aqui
-                      // já quebrou o PDV de uma loja real ao vivo uma vez — causa raiz
-                      // foi um tenant de pizzaria de verdade salvo com
-                      // businessSegment="RESTAURANTE" no banco (dado errado, não bug
-                      // de código). Se voltar a acontecer, checar o segmento real da
-                      // empresa afetada antes de reverter este código.
+                      // REVERTIDO de novo em 23/08/2026, minutos depois de reativar.
+                      // Auditoria via Control Center confirmou o motivo exato do
+                      // incidente anterior: "Ruffinu's Pizzaria" e "Alexandria
+                      // Pizzaria" (pizzarias reais e ATIVAS, não teste) estão salvas
+                      // com businessSegment="RESTAURANTE" no banco — existe um valor
+                      // "PIZZARIA" próprio no sistema (usado no seed de demos, item
+                      // 120), essas 2 contas simplesmente nunca foram corrigidas pra
+                      // ele. SÓ Marmitaria até esse dado ser corrigido no banco (ou
+                      // até o roteamento passar a excluir esses 2 tenants
+                      // especificamente) — nunca reincluir "RESTAURANTE" aqui sem
+                      // confirmar de novo que esse dado já foi corrigido.
                       const isMarmitariaRestaurantePdvLink =
-                        item.href === "/pdv" &&
-                        (businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE");
+                        item.href === "/pdv" && businessSegment === "MARMITARIA";
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
                         : isMarmitariaRestaurantePdvLink

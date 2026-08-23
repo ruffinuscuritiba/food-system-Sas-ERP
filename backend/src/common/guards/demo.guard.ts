@@ -4,11 +4,13 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
+import { isDemoWriteAllowed } from '@/common/utils/demo-write-policy';
 
 /**
  * Guard global para usuários com role DEMO.
  * — GET: permitido (leitura).
- * — POST / PATCH / PUT / DELETE: bloqueado (escrita).
+ * — POST / PATCH / PUT / DELETE: bloqueado, EXCETO o ciclo de venda
+ *   (Caixa/Pedidos/Mesas) — ver `isDemoWriteAllowed` pro racional completo.
  *
  * Decodifica o JWT sem verificar a assinatura (Base64 decode do payload).
  * A verificação de assinatura continua sendo responsabilidade do JwtAuthGuard.
@@ -47,10 +49,9 @@ export class DemoGuard implements CanActivate {
 
     if (role !== 'DEMO') return true;
 
-    const method: string = (req.method ?? 'GET').toUpperCase();
-    if (method !== 'GET') {
+    if (!isDemoWriteAllowed(req.method, url)) {
       throw new ForbiddenException(
-        'Conta de demonstração — somente leitura. Operações de escrita não são permitidas.',
+        'Conta de demonstração — esta ação não está disponível no modo de teste. O fluxo de venda (caixa/pedidos/mesas) funciona normalmente.',
       );
     }
 

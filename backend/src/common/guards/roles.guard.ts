@@ -3,6 +3,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { ROLES_KEY } from '@/common/decorators/roles.decorator';
+import { isDemoWriteAllowed } from '@/common/utils/demo-write-policy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -26,12 +27,15 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // Role DEMO: somente leitura — GET/HEAD/OPTIONS passam, escrita é bloqueada.
-    // DemoGuard global já bloqueia POST/PATCH/DELETE antes, mas mantemos aqui
-    // como defesa em profundidade (dois layers independentes de proteção).
+    // Role DEMO: GET sempre passa; escrita só no ciclo de venda (Caixa/
+    // Pedidos/Mesas — `isDemoWriteAllowed`), ignorando a lista concreta de
+    // `@Roles` do endpoint (ex.: DEMO nunca é literalmente CASHIER/WAITER,
+    // mas pode agir como um pra essas rotas específicas — é exatamente o
+    // que "a demo é a própria loja" pede). DemoGuard global já filtra a
+    // mesma política antes; mantido aqui como defesa em profundidade
+    // (dois layers independentes usando a MESMA fonte de verdade).
     if (user.role === 'DEMO') {
-      const method: string = (request.method ?? 'GET').toUpperCase();
-      return ['GET', 'HEAD', 'OPTIONS'].includes(method);
+      return isDemoWriteAllowed(request.method, request.url);
     }
 
     // SYSTEM_SUPER_ADMIN bypassa qualquer restrição de role

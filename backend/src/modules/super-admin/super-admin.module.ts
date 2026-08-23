@@ -9,6 +9,7 @@ import { DemoVitrineService } from './demo-vitrine.service';
 import { DemoBootstrapService } from './demo-bootstrap.service';
 import { DemoConvenienciaSeedService } from './demo-conveniencia-seed.service';
 import { DemoNicheSeedService } from './demo-niche-seed.service';
+import { DemoDataResetService } from './demo-data-reset.service';
 import { LeadsModule } from '../leads/leads.module';
 import { CompanyModule } from '../company/company.module';
 import { SegmentSeedModule } from '../segment-seed/segment-seed.module';
@@ -41,6 +42,7 @@ import { SegmentSeedModule } from '../segment-seed/segment-seed.module';
     DemoBootstrapService,
     DemoConvenienciaSeedService,
     DemoNicheSeedService,
+    DemoDataResetService,
   ],
   exports: [SuperAdminService],
 })

@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
@@ -39,7 +40,7 @@ import {
   QrCode,
   Receipt,
   Cloud,
-  Menu as MenuIcon,
+  Settings,
   Croissant,
   CakeSlice,
   CupSoda,
@@ -326,9 +327,15 @@ export default function PadariaPdvPage() {
                   {companyName} POS
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-white/85 shrink-0">
-                <Cloud size={16} />
-                <MenuIcon size={16} />
+              <div className="flex items-center gap-4 text-white/85 shrink-0">
+                <Cloud size={16} aria-hidden />
+                <Link
+                  href="/configuracoes"
+                  className="flex items-center gap-1.5 text-[12.5px] font-semibold hover:text-white transition"
+                >
+                  <Settings size={15} />
+                  Configurações
+                </Link>
               </div>
             </div>
 

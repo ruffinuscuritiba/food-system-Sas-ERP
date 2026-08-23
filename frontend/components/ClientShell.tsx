@@ -856,7 +856,8 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   const currentPageInDb: boolean = currentPageSlug ? activeSlugs.includes(currentPageSlug) : false;
 
   const isMarmitariaPdv = pathname === "/pdv-marmitaria-restaurante";
-  const isPdv = pathname === "/pdv" || isMarmitariaPdv;
+  const isPadariaPdvPage = pathname === "/pdv-padaria";
+  const isPdv = pathname === "/pdv" || isMarmitariaPdv || isPadariaPdvPage;
   const isDriverPage = pathname?.startsWith("/driver");
   const isGarcomPage = pathname?.startsWith("/garcom");
 
@@ -933,6 +934,20 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   // própria marca/navegação, não faz sentido duplicar "Frente de Caixa" na
   // lateral esquerda enquanto o PDV já mostra isso dentro dele mesmo).
   if (isMarmitariaPdv) {
+    return (
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        {children}
+      </ThemeProvider>
+    );
+  }
+
+  // Frente de Caixa da Padaria/Confeitaria/Açaí — mesma tratativa da
+  // Marmitaria (tela cheia, sem sidebar do admin por cima): pedido explícito
+  // do usuário ao ver a coluna antiga sobrando ao lado do design novo — "essa
+  // estrutura antiga não tem nada a ver com a nova". A própria página tem seu
+  // link de Configurações no topo.
+  if (isPadariaPdvPage) {
     return (
       <ThemeProvider>
         <Toaster position="top-right" />

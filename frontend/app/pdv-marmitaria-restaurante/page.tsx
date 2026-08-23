@@ -28,6 +28,7 @@ import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
+import { getCategoryColor } from "@/lib/categoryColors";
 import {
   DoorOpen,
   ChefHat,
@@ -627,26 +628,28 @@ export default function MarmitariaRestaurantePdvPage() {
                   style={{ scrollbarWidth: "none" }}
                 >
                   {buildProduct ? (
-                    buildGroups.slice(0, 3).map((g, i) => (
-                      <button
-                        key={g.id}
-                        onClick={() => jumpToGroup(g.id)}
-                        className="shrink-0 h-12 px-4 rounded-full font-black text-[13px] whitespace-nowrap transition active:scale-[.97] shadow-[0_4px_0_rgba(0,0,0,.22)] flex items-center gap-2 text-white"
-                        style={{
-                          background:
-                            i === 0 ? LARANJA : i === 1 ? VERDE : VINHO,
-                        }}
-                      >
-                        {i === 0 ? (
-                          <ChefHat size={17} />
-                        ) : i === 1 ? (
-                          <UtensilsCrossed size={17} />
-                        ) : (
-                          <ChefHat size={17} />
-                        )}
-                        {g.name}
-                      </button>
-                    ))
+                    // Antes travava em só 3 grupos (buildGroups.slice(0,3)) com
+                    // ícone repetido (ChefHat aparecia 2x) pra bater com a
+                    // contagem exata da imagem — quebrava produtos com mais de
+                    // 3 grupos (ex.: Proteína+Acompanhamentos+Salada+Sobremesa
+                    // já são 4). Mostra todos agora, com ícone e cor por índice
+                    // sem repetição.
+                    buildGroups.map((g, i) => {
+                      const ICONS = [ChefHat, UtensilsCrossed, ClipboardList, Salad];
+                      const GroupIcon = ICONS[i % ICONS.length];
+                      const COLORS = [LARANJA, VERDE, VINHO];
+                      return (
+                        <button
+                          key={g.id}
+                          onClick={() => jumpToGroup(g.id)}
+                          className="shrink-0 h-12 px-4 rounded-full font-black text-[13px] whitespace-nowrap transition active:scale-[.97] shadow-[0_4px_0_rgba(0,0,0,.22)] flex items-center gap-2 text-white"
+                          style={{ background: COLORS[i % COLORS.length] }}
+                        >
+                          <GroupIcon size={17} />
+                          {g.name}
+                        </button>
+                      );
+                    })
                   ) : (
                     <>
                       <button
@@ -664,9 +667,15 @@ export default function MarmitariaRestaurantePdvPage() {
                       >
                         Todos
                       </button>
-                      {categories.slice(0, 2).map((c, i) => {
+                      {categories.map((c, i) => {
                         const isActive = activeCategory === c.id;
-                        const color = i === 0 ? LARANJA : VERDE;
+                        // Antes travava em só 2 categorias (categories.slice(0,2))
+                        // pra bater com a contagem exata da imagem de referência
+                        // — quebrava qualquer loja com 3+ categorias, que nunca
+                        // conseguia nem ver a 3ª em diante. Agora mostra todas,
+                        // com cor própria por categoria (mesma paleta do PDV
+                        // Marmitaria antigo e do cardápio digital).
+                        const color = getCategoryColor(c, i);
                         return (
                           <button
                             key={c.id}

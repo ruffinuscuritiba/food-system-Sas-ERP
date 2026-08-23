@@ -57,7 +57,7 @@ import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { buildSupportUrl } from "@/config/support";
 import { QrLinksModal } from "@/components/shared/QrLinksModal";
-import { getComplementsLabel, segmentSellsPizza } from "@/lib/segmentLabels";
+import { getComplementsLabel, segmentSellsPizza, isMercadoStylePdv } from "@/lib/segmentLabels";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -1300,17 +1300,19 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                   segmentSellsPizza(businessSegment) ||
                   sidebarConfig["pizza-borders"] === true) &&
                 // "Controle de Caixas" (múltiplos caixas simultâneos) só faz
-                // sentido pra Mercado — some da sidebar pros demais segmentos.
-                (item.navKey !== "mercado-controle" || businessSegment === "MERCADO") &&
-                // Mercado não tem cozinha (sem preparo), mesa (sem consumo no
-                // local), complementos (sem "escolha o recheio") nem receita/
-                // ingrediente (venda é direto do estoque do produto, não via
-                // receita) — sidebar de restaurante inteira não fazia sentido
-                // pra quem vende Coca-Cola e Leite (achado ao vivo pelo
-                // usuário, print da demo de Mercado). sidebarConfig com true
-                // explícito ainda reativa manualmente se algum mercado
-                // precisar (ex. lanchonete dentro do mercado).
-                (businessSegment !== "MERCADO" ||
+                // sentido pra Mercado/Conveniência — some da sidebar pros
+                // demais segmentos (mesma frente de caixa, ver isMercadoPdv).
+                (item.navKey !== "mercado-controle" || isMercadoStylePdv(businessSegment)) &&
+                // Mercado/Conveniência não têm cozinha (sem preparo), mesa (sem
+                // consumo no local), complementos (sem "escolha o recheio") nem
+                // receita/ingrediente (venda é direto do estoque do produto,
+                // não via receita) — sidebar de restaurante inteira não fazia
+                // sentido pra quem vende Coca-Cola e Leite (achado ao vivo pelo
+                // usuário, print da demo de Mercado, depois igualado pro
+                // segmento Conveniência). sidebarConfig com true explícito
+                // ainda reativa manualmente se algum precisar (ex. lanchonete
+                // dentro do mercado).
+                (!isMercadoStylePdv(businessSegment) ||
                   !["kitchen", "tables", "complements", "ingredients", "recipes"].includes(item.navKey ?? "") ||
                   sidebarConfig[item.navKey ?? ""] === true)
               );
@@ -1345,18 +1347,21 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                       const badge = isMatrix && item.moduleSlug
                         ? activeSlugs.includes(item.moduleSlug) ? "active" : "homologation"
                         : undefined;
-                      // Mercado tem frente de caixa própria (multi-caixa, produto
-                      // por peso) — visualmente independente do /pdv de comida,
-                      // por isso o item some do href estático e vira /pdv-mercado.
-                      const isMercadoPdv = item.href === "/pdv" && businessSegment === "MERCADO";
-                      // SÓ Marmitaria — Restaurante foi revertido pra /pdv clássico.
-                      // Usuário reportou que incluir "RESTAURANTE" aqui quebrou o PDV
-                      // de uma loja real ao vivo (provável causa: o tenant real está
-                      // salvo com businessSegment="RESTAURANTE" no banco mesmo sendo
-                      // pizzaria de verdade — segmento literal não bate com o negócio
-                      // real, não confirmado ainda). Nunca reativar sem confirmar
-                      // segmento a segmento com o usuário.
-                      const isMarmitariaRestaurantePdvLink = item.href === "/pdv" && businessSegment === "MARMITARIA";
+                      // Mercado/Conveniência compartilham a mesma frente de caixa
+                      // (multi-caixa, produto por peso/bipagem) — visualmente
+                      // independente do /pdv de comida, por isso o item some do
+                      // href estático e vira /pdv-mercado pros dois segmentos.
+                      const isMercadoPdv = item.href === "/pdv" && isMercadoStylePdv(businessSegment);
+                      // Reativado pra Restaurante em 23/08/2026 com confirmação
+                      // explícita do usuário. Histórico: incluir "RESTAURANTE" aqui
+                      // já quebrou o PDV de uma loja real ao vivo uma vez — causa raiz
+                      // foi um tenant de pizzaria de verdade salvo com
+                      // businessSegment="RESTAURANTE" no banco (dado errado, não bug
+                      // de código). Se voltar a acontecer, checar o segmento real da
+                      // empresa afetada antes de reverter este código.
+                      const isMarmitariaRestaurantePdvLink =
+                        item.href === "/pdv" &&
+                        (businessSegment === "MARMITARIA" || businessSegment === "RESTAURANTE");
                       const effectiveHref = isMercadoPdv
                         ? "/pdv-mercado"
                         : isMarmitariaRestaurantePdvLink
@@ -1411,7 +1416,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
                 className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-primary hover:bg-primary/5 transition font-semibold text-[12px] border border-primary/20 group"
               >
                 <ExternalLink size={13} />
-                {businessSegment === "MERCADO" ? "Ver Loja Online" : "Ver Cardápio Online"}
+                {isMercadoStylePdv(businessSegment) ? "Ver Loja Online" : "Ver Cardápio Online"}
                 <ChevronRight size={12} className="ml-auto group-hover:translate-x-0.5 transition-transform" />
               </a>
             </div>

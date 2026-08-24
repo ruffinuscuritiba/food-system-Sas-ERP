@@ -30,16 +30,21 @@ export default function AutoEnterDemo({ accountId }: { accountId: string }) {
         localStorage.setItem("token", accessToken);
         localStorage.setItem("user", JSON.stringify(user));
         toast.success(`Abrindo demo ${demo?.label ?? accountId}…`);
-        // Mercado tem frente de caixa própria (multi-caixa, produto por
-        // peso) — visualmente independente do PDV de comida, não faz
-        // sentido a demo abrir na tela errada. Padaria/Confeitaria/Açaí
+        // Mercado/Conveniência têm frente de caixa própria (multi-caixa,
+        // produto por peso) — visualmente independente do PDV de comida, não
+        // faz sentido a demo abrir na tela errada. Padaria/Confeitaria/Açaí
         // ganharam a mesma tratativa (/pdv-padaria) — sem isso, o auto-login
         // da demo ignorava o link correto da sidebar (que já apontava certo)
         // e sempre caía no /pdv genérico, mostrando o segmento errado pro
-        // prospect logo na primeira impressão da demo.
+        // prospect logo na primeira impressão da demo. Conveniência
+        // (plan="CONVENIENCIA") ficou de fora da 1ª versão desta lista —
+        // achado ao vivo pelo usuário (23/08/2026): o link da sidebar já
+        // tinha sido corrigido, mas ninguém tinha propagado o mesmo fix
+        // pra este redirect separado do fluxo /demo.
+        const MERCADO_STYLE_DEMO_PLANS = new Set(["MERCADO", "CONVENIENCIA"]);
         const PADARIA_STYLE_DEMO_PLANS = new Set(["PADARIA", "CONFEITARIA", "ACAI"]);
         router.push(
-          demo?.plan === "MERCADO"
+          demo?.plan && MERCADO_STYLE_DEMO_PLANS.has(demo.plan)
             ? "/pdv-mercado"
             : demo?.plan && PADARIA_STYLE_DEMO_PLANS.has(demo.plan)
               ? "/pdv-padaria"

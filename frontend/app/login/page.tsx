@@ -6,6 +6,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/auth.store'
+import { getPdvHref } from '@/lib/segmentLabels'
 import { Loader2, UtensilsCrossed } from 'lucide-react'
 import { PasswordInput } from '@/components/ui/PasswordInput'
 
@@ -35,7 +36,24 @@ export default function LoginPage() {
         KITCHEN:  '/kitchen',
         DELIVERY: '/orders',
       }
-      router.push(ROLE_DEST[user?.role] ?? '/pdv')
+      if (ROLE_DEST[user?.role]) {
+        router.push(ROLE_DEST[user.role])
+      } else {
+        // Manda direto pra frente de caixa dedicada do segmento (Mercado/
+        // Conveniência, Padaria/Confeitaria/Açaí, Marmitaria/Restaurante/
+        // Churrascaria) em vez de sempre cair no /pdv genérico e depender
+        // do usuário clicar em "Frente de Caixa" na sidebar pra chegar na
+        // tela certa — mesma lógica de getPdvHref usada ali, fonte única.
+        let dest = '/pdv'
+        try {
+          const settingsRes = await api.get('/company/settings')
+          dest = getPdvHref(settingsRes.data?.businessSegment)
+        } catch {
+          // Sem dado de segmento (endpoint falhou) — cai no /pdv genérico,
+          // nunca trava o login por causa disso.
+        }
+        router.push(dest)
+      }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || 'Erro ao fazer login')
     } finally {

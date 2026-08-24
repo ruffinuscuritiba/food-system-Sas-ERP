@@ -76,3 +76,17 @@ export function isPadariaStylePdv(businessSegment: string | null | undefined): b
   if (!businessSegment) return false;
   return PADARIA_STYLE_PDV_SEGMENTS.has(businessSegment);
 }
+
+// Fonte única da rota de PDV por segmento — reaproveitada tanto pelo link
+// "Frente de Caixa" da sidebar (ClientShell.tsx) quanto pelo redirect
+// pós-login (login/page.tsx), pra nunca mais divergir uma da outra (foi
+// exatamente essa divergência que fez Conveniência cair sempre no /pdv
+// genérico após o login, mesmo com o link da sidebar já apontando certo).
+const MARMITARIA_STYLE_PDV_SEGMENTS = new Set(["MARMITARIA", "RESTAURANTE", "CHURRASCARIA"]);
+
+export function getPdvHref(businessSegment: string | null | undefined): string {
+  if (isMercadoStylePdv(businessSegment)) return "/pdv-mercado";
+  if (isPadariaStylePdv(businessSegment)) return "/pdv-padaria";
+  if (businessSegment && MARMITARIA_STYLE_PDV_SEGMENTS.has(businessSegment)) return "/pdv-marmitaria-restaurante";
+  return "/pdv";
+}

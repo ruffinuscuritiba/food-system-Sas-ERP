@@ -18,12 +18,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
 import { RoleGuard } from "@/components/role-guard";
 import { getCategoryColor } from "@/lib/categoryColors";
 import { getProductPlaceholderImage } from "@/lib/productPlaceholder";
+import { isPadariaStylePdv } from "@/lib/segmentLabels";
 import {
   OrderDetailsForm,
   type OrderDetails,
@@ -97,6 +99,8 @@ function priceLabel(p: Product) {
 
 export default function PadariaPdvPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const [segmentChecked, setSegmentChecked] = useState(false);
 
   const [cash, setCash] = useState<Cash | null>(null);
   const [checkingCash, setCheckingCash] = useState(true);
@@ -133,9 +137,25 @@ export default function PadariaPdvPage() {
         if (r.data?.city) setCompanyCity(r.data.city);
         if (r.data?.state) setCompanyState(r.data.state);
         if (r.data?.businessSegment) setBusinessSegment(r.data.businessSegment);
+        // Trava de segmento: essa tela é só pra Padaria/Confeitaria/Açaí (ver
+        // isPadariaStylePdv). Sem isso, qualquer usuário logado que navegasse
+        // direto pra /pdv-padaria via URL via os PRÓPRIOS dados reais da loja
+        // dele renderizados aqui — achado ao vivo com a sessão real da
+        // Ruffinu's (pizzaria) abrindo essa tela sem seletor de tamanho,
+        // risco real de cobrar o tamanho errado numa venda de verdade.
+        if (!isPadariaStylePdv(r.data?.businessSegment)) {
+          router.replace("/pdv");
+          return;
+        }
+        setSegmentChecked(true);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        // Falha ao buscar o segmento (rede/erro transiente) — não trava a
+        // tela pra sempre em "Carregando...", só não bloqueia (mesmo
+        // comportamento de antes da trava existir).
+        setSegmentChecked(true);
+      });
+  }, [router]);
 
   const placeholderImg = useMemo(
     () => getProductPlaceholderImage(businessSegment ?? "PADARIA"),
@@ -383,7 +403,7 @@ export default function PadariaPdvPage() {
   return (
     <RoleGuard allowedRoles={["SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"]}>
       <main className="min-h-[600px] flex flex-col" style={{ background: PAGE_BG }}>
-        {checkingCash ? (
+        {checkingCash || !segmentChecked ? (
           <div className="flex items-center justify-center py-24 text-sm" style={{ color: MUTED }}>
             Carregando...
           </div>

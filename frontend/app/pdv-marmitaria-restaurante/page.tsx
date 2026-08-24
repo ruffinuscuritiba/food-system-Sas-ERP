@@ -822,16 +822,16 @@ export default function MarmitariaRestaurantePdvPage() {
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2.5">
+              <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-2">
                 {buildProduct ? (
                   <>
                     <div
-                      className="rounded-[20px] p-3.5 shadow-[0_5px_0_rgba(54,17,4,.28)]"
+                      className="rounded-[18px] p-3 shadow-[0_5px_0_rgba(54,17,4,.28)]"
                       style={{
                         background: `linear-gradient(145deg, #F47712 0%, #D9570D 72%, #C84A0B 100%)`,
                       }}
                     >
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center gap-3 mb-2.5">
                         <button
                           onClick={closeBuilder}
                           className="w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0"
@@ -902,7 +902,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                   }}
                                   className="scroll-mt-4"
                                 >
-                                  <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center justify-between mb-1.5">
                                     <p className="text-white font-black text-[16px]">
                                       {g.name}
                                     </p>
@@ -915,18 +915,18 @@ export default function MarmitariaRestaurantePdvPage() {
                                   <div className="flex items-center gap-3">
                                     {gi === 0 && (
                                       <div
-                                        className="relative hidden sm:flex shrink-0 w-[92px] h-[92px] rounded-full items-center justify-center"
+                                        className="relative hidden sm:flex shrink-0 w-[80px] h-[80px] rounded-full items-center justify-center"
                                         style={{
                                           background:
                                             "conic-gradient(#FFF6E9 0deg 74deg, #8E350D 74deg 160deg, #FFF6E9 160deg 235deg, #8E350D 235deg 318deg, #FFF6E9 318deg 360deg)",
                                         }}
                                       >
                                         <div
-                                          className="w-[58px] h-[58px] rounded-full flex items-center justify-center"
+                                          className="w-[50px] h-[50px] rounded-full flex items-center justify-center"
                                           style={{ background: "#D8590C" }}
                                         >
                                           <ChefHat
-                                            size={25}
+                                            size={22}
                                             className="text-white"
                                           />
                                         </div>
@@ -962,7 +962,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                                 : undefined
                                             }
                                           >
-                                            <div className="h-[69px] bg-[#F2EAE2] relative">
+                                            <div className="h-[60px] bg-[#F2EAE2] relative">
                                               <img
                                                 src={
                                                   opt.imageUrl ||
@@ -988,7 +988,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                               )}
                                             </div>
                                             <p
-                                              className="text-[11px] font-black px-2 py-2 truncate"
+                                              className="text-[11px] font-black px-2 py-1.5 truncate"
                                               style={{ color: GRAFITE }}
                                             >
                                               {opt.name}
@@ -1025,13 +1025,13 @@ export default function MarmitariaRestaurantePdvPage() {
                                   ref={(el) => {
                                     sectionRefs.current[g.id] = el;
                                   }}
-                                  className="rounded-[20px] p-3.5 shadow-[0_5px_0_rgba(54,17,4,.24)] scroll-mt-4"
+                                  className="rounded-[18px] p-3 shadow-[0_5px_0_rgba(54,17,4,.24)] scroll-mt-4"
                                   style={{
                                     background:
                                       "linear-gradient(145deg, #8E421C 0%, #703011 100%)",
                                   }}
                                 >
-                                  <div className="flex items-center gap-2 mb-2">
+                                  <div className="flex items-center gap-2 mb-1.5">
                                     <p className="text-white font-black text-[16px]">
                                       {g.name}
                                     </p>
@@ -1080,7 +1080,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                           <button
                                             key={opt.id}
                                             onClick={() => toggleMulti(g, opt)}
-                                            className="bg-[#FFF9F2] rounded-[16px] overflow-hidden text-left shrink-0 w-[92px] transition active:scale-[.98]"
+                                            className="bg-[#FFF9F2] rounded-[16px] overflow-hidden text-left shrink-0 grow basis-[84px] max-w-[130px] transition active:scale-[.98]"
                                             style={
                                               selected
                                                 ? {
@@ -1089,7 +1089,7 @@ export default function MarmitariaRestaurantePdvPage() {
                                                 : undefined
                                             }
                                           >
-                                            <div className="h-[67px] bg-[#F2EAE2] relative">
+                                            <div className="h-[58px] bg-[#F2EAE2] relative">
                                               <img
                                                 src={
                                                   opt.imageUrl ||
@@ -1140,7 +1140,7 @@ export default function MarmitariaRestaurantePdvPage() {
                             })}
 
                           {buildGroups.some((g) => !g.required) && (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                               {buildGroups
                                 .filter((g) => !g.required)
                                 .map((g, gi) => {
@@ -1152,14 +1152,14 @@ export default function MarmitariaRestaurantePdvPage() {
                                       ref={(el) => {
                                         sectionRefs.current[g.id] = el;
                                       }}
-                                      className="rounded-[18px] overflow-hidden shadow-[0_5px_0_rgba(54,17,4,.2)]"
+                                      className="rounded-[16px] overflow-hidden shadow-[0_5px_0_rgba(54,17,4,.2)]"
                                       style={{ background: tileColor }}
                                     >
-                                      <p className="text-white font-black text-[15px] px-3 pt-2.5">
+                                      <p className="text-white font-black text-[14px] px-2.5 pt-2">
                                         {g.name}
                                       </p>
                                       <div
-                                        className="flex gap-2 p-2.5 overflow-x-auto"
+                                        className="flex gap-2 p-2 overflow-x-auto"
                                         style={{ scrollbarWidth: "none" }}
                                       >
                                         {g.options.map((opt) => {

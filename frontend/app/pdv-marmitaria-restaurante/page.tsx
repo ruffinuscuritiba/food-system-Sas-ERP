@@ -24,6 +24,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
 import toast from "react-hot-toast";
@@ -48,6 +49,7 @@ import {
   UtensilsCrossed,
   ClipboardList,
   Salad,
+  Settings,
 } from "lucide-react";
 import { getProductPlaceholderImage } from "@/lib/productPlaceholder";
 
@@ -773,6 +775,20 @@ export default function MarmitariaRestaurantePdvPage() {
                   >
                     <Bell size={18} />
                   </button>
+                  {/* A sidebar do admin some inteira nessa tela (bypass em
+                      ClientShell.tsx) — sem esse link não tem NENHUM caminho
+                      de volta pro painel pra cadastrar/editar prato, achado
+                      ao vivo pelo usuário. Mesmo padrão já usado no
+                      /pdv-mercado (item 194). */}
+                  <Link
+                    href="/configuracoes"
+                    title="Configurações"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white shrink-0 shadow-[0_3px_0_rgba(0,0,0,.18)] transition hover:brightness-110"
+                    style={{ background: "rgba(255,255,255,.14)" }}
+                    aria-label="Configurações"
+                  >
+                    <Settings size={18} />
+                  </Link>
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-black text-white shrink-0 border-2 border-white/60"
                     style={{ background: "#D88D61" }}

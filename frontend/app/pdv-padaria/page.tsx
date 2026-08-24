@@ -16,7 +16,7 @@
  * compartilhado, com autocomplete de CEP e busca de cliente por telefone).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/auth.store";
@@ -102,6 +102,15 @@ export default function PadariaPdvPage() {
   const [checkingCash, setCheckingCash] = useState(true);
   const [openingValue, setOpeningValue] = useState("");
   const [cashModalOpen, setCashModalOpen] = useState(false);
+  const [cashMenuOpen, setCashMenuOpen] = useState(false);
+  const [sangriaModalOpen, setSangriaModalOpen] = useState(false);
+  const [suprimentoModalOpen, setSuprimentoModalOpen] = useState(false);
+  const [closeCashModalOpen, setCloseCashModalOpen] = useState(false);
+  const [sangriaValue, setSangriaValue] = useState("");
+  const [suprimentoValue, setSuprimentoValue] = useState("");
+  const [declaredValue, setDeclaredValue] = useState("");
+  const [closeResult, setCloseResult] = useState<{ systemValue: number; difference: number } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -189,6 +198,69 @@ export default function PadariaPdvPage() {
       toast.error(e?.response?.data?.message || "Erro ao abrir caixa");
     }
   }
+
+  async function submitCashMovement(type: "WITHDRAW" | "SUPPLY", rawValue: string) {
+    const value = Number(rawValue.replace(",", "."));
+    if (!rawValue || isNaN(value) || value <= 0) {
+      toast.error("Informe um valor válido");
+      return;
+    }
+    try {
+      await api.post("/cash/movement", { type, value, paymentMethod: "CASH", cashId: cash?.id });
+      await checkCash();
+      setSangriaModalOpen(false);
+      setSuprimentoModalOpen(false);
+      setSangriaValue("");
+      setSuprimentoValue("");
+      toast.success(type === "WITHDRAW" ? "Sangria registrada" : "Suprimento registrado");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Erro ao registrar movimento de caixa");
+    }
+  }
+
+  // Fechamento às cegas (item 151/171): o operador só informa o valor
+  // contado. A comparação com o saldo do sistema só é exibida pra
+  // ADMIN/MANAGER/SUPER_ADMIN — CASHIER vê só a confirmação de que fechou.
+  const canSeeCashDifference =
+    user?.role === "ADMIN" || user?.role === "MANAGER" || user?.role === "SUPER_ADMIN";
+
+  async function submitCloseCash() {
+    const value = Number(declaredValue.replace(",", "."));
+    if (!declaredValue || isNaN(value) || value < 0) {
+      toast.error("Informe o valor contado");
+      return;
+    }
+    try {
+      const r = await api.patch("/cash/close", { declaredValue: value, cashId: cash?.id });
+      setCloseResult({ systemValue: Number(r.data?.systemValue ?? 0), difference: Number(r.data?.difference ?? 0) });
+      setCash(null);
+      setDeclaredValue("");
+      toast.success("Caixa fechado");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Erro ao fechar caixa");
+    }
+  }
+
+  // Atalhos de teclado: F2 pula pra busca, F4 abre o menu de caixa (ou o
+  // modal de abertura se ainda estiver fechado), F9 vai direto pro
+  // pagamento quando já há item no carrinho e o caixa está aberto.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "F2") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        if (cash) setCashMenuOpen((v) => !v);
+        else setCashModalOpen(true);
+      } else if (e.key === "F9") {
+        e.preventDefault();
+        if (cash && cart.length > 0) setPaymentOpen(true);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [cash, cart.length]);
 
   const filteredProducts = useMemo(() => {
     let list = activeCategory === "all" ? products : products.filter((p) => p.categoryId === activeCategory);
@@ -333,10 +405,49 @@ export default function PadariaPdvPage() {
               <div className="flex items-center gap-4 text-white/85 shrink-0">
                 <Cloud size={16} aria-hidden />
                 {cash ? (
-                  <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-white/90">
-                    <DoorOpen size={15} />
-                    Caixa aberto — R$ {fmt(cash.balance)}
-                  </span>
+                  <div className="relative">
+                    <button
+                      onClick={() => setCashMenuOpen((v) => !v)}
+                      className="flex items-center gap-1.5 text-[12.5px] font-semibold text-white/90 hover:text-white transition"
+                    >
+                      <DoorOpen size={15} />
+                      Caixa aberto — R$ {fmt(cash.balance)}
+                    </button>
+                    {cashMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setCashMenuOpen(false)} />
+                        <div
+                          className="absolute right-0 top-8 z-50 w-56 rounded-xl overflow-hidden shadow-2xl"
+                          style={{ background: SURFACE, border: "1px solid #E1DEDA" }}
+                        >
+                          <button
+                            onClick={() => { setCashMenuOpen(false); setSangriaModalOpen(true); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-[13px] font-semibold text-left hover:bg-black/5 transition"
+                            style={{ color: INK }}
+                          >
+                            <Wallet size={15} style={{ color: PAY_DINHEIRO }} />
+                            Sangria (retirar)
+                          </button>
+                          <button
+                            onClick={() => { setCashMenuOpen(false); setSuprimentoModalOpen(true); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-[13px] font-semibold text-left hover:bg-black/5 transition border-t"
+                            style={{ color: INK, borderColor: "#F0EDE8" }}
+                          >
+                            <Wallet size={15} style={{ color: PAY_TOTAL }} />
+                            Suprimento (repor)
+                          </button>
+                          <button
+                            onClick={() => { setCashMenuOpen(false); setCloseCashModalOpen(true); }}
+                            className="w-full flex items-center gap-2 px-4 py-3 text-[13px] font-semibold text-left hover:bg-black/5 transition border-t"
+                            style={{ color: "#9F1239", borderColor: "#F0EDE8" }}
+                          >
+                            <DoorOpen size={15} />
+                            Fechar Caixa
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={() => setCashModalOpen(true)}
@@ -344,7 +455,7 @@ export default function PadariaPdvPage() {
                     style={{ background: PAY_TOTAL }}
                   >
                     <DoorOpen size={15} />
-                    Abrir Caixa
+                    Abrir Caixa (F4)
                   </button>
                 )}
                 <Link
@@ -393,9 +504,10 @@ export default function PadariaPdvPage() {
                 >
                   <Search size={16} style={{ color: MUTED }} />
                   <input
+                    ref={searchInputRef}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Pesquisar produto ou código..."
+                    placeholder="Pesquisar produto ou código... (F2)"
                     className="flex-1 bg-transparent outline-none text-sm"
                     style={{ color: INK }}
                   />
@@ -597,6 +709,137 @@ export default function PadariaPdvPage() {
                 style={{ color: MUTED }}
               >
                 Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {sangriaModalOpen && (
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4" onClick={() => setSangriaModalOpen(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2 mb-4">
+                <Wallet size={20} style={{ color: PAY_DINHEIRO }} />
+                <h2 className="text-base font-black" style={{ color: INK }}>Sangria — retirar dinheiro do caixa</h2>
+              </div>
+              <label className="block text-[11px] font-black uppercase mb-1.5" style={{ color: MUTED }}>Valor a retirar</label>
+              <input
+                autoFocus
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={sangriaValue}
+                onChange={(e) => setSangriaValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitCashMovement("WITHDRAW", sangriaValue)}
+                className="w-full border rounded-xl px-3 py-2.5 text-lg font-black mb-4"
+                style={{ color: INK, borderColor: "#E1DEDA" }}
+              />
+              <button
+                onClick={() => submitCashMovement("WITHDRAW", sangriaValue)}
+                className="w-full h-11 rounded-full text-white font-black transition active:scale-[.98] mb-2"
+                style={{ background: PAY_DINHEIRO }}
+              >
+                Confirmar Sangria
+              </button>
+              <button onClick={() => setSangriaModalOpen(false)} className="w-full h-9 text-[13px] font-semibold" style={{ color: MUTED }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {suprimentoModalOpen && (
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4" onClick={() => setSuprimentoModalOpen(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2 mb-4">
+                <Wallet size={20} style={{ color: PAY_TOTAL }} />
+                <h2 className="text-base font-black" style={{ color: INK }}>Suprimento — repor dinheiro no caixa</h2>
+              </div>
+              <label className="block text-[11px] font-black uppercase mb-1.5" style={{ color: MUTED }}>Valor a repor</label>
+              <input
+                autoFocus
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={suprimentoValue}
+                onChange={(e) => setSuprimentoValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitCashMovement("SUPPLY", suprimentoValue)}
+                className="w-full border rounded-xl px-3 py-2.5 text-lg font-black mb-4"
+                style={{ color: INK, borderColor: "#E1DEDA" }}
+              />
+              <button
+                onClick={() => submitCashMovement("SUPPLY", suprimentoValue)}
+                className="w-full h-11 rounded-full text-white font-black transition active:scale-[.98] mb-2"
+                style={{ background: PAY_TOTAL }}
+              >
+                Confirmar Suprimento
+              </button>
+              <button onClick={() => setSuprimentoModalOpen(false)} className="w-full h-9 text-[13px] font-semibold" style={{ color: MUTED }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {closeCashModalOpen && (
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4" onClick={() => setCloseCashModalOpen(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-2 mb-4">
+                <DoorOpen size={20} style={{ color: "#9F1239" }} />
+                <h2 className="text-base font-black" style={{ color: INK }}>Fechar caixa</h2>
+              </div>
+              <p className="text-[12px] mb-4" style={{ color: MUTED }}>
+                Conte o dinheiro físico da gaveta e informe o valor abaixo — o sistema não mostra o saldo esperado até você confirmar.
+              </p>
+              <label className="block text-[11px] font-black uppercase mb-1.5" style={{ color: MUTED }}>Valor contado</label>
+              <input
+                autoFocus
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={declaredValue}
+                onChange={(e) => setDeclaredValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitCloseCash()}
+                className="w-full border rounded-xl px-3 py-2.5 text-lg font-black mb-4"
+                style={{ color: INK, borderColor: "#E1DEDA" }}
+              />
+              <button
+                onClick={submitCloseCash}
+                className="w-full h-11 rounded-full text-white font-black transition active:scale-[.98] mb-2"
+                style={{ background: "#9F1239" }}
+              >
+                Confirmar Fechamento
+              </button>
+              <button onClick={() => setCloseCashModalOpen(false)} className="w-full h-9 text-[13px] font-semibold" style={{ color: MUTED }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {closeResult && (
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4" onClick={() => setCloseResult(null)}>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-[20px] p-6 w-full max-w-sm shadow-2xl text-center">
+              <DoorOpen size={28} style={{ color: PAY_TOTAL, margin: "0 auto 12px" }} />
+              <h2 className="text-base font-black mb-2" style={{ color: INK }}>Caixa fechado</h2>
+              {canSeeCashDifference ? (
+                <>
+                  <p className="text-[12.5px] mb-1" style={{ color: MUTED }}>Sistema esperava R$ {fmt(closeResult.systemValue)}</p>
+                  <p
+                    className="text-[15px] font-black mb-4"
+                    style={{ color: closeResult.difference === 0 ? PAY_TOTAL : "#9F1239" }}
+                  >
+                    Diferença: {closeResult.difference >= 0 ? "+" : ""}R$ {fmt(closeResult.difference)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[12.5px] mb-4" style={{ color: MUTED }}>Fechamento registrado com sucesso.</p>
+              )}
+              <button
+                onClick={() => setCloseResult(null)}
+                className="w-full h-11 rounded-full text-white font-black transition active:scale-[.98]"
+                style={{ background: PAY_TOTAL }}
+              >
+                Fechar
               </button>
             </div>
           </div>

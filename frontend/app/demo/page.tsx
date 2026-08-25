@@ -207,37 +207,75 @@ function resolveNicheFromSlug(raw: string | null): string {
   return NICHE_SLUGS[normalized] ?? "Restaurantes";
 }
 
-// ─── Ecossistema (outros produtos separados — links externos, sem merge de
-// código/backend; cada um roda no seu próprio domínio) ─────────────────────
-const ECOSYSTEM_LINKS: { key: string; name: string; subtitle: string; image: string; href: string | null }[] = [
+// ─── Macro-segmentos (ecossistema) — tabs no topo da seção "Segmentos
+// Atendidos" ── clicar num macro filtra as tags de subsegmento abaixo, sem
+// poluir a página com as 13 tags de Food pra quem é de Oficina/Estética/Moda.
+// FOOD é o único com `href:null` — é o produto desta própria página; os
+// outros 3 abrem a demo real do respectivo sistema (mesmos links já usados
+// já usadas na tela de segmentos, nunca uma URL nova/inventada).
+interface MacroSegment {
+  key: "FOOD" | "OFICINA" | "ESTETICA" | "MODA";
+  emoji: string;
+  label: string;
+  tags: string[];
+  href: string | null;
+}
+
+const MACRO_SEGMENTS: MacroSegment[] = [
+  { key: "FOOD", emoji: "🍔", label: "Food / Gastronomia", tags: ALL_NICHES, href: null },
   {
-    key: "food",
-    name: "Food",
-    subtitle: "R_FoodSaaS ERP",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&h=280&fit=crop&q=80",
-    href: null,
-  },
-  {
-    key: "oficina",
-    name: "Oficina",
-    subtitle: "Oficina & Elétrica ERP",
-    image: "https://images.unsplash.com/photo-1493238792000-8113da705763?w=500&h=280&fit=crop&q=80",
-    // /demo entra direto na loja seed via demo-access, sem passar pelo login
+    key: "OFICINA",
+    emoji: "🚗",
+    label: "Oficinas & Automotivo",
+    tags: [
+      "Auto Elétrica", "Mecânica Geral", "Retífica de Motores", "Centro Automotivo",
+      "Funilaria & Pintura", "Lava-Rápido / Estética Automotiva", "Troca de Óleo",
+    ],
     href: "https://sistema-oficina-eletrica-erp.vercel.app/demo",
   },
   {
-    key: "estetica",
-    name: "Estética",
-    subtitle: "Saúde & Beleza ERP",
-    image: "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=500&h=280&fit=crop&q=80",
+    key: "ESTETICA",
+    emoji: "✂️",
+    label: "Estética & Beleza",
+    tags: [
+      "Cabeleireiro", "Manicure / Pedicure", "Barbearia", "Salão de Beleza",
+      "Clínica de Estética", "Design de Sobrancelhas", "Studio de Tatuagem",
+    ],
     href: "https://sistema-saude-beleza-erp-frontend.vercel.app/demo",
   },
   {
-    key: "moda",
-    name: "Moda",
-    subtitle: "Sistema Moda ERP",
-    image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&h=280&fit=crop&q=80",
+    key: "MODA",
+    emoji: "🛍️",
+    label: "Moda & Varejo",
+    tags: [
+      "Loja de Roupas", "Loja de Calçados", "Lingerie & Peças Íntimas", "Modas Infantil",
+      "Acessórios & Bijouterias", "Boutique", "Ótica",
+    ],
     href: "https://sistema-moda-erp-frontend.vercel.app/demo",
+  },
+];
+
+// ─── FAQ ────────────────────────────────────────────────────────────────────
+const FAQ_ITEMS: { q: string; a: string }[] = [
+  {
+    q: "Preciso de impressora pra usar o sistema?",
+    a: "Não. Você pode operar 100% pela tela — PDV, cozinha e cardápio digital funcionam sem nenhuma impressora. Se quiser imprimir comandas/tickets automaticamente na cozinha ou no caixa, dá pra conectar uma impressora térmica depois — é opcional, não obrigatório pra começar a vender.",
+  },
+  {
+    q: "Funciona no celular?",
+    a: "Sim. O cardápio digital (onde seu cliente faz o pedido) é feito pra celular. O painel administrativo e o PDV também são responsivos e funcionam em tablet ou celular — mas pra frente de caixa no dia a dia, tablet ou computador dá mais conforto.",
+  },
+  {
+    q: "Como eu importo o cardápio que já uso hoje?",
+    a: "Pelo Cadastro Inteligente: você manda uma foto, PDF ou XML de nota do seu cardápio atual e o sistema já cadastra os produtos com nome e preço pra você — não precisa digitar item por item do zero.",
+  },
+  {
+    q: "Tem fidelidade ou multa se eu cancelar?",
+    a: "Não. Sem fidelidade e sem multa de cancelamento — você pode encerrar quando quiser, direto nas configurações da sua conta.",
+  },
+  {
+    q: "O que acontece quando o teste grátis de 10 dias acaba?",
+    a: "Nada é cobrado automaticamente. Ao vencer o trial, você escolhe um dos 2 planos (Delivery ou Completo) pra continuar — sem escolher, a conta fica pausada até você decidir, mas seus dados e cardápio continuam salvos.",
   },
 ];
 
@@ -1370,6 +1408,7 @@ function DemoContent() {
   );
   const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [selectedMacro, setSelectedMacro] = useState<MacroSegment["key"]>("FOOD");
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const [showExitIntent, setShowExitIntent] = useState(false);
@@ -1583,24 +1622,24 @@ function DemoContent() {
 
         {/* ── HERO ── */}
         <section className="mx-auto max-w-7xl px-5 pb-12 pt-20 sm:px-8 sm:pb-16 sm:pt-28">
-          <div className="flex flex-col items-center text-center">
+          <div className="flex flex-col items-center gap-14 lg:flex-row lg:items-center lg:gap-10">
 
-            {/* Copy — centered */}
-            <div className="max-w-3xl">
+            {/* Copy */}
+            <div className="max-w-2xl flex-1 text-center lg:text-left">
               <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
                 O ERP que transforma pedido em lucro
               </span>
 
-              <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+              <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl">
                 Seu delivery vende.{" "}
-                <br className="hidden sm:block" />
+                <br className="hidden lg:block" />
                 Mas você sabe{" "}
                 <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
                   quanto sobra?
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto">
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto lg:mx-0">
                 PDV, cozinha e cardápio próprio andando juntos — e o{" "}
                 <span className="text-white/80 font-semibold">custo real de cada prato</span>{" "}
                 ao lado do preço de venda. Para{" "}
@@ -1608,18 +1647,24 @@ function DemoContent() {
                 <span className="text-white/80 font-semibold">delivery & dark kitchens</span> e mais.
               </p>
 
-              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <div className="mt-10 flex flex-col items-center gap-4 lg:items-start">
                 <button onClick={scrollToDemo}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-7 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]">
-                  Testar Demonstrações
-                  <ChevronDown className="h-4 w-4" />
+                  className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-8 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]">
+                  Começar Teste Grátis de 10 Dias
+                  <ArrowRight className="h-4 w-4" />
                 </button>
                 <a href={SPECIALIST_WA_URL} target="_blank" rel="noopener noreferrer" onClick={() => trackClick("/demo", "whatsapp_consultor")}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur transition hover:border-white/20 hover:bg-white/10">
-                  <MessageCircle className="h-4 w-4" />
-                  Falar com Especialista
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/45 transition hover:text-white/75">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  ou fale com um especialista pelo WhatsApp
                 </a>
               </div>
+            </div>
+
+            {/* Mockup — some em telas pequenas, a prova visual vem em Trust
+                Metrics/Showcase logo abaixo, sem competir com a hero em mobile */}
+            <div className="hidden w-full flex-1 justify-center lg:flex">
+              <HeroDeviceMockup />
             </div>
 
           </div>
@@ -1647,44 +1692,188 @@ function DemoContent() {
           </div>
         </div>
 
-        {/* ── ESCOLHA UMA DEMONSTRAÇÃO (logo após a hero — é a ação principal da página) ── */}
-        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pt-16 pb-20 sm:px-8">
-          <div className="mb-2 text-center">
+        {/* ── DEMONSTRAÇÃO DO PRODUTO (prova de valor antes de pedir qualquer decisão) ── */}
+
+        {/* ── PILLARS (interactive tabs) ── */}
+        <PillarsSection />
+
+        {/* ── 3-PHONE MENU SHOWCASE ── */}
+        <MenuPhoneShowcase />
+
+        {/* ── SEGMENTOS ATENDIDOS — macro (Food/Oficina/Estética/Moda) com
+             subsegmentos filtrados dinamicamente. Só Food tem catálogo/demo
+             real dentro desta própria página; os outros 3 são produtos
+             separados (repo/banco/deploy próprios) — clicar num macro
+             diferente nunca finge ter demo aqui, sempre linka pro sistema
+             de verdade dele. ── */}
+        <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+          <div className="mb-8 text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
-              Passo 1 de 2
+              Segmentos atendidos
             </span>
             <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-              Qual é o seu segmento?
+              Feito sob medida pro seu negócio
             </h2>
             <p className="mt-3 text-sm text-white/50">
-              Selecione seu negócio — os planos abaixo se ajustam automaticamente
+              Escolha sua área — as telas e recursos se ajustam pro seu tipo de operação
             </p>
           </div>
 
-          {/* ── Unified niche selector ── */}
-          <div className="mb-6 flex flex-wrap justify-center gap-2">
-            {ALL_NICHES.map((niche) => {
-              const info = NICHES_DATA[niche];
-              const isActive = selectedNiche === niche;
+          {/* ── Macro tabs ── */}
+          <div className="mb-6 flex flex-wrap justify-center gap-3">
+            {MACRO_SEGMENTS.map((m) => {
+              const isActive = selectedMacro === m.key;
               return (
                 <button
-                  key={niche}
-                  onClick={() => { setSelectedNiche(niche); recordNicheVisit(niche); }}
-                  className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                  key={m.key}
+                  onClick={() => { setSelectedMacro(m.key); trackClick("/demo", `macro_${m.key.toLowerCase()}`); }}
+                  className={`flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-black transition-all ${
                     isActive
-                      ? "bg-white text-black shadow-lg scale-105"
-                      : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white"
+                      ? "border-orange-500/50 bg-orange-500/15 text-white scale-105 shadow-[0_8px_24px_-8px_rgba(249,115,22,0.4)]"
+                      : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white/90"
                   }`}
                 >
-                  <span>{info?.emoji ?? "🍽️"}</span>
-                  {niche}
+                  <span className="text-lg">{m.emoji}</span>
+                  {m.label}
+                  {m.href === null && (
+                    <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                      Você está aqui
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
+          {/* ── Subsegmentos dinâmicos (filtrados pelo macro selecionado) ── */}
+          <div className="mb-8 flex flex-wrap justify-center gap-2">
+            {(MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0]).tags.map((tag) => {
+              const isFood = selectedMacro === "FOOD";
+              const isActive = isFood && selectedNiche === tag;
+              return (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    if (isFood) {
+                      setSelectedNiche(tag);
+                      recordNicheVisit(tag);
+                      scrollToDemo();
+                    } else {
+                      trackClick("/demo", `tag_${selectedMacro.toLowerCase()}`);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 ${
+                    isActive
+                      ? "bg-white text-black shadow-lg scale-105"
+                      : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white"
+                  }`}
+                >
+                  {isFood && <span>{NICHES_DATA[tag]?.emoji ?? "🍽️"}</span>}
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-center">
+            {selectedMacro === "FOOD" ? (
+              <button onClick={scrollToDemo}
+                className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-6 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-orange-600">
+                Ver planos para {selectedNiche}
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            ) : (
+              <a
+                href={MACRO_SEGMENTS.find((m) => m.key === selectedMacro)?.href ?? "#"}
+                target="_blank" rel="noopener noreferrer"
+                onClick={() => trackClick("/demo", `ver_demo_${selectedMacro.toLowerCase()}`)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.05] px-6 py-3 text-sm font-black text-white transition hover:bg-white/[0.1]"
+              >
+                Ver demonstração de {MACRO_SEGMENTS.find((m) => m.key === selectedMacro)?.label}
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
+          </div>
+        </section>
+
+        {/* ── COMO FUNCIONA ── */}
+        <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+              Como funciona?
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Do cadastro ao primeiro pedido em menos de 10 minutos
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { step: "01", icon: <Store className="h-6 w-6" />, title: "Crie sua conta", desc: "Preencha o nome do restaurante e segmento. Cardápio de exemplo já incluso." },
+              { step: "02", icon: <Smartphone className="h-6 w-6" />, title: "Configure o PDV", desc: "Adicione seus produtos, preços e fotos. Interface simples, sem treinamento." },
+              { step: "03", icon: <Zap className="h-6 w-6" />, title: "Receba pedidos", desc: "PDV, cardápio digital e cozinha em tempo real funcionando no mesmo instante." },
+              { step: "04", icon: <TrendingUp className="h-6 w-6" />, title: "Acompanhe o BI", desc: "Relatórios automáticos de CMV, faturamento e ticket médio — sem planilhas." },
+            ].map((s) => (
+              <div key={s.step} className="relative flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
+                <span className="absolute right-5 top-4 text-4xl font-black text-white/[0.04] select-none">{s.step}</span>
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/20">
+                  {s.icon}
+                </div>
+                <h3 className="mb-2 text-sm font-black text-white">{s.title}</h3>
+                <p className="text-xs leading-relaxed text-white/45">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── TESTIMONIALS ── */}
+        <section className="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
+          <div className="mb-10 text-center">
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">O que nossos clientes dizem</h2>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-3">
+            {[
+              { name: "Carlos M.", role: "Dono — Pizzaria Bella", rating: 5, text: "Em 1 semana substituí 3 sistemas diferentes pelo FoodSaaS. A cozinha, o PDV e o delivery — tudo num lugar só." },
+              { name: "Fernanda L.", role: "Gerente — Burger House", rating: 5, text: "O WhatsApp IA da Kely vende sozinha à noite. Acordo com pedidos confirmados sem precisar de atendente." },
+              { name: "Roberto S.", role: "Sócio — Churrascaria Don", rating: 5, text: "Os relatórios de CMV me fizeram enxergar onde eu perdia dinheiro. Reduzi custos em 18% no primeiro mês." },
+            ].map((t) => (
+              <div key={t.name} className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
+                <div className="flex gap-0.5">
+                  {Array.from({ length: t.rating }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  ))}
+                </div>
+                <p className="text-sm leading-relaxed text-white/70">&ldquo;{t.text}&rdquo;</p>
+                <div className="mt-auto border-t border-white/[0.05] pt-3">
+                  <div className="text-xs font-bold text-white">{t.name}</div>
+                  <div className="text-[11px] text-white/40">{t.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── PLANOS E PREÇOS — ponto único de decisão, penúltimo antes do
+             rodapé. Antes esta seção existia 2x (uma logo após a hero, outra
+             aqui) — unificada: cartões de plano + tabela comparativa +
+             diferenciais, tudo num lugar só. ── */}
+        <section id="demos" ref={demoSectionRef} className="mx-auto max-w-6xl px-5 pt-4 pb-28 sm:px-8">
+          <div className="mb-8 text-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
+              Planos
+            </span>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
+              Teste grátis, escolha depois
+            </h2>
+            <p className="mt-3 text-sm text-white/50">
+              Segmento selecionado: <span className="font-semibold text-white/80">{selectedNiche}</span> — o módulo de atributos do produto vira{" "}
+              <span className="font-semibold text-white/70">
+                &ldquo;{(NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"]).moduleLabel}&rdquo;
+              </span>
+            </p>
+          </div>
+
           {/* ── Link mágico do nicho selecionado (pra mandar pro prospect) ── */}
-          <div className="mb-8 flex justify-center">
+          <div className="mb-6 flex justify-center">
             <button
               onClick={() => {
                 const slug = NICHE_TO_MAGIC_SLUG[selectedNiche] ?? "restaurantes";
@@ -1746,23 +1935,8 @@ function DemoContent() {
             </div>
           </div>
 
-          <div className="mb-8 text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
-              Passo 2 de 2
-            </span>
-            <h2 className="mt-4 text-2xl font-black tracking-tight text-white sm:text-3xl">
-              Escolha um plano pra testar
-            </h2>
-            <p className="mt-3 text-xs text-white/40">
-              No seu segmento, o módulo de atributos do produto vira{" "}
-              <span className="font-semibold text-white/70">
-                &ldquo;{(NICHES_DATA[selectedNiche] ?? NICHES_DATA["Restaurantes"]).moduleLabel}&rdquo;
-              </span>
-            </p>
-          </div>
-
           {/* ── Plan cards ── */}
-          <div className="mx-auto grid max-w-2xl gap-6 sm:grid-cols-2">
+          <div className="mx-auto grid max-w-2xl gap-6 sm:grid-cols-2 mb-16">
             {PLAN_CARDS.map((card) => {
               // "Completo" reaproveita a conta/override que ANTES era
               // "Enterprise" (full-featured — PDV+mesas+cozinha+delivery, a
@@ -1839,77 +2013,9 @@ function DemoContent() {
               );
             })}
           </div>
-        </section>
 
-        {/* ── Conteúdo de apoio (pra quem quer entender melhor antes de decidir) ── */}
-
-        {/* ── PILLARS (interactive tabs) ── */}
-        <PillarsSection />
-
-        {/* ── 3-PHONE MENU SHOWCASE ── */}
-        <MenuPhoneShowcase />
-
-        {/* ── COMO FUNCIONA ── */}
-        <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
-              Como funciona?
-            </h2>
-            <p className="mt-3 text-sm text-white/50">
-              Do cadastro ao primeiro pedido em menos de 10 minutos
-            </p>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { step: "01", icon: <Store className="h-6 w-6" />, title: "Crie sua conta", desc: "Preencha o nome do restaurante e segmento. Cardápio de exemplo já incluso." },
-              { step: "02", icon: <Smartphone className="h-6 w-6" />, title: "Configure o PDV", desc: "Adicione seus produtos, preços e fotos. Interface simples, sem treinamento." },
-              { step: "03", icon: <Zap className="h-6 w-6" />, title: "Receba pedidos", desc: "PDV, cardápio digital e cozinha em tempo real funcionando no mesmo instante." },
-              { step: "04", icon: <TrendingUp className="h-6 w-6" />, title: "Acompanhe o BI", desc: "Relatórios automáticos de CMV, faturamento e ticket médio — sem planilhas." },
-            ].map((s) => (
-              <div key={s.step} className="relative flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
-                <span className="absolute right-5 top-4 text-4xl font-black text-white/[0.04] select-none">{s.step}</span>
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/20">
-                  {s.icon}
-                </div>
-                <h3 className="mb-2 text-sm font-black text-white">{s.title}</h3>
-                <p className="text-xs leading-relaxed text-white/45">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── TESTIMONIALS ── */}
-        <section className="mx-auto max-w-5xl px-5 pb-20 sm:px-8">
           <div className="mb-10 text-center">
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">O que nossos clientes dizem</h2>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-3">
-            {[
-              { name: "Carlos M.", role: "Dono — Pizzaria Bella", rating: 5, text: "Em 1 semana substituí 3 sistemas diferentes pelo FoodSaaS. A cozinha, o PDV e o delivery — tudo num lugar só." },
-              { name: "Fernanda L.", role: "Gerente — Burger House", rating: 5, text: "O WhatsApp IA da Kely vende sozinha à noite. Acordo com pedidos confirmados sem precisar de atendente." },
-              { name: "Roberto S.", role: "Sócio — Churrascaria Don", rating: 5, text: "Os relatórios de CMV me fizeram enxergar onde eu perdia dinheiro. Reduzi custos em 18% no primeiro mês." },
-            ].map((t) => (
-              <div key={t.name} className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6">
-                <div className="flex gap-0.5">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed text-white/70">&ldquo;{t.text}&rdquo;</p>
-                <div className="mt-auto border-t border-white/[0.05] pt-3">
-                  <div className="text-xs font-bold text-white">{t.name}</div>
-                  <div className="text-[11px] text-white/40">{t.role}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── COMPARISON TABLE + HIGHLIGHTS ── */}
-        <section className="mx-auto max-w-6xl px-5 pb-28 sm:px-8">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Comparativo de planos</h2>
-            <p className="mt-3 text-sm text-white/50">Escolha o plano ideal para o tamanho da sua operação.</p>
+            <h3 className="text-xl font-black tracking-tight text-white sm:text-2xl">Comparativo completo</h3>
           </div>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr] lg:items-start">
             {/* Tabela compacta */}
@@ -1972,6 +2078,28 @@ function DemoContent() {
               ))}
             </div>
           </div>
+
+          <p className="mt-8 text-center text-[11px] text-white/30">
+            Sem fidelidade · Cancele quando quiser · Suporte em português
+          </p>
+        </section>
+
+        {/* ── FAQ ── */}
+        <section className="mx-auto max-w-3xl px-5 pb-20 sm:px-8">
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Perguntas frequentes</h2>
+          </div>
+          <div className="space-y-3">
+            {FAQ_ITEMS.map((f) => (
+              <details key={f.q} className="group rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 open:border-white/[0.15] open:bg-white/[0.05]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-bold text-white">
+                  {f.q}
+                  <ChevronDown className="h-4 w-4 shrink-0 text-white/40 transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-white/55">{f.a}</p>
+              </details>
+            ))}
+          </div>
         </section>
 
         {/* ── FOOTER CTA ── */}
@@ -2017,57 +2145,6 @@ function DemoContent() {
               </svg>
               @mestragenciadigital
             </a>
-          </div>
-        </section>
-
-        {/* ── ECOSSISTEMA (outros nichos — produtos separados) — movido pro rodapé:
-             quem clicou num anúncio de comida não precisa ver isso antes de
-             conhecer o produto que veio ver. ── */}
-        <section className="mx-auto max-w-6xl px-5 pb-4 sm:px-8">
-          <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-white/30">
-            Parte do mesmo ecossistema
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {ECOSYSTEM_LINKS.map((s) => {
-              const cardInner = (
-                <>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-white">{s.name}</p>
-                      <p className="truncate text-[10px] leading-tight text-white/40">{s.subtitle}</p>
-                    </div>
-                    {!s.href && (
-                      <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
-                        Você está aqui
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative mt-2 h-20 overflow-hidden rounded-xl sm:h-24">
-                    <Image src={s.image} alt={s.name} fill className="object-cover" sizes="200px" />
-                  </div>
-                </>
-              );
-              return s.href ? (
-                <a
-                  key={s.key}
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2.5 transition hover:border-white/20 hover:bg-white/[0.05]"
-                >
-                  {cardInner}
-                </a>
-              ) : (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={scrollToDemo}
-                  className="rounded-2xl border border-orange-500/30 bg-orange-500/[0.06] p-2.5 text-left transition hover:border-orange-500/50 hover:bg-orange-500/[0.1]"
-                >
-                  {cardInner}
-                </button>
-              );
-            })}
           </div>
         </section>
 

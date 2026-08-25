@@ -217,16 +217,28 @@ interface MacroSegment {
   key: "FOOD" | "OFICINA" | "ESTETICA" | "MODA";
   emoji: string;
   label: string;
+  subtitle: string;
+  image: string;
   tags: string[];
   href: string | null;
 }
 
 const MACRO_SEGMENTS: MacroSegment[] = [
-  { key: "FOOD", emoji: "🍔", label: "Food / Gastronomia", tags: ALL_NICHES, href: null },
+  {
+    key: "FOOD",
+    emoji: "🍔",
+    label: "Food / Gastronomia",
+    subtitle: "R_FoodSaaS ERP",
+    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&h=280&fit=crop&q=80",
+    tags: ALL_NICHES,
+    href: null,
+  },
   {
     key: "OFICINA",
     emoji: "🚗",
     label: "Oficinas & Automotivo",
+    subtitle: "Oficina & Elétrica ERP",
+    image: "https://images.unsplash.com/photo-1493238792000-8113da705763?w=500&h=280&fit=crop&q=80",
     tags: [
       "Auto Elétrica", "Mecânica Geral", "Retífica de Motores", "Centro Automotivo",
       "Funilaria & Pintura", "Lava-Rápido / Estética Automotiva", "Troca de Óleo",
@@ -237,6 +249,8 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     key: "ESTETICA",
     emoji: "✂️",
     label: "Estética & Beleza",
+    subtitle: "Saúde & Beleza ERP",
+    image: "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=500&h=280&fit=crop&q=80",
     tags: [
       "Cabeleireiro", "Manicure / Pedicure", "Barbearia", "Salão de Beleza",
       "Clínica de Estética", "Design de Sobrancelhas", "Studio de Tatuagem",
@@ -247,6 +261,8 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     key: "MODA",
     emoji: "🛍️",
     label: "Moda & Varejo",
+    subtitle: "Sistema Moda ERP",
+    image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&h=280&fit=crop&q=80",
     tags: [
       "Loja de Roupas", "Loja de Calçados", "Lingerie & Peças Íntimas", "Modas Infantil",
       "Acessórios & Bijouterias", "Boutique", "Ótica",
@@ -954,32 +970,32 @@ function PhoneFrame({
 
 function MenuPhoneShowcase() {
   const appCircles = [
-    { label: "Pizzas",  img: "/demo-assets/pizzas/pepperoni.jpg" },
-    { label: "Combos",  img: "/demo-assets/combos/familia.jpg" },
-    { label: "Bebidas", img: "/demo-assets/bebidas/cerveja.jpg" },
-    { label: "Doces",   img: "/demo-assets/sobremesas/pudim.jpg" },
+    { label: "Pizzas",  emoji: "🍕" },
+    { label: "Combos",  emoji: "🍱" },
+    { label: "Bebidas", emoji: "🥤" },
+    { label: "Doces",   emoji: "🍮" },
   ];
 
   const darkItems = [
-    { name: "Pizza Quatro Queijos", desc: "Muçarela, parmesão, catupiry", price: "R$ 62", img: "/demo-assets/pizzas/quatro-queijos.jpg" },
-    { name: "Pizza Calabresa",      desc: "Calabresa fatiada, cebola e orégano", price: "R$ 44", img: "/demo-assets/pizzas/calabresa.jpg" },
-    { name: "Pizza Pepperoni",      desc: "Pepperoni importado e muçarela",  price: "R$ 52", img: "/demo-assets/pizzas/pepperoni.jpg" },
-    { name: "Combo Família",        desc: "2 pizzas grandes + 2 refris 2L", price: "R$ 119", img: "/demo-assets/combos/familia.jpg" },
+    { name: "Pizza Quatro Queijos", desc: "Muçarela, parmesão, catupiry", price: "R$ 62" },
+    { name: "Pizza Calabresa",      desc: "Calabresa fatiada, cebola e orégano", price: "R$ 44" },
+    { name: "Pizza Pepperoni",      desc: "Pepperoni importado e muçarela",  price: "R$ 52" },
+    { name: "Combo Família",        desc: "2 pizzas grandes + 2 refris 2L", price: "R$ 119" },
   ];
 
   const gridItems = [
-    { name: "Quatro Queijos",     price: "R$52", img: "/demo-assets/pizzas/quatro-queijos.jpg" },
-    { name: "Pizza Portuguesa",   price: "R$50", img: "/demo-assets/pizzas/portuguesa.jpg" },
-    { name: "Calabresa Especial", price: "R$44", img: "/demo-assets/pizzas/calabresa.jpg" },
-    { name: "Frango c/ Catupiry", price: "R$48", img: "/demo-assets/pizzas/frango-catupiry.jpg" },
-    { name: "Bacon Especial",     price: "R$54", img: "/demo-assets/pizzas/bacon-especial.jpg" },
-    { name: "Coca-Cola",          price: "R$8",  img: "/demo-assets/bebidas/coca.jpg" },
+    { name: "Quatro Queijos",     price: "R$52" },
+    { name: "Pizza Portuguesa",   price: "R$50" },
+    { name: "Calabresa Especial", price: "R$44" },
+    { name: "Frango c/ Catupiry", price: "R$48" },
+    { name: "Bacon Especial",     price: "R$54" },
+    { name: "Coca-Cola",          price: "R$8" },
   ];
 
   const classicSections = [
-    { title: "Bebidas",   items: [{ name: "Água", price: "R$ 6", img: "/demo-assets/bebidas/agua.jpg" }, { name: "Cerveja", price: "R$ 10", img: "/demo-assets/bebidas/cerveja.jpg" }] },
-    { title: "Pizzas",    items: [{ name: "Pizza Portuguesa", price: "R$ 52", img: "/demo-assets/pizzas/portuguesa.jpg" }, { name: "Pizza Calabresa", price: "R$ 44", img: "/demo-assets/pizzas/calabresa.jpg" }, { name: "Pizza Bacon Especial", price: "R$ 54", img: "/demo-assets/pizzas/bacon-especial.jpg" }] },
-    { title: "Sobremesas", items: [{ name: "Pudim de Leite", price: "R$ 18", img: "/demo-assets/sobremesas/pudim.jpg" }] },
+    { title: "Bebidas",   items: [{ name: "Água", price: "R$ 6" }, { name: "Cerveja", price: "R$ 10" }] },
+    { title: "Pizzas",    items: [{ name: "Pizza Portuguesa", price: "R$ 52" }, { name: "Pizza Calabresa", price: "R$ 44" }, { name: "Pizza Bacon Especial", price: "R$ 54" }] },
+    { title: "Sobremesas", items: [{ name: "Pudim de Leite", price: "R$ 18" }] },
   ];
 
   return (
@@ -1028,19 +1044,17 @@ function MenuPhoneShowcase() {
                 <div className="flex gap-2.5 px-2.5 py-2.5 border-b border-gray-100 flex-shrink-0">
                   {appCircles.map((cat, i) => (
                     <div key={cat.label} className="flex flex-col items-center gap-1 flex-shrink-0">
-                      <div className={`w-6 h-6 rounded-full bg-cover bg-center ${i===0 ? "ring-2 ring-orange-500" : ""}`} style={{ backgroundImage: `url(${cat.img})` }} />
+                      <div className={`w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center text-[10px] ${i===0 ? "ring-2 ring-orange-500" : ""}`}>{cat.emoji}</div>
                     </div>
                   ))}
                 </div>
-                {/* Cards full-bleed: foto de fundo inteira + gradiente + texto branco */}
+                {/* Cards com informação só (sem foto) */}
                 <div className="flex-1 overflow-hidden p-2 space-y-1.5">
                   {darkItems.map((item) => (
-                    <div key={item.name} className="relative rounded-xl overflow-hidden bg-cover bg-center" style={{ minHeight: 54, backgroundImage: `url(${item.img})` }}>
-                      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0.05) 60%)" }} />
-                      <div className="absolute bottom-1.5 left-2.5 right-2.5">
-                        <p className="text-[8px] font-black text-white leading-tight truncate">{item.name}</p>
-                        <p className="text-[9px] font-black text-orange-400 mt-0.5">{item.price}</p>
-                      </div>
+                    <div key={item.name} className="relative rounded-xl overflow-hidden bg-[#14161c] px-2.5 py-2" style={{ minHeight: 54 }}>
+                      <p className="text-[8px] font-black text-white leading-tight truncate">{item.name}</p>
+                      <p className="text-[7px] text-white/40 leading-tight truncate mt-0.5">{item.desc}</p>
+                      <p className="text-[9px] font-black text-orange-400 mt-1">{item.price}</p>
                     </div>
                   ))}
                 </div>
@@ -1073,14 +1087,12 @@ function MenuPhoneShowcase() {
                     <span key={c} className={`text-[7px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${i===0 ? "bg-orange-500 text-white" : "bg-white/[0.05] text-white/40"}`}>{c}</span>
                   ))}
                 </div>
-                {/* 2-col image grid */}
+                {/* 2-col grid — informação só, sem foto */}
                 <div className="flex-1 overflow-hidden p-2 grid grid-cols-2 gap-1.5 content-start">
                   {gridItems.map((item) => (
-                    <div key={item.name} className="relative rounded-xl overflow-hidden bg-cover bg-center" style={{ aspectRatio: "1/1", backgroundImage: `url(${item.img})` }}>
-                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-2 py-1.5">
-                        <p className="text-[7.5px] font-bold text-white leading-tight truncate">{item.name}</p>
-                        <p className="text-[9px] font-black text-orange-400 leading-tight">{item.price}</p>
-                      </div>
+                    <div key={item.name} className="relative rounded-xl overflow-hidden bg-white/[0.04] border border-white/[0.06] flex flex-col justify-end px-2 py-1.5" style={{ aspectRatio: "1/1" }}>
+                      <p className="text-[7.5px] font-bold text-white leading-tight truncate">{item.name}</p>
+                      <p className="text-[9px] font-black text-orange-400 leading-tight">{item.price}</p>
                     </div>
                   ))}
                 </div>
@@ -1114,10 +1126,7 @@ function MenuPhoneShowcase() {
                       </div>
                       {section.items.map((item) => (
                         <div key={item.name} className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-md bg-cover bg-center shrink-0" style={{ backgroundImage: `url(${item.img})` }} />
-                            <p className="text-[9px] font-semibold text-gray-800 leading-tight">{item.name}</p>
-                          </div>
+                          <p className="text-[9px] font-semibold text-gray-800 leading-tight">{item.name}</p>
                           <p className="text-[9px] font-black text-gray-900 flex-shrink-0 ml-2">{item.price}</p>
                         </div>
                       ))}
@@ -1622,24 +1631,25 @@ function DemoContent() {
 
         {/* ── HERO ── */}
         <section className="mx-auto max-w-7xl px-5 pb-12 pt-20 sm:px-8 sm:pb-16 sm:pt-28">
-          <div className="flex flex-col items-center gap-14 lg:flex-row lg:items-center lg:gap-10">
+          <div className="flex flex-col items-center text-center">
 
-            {/* Copy */}
-            <div className="max-w-2xl flex-1 text-center lg:text-left">
+            {/* Copy — centered; a prova visual vem logo abaixo (Trust Metrics
+                + Showcase de telas), sem mockup espremido/cortado na hero */}
+            <div className="max-w-3xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest text-orange-400">
                 O ERP que transforma pedido em lucro
               </span>
 
-              <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl">
+              <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
                 Seu delivery vende.{" "}
-                <br className="hidden lg:block" />
+                <br className="hidden sm:block" />
                 Mas você sabe{" "}
                 <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
                   quanto sobra?
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto lg:mx-0">
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-white/50 sm:text-lg mx-auto">
                 PDV, cozinha e cardápio próprio andando juntos — e o{" "}
                 <span className="text-white/80 font-semibold">custo real de cada prato</span>{" "}
                 ao lado do preço de venda. Para{" "}
@@ -1647,7 +1657,7 @@ function DemoContent() {
                 <span className="text-white/80 font-semibold">delivery & dark kitchens</span> e mais.
               </p>
 
-              <div className="mt-10 flex flex-col items-center gap-4 lg:items-start">
+              <div className="mt-10 flex flex-col items-center gap-4">
                 <button onClick={scrollToDemo}
                   className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-8 py-4 text-sm font-black text-white shadow-[0_8px_24px_-6px_rgba(249,115,22,0.6),inset_0_1px_0_rgba(255,255,255,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-[0_12px_30px_-6px_rgba(249,115,22,0.7)]">
                   Começar Teste Grátis de 10 Dias
@@ -1659,12 +1669,6 @@ function DemoContent() {
                   ou fale com um especialista pelo WhatsApp
                 </a>
               </div>
-            </div>
-
-            {/* Mockup — some em telas pequenas, a prova visual vem em Trust
-                Metrics/Showcase logo abaixo, sem competir com a hero em mobile */}
-            <div className="hidden w-full flex-1 justify-center lg:flex">
-              <HeroDeviceMockup />
             </div>
 
           </div>
@@ -1719,27 +1723,35 @@ function DemoContent() {
             </p>
           </div>
 
-          {/* ── Macro tabs ── */}
-          <div className="mb-6 flex flex-wrap justify-center gap-3">
+          {/* ── Macro cards (com foto, como era antes) — clicar filtra as tags
+               de subsegmento abaixo ── */}
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {MACRO_SEGMENTS.map((m) => {
               const isActive = selectedMacro === m.key;
               return (
                 <button
                   key={m.key}
                   onClick={() => { setSelectedMacro(m.key); trackClick("/demo", `macro_${m.key.toLowerCase()}`); }}
-                  className={`flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-black transition-all ${
+                  className={`group rounded-2xl border p-2.5 text-left transition-all ${
                     isActive
-                      ? "border-orange-500/50 bg-orange-500/15 text-white scale-105 shadow-[0_8px_24px_-8px_rgba(249,115,22,0.4)]"
-                      : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white/90"
+                      ? "border-orange-500/50 bg-orange-500/[0.08] shadow-[0_8px_24px_-8px_rgba(249,115,22,0.4)]"
+                      : "border-white/[0.07] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]"
                   }`}
                 >
-                  <span className="text-lg">{m.emoji}</span>
-                  {m.label}
-                  {m.href === null && (
-                    <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
-                      Você está aqui
-                    </span>
-                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-white">{m.emoji} {m.label.split(" / ")[0].split(" & ")[0]}</p>
+                      <p className="truncate text-[10px] leading-tight text-white/40">{m.subtitle}</p>
+                    </div>
+                    {m.href === null && (
+                      <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                        Você está aqui
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative mt-2 h-20 overflow-hidden rounded-xl sm:h-24">
+                    <Image src={m.image} alt={m.label} fill className="object-cover" sizes="200px" />
+                  </div>
                 </button>
               );
             })}

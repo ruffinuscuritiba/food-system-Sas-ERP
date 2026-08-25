@@ -12,6 +12,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { apiBaseUrl } from "@/services/env";
+import { getNicheAdminTheme } from "@/lib/segmentLabels";
 
 export interface CompanyTheme {
   primaryColor:    string;
@@ -97,9 +98,13 @@ export function ThemeProvider({ children, companyId }: Props) {
     try {
       // companyId vem da prop (público) ou do user em localStorage (admin)
       let cid = companyId;
+      let token: string | undefined;
       if (!cid && typeof window !== "undefined") {
-        try { cid = JSON.parse(localStorage.getItem("user") || "{}").companyId; }
-        catch { /* ignore */ }
+        try {
+          const u = JSON.parse(localStorage.getItem("user") || "{}");
+          cid = u.companyId;
+          token = localStorage.getItem("token") || undefined;
+        } catch { /* ignore */ }
       }
       if (!cid) { applyTheme(DEFAULT_THEME); setLoading(false); return; }
 
@@ -113,6 +118,34 @@ export function ThemeProvider({ children, companyId }: Props) {
         borderRadius: Number(data.borderRadius ?? DEFAULT_THEME.borderRadius),
         pdvStyle:     (data.pdvStyle as CompanyTheme["pdvStyle"]) ?? "dark",
       };
+
+      // Identidade visual do nicho (Mercado/Padaria/Marmitaria) tem
+      // prioridade sobre a cor customizada da loja no painel admin —
+      // pedido explícito do usuário (24/08/2026), mesma decisão já aplicada
+      // em ClientShell.tsx (isMercadoStylePdv/isPadariaStylePdv/getPdvHref).
+      // Esse provider roda em PARALELO ao efeito de tema do ClientShell (2
+      // sistemas de tema independentes nesta base — achado ao investigar por
+      // que a cor de nicho não estava "pegando": este aqui reaplicava
+      // CompanyTheme.primaryColor por cima sem saber do override). Só busca
+      // o segmento quando `companyId` não veio via prop — isso só acontece
+      // no cardápio digital público (sem token, sem sentido de "admin
+      // theme" ali) — comportamento do cardápio fica 100% intacto.
+      if (!companyId && token) {
+        try {
+          const segRes = await fetch(`${apiBaseUrl}/company/settings`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (segRes.ok) {
+            const segData = await segRes.json();
+            const niche = getNicheAdminTheme(segData?.businessSegment);
+            if (niche) {
+              merged.primaryColor = niche.color;
+              merged.accentColor = niche.color;
+            }
+          }
+        } catch { /* override de nicho é best-effort, nunca bloqueia o tema */ }
+      }
+
       setTheme(merged);
       applyTheme(merged);
     } finally {

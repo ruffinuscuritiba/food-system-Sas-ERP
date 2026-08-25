@@ -90,3 +90,33 @@ export function getPdvHref(businessSegment: string | null | undefined): string {
   if (businessSegment && MARMITARIA_STYLE_PDV_SEGMENTS.has(businessSegment)) return "/pdv-marmitaria-restaurante";
   return "/pdv";
 }
+
+// Identidade visual do PAINEL ADMIN INTEIRO (não só o PDV) pros 3 grupos de
+// nicho que ganharam frente de caixa dedicada — pedido explícito do usuário
+// (24/08/2026): "tem que acompanhar a estrutura em todas as páginas... não
+// só do pdv mais de todo o sistema" — sair do PDV novo (tema próprio) e cair
+// em /configuracoes com a cara genérica antiga quebrava a identidade visual.
+// Cor extraída do elemento mais representativo de cada PDV dedicado (não
+// uma cor secundária de botão de pagamento): laranja da Marmitaria/
+// Restaurante (LARANJA em pdv-marmitaria-restaurante/page.tsx), azul do
+// destaque de busca do Mercado (Dynamics 365 style), marrom do topbar da
+// Padaria. `dark` reflete o modo real de cada PDV — Marmitaria e Mercado são
+// escuros, Padaria é claro (cream) — forçar dark em todos teria destoado da
+// própria referência que pediram pra seguir.
+export const NICHE_THEME_BY_SEGMENT: Record<string, { color: string; dark: boolean }> = {
+  MERCADO: { color: "#2563EB", dark: true },
+  CONVENIENCIA: { color: "#2563EB", dark: true },
+  PADARIA: { color: "#4B2F1F", dark: false },
+  DOCERIA: { color: "#4B2F1F", dark: false },
+  ACAI: { color: "#4B2F1F", dark: false },
+  MARMITARIA: { color: "#F47B18", dark: true },
+  RESTAURANTE: { color: "#F47B18", dark: true },
+  CHURRASCARIA: { color: "#F47B18", dark: true },
+};
+
+export function getNicheAdminTheme(
+  businessSegment: string | null | undefined,
+): { color: string; dark: boolean } | null {
+  if (!businessSegment) return null;
+  return NICHE_THEME_BY_SEGMENT[businessSegment] ?? null;
+}

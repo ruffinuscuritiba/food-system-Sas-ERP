@@ -57,7 +57,7 @@ import { api } from "@/services/api";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { buildSupportUrl } from "@/config/support";
 import { QrLinksModal } from "@/components/shared/QrLinksModal";
-import { getComplementsLabel, segmentSellsPizza, isMercadoStylePdv, isPadariaStylePdv } from "@/lib/segmentLabels";
+import { getComplementsLabel, segmentSellsPizza, isMercadoStylePdv, isPadariaStylePdv, getNicheAdminTheme } from "@/lib/segmentLabels";
 
 const PUBLIC_ROUTES = [
   "/login",
@@ -688,6 +688,30 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     setDriverNotifAlerts((prev) => prev.filter((a) => a.orderId !== orderId));
   }
 
+  // Identidade visual do nicho (Mercado/Padaria/Marmitaria) aplicada em TODO
+  // o admin, não só no PDV — item pedido pelo usuário 24/08/2026. `/company/
+  // settings` (dá o businessSegment) e `/themes/:id` (dá o CompanyTheme.
+  // primaryColor/darkMode) são 2 chamadas assíncronas independentes dentro
+  // do mesmo efeito abaixo, sem ordem garantida entre si — guardar o que
+  // cada uma já sabe em refs (não state, pra não recriar o efeito) e deixar
+  // as duas chamarem a mesma função de decisão final evita a corrida: seja
+  // qual for a ordem de resposta, o resultado final é sempre correto.
+  const nicheSegmentRef = useRef<string | null>(null);
+  const companyThemeRef = useRef<{ primaryColor?: string; darkMode?: boolean } | null>(null);
+  function applyResolvedTheme(cid: string) {
+    if (DEMO_IDS.has(cid)) return; // tema de demo é tratado à parte, nunca por aqui
+    const root = document.documentElement;
+    const niche = getNicheAdminTheme(nicheSegmentRef.current);
+    if (niche) {
+      root.style.setProperty("--color-primary", niche.color);
+      root.classList.toggle("theme-dark", niche.dark);
+    } else {
+      const td = companyThemeRef.current;
+      if (td?.primaryColor) root.style.setProperty("--color-primary", td.primaryColor);
+      root.classList.toggle("theme-dark", td?.darkMode === true);
+    }
+  }
+
   useEffect(() => {
     if (!user?.companyId) return;
     // /super-admin/* nunca deve herdar o tema de uma empresa qualquer — mas
@@ -714,6 +738,8 @@ function ClientShellInner({ children }: { children: React.ReactNode }) {
     setActiveSlugs([]);
     setSidebarConfig({});
     setStoreSidebarConfig({});
+    nicheSegmentRef.current = null;
+    companyThemeRef.current = null;
 
     // Demo companies: apply hardcoded visual identity immediately,
     // bypassing whatever primaryColor the API might return.
@@ -746,6 +772,8 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
           setStoreSidebarConfig(cfg); // expõe para useNavKeyGuard
         }
         if (r.data?.businessSegment) setBusinessSegment(r.data.businessSegment);
+        nicheSegmentRef.current = r.data?.businessSegment ?? null;
+        applyResolvedTheme(cid);
       })
       .catch(() => {});
 
@@ -756,9 +784,11 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
         if (DEMO_IDS.has(cid)) {
           applyDemoTheme(cid);
         } else {
-          const root = document.documentElement;
-          const color = r.data?.primaryColor;
-          if (color) root.style.setProperty("--color-primary", color);
+          companyThemeRef.current = {
+            primaryColor: r.data?.primaryColor,
+            darkMode: r.data?.darkMode === true,
+          };
+          applyResolvedTheme(cid);
           // NÃO aplicar backgroundColor/secondaryColor (CompanyTheme) aqui —
           // esses campos configuram o FUNDO DO CARDÁPIO DIGITAL PÚBLICO
           // (preview mostrado em /configuracoes?tab=aparencia é o cardápio,
@@ -779,11 +809,17 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
             applyPdvVars(merged);
           }
         }
-        // Padrão = claro (mármore). Só adiciona .theme-dark quando a loja
-        // escolheu explicitamente o modo escuro (CompanyTheme.darkMode = true).
-        const isDark = r.data?.darkMode === true;
+        // Empresa real: applyResolvedTheme() acima já decidiu .theme-dark
+        // (niche override OU CompanyTheme.darkMode) — reaplicar aqui de novo
+        // incondicionalmente desfaria a decisão de nicho (ex: Padaria força
+        // claro mesmo que o CompanyTheme.darkMode salvo seja true). Demo
+        // nunca passa por applyResolvedTheme (early-return), então continua
+        // dependendo deste bloco — padrão = claro (mármore), só escurece se
+        // o CompanyTheme.darkMode da conta demo estiver true.
         const root = document.documentElement;
-        root.classList.toggle("theme-dark", isDark);
+        if (DEMO_IDS.has(cid)) {
+          root.classList.toggle("theme-dark", r.data?.darkMode === true);
+        }
 
         // Imagem de fundo textura (ex: mármore) — aplicada via CSS variable
         const bgImg = r.data?.backgroundImageUrl;

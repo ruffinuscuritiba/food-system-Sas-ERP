@@ -11,6 +11,8 @@ import {
   PieChart, Layers, Bot, Store, Crown, Wallet, Timer,
 } from "lucide-react"
 import { saApi } from "@/services/superAdminApi"
+import { api } from "@/services/api"
+import { getPdvHref } from "@/lib/segmentLabels"
 import { DemoCentralCard } from "@/components/DemoCentralCard"
 
 interface Company {
@@ -301,11 +303,29 @@ export default function SuperAdminDashboard() {
       localStorage.setItem("user", JSON.stringify(data.user))
       localStorage.setItem("impersonating", JSON.stringify({ companyName: data.companyName, companyId: id }))
       document.cookie = `token=${data.accessToken}; path=/`
-      window.location.href = "/"
+      window.location.href = await resolveEntryDest(data.user)
     } catch {
       alert("Erro ao acessar a loja.")
     } finally {
       setEntering(null)
+    }
+  }
+
+  // Pedido explícito do usuário: "Entrar" numa loja tem que cair direto na
+  // frente de caixa, igual o login normal da loja já faz (login/page.tsx) —
+  // antes sempre caía no Dashboard genérico (/), obrigando o super-admin a
+  // navegar manualmente até o PDV certo toda vez. Mesma lógica exata do
+  // login (KITCHEN/DELIVERY primeiro, senão getPdvHref pelo businessSegment
+  // real) pra nunca divergir de novo — token JÁ está no localStorage neste
+  // ponto, então `api` (services/api.ts) usa ele automaticamente.
+  async function resolveEntryDest(user: { role?: string }): Promise<string> {
+    const ROLE_DEST: Record<string, string> = { KITCHEN: "/kitchen", DELIVERY: "/orders" }
+    if (user?.role && ROLE_DEST[user.role]) return ROLE_DEST[user.role]
+    try {
+      const settingsRes = await api.get("/company/settings")
+      return getPdvHref(settingsRes.data?.businessSegment)
+    } catch {
+      return "/pdv"
     }
   }
 

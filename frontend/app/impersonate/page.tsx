@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { api } from '@/services/api';
+import { getPdvHref } from '@/lib/segmentLabels';
 
 /**
  * Ponto de entrada pra impersonação vinda de fora do próprio app (ex: o
@@ -17,6 +19,23 @@ export default function ImpersonatePage() {
       <ImpersonateHandler />
     </Suspense>
   );
+}
+
+// Mesma lógica exata do login normal da loja (app/login/page.tsx) e do
+// "Entrar" no super-admin nativo (app/super-admin/dashboard/page.tsx
+// resolveEntryDest) — pedido explícito do usuário pra nunca mais divergir:
+// impersonar por qualquer via tem que cair direto na frente de caixa certa,
+// não no Dashboard genérico. Token já está gravado neste ponto, `api`
+// (services/api.ts) o usa automaticamente na chamada abaixo.
+async function resolveEntryDest(user: { role?: string }): Promise<string> {
+  const ROLE_DEST: Record<string, string> = { KITCHEN: '/kitchen', DELIVERY: '/orders' };
+  if (user?.role && ROLE_DEST[user.role]) return ROLE_DEST[user.role];
+  try {
+    const settingsRes = await api.get('/company/settings');
+    return getPdvHref(settingsRes.data?.businessSegment);
+  } catch {
+    return '/pdv';
+  }
 }
 
 function ImpersonateHandler() {
@@ -39,7 +58,9 @@ function ImpersonateHandler() {
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('impersonating', JSON.stringify({ companyName, companyId: user.companyId }));
       document.cookie = `token=${token}; path=/`;
-      window.location.href = '/';
+      resolveEntryDest(user).then((dest) => {
+        window.location.href = dest;
+      });
     } catch {
       setError('Não foi possível processar o link de acesso.');
     }

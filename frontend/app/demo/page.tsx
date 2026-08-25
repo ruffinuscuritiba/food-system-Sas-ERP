@@ -1757,32 +1757,48 @@ function DemoContent() {
             })}
           </div>
 
-          {/* ── Subsegmentos dinâmicos (filtrados pelo macro selecionado) ── */}
+          {/* ── Subsegmentos dinâmicos (filtrados pelo macro selecionado) ──
+               Food: clicar seleciona o nicho e rola pra pricing (dentro
+               desta própria página). Outros macros: cada tag é um link real
+               (abre a demo do produto daquele nicho numa aba nova) — nada de
+               pill com cara de botão que não faz nada ao clicar. ── */}
           <div className="mb-8 flex flex-wrap justify-center gap-2">
             {(MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0]).tags.map((tag) => {
               const isFood = selectedMacro === "FOOD";
               const isActive = isFood && selectedNiche === tag;
-              return (
-                <button
-                  key={tag}
-                  onClick={() => {
-                    if (isFood) {
+              const pillClass = `flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                isActive
+                  ? "bg-white text-black shadow-lg scale-105"
+                  : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white"
+              }`;
+              if (isFood) {
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => {
                       setSelectedNiche(tag);
                       recordNicheVisit(tag);
                       scrollToDemo();
-                    } else {
-                      trackClick("/demo", `tag_${selectedMacro.toLowerCase()}`);
-                    }
-                  }}
-                  className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 ${
-                    isActive
-                      ? "bg-white text-black shadow-lg scale-105"
-                      : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white"
-                  }`}
+                    }}
+                    className={pillClass}
+                  >
+                    <span>{NICHES_DATA[tag]?.emoji ?? "🍽️"}</span>
+                    {tag}
+                  </button>
+                );
+              }
+              const macroHref = MACRO_SEGMENTS.find((m) => m.key === selectedMacro)?.href ?? "#";
+              return (
+                <a
+                  key={tag}
+                  href={macroHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackClick("/demo", `tag_${selectedMacro.toLowerCase()}`)}
+                  className={pillClass}
                 >
-                  {isFood && <span>{NICHES_DATA[tag]?.emoji ?? "🍽️"}</span>}
                   {tag}
-                </button>
+                </a>
               );
             })}
           </div>

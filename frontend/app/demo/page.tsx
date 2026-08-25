@@ -87,6 +87,21 @@ const PLAN_CARDS = [
   },
 ];
 
+// ─── Palavra rotativa da hero — o produto exibido nesta página é sempre o
+// Food (R_FoodSaaS ERP), mas a seção "Segmentos Atendidos" logo abaixo já
+// linka pros produtos irmãos (Oficina/Estética/Moda). A hero rotaciona o
+// substantivo pra sinalizar isso de cara, sem precisar rolar a página —
+// pedido explícito do usuário ("seu delivery/loja/clínica/oficina vende").
+// "delivery" é masculino ("o/seu delivery") e loja/clínica/oficina são
+// femininos ("a/sua loja") — cada palavra carrega o próprio artigo pra
+// nunca virar "Sua delivery" (concordância errada).
+const HERO_WORDS: { article: string; word: string }[] = [
+  { article: "Seu", word: "delivery" },
+  { article: "Sua", word: "loja" },
+  { article: "Sua", word: "clínica" },
+  { article: "Sua", word: "oficina" },
+];
+
 // ─── Niches unified data ──────────────────────────────────────────────────────
 const ALL_NICHES = [
   "Restaurantes", "Pizzaria", "Hamburgueria", "Lanchonetes",
@@ -1453,6 +1468,8 @@ function DemoContent() {
   const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [selectedMacro, setSelectedMacro] = useState<MacroSegment["key"]>("FOOD");
+  const [heroWordIdx, setHeroWordIdx] = useState(0);
+  const [heroWordFading, setHeroWordFading] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
   const [modalDemo, setModalDemo] = useState<DemoAccount | null>(null);
   const [showExitIntent, setShowExitIntent] = useState(false);
@@ -1611,6 +1628,19 @@ function DemoContent() {
     demoSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
+  // Rotaciona a palavra da hero (delivery/loja/clínica/oficina) a cada 2.4s,
+  // com um crossfade curto — nunca troca de golpe.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroWordFading(true);
+      setTimeout(() => {
+        setHeroWordIdx((i) => (i + 1) % HERO_WORDS.length);
+        setHeroWordFading(false);
+      }, 220);
+    }, 2400);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#07090f] text-white selection:bg-orange-500/30">
       {modalDemo && (
@@ -1676,7 +1706,12 @@ function DemoContent() {
               </span>
 
               <h1 className="mt-7 text-5xl font-black leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
-                Seu delivery vende.{" "}
+                <span
+                  className={`inline-block transition-opacity duration-200 ${heroWordFading ? "opacity-0" : "opacity-100"}`}
+                >
+                  {HERO_WORDS[heroWordIdx].article} {HERO_WORDS[heroWordIdx].word}
+                </span>{" "}
+                vende.{" "}
                 <br className="hidden sm:block" />
                 Mas você sabe{" "}
                 <span className="bg-gradient-to-r from-orange-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">
@@ -1709,43 +1744,16 @@ function DemoContent() {
           </div>
         </section>
 
-        {/* ── TRUST METRICS ── */}
-        <div className="border-y border-white/[0.06] bg-white/[0.02] backdrop-blur">
-          <div className="mx-auto max-w-5xl px-5 sm:px-8">
-            <div className="grid grid-cols-2 divide-x divide-white/[0.06] md:grid-cols-4">
-              {[
-                { icon: <Clock className="h-4 w-4" />, value: "10 dias", label: "de trial com tudo liberado" },
-                { icon: <ShieldCheck className="h-4 w-4" />, value: "0%", label: "de comissão no cardápio" },
-                { icon: <Zap className="h-4 w-4" />, value: "10 min", label: "para começar a vender" },
-                { icon: <MessageCircle className="h-4 w-4" />, value: "WhatsApp", label: "suporte direto com o time" },
-              ].map((m, i) => (
-                <div key={i} className="flex items-center gap-3 px-6 py-5 md:justify-center">
-                  <span className="text-orange-400/70">{m.icon}</span>
-                  <div>
-                    <div className="text-base font-black text-white">{m.value}</div>
-                    <div className="text-[11px] text-white/40">{m.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── DEMONSTRAÇÃO DO PRODUTO (prova de valor antes de pedir qualquer decisão) ── */}
-
-        {/* ── PILLARS (interactive tabs) ── */}
-        <PillarsSection />
-
-        {/* ── 3-PHONE MENU SHOWCASE ── */}
-        <MenuPhoneShowcase />
-
-        {/* ── SEGMENTOS ATENDIDOS — macro (Food/Oficina/Estética/Moda) com
-             subsegmentos filtrados dinamicamente. Só Food tem catálogo/demo
-             real dentro desta própria página; os outros 3 são produtos
-             separados (repo/banco/deploy próprios) — clicar num macro
-             diferente nunca finge ter demo aqui, sempre linka pro sistema
-             de verdade dele. ── */}
-        <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+        {/* ── SEGMENTOS ATENDIDOS — logo após a hero, ainda na "primeira
+             dobra" de contexto: quem chega precisa ver de cara que o
+             ecossistema cobre Food/Oficina/Estética/Moda, não só descobrir
+             isso depois de rolar por conteúdo 100% food-specific. Macro
+             (Food/Oficina/Estética/Moda) com subsegmentos filtrados
+             dinamicamente. Só Food tem catálogo/demo real dentro desta
+             própria página; os outros 3 são produtos separados (repo/banco/
+             deploy próprios) — clicar num macro diferente nunca finge ter
+             demo aqui, sempre linka pro sistema de verdade dele. ── */}
+        <section className="mx-auto max-w-6xl px-5 pb-20 pt-2 sm:px-8">
           <div className="mb-8 text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
               Segmentos atendidos
@@ -1865,6 +1873,37 @@ function DemoContent() {
             )}
           </div>
         </section>
+
+        {/* ── TRUST METRICS ── */}
+        <div className="border-y border-white/[0.06] bg-white/[0.02] backdrop-blur">
+          <div className="mx-auto max-w-5xl px-5 sm:px-8">
+            <div className="grid grid-cols-2 divide-x divide-white/[0.06] md:grid-cols-4">
+              {[
+                { icon: <Clock className="h-4 w-4" />, value: "10 dias", label: "de trial com tudo liberado" },
+                { icon: <ShieldCheck className="h-4 w-4" />, value: "0%", label: "de comissão no cardápio" },
+                { icon: <Zap className="h-4 w-4" />, value: "10 min", label: "para começar a vender" },
+                { icon: <MessageCircle className="h-4 w-4" />, value: "WhatsApp", label: "suporte direto com o time" },
+              ].map((m, i) => (
+                <div key={i} className="flex items-center gap-3 px-6 py-5 md:justify-center">
+                  <span className="text-orange-400/70">{m.icon}</span>
+                  <div>
+                    <div className="text-base font-black text-white">{m.value}</div>
+                    <div className="text-[11px] text-white/40">{m.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── DEMONSTRAÇÃO DO PRODUTO (prova de valor, depois de já saber
+             que o ecossistema cobre a área dele) ── */}
+
+        {/* ── PILLARS (interactive tabs) ── */}
+        <PillarsSection />
+
+        {/* ── 3-PHONE MENU SHOWCASE ── */}
+        <MenuPhoneShowcase />
 
         {/* ── COMO FUNCIONA ── */}
         <section className="mx-auto max-w-5xl px-5 py-20 sm:px-8">

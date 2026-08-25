@@ -41,15 +41,31 @@ export default function AutoEnterDemo({ accountId }: { accountId: string }) {
         // achado ao vivo pelo usuário (23/08/2026): o link da sidebar já
         // tinha sido corrigido, mas ninguém tinha propagado o mesmo fix
         // pra este redirect separado do fluxo /demo.
+        //
+        // MARMITARIA_STYLE_DEMO_PLANS (24/08/2026): antes só checava
+        // `demo?.id === "demo-delivery-001"` — um ID único hardcoded, em vez
+        // de um conjunto de planos como os outros dois grupos acima. Isso já
+        // tinha quebrado de verdade pra "demo-churrascaria-001" (plan
+        // CHURRASCARIA, tagline "Mesas e Comandas" — claramente a mesma
+        // estrutura de Marmitaria/Restaurante), que caía no /pdv genérico
+        // sem ninguém perceber. `demo.plan` não usa os MESMOS valores de
+        // `businessSegment` real (aqui é "DELIVERY", não "MARMITARIA" —
+        // nome de plano histórico, não de segmento) — por isso não dá pra
+        // simplesmente reaproveitar getPdvHref()/MARMITARIA_STYLE_PDV_SEGMENTS
+        // de lib/segmentLabels.ts aqui; precisa do próprio Set, mas
+        // construído do MESMO jeito (todo plano do grupo, nunca 1 ID só) pra
+        // nunca mais divergir silenciosamente quando uma demo nova for
+        // criada.
         const MERCADO_STYLE_DEMO_PLANS = new Set(["MERCADO", "CONVENIENCIA"]);
         const PADARIA_STYLE_DEMO_PLANS = new Set(["PADARIA", "CONFEITARIA", "ACAI"]);
+        const MARMITARIA_STYLE_DEMO_PLANS = new Set(["DELIVERY", "CHURRASCARIA"]);
         router.push(
           demo?.plan && MERCADO_STYLE_DEMO_PLANS.has(demo.plan)
             ? "/pdv-mercado"
             : demo?.plan && PADARIA_STYLE_DEMO_PLANS.has(demo.plan)
               ? "/pdv-padaria"
-              : demo?.id === "demo-delivery-001"
-                ? "/pdv-marmitaria"
+              : demo?.plan && MARMITARIA_STYLE_DEMO_PLANS.has(demo.plan)
+                ? "/pdv-marmitaria-restaurante"
                 : "/pdv",
         );
       } catch (err: any) {

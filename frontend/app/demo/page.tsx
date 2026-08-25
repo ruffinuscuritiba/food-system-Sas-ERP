@@ -219,6 +219,7 @@ interface MacroSegment {
   label: string;
   subtitle: string;
   image: string;
+  color: string; // cor de identidade do macro-segmento — tinge o card ativo e as tags
   tags: string[];
   href: string | null;
 }
@@ -230,6 +231,7 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     label: "Food / Gastronomia",
     subtitle: "R_FoodSaaS ERP",
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&h=280&fit=crop&q=80",
+    color: "#f97316",
     tags: ALL_NICHES,
     href: null,
   },
@@ -239,6 +241,7 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     label: "Oficinas & Automotivo",
     subtitle: "Oficina & Elétrica ERP",
     image: "https://images.unsplash.com/photo-1493238792000-8113da705763?w=500&h=280&fit=crop&q=80",
+    color: "#3b82f6",
     tags: [
       "Auto Elétrica", "Mecânica Geral", "Retífica de Motores", "Centro Automotivo",
       "Funilaria & Pintura", "Lava-Rápido / Estética Automotiva", "Troca de Óleo",
@@ -251,6 +254,7 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     label: "Estética & Beleza",
     subtitle: "Saúde & Beleza ERP",
     image: "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=500&h=280&fit=crop&q=80",
+    color: "#ec4899",
     tags: [
       "Cabeleireiro", "Manicure / Pedicure", "Barbearia", "Salão de Beleza",
       "Clínica de Estética", "Design de Sobrancelhas", "Studio de Tatuagem",
@@ -263,6 +267,7 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     label: "Moda & Varejo",
     subtitle: "Sistema Moda ERP",
     image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&h=280&fit=crop&q=80",
+    color: "#8b5cf6",
     tags: [
       "Loja de Roupas", "Loja de Calçados", "Lingerie & Peças Íntimas", "Modas Infantil",
       "Acessórios & Bijouterias", "Boutique", "Ótica",
@@ -270,6 +275,36 @@ const MACRO_SEGMENTS: MacroSegment[] = [
     href: "https://sistema-moda-erp-frontend.vercel.app/demo",
   },
 ];
+
+// ─── Ícone por subsegmento — cada tag tem cara própria (emoji temático), em
+// TODOS os macro-segmentos, não só um. Food já tem o próprio NICHES_DATA
+// (emoji por nicho); este mapa cobre os outros 3. Chave = texto exato da tag.
+const SUBTAG_EMOJI: Record<string, string> = {
+  // Oficinas & Automotivo
+  "Auto Elétrica": "⚡",
+  "Mecânica Geral": "🔧",
+  "Retífica de Motores": "⚙️",
+  "Centro Automotivo": "🏢",
+  "Funilaria & Pintura": "🎨",
+  "Lava-Rápido / Estética Automotiva": "🚿",
+  "Troca de Óleo": "🛢️",
+  // Estética & Beleza
+  "Cabeleireiro": "💇",
+  "Manicure / Pedicure": "💅",
+  "Barbearia": "💈",
+  "Salão de Beleza": "✨",
+  "Clínica de Estética": "🧖",
+  "Design de Sobrancelhas": "👁️",
+  "Studio de Tatuagem": "🖋️",
+  // Moda & Varejo
+  "Loja de Roupas": "👕",
+  "Loja de Calçados": "👟",
+  "Lingerie & Peças Íntimas": "👙",
+  "Modas Infantil": "🧸",
+  "Acessórios & Bijouterias": "💍",
+  "Boutique": "👗",
+  "Ótica": "👓",
+};
 
 // ─── FAQ ────────────────────────────────────────────────────────────────────
 const FAQ_ITEMS: { q: string; a: string }[] = [
@@ -1723,8 +1758,9 @@ function DemoContent() {
             </p>
           </div>
 
-          {/* ── Macro cards (com foto, como era antes) — clicar filtra as tags
-               de subsegmento abaixo ── */}
+          {/* ── Macro cards (com foto) — o card ativo é tingido com a cor
+               própria daquele macro-segmento (laranja Food, azul Oficina,
+               rosa Estética, roxo Moda), não sempre laranja igual antes ── */}
           <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {MACRO_SEGMENTS.map((m) => {
               const isActive = selectedMacro === m.key;
@@ -1732,11 +1768,12 @@ function DemoContent() {
                 <button
                   key={m.key}
                   onClick={() => { setSelectedMacro(m.key); trackClick("/demo", `macro_${m.key.toLowerCase()}`); }}
-                  className={`group rounded-2xl border p-2.5 text-left transition-all ${
+                  className="group rounded-2xl border p-2.5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]"
+                  style={
                     isActive
-                      ? "border-orange-500/50 bg-orange-500/[0.08] shadow-[0_8px_24px_-8px_rgba(249,115,22,0.4)]"
-                      : "border-white/[0.07] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]"
-                  }`}
+                      ? { borderColor: `${m.color}80`, background: `${m.color}14`, boxShadow: `0 8px 24px -8px ${m.color}66` }
+                      : { borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }
+                  }
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -1744,7 +1781,7 @@ function DemoContent() {
                       <p className="truncate text-[10px] leading-tight text-white/40">{m.subtitle}</p>
                     </div>
                     {m.href === null && (
-                      <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black text-white" style={{ background: m.color }}>
                         Você está aqui
                       </span>
                     )}
@@ -1758,19 +1795,22 @@ function DemoContent() {
           </div>
 
           {/* ── Subsegmentos dinâmicos (filtrados pelo macro selecionado) ──
-               Food: clicar seleciona o nicho e rola pra pricing (dentro
-               desta própria página). Outros macros: cada tag é um link real
-               (abre a demo do produto daquele nicho numa aba nova) — nada de
-               pill com cara de botão que não faz nada ao clicar. ── */}
+               Cada tag tem ícone temático próprio (SUBTAG_EMOJI / NICHES_DATA
+               pro Food) e é tingida com a cor do macro selecionado — nunca a
+               mesma pill cinza genérica pra "Ótica" e "Loja de Roupas".
+               Food: clicar seleciona o nicho e rola pra pricing (dentro desta
+               própria página). Outros macros: cada tag é um link real (abre a
+               demo do produto daquele nicho numa aba nova). ── */}
           <div className="mb-8 flex flex-wrap justify-center gap-2">
             {(MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0]).tags.map((tag) => {
               const isFood = selectedMacro === "FOOD";
+              const macro = MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0];
               const isActive = isFood && selectedNiche === tag;
-              const pillClass = `flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                isActive
-                  ? "bg-white text-black shadow-lg scale-105"
-                  : "bg-white/[0.06] text-white/70 hover:bg-white/[0.12] hover:text-white"
-              }`;
+              const emoji = isFood ? (NICHES_DATA[tag]?.emoji ?? "🍽️") : (SUBTAG_EMOJI[tag] ?? "•");
+              const pillClass = "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer";
+              const pillStyle = isActive
+                ? { background: "#fff", color: "#000", boxShadow: `0 6px 18px -6px ${macro.color}aa`, transform: "scale(1.05)" }
+                : { background: `${macro.color}1f`, color: `${macro.color}`, border: `1px solid ${macro.color}33` };
               if (isFood) {
                 return (
                   <button
@@ -1781,22 +1821,24 @@ function DemoContent() {
                       scrollToDemo();
                     }}
                     className={pillClass}
+                    style={pillStyle}
                   >
-                    <span>{NICHES_DATA[tag]?.emoji ?? "🍽️"}</span>
+                    <span>{emoji}</span>
                     {tag}
                   </button>
                 );
               }
-              const macroHref = MACRO_SEGMENTS.find((m) => m.key === selectedMacro)?.href ?? "#";
               return (
                 <a
                   key={tag}
-                  href={macroHref}
+                  href={macro.href ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => trackClick("/demo", `tag_${selectedMacro.toLowerCase()}`)}
-                  className={pillClass}
+                  className={`${pillClass} hover:brightness-125`}
+                  style={pillStyle}
                 >
+                  <span>{emoji}</span>
                   {tag}
                 </a>
               );

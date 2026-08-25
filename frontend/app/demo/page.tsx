@@ -222,21 +222,22 @@ const ECOSYSTEM_LINKS: { key: string; name: string; subtitle: string; image: str
     name: "Oficina",
     subtitle: "Oficina & Elétrica ERP",
     image: "https://images.unsplash.com/photo-1493238792000-8113da705763?w=500&h=280&fit=crop&q=80",
-    href: "https://sistema-oficina-eletrica-erp.vercel.app",
+    // /demo entra direto na loja seed via demo-access, sem passar pelo login
+    href: "https://sistema-oficina-eletrica-erp.vercel.app/demo",
   },
   {
     key: "estetica",
     name: "Estética",
     subtitle: "Saúde & Beleza ERP",
     image: "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=500&h=280&fit=crop&q=80",
-    href: "https://sistema-saude-beleza-erp-frontend.vercel.app",
+    href: "https://sistema-saude-beleza-erp-frontend.vercel.app/demo",
   },
   {
     key: "moda",
     name: "Moda",
     subtitle: "Sistema Moda ERP",
     image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=500&h=280&fit=crop&q=80",
-    href: "https://sistema-moda-erp-frontend.vercel.app",
+    href: "https://sistema-moda-erp-frontend.vercel.app/demo",
   },
 ];
 

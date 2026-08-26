@@ -353,6 +353,24 @@ const SUBTAG_COLOR: Record<string, string> = {
   "Ótica": "#0ea5e9",
 };
 
+// ─── Slug de demo temática por tag — o Sistema Moda ERP tem uma conta
+// dedicada por nicho (nome/cor/catálogo próprios, ver DEMO_NICHES no
+// backend dele); sem isso, TODA tag de Moda caía na mesma conta genérica
+// "Loja Demo Moda" não importa qual fosse clicada. Cada slug aqui casa
+// exatamente com uma chave de DEMO_NICHES lá — mudar um lado sem o outro
+// quebra a demo daquele nicho (cai no fallback genérico, silencioso).
+// Oficina/Estética ainda não têm esse motor de demo por nicho — tag sem
+// entrada aqui cai no link genérico do macro, comportamento de sempre.
+const TAG_DEMO_NICHE_SLUG: Record<string, string> = {
+  "Loja de Roupas": "roupas",
+  "Loja de Calçados": "calcados",
+  "Lingerie & Peças Íntimas": "lingerie",
+  "Modas Infantil": "infantil",
+  "Acessórios & Bijouterias": "acessorios",
+  "Boutique": "boutique",
+  "Ótica": "otica",
+};
+
 // ─── FAQ ────────────────────────────────────────────────────────────────────
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
@@ -1870,10 +1888,12 @@ function DemoContent() {
                   </button>
                 );
               }
+              const nicheSlug = TAG_DEMO_NICHE_SLUG[tag];
+              const tagHref = macro.href ? (nicheSlug ? `${macro.href}?niche=${nicheSlug}` : macro.href) : "#";
               return (
                 <a
                   key={tag}
-                  href={macro.href ?? "#"}
+                  href={tagHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => trackClick("/demo", `tag_${selectedMacro.toLowerCase()}`)}

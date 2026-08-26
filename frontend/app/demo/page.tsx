@@ -321,6 +321,38 @@ const SUBTAG_EMOJI: Record<string, string> = {
   "Ótica": "👓",
 };
 
+// ─── Cor própria por subsegmento — cada tag com identidade visual "a
+// caráter" (Lingerie em rosa, Ótica em azul-claro, Barbearia em vermelho
+// clássico, etc.), em vez de todas herdarem a mesma cor lisa do macro-
+// segmento pai. Fallback pra macro.color cobre qualquer tag futura sem
+// entrada aqui. Chave = texto exato da tag.
+const SUBTAG_COLOR: Record<string, string> = {
+  // Oficinas & Automotivo
+  "Auto Elétrica": "#eab308",
+  "Mecânica Geral": "#64748b",
+  "Retífica de Motores": "#78716c",
+  "Centro Automotivo": "#3b82f6",
+  "Funilaria & Pintura": "#fb923c",
+  "Lava-Rápido / Estética Automotiva": "#06b6d4",
+  "Troca de Óleo": "#a16207",
+  // Estética & Beleza
+  "Cabeleireiro": "#d946ef",
+  "Manicure / Pedicure": "#f43f5e",
+  "Barbearia": "#dc2626",
+  "Salão de Beleza": "#f59e0b",
+  "Clínica de Estética": "#14b8a6",
+  "Design de Sobrancelhas": "#a855f7",
+  "Studio de Tatuagem": "#4c1d95",
+  // Moda & Varejo
+  "Loja de Roupas": "#6366f1",
+  "Loja de Calçados": "#a16207",
+  "Lingerie & Peças Íntimas": "#f43f5e",
+  "Modas Infantil": "#facc15",
+  "Acessórios & Bijouterias": "#eab308",
+  "Boutique": "#c026d3",
+  "Ótica": "#0ea5e9",
+};
+
 // ─── FAQ ────────────────────────────────────────────────────────────────────
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
@@ -1803,9 +1835,10 @@ function DemoContent() {
           </div>
 
           {/* ── Subsegmentos dinâmicos (filtrados pelo macro selecionado) ──
-               Cada tag tem ícone temático próprio (SUBTAG_EMOJI / NICHES_DATA
-               pro Food) e é tingida com a cor do macro selecionado — nunca a
-               mesma pill cinza genérica pra "Ótica" e "Loja de Roupas".
+               Cada tag tem ícone (SUBTAG_EMOJI/NICHES_DATA) E cor (SUBTAG_COLOR)
+               próprios, "a caráter" — Lingerie em rosa, Ótica em azul, Barbearia
+               em vermelho clássico — nunca todas herdando a mesma cor lisa do
+               macro pai. Fallback pra macro.color cobre tag sem entrada no mapa.
                Food: clicar seleciona o nicho e rola pra pricing (dentro desta
                própria página). Outros macros: cada tag é um link real (abre a
                demo do produto daquele nicho numa aba nova). ── */}
@@ -1815,10 +1848,11 @@ function DemoContent() {
               const macro = MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0];
               const isActive = isFood && selectedNiche === tag;
               const emoji = isFood ? (NICHES_DATA[tag]?.emoji ?? "🍽️") : (SUBTAG_EMOJI[tag] ?? "•");
+              const tagColor = isFood ? macro.color : (SUBTAG_COLOR[tag] ?? macro.color);
               const pillClass = "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all duration-200 cursor-pointer";
               const pillStyle = isActive
-                ? { background: "#fff", color: "#000", boxShadow: `0 6px 18px -6px ${macro.color}aa`, transform: "scale(1.05)" }
-                : { background: `${macro.color}1f`, color: `${macro.color}`, border: `1px solid ${macro.color}33` };
+                ? { background: "#fff", color: "#000", boxShadow: `0 6px 18px -6px ${tagColor}aa`, transform: "scale(1.05)" }
+                : { background: `${tagColor}1f`, color: `${tagColor}`, border: `1px solid ${tagColor}33` };
               if (isFood) {
                 return (
                   <button

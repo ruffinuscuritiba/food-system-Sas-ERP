@@ -1703,7 +1703,10 @@ function DemoContent() {
   // MODA), sem precisar explicar "role até achar seu segmento". Food usa a
   // própria home (comportamento padrão, sem macro na URL).
   function copyMacroLink(m: MacroSegment) {
-    const url = m.key === "FOOD" ? `${window.location.origin}/demo` : `${window.location.origin}/demo?macro=${m.key}`;
+    // Para os produtos irmãos, o link compartilhável precisa sair do hub e
+    // abrir a demo real daquele sistema. O filtro ?macro= continua sendo
+    // usado apenas na navegação interna do hub.
+    const url = m.href ?? `${window.location.origin}/demo`;
     navigator.clipboard
       .writeText(url)
       .then(() => {

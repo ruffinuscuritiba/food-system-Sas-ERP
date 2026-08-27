@@ -1517,7 +1517,10 @@ function DemoContent() {
   );
   const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const [selectedMacro, setSelectedMacro] = useState<MacroSegment["key"]>("FOOD");
+  const [selectedMacro, setSelectedMacro] = useState<MacroSegment["key"]>(() => {
+    const raw = (searchParams.get("macro") ?? "").toUpperCase();
+    return MACRO_SEGMENTS.some((m) => m.key === raw) ? (raw as MacroSegment["key"]) : "FOOD";
+  });
   const [heroWordIdx, setHeroWordIdx] = useState(0);
   const [heroWordFading, setHeroWordFading] = useState(false);
   const [entering, setEntering] = useState<string | null>(null);
@@ -1525,6 +1528,7 @@ function DemoContent() {
   const [showExitIntent, setShowExitIntent] = useState(false);
   const [exitIntentSending, setExitIntentSending] = useState(false);
   const demoSectionRef = useRef<HTMLElement>(null);
+  const segmentsSectionRef = useRef<HTMLElement>(null);
   const recordedNiches = useRef<Set<string>>(new Set());
   const exitIntentTriggeredRef = useRef(false);
   const leadCapturedRef = useRef(false);
@@ -1556,6 +1560,22 @@ function DemoContent() {
     // não só quando o visitante clica numa pill (mede efetividade do link).
     const nicheParam = searchParams.get("niche");
     if (nicheParam) recordNicheVisit(resolveNicheFromSlug(nicheParam));
+
+    // Link de prospecção por ecossistema (?macro=OFICINA/ESTETICA/MODA) —
+    // usado pra mandar direto pro cliente certo (dono de oficina não precisa
+    // ver o card de Moda primeiro). selectedMacro já inicializa correto (lazy
+    // initializer acima); aqui só rola até a seção pra quem chegou por esse
+    // link não precisar passar pela hero de Food pra achar o card dele.
+    const macroParam = (searchParams.get("macro") ?? "").toUpperCase();
+    if (MACRO_SEGMENTS.some((m) => m.key === macroParam) && macroParam !== "FOOD") {
+      trackClick("/demo", `link_macro_${macroParam.toLowerCase()}`);
+      // behavior:"auto" (salto direto, sem animação) — "smooth" fica preso em
+      // 0 nesta página (testado ao vivo; suspeita de scroll-behavior global
+      // ou layout shift das imagens do hero competindo com a animação).
+      // Também é a UX certa aqui: quem abriu o link já quer ver o card, não
+      // assistir a rolagem.
+      setTimeout(() => segmentsSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" }), 300);
+    }
 
     // Evento de audiência: visitante da página de demonstração
     // Permite criar público personalizado "interessados em demo" no Meta Ads e GA4
@@ -1676,6 +1696,21 @@ function DemoContent() {
   function scrollToDemo() {
     trackClick("/demo", "scroll_to_demo");
     demoSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // Link pronto pra mandar pro cliente certo — abre esta mesma página já
+  // com o card do ecossistema dele selecionado (?macro=OFICINA/ESTETICA/
+  // MODA), sem precisar explicar "role até achar seu segmento". Food usa a
+  // própria home (comportamento padrão, sem macro na URL).
+  function copyMacroLink(m: MacroSegment) {
+    const url = m.key === "FOOD" ? `${window.location.origin}/demo` : `${window.location.origin}/demo?macro=${m.key}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        trackClick("/demo", `copy_link_${m.key.toLowerCase()}`);
+        toast.success(`Link de ${m.label} copiado!`);
+      })
+      .catch(() => toast.error("Não foi possível copiar o link."));
   }
 
   // Rotaciona a palavra da hero (delivery/loja/clínica/oficina) a cada 2.4s,
@@ -1803,7 +1838,7 @@ function DemoContent() {
              própria página; os outros 3 são produtos separados (repo/banco/
              deploy próprios) — clicar num macro diferente nunca finge ter
              demo aqui, sempre linka pro sistema de verdade dele. ── */}
-        <section className="mx-auto max-w-6xl px-5 pb-20 pt-2 sm:px-8">
+        <section ref={segmentsSectionRef} className="mx-auto max-w-6xl px-5 pb-20 pt-2 sm:px-8">
           <div className="mb-8 text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">
               Segmentos atendidos
@@ -1814,19 +1849,33 @@ function DemoContent() {
             <p className="mt-3 text-sm text-white/50">
               Escolha sua área — as telas e recursos se ajustam pro seu tipo de operação
             </p>
+            <p className="mt-1 text-[11px] text-white/30">
+              Vai mandar pra um cliente específico? Use o botão <Copy className="inline h-3 w-3 align-[-1px]" /> no card certo — abre direto no segmento dele
+            </p>
           </div>
 
           {/* ── Macro cards (com foto) — o card ativo é tingido com a cor
                própria daquele macro-segmento (laranja Food, azul Oficina,
-               rosa Estética, roxo Moda), não sempre laranja igual antes ── */}
+               rosa Estética, roxo Moda), não sempre laranja igual antes.
+               Div (não button) pra caber o botão real de "copiar link" sem
+               aninhar button-dentro-de-button. ── */}
           <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {MACRO_SEGMENTS.map((m) => {
               const isActive = selectedMacro === m.key;
               return (
-                <button
+                <div
                   key={m.key}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => { setSelectedMacro(m.key); trackClick("/demo", `macro_${m.key.toLowerCase()}`); }}
-                  className="group rounded-2xl border p-2.5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedMacro(m.key);
+                      trackClick("/demo", `macro_${m.key.toLowerCase()}`);
+                    }
+                  }}
+                  className="group cursor-pointer rounded-2xl border p-2.5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]"
                   style={
                     isActive
                       ? { borderColor: `${m.color}80`, background: `${m.color}14`, boxShadow: `0 8px 24px -8px ${m.color}66` }
@@ -1846,8 +1895,17 @@ function DemoContent() {
                   </div>
                   <div className="relative mt-2 h-20 overflow-hidden rounded-xl sm:h-24">
                     <Image src={m.image} alt={m.label} fill className="object-cover" sizes="200px" />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); copyMacroLink(m); }}
+                      title={`Copiar link de demonstração — ${m.label}`}
+                      className="absolute bottom-1.5 right-1.5 z-10 flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[9px] font-black text-white backdrop-blur transition hover:bg-black/90"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copiar link
+                    </button>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

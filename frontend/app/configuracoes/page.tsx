@@ -1,12 +1,13 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Suspense, useState } from "react";
 import {
   Store, Palette, ClipboardList, CreditCard, Pizza,
   Printer, MessageCircle, Cable, Users, Star, Settings,
   Loader2, DollarSign, QrCode, SlidersHorizontal,
-  FileCheck2,
+  FileCheck2, ArrowLeft,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 import { api } from "@/services/api";
@@ -168,7 +169,14 @@ function ConfiguracoesInner() {
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* ── Sidebar ───────────────────────────────────────────────────── */}
       <aside className="w-56 flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col overflow-y-auto">
-        <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-500 hover:text-orange-600 transition mb-3"
+          >
+            <ArrowLeft size={13} />
+            Voltar ao painel
+          </Link>
           <div className="flex items-center gap-2">
             <Settings size={15} className="text-gray-400" />
             <span className="text-sm font-bold text-gray-900 dark:text-gray-100">Configurações</span>

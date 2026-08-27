@@ -894,6 +894,7 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   const isMarmitariaPdv = pathname === "/pdv-marmitaria-restaurante";
   const isPadariaPdvPage = pathname === "/pdv-padaria";
   const isMercadoPdvPage = pathname === "/pdv-mercado";
+  const isSettingsPage = pathname === "/configuracoes";
   const isPdv = pathname === "/pdv" || isMarmitariaPdv || isPadariaPdvPage || isMercadoPdvPage;
   const isDriverPage = pathname?.startsWith("/driver");
   const isGarcomPage = pathname?.startsWith("/garcom");
@@ -999,6 +1000,17 @@ setActiveSlugs([...new Set(slugs)]); // remove slugs duplicados (evita itens rep
   // de configuração fica no topo da própria tela" (padrão já replicado nas
   // outras 2 frentes de caixa dedicadas).
   if (isMercadoPdvPage) {
+    return (
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        {children}
+      </ThemeProvider>
+    );
+  }
+
+  // Configurações tem workspace próprio com navegação por áreas. Não renderizar
+  // a sidebar administrativa por fora, evitando o efeito de menu duplicado.
+  if (isSettingsPage) {
     return (
       <ThemeProvider>
         <Toaster position="top-right" />

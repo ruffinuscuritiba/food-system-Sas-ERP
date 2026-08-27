@@ -206,19 +206,26 @@ export default function MarmitariaRestaurantePdvPage() {
     loadCatalog();
   }, [loadCatalog]);
 
-  // Tela inicial já abre no construtor (igual referência) quando existe um
-  // produto de composição (preço R$0 sem tamanho — convenção "Monte a sua",
-  // ver priceLabel/badge abaixo). Sem produto assim, cai pra grade normal.
+  // A experiência Consumer começa no montador da primeira marmita. O backend
+  // garante os grupos de Proteína/Acompanhamentos da demo; o fallback pelo
+  // preço zero mantém compatibilidade com uma marmitaria já configurada.
   const autoOpenedRef = useRef(false);
   useEffect(() => {
     if (autoOpenedRef.current || products.length === 0) return;
     autoOpenedRef.current = true;
+    const marmitaCategoryIds = new Set(
+      categories
+        .filter((c) => c.name.toLowerCase().includes("marmita"))
+        .map((c) => c.id),
+    );
     const composeProduct = products.find(
-      (p) => Number(p.salePrice) === 0 && (!p.sizes || p.sizes.length === 0),
+      (p) =>
+        marmitaCategoryIds.has(p.categoryId) ||
+        (Number(p.salePrice) === 0 && (!p.sizes || p.sizes.length === 0)),
     );
     if (composeProduct) openBuilder(composeProduct);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products]);
+  }, [products, categories]);
 
   const checkCash = useCallback(async () => {
     setCheckingCash(true);

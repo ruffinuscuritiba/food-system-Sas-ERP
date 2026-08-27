@@ -730,6 +730,98 @@ export class DemoVitrineService {
       // A category with historical relations is kept; its products are hidden
       // above and it will not leak into the public menu.
     });
+
+    await this.ensureMarmitariaBuilder(tier.companyId);
+  }
+
+  /**
+   * Mantém o montador da marmitaria disponível mesmo quando a conta já existia
+   * antes da criação desta experiência. Os IDs são determinísticos e o escopo
+   * é exclusivamente demo-delivery-001, portanto não interfere em pizza,
+   * restaurante ou qualquer outra empresa.
+   */
+  private async ensureMarmitariaBuilder(companyId: string): Promise<void> {
+    const marmitaProducts = await this.prisma.product.findMany({
+      where: {
+        companyId,
+        categoryId: `${companyId}-cat-pratos`,
+        id: { in: PRATOS_DIA.map((p) => `${companyId}-prod-${p.key}`) },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    for (const product of marmitaProducts) {
+      const proteinId = `${product.id}-complement-protein`;
+      const sidesId = `${product.id}-complement-sides`;
+      await this.prisma.complement.upsert({
+        where: { id: proteinId },
+        update: {
+          name: 'Proteína',
+          required: true,
+          chargesExtra: false,
+          multipleChoice: false,
+          minOptions: 1,
+          maxOptions: 1,
+          sortOrder: 1,
+          isActive: true,
+        },
+        create: {
+          id: proteinId,
+          companyId,
+          productId: product.id,
+          name: 'Proteína',
+          type: 'INGREDIENTES',
+          required: true,
+          chargesExtra: false,
+          multipleChoice: false,
+          minOptions: 1,
+          maxOptions: 1,
+          sortOrder: 1,
+          options: {
+            create: [
+              { id: `${proteinId}-frango`, name: 'Frango assado', sortOrder: 1 },
+              { id: `${proteinId}-carne`, name: 'Carne acebolada', sortOrder: 2 },
+              { id: `${proteinId}-omelete`, name: 'Omelete', sortOrder: 3 },
+            ],
+          },
+        },
+      });
+      await this.prisma.complement.upsert({
+        where: { id: sidesId },
+        update: {
+          name: 'Acompanhamentos',
+          required: true,
+          chargesExtra: false,
+          multipleChoice: true,
+          minOptions: 2,
+          maxOptions: 3,
+          sortOrder: 2,
+          isActive: true,
+        },
+        create: {
+          id: sidesId,
+          companyId,
+          productId: product.id,
+          name: 'Acompanhamentos',
+          type: 'INGREDIENTES',
+          required: true,
+          chargesExtra: false,
+          multipleChoice: true,
+          minOptions: 2,
+          maxOptions: 3,
+          sortOrder: 2,
+          options: {
+            create: [
+              { id: `${sidesId}-arroz`, name: 'Arroz branco', sortOrder: 1 },
+              { id: `${sidesId}-feijao`, name: 'Feijão preto', sortOrder: 2 },
+              { id: `${sidesId}-farofa`, name: 'Farofa', sortOrder: 3 },
+              { id: `${sidesId}-salada`, name: 'Salada do dia', sortOrder: 4 },
+            ],
+          },
+        },
+      });
+    }
   }
 
   /**

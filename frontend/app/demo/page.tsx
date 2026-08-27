@@ -1529,6 +1529,7 @@ function DemoContent() {
   const [exitIntentSending, setExitIntentSending] = useState(false);
   const demoSectionRef = useRef<HTMLElement>(null);
   const segmentsSectionRef = useRef<HTMLElement>(null);
+  const subsegmentsSectionRef = useRef<HTMLDivElement>(null);
   const recordedNiches = useRef<Set<string>>(new Set());
   const exitIntentTriggeredRef = useRef(false);
   const leadCapturedRef = useRef(false);
@@ -1569,12 +1570,10 @@ function DemoContent() {
     const macroParam = (searchParams.get("macro") ?? "").toUpperCase();
     if (MACRO_SEGMENTS.some((m) => m.key === macroParam) && macroParam !== "FOOD") {
       trackClick("/demo", `link_macro_${macroParam.toLowerCase()}`);
-      // behavior:"auto" (salto direto, sem animação) — "smooth" fica preso em
-      // 0 nesta página (testado ao vivo; suspeita de scroll-behavior global
-      // ou layout shift das imagens do hero competindo com a animação).
-      // Também é a UX certa aqui: quem abriu o link já quer ver o card, não
-      // assistir a rolagem.
-      setTimeout(() => segmentsSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" }), 300);
+      // Leva o cliente direto às categorias do macrosegmento escolhido.
+      // Assim, um link como /demo?macro=MODA já abre na área com Loja de
+      // Roupas, Calçados, Lingerie, Boutique, Ótica etc. visíveis.
+      setTimeout(() => subsegmentsSectionRef.current?.scrollIntoView({ behavior: "auto", block: "center" }), 350);
     }
 
     // Evento de audiência: visitante da página de demonstração
@@ -1696,6 +1695,16 @@ function DemoContent() {
   function scrollToDemo() {
     trackClick("/demo", "scroll_to_demo");
     demoSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // Ao clicar num card, filtra o macrosegmento e leva o cliente diretamente
+  // para as lojas/especialidades exibidas logo abaixo do card.
+  function selectMacroSegment(m: MacroSegment) {
+    setSelectedMacro(m.key);
+    trackClick("/demo", `macro_${m.key.toLowerCase()}`);
+    window.setTimeout(() => {
+      subsegmentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   }
 
   // Link pronto pra mandar pro cliente certo — abre esta mesma página já
@@ -1867,12 +1876,11 @@ function DemoContent() {
                   key={m.key}
                   role="button"
                   tabIndex={0}
-                  onClick={() => { setSelectedMacro(m.key); trackClick("/demo", `macro_${m.key.toLowerCase()}`); }}
+                  onClick={() => selectMacroSegment(m)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setSelectedMacro(m.key);
-                      trackClick("/demo", `macro_${m.key.toLowerCase()}`);
+                      selectMacroSegment(m);
                     }
                   }}
                   className="group cursor-pointer rounded-2xl border p-2.5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]"
@@ -1918,8 +1926,12 @@ function DemoContent() {
                Food: clicar seleciona o nicho e rola pra pricing (dentro desta
                própria página). Outros macros: cada tag é um link real (abre a
                demo do produto daquele nicho numa aba nova). ── */}
-          <div className="mb-8 flex flex-wrap justify-center gap-2">
-            {(MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0]).tags.map((tag) => {
+          <div ref={subsegmentsSectionRef} className="mb-8 scroll-mt-24">
+            <p className="mb-3 text-center text-xs font-semibold text-white/45">
+              Escolha uma loja para abrir a demonstração correspondente
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {(MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0]).tags.map((tag) => {
               const isFood = selectedMacro === "FOOD";
               const macro = MACRO_SEGMENTS.find((m) => m.key === selectedMacro) ?? MACRO_SEGMENTS[0];
               const isActive = isFood && selectedNiche === tag;
@@ -1962,7 +1974,8 @@ function DemoContent() {
                   {tag}
                 </a>
               );
-            })}
+              })}
+            </div>
           </div>
 
           <div className="flex justify-center">

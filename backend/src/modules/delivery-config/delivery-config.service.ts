@@ -121,26 +121,96 @@ export class DeliveryConfigService {
       const zones = await this.prisma.deliveryZone.findMany({
         where: { companyId, isActive: true, type: 'RADIUS', radiusKm: { not: null } },
         orderBy: { radiusKm: 'asc' },
-        select: { id: true, radiusKm: true, clientFee: true, driverShare: true },
+        select: {
+          id: true,
+          radiusKm: true,
+          clientFee: true,
+          driverShare: true,
+          baseFee: true,
+          pricePerKm: true,
+        },
       });
       // Faixas concêntricas (11km/12km/13km...) — a primeira cujo raio
       // alcance a distância real do cliente é a que vale.
       const match = zones.find((z) => distanceKm <= Number(z.radiusKm));
       if (!match) return null;
-      return { id: match.id, clientFee: match.clientFee, driverShare: match.driverShare };
+      return {
+        id: match.id,
+        clientFee: this.applyPerKm(match, distanceKm),
+        driverShare: match.driverShare,
+      };
+    }
+
+    // ROUTE — taxa pela distância real geocodificada (base + R$/km),
+    // sem depender de faixa de raio. Precisa da loja e do endereço
+    // geocodificáveis, igual ao RADIUS.
+    if (company.deliveryMethod === 'ROUTE') {
+      if (company.storeLat == null || company.storeLng == null) return null;
+      if (!opts.addressLine) return null;
+
+      const coords = await this.geocodeAddress(opts.addressLine, company.city, company.state);
+      if (!coords) return null;
+
+      const distanceKm = haversineKm(
+        Number(company.storeLat),
+        Number(company.storeLng),
+        coords.lat,
+        coords.lng,
+      );
+
+      const zone = await this.prisma.deliveryZone.findFirst({
+        where: { companyId, isActive: true, type: 'ROUTE' },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          clientFee: true,
+          driverShare: true,
+          baseFee: true,
+          pricePerKm: true,
+        },
+      });
+      if (!zone) return null;
+      return {
+        id: zone.id,
+        clientFee: this.applyPerKm(zone, distanceKm),
+        driverShare: zone.driverShare,
+      };
     }
 
     // NEIGHBORHOOD (comportamento já existente)
     if (!opts.neighborhood) return null;
-    return this.prisma.deliveryZone.findFirst({
+    const nbZone = await this.prisma.deliveryZone.findFirst({
       where: {
         companyId,
         isActive: true,
         type: 'NEIGHBORHOOD',
         neighborhood: { equals: opts.neighborhood, mode: 'insensitive' },
       },
-      select: { id: true, clientFee: true, driverShare: true },
+      select: { id: true, clientFee: true, driverShare: true, baseFee: true, pricePerKm: true },
     });
+    if (!nbZone) return null;
+    return {
+      id: nbZone.id,
+      // Bairro não tem distância geocodificada — usa preço fixo da zona.
+      clientFee: nbZone.clientFee,
+      driverShare: nbZone.driverShare,
+    };
+  }
+
+  /**
+   * Taxa por km corrido — base + R$/km × distância real (Haversine) quando a
+   * zona cadastrou `pricePerKm`. Quando a zona só tem `clientFee` fixo
+   * (configuração antiga), mantém o valor fixo pra não quebrar lojas já
+   * configuradas. Arredonda pra 2 casas e nunca devolve negativo.
+   */
+  private applyPerKm(zone: { baseFee?: any; pricePerKm?: any; clientFee?: any }, km: number) {
+    const pricePerKm = zone.pricePerKm != null ? Number(zone.pricePerKm) : null;
+    if (pricePerKm == null || isNaN(pricePerKm) || pricePerKm <= 0) {
+      return zone.clientFee;
+    }
+    const base = zone.baseFee != null ? Number(zone.baseFee) : 0;
+    const total = base + pricePerKm * km;
+    return Number(Math.max(0, total).toFixed(2));
   }
 
   findAll(companyId: string) {
@@ -221,6 +291,88 @@ export class DeliveryConfigService {
         type: true,
       },
     });
+  }
+
+  /**
+   * Cotação pública de frete — usada pelo cardápio digital pra mostrar a
+   * taxa calculada por km ANTES do cliente fechar o pedido. Não precisa de
+   * auth: só lê dados públicos da loja e geocodifica o endereço digitado.
+   * Devolve { ok, deliveryFee, distanceKm, zoneId, zoneName } ou
+   * { ok:false, reason } quando não dá pra calcular.
+   */
+  async quotePublic(slugOrId: string, addressLine: string) {
+    const company = await this.prisma.company.findFirst({
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
+      select: {
+        id: true,
+        deliveryMethod: true,
+        storeLat: true,
+        storeLng: true,
+        city: true,
+        state: true,
+      },
+    });
+    if (!company || !addressLine?.trim()) return { ok: false, reason: 'no-company' };
+
+    if (
+      company.deliveryMethod === 'RADIUS' ||
+      company.deliveryMethod === 'ROUTE'
+    ) {
+      if (company.storeLat == null || company.storeLng == null) {
+        return { ok: false, reason: 'no-store-coords' };
+      }
+      const coords = await this.geocodeAddress(addressLine, company.city, company.state);
+      if (!coords) return { ok: false, reason: 'not-geocodable' };
+
+      const distanceKm = haversineKm(
+        Number(company.storeLat),
+        Number(company.storeLng),
+        coords.lat,
+        coords.lng,
+      );
+
+      if (company.deliveryMethod === 'ROUTE') {
+        const zone = await this.prisma.deliveryZone.findFirst({
+          where: { companyId: company.id, isActive: true, type: 'ROUTE' },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, clientFee: true, baseFee: true, pricePerKm: true },
+        });
+        if (!zone) return { ok: false, reason: 'no-route-zone' };
+        return {
+          ok: true,
+          deliveryFee: this.applyPerKm(zone, distanceKm),
+          distanceKm: Number(distanceKm.toFixed(2)),
+          zoneId: zone.id,
+          zoneName: 'Rota',
+        };
+      }
+
+      // RADIUS — primeira faixa concêntrica que cobre a distância
+      const zones = await this.prisma.deliveryZone.findMany({
+        where: { companyId: company.id, isActive: true, type: 'RADIUS', radiusKm: { not: null } },
+        orderBy: { radiusKm: 'asc' },
+        select: {
+          id: true,
+          radiusKm: true,
+          clientFee: true,
+          baseFee: true,
+          pricePerKm: true,
+          name: true,
+        },
+      });
+      const match = zones.find((z) => distanceKm <= Number(z.radiusKm));
+      if (!match) return { ok: false, reason: 'out-of-range' };
+      return {
+        ok: true,
+        deliveryFee: this.applyPerKm(match, distanceKm),
+        distanceKm: Number(distanceKm.toFixed(2)),
+        zoneId: match.id,
+        zoneName: match.name || `Raio ${match.radiusKm}km`,
+      };
+    }
+
+    // NEIGHBORHOOD — sem distância; a taxa fixa já vem das zonas públicas.
+    return { ok: false, reason: 'neighborhood-mode' };
   }
 
 }

@@ -43,6 +43,8 @@ type ZoneForm = {
   neighborhood: string;
   clientFee: string;
   driverShare: string;
+  baseFee: string;
+  pricePerKm: string;
   radiusKm: string;
   lat: string;
   lng: string;
@@ -53,6 +55,7 @@ type ZoneForm = {
 const EMPTY_FORM: ZoneForm = {
   name: "", type: "NEIGHBORHOOD", neighborhood: "",
   clientFee: "0.00", driverShare: "0.00",
+  baseFee: "0.00", pricePerKm: "",
   radiusKm: "3", lat: "", lng: "",
   color: "#f97316", isActive: true,
 };
@@ -114,6 +117,8 @@ function ZoneModal({
           neighborhood: initial.neighborhood ?? "",
           clientFee:    Number(initial.clientFee).toFixed(2),
           driverShare:  Number(initial.driverShare).toFixed(2),
+          baseFee:      initial.baseFee != null ? Number(initial.baseFee).toFixed(2) : "0.00",
+          pricePerKm:   initial.pricePerKm != null ? String(initial.pricePerKm) : "",
           radiusKm:     initial.radiusKm ? String(initial.radiusKm) : "3",
           lat:          initial.lat ? String(initial.lat) : "",
           lng:          initial.lng ? String(initial.lng) : "",
@@ -239,6 +244,9 @@ function ZoneModal({
                 onChange={(e) => set("clientFee", e.target.value)}
                 className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Valor fixo usado quando a taxa por km não estiver definida
+              </p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
@@ -254,6 +262,42 @@ function ZoneModal({
               />
             </div>
           </div>
+
+          {/* Taxa por km — só para ROUTE / RADIUS */}
+          {(form.type === "ROUTE" || form.type === "RADIUS") && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Taxa base (R$)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.50"
+                  value={form.baseFee}
+                  onChange={(e) => set("baseFee", e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Taxa por km corrido (R$/km)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.10"
+                  value={form.pricePerKm}
+                  onChange={(e) => set("pricePerKm", e.target.value)}
+                  placeholder="Ex: 1.50"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Cobrado como: taxa base + R${form.pricePerKm || "0,00"} × km rodados
+                </p>
+              </div>
+            </>
+          )}
 
           {/* Cor */}
           <div>
@@ -378,6 +422,8 @@ export default function EntregaTab() {
       neighborhood: form.neighborhood || null,
       clientFee:    Number(form.clientFee),
       driverShare:  Number(form.driverShare),
+      baseFee:      Number(form.baseFee),
+      pricePerKm:   form.pricePerKm ? Number(form.pricePerKm) : null,
       radiusKm:     form.type === "RADIUS" ? Number(form.radiusKm) : null,
       lat:          form.lat ? Number(form.lat) : settings.storeLat,
       lng:          form.lng ? Number(form.lng) : settings.storeLng,
@@ -629,7 +675,16 @@ export default function EntregaTab() {
                       <p className="text-[10px] text-gray-400">Raio: {zone.radiusKm} km</p>
                     )}
                     <p className="text-[11px] font-semibold text-orange-600">
-                      {currency(Number(zone.clientFee))}
+                      {currency(
+                        zone.pricePerKm != null && zone.pricePerKm > 0
+                          ? Number(zone.baseFee ?? 0) + Number(zone.pricePerKm)
+                          : Number(zone.clientFee),
+                      )}
+                      {zone.pricePerKm != null && zone.pricePerKm > 0 && (
+                        <span className="text-[9px] text-gray-400 font-normal">
+                          {" "}+ {currency(Number(zone.pricePerKm))}/km
+                        </span>
+                      )}
                     </p>
                     <p className="text-[10px] text-gray-400">
                       Repasse: {currency(Number(zone.driverShare))}

@@ -25,6 +25,12 @@ export class DeliveryConfigController {
     return this.service.findAllPublic(companyId);
   }
 
+  // Public — cotação de frete por endereço (cardápio digital, no auth)
+  @Post('quote')
+  quote(@Body() body: { companyId?: string; address?: string }) {
+    return this.service.quotePublic(body.companyId ?? '', body.address ?? '');
+  }
+
   @UseGuards(JwtAuthGuard, ModuleGuard)
   @RequiredModule('delivery')
   @Get()

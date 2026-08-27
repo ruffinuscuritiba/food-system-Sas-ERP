@@ -41,6 +41,8 @@ export interface DeliveryZone {
   driverShare: number;
   isActive: boolean;
   radiusKm: number | null;
+  baseFee: number | null;
+  pricePerKm: number | null;
   lat: number | null;
   lng: number | null;
   color: string;

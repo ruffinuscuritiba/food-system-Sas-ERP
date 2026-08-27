@@ -372,6 +372,12 @@ export default function MenuPage() {
   // Delivery zone state — populated after loadMenu; matched per neighborhood change
   const [deliveryZones, setDeliveryZones] = useState<{ id: string; name: string; neighborhood: string | null; clientFee: number }[]>([]);
   const [selectedZone, setSelectedZone] = useState<{ id: string; clientFee: number } | null>(null);
+  // Cotação de frete por km (RADIUS/ROUTE) — valor calculado no backend a
+  // partir do endereço real do cliente. Tem prioridade sobre a taxa fixa da
+  // zona quando a loja usa distância; guarda também a distância pra exibir.
+  const [quoteFee, setQuoteFee] = useState<number | null>(null);
+  const [quoteInfo, setQuoteInfo] = useState<{ distanceKm: number; zoneName: string } | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   // Fallback manual: quando o bairro do cliente não está entre as zonas
   // cadastradas, ele digita o nome livremente (sem taxa calculada — loja
   // combina o valor/atendimento à parte). Sem isso, cliente fora das zonas
@@ -1282,6 +1288,60 @@ export default function MenuPage() {
     return neighborhood;
   }
 
+  /** Consulta a taxa de entrega real (por km) no backend a partir do
+   *  endereço completo do cliente. Usada quando a loja é RADIUS/ROUTE ou
+   *  quando o bairro não está na lista (frete calculado na mão). */
+  async function quoteDeliveryFee() {
+    const street = form.street?.trim();
+    const number = form.number?.trim();
+    const city = form.city?.trim();
+    if (!realCompanyId || !street || !number) {
+      setQuoteFee(null);
+      setQuoteInfo(null);
+      return;
+    }
+    setQuoteLoading(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/delivery-config/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: realCompanyId,
+          address: `${street}, ${number}${city ? `, ${city}` : ""}`,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.ok) {
+        setQuoteFee(Number(data.deliveryFee));
+        setQuoteInfo({ distanceKm: Number(data.distanceKm), zoneName: data.zoneName });
+      } else {
+        // Sem cobertura/distância — cai pro fallback da zona fixa (ou 0).
+        setQuoteFee(null);
+        setQuoteInfo(null);
+      }
+    } catch {
+      setQuoteFee(null);
+      setQuoteInfo(null);
+    } finally {
+      setQuoteLoading(false);
+    }
+  }
+
+  // Cotação de frete por km — dispara quando o cliente preenche rua+número
+  // (ou o CEP resolve o endereço), com debounce pra não geocodificar a cada
+  // tecla. Só em DELIVERY e quando a loja tem cota de distância ativa.
+  useEffect(() => {
+    if (form.orderType !== "DELIVERY") return;
+    if (!form.street?.trim() || !form.number?.trim()) {
+      setQuoteFee(null);
+      setQuoteInfo(null);
+      return;
+    }
+    const t = setTimeout(() => { quoteDeliveryFee(); }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.orderType, form.street, form.number, form.city, form.zipcode]);
+
   async function fetchByCep(cep: string) {
     const clean = cep.replace(/\D/g, '');
     if (clean.length !== 8) return;
@@ -1850,7 +1910,9 @@ export default function MenuPage() {
   const qualifiesForFreeDelivery =
     freeDeliveryAbove != null && freeDeliveryAbove > 0 && cartTotal >= freeDeliveryAbove;
   const effectiveDeliveryFee =
-    form.orderType === "DELIVERY" && qualifiesForFreeDelivery ? 0 : (selectedZone?.clientFee ?? 0);
+    form.orderType === "DELIVERY" && qualifiesForFreeDelivery
+      ? 0
+      : (quoteFee ?? selectedZone?.clientFee ?? 0);
   const cartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
   const filtered = products.filter((p) => {
     const matchCat = activeCategory === "Todos" || (p.category?.name?.trim() || "Outros") === activeCategory;

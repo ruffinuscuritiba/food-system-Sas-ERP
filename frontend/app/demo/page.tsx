@@ -1870,23 +1870,12 @@ function DemoContent() {
                   key={m.key}
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
-                    trackClick("/demo", `macro_${m.key.toLowerCase()}`);
-                    if (m.href) {
-                      window.location.assign(m.href);
-                      return;
-                    }
-                    setSelectedMacro(m.key);
-                  }}
+                  onClick={() => { setSelectedMacro(m.key); trackClick("/demo", `macro_${m.key.toLowerCase()}`); }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      trackClick("/demo", `macro_${m.key.toLowerCase()}`);
-                      if (m.href) {
-                        window.location.assign(m.href);
-                        return;
-                      }
                       setSelectedMacro(m.key);
+                      trackClick("/demo", `macro_${m.key.toLowerCase()}`);
                     }
                   }}
                   className="group cursor-pointer rounded-2xl border p-2.5 text-left transition-all hover:border-white/20 hover:bg-white/[0.05]"
